@@ -1,0 +1,222 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// MemoryService — shared key-value and vector storage contract.
+//
+// Agents must not hold shared state internally (twelve-factor principle).
+// All cross-agent, cross-invocation context flows through this service,
+// scoped strictly to a workflow_id to prevent data leakage between runs.
+//
+// Two storage planes:
+//   KV plane  — arbitrary bytes, optional TTL, prefix-scannable keys.
+//   Vector plane — float embeddings with metadata, similarity-ranked retrieval.
+//
+// Design rationale: ADR-001 (gRPC inter-service protocol). The memory
+// service is infrastructure — it has no opinion on what agents store.
+//
+// Contract invariants:
+//   1. Every operation MUST include a non-empty workflow_id. The service
+//      returns INVALID_ARGUMENT if workflow_id is empty.
+//   2. KV and vector namespaces are isolated per workflow_id. An agent
+//      cannot read or delete entries belonging to another workflow.
+//   3. TTL is best-effort: entries MAY be evicted up to ttl_seconds after
+//      the Set call. Callers must not depend on sub-second TTL precision.
+//   4. vector_id is assigned by the service on StoreVector and returned
+//      in StoreVectorResponse. Callers must not supply one.
+
+syntax = "proto3";
+
+package zynax.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
+
+// MemoryService provides scoped KV and vector storage for workflow context.
+service MemoryService {
+  // Set stores or overwrites a key-value entry scoped to a workflow.
+  // Returns INVALID_ARGUMENT if workflow_id or key is empty.
+  rpc Set(SetRequest) returns (SetResponse);
+
+  // Get retrieves a value by key scoped to a workflow.
+  // Returns NOT_FOUND if the key does not exist or has expired.
+  rpc Get(GetRequest) returns (GetResponse);
+
+  // Delete removes a key-value entry scoped to a workflow.
+  // Returns NOT_FOUND if the key does not exist.
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+
+  // ListKeys returns all active (non-expired) keys for a workflow,
+  // with an optional prefix filter. Returns an empty list when no keys exist.
+  rpc ListKeys(ListKeysRequest) returns (ListKeysResponse);
+
+  // StoreVector stores a float embedding with associated text and metadata,
+  // scoped to a workflow. The service assigns a vector_id.
+  // Returns INVALID_ARGUMENT if embedding is empty or workflow_id is empty.
+  rpc StoreVector(StoreVectorRequest) returns (StoreVectorResponse);
+
+  // QueryVector performs approximate nearest-neighbour search over vectors
+  // stored for a workflow, returning the top_k most similar results ranked
+  // by similarity_score descending. Returns an empty list when none exist.
+  // Returns INVALID_ARGUMENT if top_k is zero.
+  rpc QueryVector(QueryVectorRequest) returns (QueryVectorResponse);
+
+  // DeleteVector removes a stored embedding by its service-assigned id.
+  // Returns NOT_FOUND if the vector_id does not exist in the workflow scope.
+  rpc DeleteVector(DeleteVectorRequest) returns (DeleteVectorResponse);
+}
+
+// SetRequest stores or overwrites a key-value entry.
+message SetRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+
+  // The key to store. Must be non-empty. No format constraints beyond length.
+  // Recommended convention: use colon-separated namespaces (e.g. "doc:1").
+  string key = 2;
+
+  // The value to store. Arbitrary bytes; no schema enforced by the service.
+  bytes value = 3;
+
+  // Optional TTL in seconds. Entry is eligible for eviction after this
+  // many seconds. Zero means no expiry.
+  int32 ttl_seconds = 4;
+}
+
+// SetResponse confirms the entry was stored.
+message SetResponse {
+  // Wall-clock time the service recorded the write.
+  google.protobuf.Timestamp stored_at = 1;
+}
+
+// GetRequest retrieves a value by key.
+message GetRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string key = 2;
+}
+
+// GetResponse carries the stored value and its metadata.
+message GetResponse {
+  // The stored bytes. Empty bytes are a valid value.
+  bytes value = 1;
+
+  // Wall-clock time the entry was last written.
+  google.protobuf.Timestamp stored_at = 2;
+
+  // Wall-clock time the entry will expire. Zero if no TTL was set.
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+// DeleteRequest removes a key-value entry.
+message DeleteRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string key = 2;
+}
+
+// DeleteResponse confirms the entry was removed.
+message DeleteResponse {
+  // Wall-clock time the service recorded the deletion.
+  google.protobuf.Timestamp deleted_at = 1;
+}
+
+// ListKeysRequest scans active keys for a workflow with optional prefix filter.
+message ListKeysRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+
+  // Optional key prefix filter. Only keys that begin with this string are
+  // returned. Empty string returns all keys.
+  string prefix = 2;
+}
+
+// ListKeysResponse carries the matched key names.
+message ListKeysResponse {
+  // All active (non-expired) keys matching the request.
+  // Empty list when no keys exist — this is not an error condition.
+  repeated string keys = 1;
+}
+
+// StoreVectorRequest stores a float embedding with associated context.
+message StoreVectorRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+
+  // The embedding vector. Must contain at least one value.
+  // All vectors within a workflow scope must have the same dimension.
+  repeated float embedding = 2;
+
+  // The human-readable text this embedding represents.
+  // Returned in VectorResult to avoid a separate lookup.
+  string text = 3;
+
+  // Optional key-value metadata for filtering or context augmentation.
+  // Examples: {"source": "agent-summarizer"}, {"step": "review"}.
+  map<string, string> metadata = 4;
+}
+
+// StoreVectorResponse confirms storage and returns the service-assigned id.
+message StoreVectorResponse {
+  // Service-assigned unique identifier for this vector. Use in DeleteVector.
+  string vector_id = 1;
+
+  // Wall-clock time the service stored the embedding.
+  google.protobuf.Timestamp stored_at = 2;
+}
+
+// QueryVectorRequest performs similarity search over a workflow's vectors.
+message QueryVectorRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+
+  // The query embedding. Must have the same dimension as stored vectors.
+  // Must contain at least one value.
+  repeated float embedding = 2;
+
+  // Maximum number of results to return. Must be ≥ 1.
+  // Returns INVALID_ARGUMENT if zero.
+  int32 top_k = 3;
+}
+
+// VectorResult is a single entry returned by a similarity query.
+message VectorResult {
+  // The service-assigned identifier of this vector.
+  string vector_id = 1;
+
+  // The text associated with the stored embedding.
+  string text = 2;
+
+  // The metadata stored alongside the embedding.
+  map<string, string> metadata = 3;
+
+  // Similarity score in [0.0, 1.0]. Higher is more similar.
+  // Exact semantics are implementation-defined (cosine, dot-product, etc.).
+  float similarity_score = 4;
+}
+
+// QueryVectorResponse carries results ranked by similarity descending.
+message QueryVectorResponse {
+  // Up to top_k results, ordered by similarity_score descending.
+  // Empty list when no vectors are stored — this is not an error condition.
+  repeated VectorResult results = 1;
+}
+
+// DeleteVectorRequest removes a stored embedding by its service-assigned id.
+message DeleteVectorRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+
+  // The service-assigned vector identifier returned by StoreVector.
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string vector_id = 2;
+}
+
+// DeleteVectorResponse confirms the embedding was removed.
+message DeleteVectorResponse {
+  // Wall-clock time the service recorded the deletion.
+  google.protobuf.Timestamp deleted_at = 1;
+}
