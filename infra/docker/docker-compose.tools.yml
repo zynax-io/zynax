@@ -18,12 +18,12 @@ services:
   postgres-test:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: agentmesh
+      POSTGRES_USER: zynax
       POSTGRES_PASSWORD: testonly
-      POSTGRES_DB: agentmesh_test
+      POSTGRES_DB: zynax_test
     networks: [test-net]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agentmesh"]
+      test: ["CMD-SHELL", "pg_isready -U zynax"]
       interval: 3s
       timeout: 2s
       retries: 10
@@ -48,7 +48,7 @@ services:
     networks: [test-net]
     environment:
       # These override service-specific env prefixes for integration tests
-      POSTGRES_URL: postgresql+asyncpg://agentmesh:testonly@postgres-test:5432/agentmesh_test
+      POSTGRES_URL: postgresql+asyncpg://zynax:testonly@postgres-test:5432/zynax_test
       REDIS_URL: redis://redis-test:6379/0
       # Tell testcontainers NOT to start its own Docker containers —
       # we're providing real services via Compose instead

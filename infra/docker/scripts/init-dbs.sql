@@ -1,5 +1,5 @@
 -- SPDX-License-Identifier: Apache-2.0
--- AgentMesh — Local dev database initialisation
+-- Zynax — Local dev database initialisation
 -- Creates one database per service (see ADR-008: no shared databases)
 -- Runs automatically on first `make dev-up`
 

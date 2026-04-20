@@ -346,7 +346,7 @@ slog.InfoContext(ctx, "workflow compiled",
     "workflow_id", id, "target_engine", engine, "states", len(states))
 
 // Config: envconfig, fail fast on startup
-func Load() (*Config, error) { envconfig.Process("KEEL_<SVC>", &cfg) }
+func Load() (*Config, error) { envconfig.Process("ZYNAX_<SVC>", &cfg) }
 ```
 
 ---

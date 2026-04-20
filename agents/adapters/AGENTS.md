@@ -138,28 +138,28 @@ agents/adapters/
 ├── http/                          ← Wrap any HTTP REST API as a capability
 │   ├── AGENTS.md
 │   ├── pyproject.toml
-│   └── src/keel_http_adapter/
+│   └── src/zynax_http_adapter/
 │       ├── adapter.py             ← gRPC AgentService implementation
 │       ├── config.py              ← env vars: target URL, auth, capability mapping
 │       └── main.py
 ├── llm/                           ← Wrap LLM providers (Bedrock, Ollama, OpenAI)
 │   ├── AGENTS.md
 │   ├── pyproject.toml
-│   └── src/keel_llm_adapter/
+│   └── src/zynax_llm_adapter/
 │       ├── adapter.py
 │       ├── providers/             ← bedrock.py, ollama.py, openai.py
 │       └── config.py
 ├── git/                           ← GitHub/GitLab events + operations
 │   ├── AGENTS.md
 │   ├── pyproject.toml
-│   └── src/keel_git_adapter/
+│   └── src/zynax_git_adapter/
 │       ├── adapter.py             ← Handles: open_mr, request_review, merge_pr
 │       ├── webhook.py             ← Receives GitHub webhooks → emits to event-bus
 │       └── config.py
 └── langgraph/                     ← Wrap a LangGraph app as a capability
     ├── AGENTS.md
     ├── pyproject.toml
-    └── src/keel_langgraph_adapter/
+    └── src/zynax_langgraph_adapter/
         ├── adapter.py
         └── config.py
 ```
@@ -205,15 +205,15 @@ message CapabilityEvent {
 ## HTTP Adapter Pattern
 
 ```python
-# agents/adapters/http/src/keel_http_adapter/adapter.py
+# agents/adapters/http/src/zynax_http_adapter/adapter.py
 
 """HTTP Adapter — wraps any REST API as an Zynax capability.
 
 Configuration via env vars (no config files):
-  KEEL_HTTP_TARGET_URL=https://api.example.com
-  KEEL_HTTP_CAPABILITIES={"call_payments": {"path": "/payments", "method": "POST"}}
-  KEEL_HTTP_AUTH_HEADER=Authorization
-  KEEL_HTTP_AUTH_VALUE=Bearer ${SECRET_TOKEN}
+  ZYNAX_HTTP_TARGET_URL=https://api.example.com
+  ZYNAX_HTTP_CAPABILITIES={"call_payments": {"path": "/payments", "method": "POST"}}
+  ZYNAX_HTTP_AUTH_HEADER=Authorization
+  ZYNAX_HTTP_AUTH_VALUE=Bearer ${SECRET_TOKEN}
 """
 
 import json
@@ -221,7 +221,7 @@ import grpc
 import httpx
 import structlog
 from zynax.v1 import agent_pb2, agent_pb2_grpc
-from keel_http_adapter.config import settings
+from zynax_http_adapter.config import settings
 
 logger = structlog.get_logger(__name__)
 
@@ -288,11 +288,11 @@ class HTTPAdapter(agent_pb2_grpc.AgentServiceServicer):
 ## LLM Adapter Pattern
 
 ```python
-# agents/adapters/llm/src/keel_llm_adapter/adapter.py
+# agents/adapters/llm/src/zynax_llm_adapter/adapter.py
 
 """LLM Adapter — wraps LLM providers as Zynax capabilities.
 
-Supported providers (via KEEL_LLM_PROVIDER env var):
+Supported providers (via ZYNAX_LLM_PROVIDER env var):
   - bedrock  (Amazon Bedrock)
   - ollama   (local models)
   - openai   (OpenAI API)
@@ -349,7 +349,7 @@ class LLMAdapter(agent_pb2_grpc.AgentServiceServicer):
 ## Git Adapter — Event Integration
 
 ```python
-# agents/adapters/git/src/keel_git_adapter/webhook.py
+# agents/adapters/git/src/zynax_git_adapter/webhook.py
 
 """GitHub webhook receiver → Zynax event-bus publisher.
 
@@ -367,17 +367,17 @@ class GitHubWebhookHandler:
         self._bus = event_bus_client
 
     async def handle(self, event_type: str, payload: dict) -> None:
-        keel_event = self._translate(event_type, payload)
-        if keel_event is None:
+        zynax_event = self._translate(event_type, payload)
+        if zynax_event is None:
             return  # not an event Zynax cares about
 
         await self._bus.Publish(PublishRequest(
-            topic=keel_event.topic,
-            payload=json.dumps(keel_event.payload).encode(),
+            topic=zynax_event.topic,
+            payload=json.dumps(zynax_event.payload).encode(),
             correlation_id=payload.get("pull_request", {}).get("node_id", ""),
         ))
 
-    def _translate(self, event_type: str, payload: dict) -> KeelEvent | None:
+    def _translate(self, event_type: str, payload: dict) -> ZynaxEvent | None:
         MAPPING = {
             "pull_request.opened":                 "github.pull_request.opened",
             "pull_request_review.submitted":       self._map_review_event,
@@ -386,7 +386,7 @@ class GitHubWebhookHandler:
         handler = MAPPING.get(event_type)
         if handler is None: return None
         if callable(handler): return handler(payload)
-        return KeelEvent(topic=f"zynax.v1.git.{handler}", payload=payload)
+        return ZynaxEvent(topic=f"zynax.v1.git.{handler}", payload=payload)
 ```
 
 ---
@@ -418,7 +418,7 @@ spec:
 ## Rules for Adapter Authoring
 
 1. **Zero business logic** — adapters translate protocols, nothing else.
-2. **Pure env var config** — `pydantic-settings`, prefix `KEEL_<ADAPTER>_`.
+2. **Pure env var config** — `pydantic-settings`, prefix `ZYNAX_<ADAPTER>_`.
 3. **Stream events, don't block** — always yield `PROGRESS` before `RESULT`.
 4. **Handle errors gracefully** — yield `ERROR` event, never raise from the gRPC method.
 5. **Never import from other adapters** — each adapter is independent.

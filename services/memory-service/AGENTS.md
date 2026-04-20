@@ -48,7 +48,7 @@ services/memory-service/
 │   │   ├── postgres_vector.go  ← PostgresVectorRepository (pgvector)
 │   │   └── namespace_store.go  ← Namespace metadata in PostgreSQL
 │   └── config/
-│       └── config.go           ← prefix: KEEL_MEMORY_
+│       └── config.go           ← prefix: ZYNAX_MEMORY_
 ├── tests/
 │   ├── features/memory_service.feature
 │   └── unit/
@@ -217,7 +217,7 @@ CREATE INDEX idx_vector_namespace ON vector_entries(namespace_id);
 ## Configuration
 
 ```go
-// prefix: KEEL_MEMORY_
+// prefix: ZYNAX_MEMORY_
 type Config struct {
     GRPCPort              int     `envconfig:"GRPC_PORT"               default:"50053"`
     HealthPort            int     `envconfig:"HEALTH_PORT"             default:"8080"`

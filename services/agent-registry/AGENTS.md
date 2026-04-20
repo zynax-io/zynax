@@ -43,7 +43,7 @@ services/agent-registry/
 │   │   ├── nats_events.go        ← publishes domain events to event-bus
 │   │   └── watchdog.go           ← background goroutine: marks stale agents OFFLINE
 │   └── config/
-│       └── config.go             ← envconfig, prefix: KEEL_REGISTRY_
+│       └── config.go             ← envconfig, prefix: ZYNAX_REGISTRY_
 ├── tests/
 │   ├── features/
 │   │   └── agent_registry.feature
@@ -208,7 +208,7 @@ func (h *Handler) Heartbeat(stream pb.AgentRegistryService_HeartbeatServer) erro
 ## Configuration
 
 ```go
-// internal/config/config.go — prefix: KEEL_REGISTRY_
+// internal/config/config.go — prefix: ZYNAX_REGISTRY_
 type Config struct {
     GRPCPort               int           `envconfig:"GRPC_PORT"    default:"50051"`
     HealthPort             int           `envconfig:"HEALTH_PORT"  default:"8080"`

@@ -51,7 +51,7 @@ services/workflow-compiler/
 │   │   ├── engine_client.go    ← gRPC client for engine-adapter service
 │   │   └── registry_client.go  ← Validates capabilities exist in agent-registry
 │   └── config/
-│       └── config.go           ← prefix: KEEL_COMPILER_
+│       └── config.go           ← prefix: ZYNAX_COMPILER_
 ├── tests/
 │   ├── features/workflow_compiler.feature
 │   └── unit/
@@ -187,7 +187,7 @@ service WorkflowCompilerService {
 ## Configuration
 
 ```go
-// prefix: KEEL_COMPILER_
+// prefix: ZYNAX_COMPILER_
 type Config struct {
     GRPCPort          int    `envconfig:"GRPC_PORT"          default:"50055"`
     HealthPort        int    `envconfig:"HEALTH_PORT"        default:"8080"`

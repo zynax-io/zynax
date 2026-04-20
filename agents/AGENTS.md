@@ -105,7 +105,7 @@ agents/
 ├── sdk/                              ← Zynax Python SDK (no AI framework deps in core)
 │   ├── AGENTS.md
 │   ├── pyproject.toml                ← Published as: zynax-sdk
-│   └── src/keel_sdk/
+│   └── src/zynax_sdk/
 │       ├── runtime.py                ← AgentRuntime Protocol, Task, TaskEvent
 │       ├── context.py                ← AgentContext (injected — never constructed by agent)
 │       ├── capability.py             ← @capability decorator
@@ -132,7 +132,7 @@ agents/
 ### AgentRuntime — the ONLY interface you implement
 
 ```python
-# sdk/src/keel_sdk/runtime.py
+# sdk/src/zynax_sdk/runtime.py
 
 from typing import AsyncIterator, Protocol, runtime_checkable
 from dataclasses import dataclass
@@ -198,14 +198,14 @@ class AgentRuntime(Protocol):
 ### AgentContext — injected by the SDK, never constructed by you
 
 ```python
-# sdk/src/keel_sdk/context.py
+# sdk/src/zynax_sdk/context.py
 
 @dataclass(frozen=True)
 class AgentContext:
     """Everything an agent needs. Injected by the SDK.
 
     Never construct this in production code.
-    In tests: use FakeAgentContext() from keel_sdk.testing.
+    In tests: use FakeAgentContext() from zynax_sdk.testing.
     """
     agent_id:  str
     task_id:   str
@@ -220,7 +220,7 @@ class AgentContext:
 ### @capability — declare what your agent can do
 
 ```python
-from keel_sdk.capability import capability
+from zynax_sdk.capability import capability
 
 @capability(
     name="summarize",                           # Must match capability string in task-broker
@@ -245,8 +245,8 @@ class SummarizerRuntime: ...
 ### Option A: Direct (plain Python, no AI framework)
 
 ```python
-from keel_sdk.runtime import AgentRuntime, Task, TaskEvent, AgentContext
-from keel_sdk.capability import capability
+from zynax_sdk.runtime import AgentRuntime, Task, TaskEvent, AgentContext
+from zynax_sdk.capability import capability
 from typing import AsyncIterator
 
 @capability(name="calculate", description="Evaluate a math expression.",
@@ -272,9 +272,9 @@ class CalculatorRuntime:
 ### Option B: LangGraph
 
 ```python
-from keel_sdk.capability import capability
-from keel_sdk.runtimes.langgraph import LangGraphRuntime
-from keel_sdk.context import AgentContext
+from zynax_sdk.capability import capability
+from zynax_sdk.runtimes.langgraph import LangGraphRuntime
+from zynax_sdk.context import AgentContext
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
 
@@ -332,8 +332,8 @@ class SummarizerRuntime(LangGraphRuntime):
 ### Option C: AutoGen / CrewAI
 
 ```python
-from keel_sdk.runtimes.autogen import AutoGenRuntime  # or CrewAIRuntime
-from keel_sdk.capability import capability
+from zynax_sdk.runtimes.autogen import AutoGenRuntime  # or CrewAIRuntime
+from zynax_sdk.capability import capability
 
 @capability(name="research", description="Research a topic and produce a report.",
             input_schema={"type":"object","properties":{"topic":{"type":"string"}},"required":["topic"]},
@@ -363,8 +363,8 @@ assert isinstance(MyRuntime(), AgentRuntime)  # Verified at test time
 # src/<agent>/main.py — wiring only
 
 import asyncio
-from keel_sdk.server import AgentServer
-from keel_sdk.observability import configure
+from zynax_sdk.server import AgentServer
+from zynax_sdk.observability import configure
 from <agent>.config import settings
 from <agent>.runtime import MyRuntime   # ← swap runtime here only
 
@@ -386,7 +386,7 @@ from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class AgentSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="KEEL_AGENT_", frozen=True)
+    model_config = SettingsConfigDict(env_prefix="ZYNAX_AGENT_", frozen=True)
 
     agent_id:       str          = Field(description="Unique id in the mesh")
     display_name:   str          = Field(description="Human-readable name")
@@ -409,8 +409,8 @@ settings = AgentSettings()  # fails fast on misconfiguration
 ```python
 # tests/unit/test_runtime.py
 import pytest
-from keel_sdk.runtime import Task, TaskEventType
-from keel_sdk.testing import FakeAgentContext   # provided by SDK
+from zynax_sdk.runtime import Task, TaskEventType
+from zynax_sdk.testing import FakeAgentContext   # provided by SDK
 from <agent>.runtime import MyRuntime
 
 @pytest.fixture

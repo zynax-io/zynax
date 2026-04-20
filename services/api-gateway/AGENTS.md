@@ -54,7 +54,7 @@ services/api-gateway/
 │   │   ├── clients.go          ← gRPC clients: registry, broker, memory
 │   │   └── token_store.go      ← API key lookup in Redis
 │   └── config/
-│       └── config.go           ← prefix: KEEL_GW_
+│       └── config.go           ← prefix: ZYNAX_GW_
 ├── tests/
 │   ├── features/api_gateway.feature
 │   └── unit/
@@ -236,7 +236,7 @@ func RateLimit(limiter *RedisRateLimiter) func(http.Handler) http.Handler {
 ## Configuration
 
 ```go
-// prefix: KEEL_GW_
+// prefix: ZYNAX_GW_
 type Config struct {
     HTTPPort         int    `envconfig:"HTTP_PORT"          default:"8080"`
     GRPCPort         int    `envconfig:"GRPC_PORT"          default:"9090"` // internal gRPC-web

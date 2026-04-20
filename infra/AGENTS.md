@@ -102,9 +102,9 @@ spec:
             periodSeconds: 5
           resources: {{ toYaml .Values.resources | nindent 12 }}
           env:
-            - name: KEEL_SERVICE_NAME
+            - name: ZYNAX_SERVICE_NAME
               value: {{ .Chart.Name }}
-            - name: KEEL_LOG_LEVEL
+            - name: ZYNAX_LOG_LEVEL
               value: {{ .Values.logLevel | quote }}
           envFrom:
             - secretRef:

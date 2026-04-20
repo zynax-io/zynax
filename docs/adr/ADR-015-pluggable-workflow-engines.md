@@ -21,7 +21,7 @@ The `WorkflowEngine` interface abstracts this complexity:
 - LangGraph is secondary (M5) — best for pure Python agent workflows
 - Argo is tertiary (M6) — best for K8s-native deployments
 
-Engine selected via config (`KEEL_ENGINE_ACTIVE_ENGINE`).
+Engine selected via config (`ZYNAX_ENGINE_ACTIVE_ENGINE`).
 No code change required to swap engines.
 
 ## What Zynax Owns vs Engines

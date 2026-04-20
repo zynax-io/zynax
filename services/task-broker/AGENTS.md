@@ -51,7 +51,7 @@ services/task-broker/
 │   │   ├── nats_events.go       ← publish task lifecycle events to event-bus
 │   │   └── watchdog.go          ← background goroutine: enforce timeouts
 │   └── config/
-│       └── config.go            ← prefix: KEEL_BROKER_
+│       └── config.go            ← prefix: ZYNAX_BROKER_
 ├── tests/
 │   ├── features/task_broker.feature
 │   └── unit/
@@ -144,7 +144,7 @@ type TaskRepository interface {
     List(ctx context.Context, filter ListFilter, page Page) ([]*Task, string, error)
 }
 
-// AssignmentStrategy is pluggable — configured via KEEL_BROKER_ASSIGNMENT_STRATEGY
+// AssignmentStrategy is pluggable — configured via ZYNAX_BROKER_ASSIGNMENT_STRATEGY
 type AssignmentStrategy interface {
     Assign(ctx context.Context, task *Task, eligible []AgentID) (AgentID, error)
 }
@@ -252,7 +252,7 @@ func (s *TaskScheduler) AssignWithLock(ctx context.Context, cap string, eligible
 ## Configuration
 
 ```go
-// prefix: KEEL_BROKER_
+// prefix: ZYNAX_BROKER_
 type Config struct {
     GRPCPort             int    `envconfig:"GRPC_PORT"              default:"50052"`
     HealthPort           int    `envconfig:"HEALTH_PORT"            default:"8080"`

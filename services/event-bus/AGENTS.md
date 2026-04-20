@@ -66,7 +66,7 @@ services/event-bus/
 │   │   ├── nats_broker.go      ← NATSBroker: implements EventBroker via JetStream
 │   │   └── schema_registry.go  ← optional JSON Schema validation
 │   └── config/
-│       └── config.go           ← prefix: KEEL_EVENTS_
+│       └── config.go           ← prefix: ZYNAX_EVENTS_
 ├── tests/
 │   ├── features/event_bus.feature
 │   └── unit/
@@ -198,7 +198,7 @@ func backoff(attempt uint64) time.Duration {
 ## Configuration
 
 ```go
-// prefix: KEEL_EVENTS_
+// prefix: ZYNAX_EVENTS_
 type Config struct {
     GRPCPort              int    `envconfig:"GRPC_PORT"              default:"50054"`
     HealthPort            int    `envconfig:"HEALTH_PORT"            default:"8080"`

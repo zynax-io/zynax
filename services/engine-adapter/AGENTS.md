@@ -52,7 +52,7 @@ services/engine-adapter/
 │   │   ├── broker_client.go     ← gRPC client to task-broker (capability dispatch)
 │   │   └── registry.go          ← EngineRegistry: selects engine by name
 │   └── config/
-│       └── config.go            ← prefix: KEEL_ENGINE_
+│       └── config.go            ← prefix: ZYNAX_ENGINE_
 ├── tests/
 │   ├── features/engine_adapter.feature
 │   └── unit/
@@ -170,7 +170,7 @@ func (a *Activities) DispatchCapabilityActivity(
 ## Configuration
 
 ```go
-// prefix: KEEL_ENGINE_
+// prefix: ZYNAX_ENGINE_
 type Config struct {
     GRPCPort           int    `envconfig:"GRPC_PORT"            default:"50056"`
     HealthPort         int    `envconfig:"HEALTH_PORT"          default:"8080"`
@@ -219,7 +219,7 @@ Feature: Workflow Engine Adapter
     Then Query returns state CANCELLED
 
   Scenario: Engine is swappable via config
-    Given KEEL_ENGINE_ACTIVE_ENGINE is set to "langgraph"
+    Given ZYNAX_ENGINE_ACTIVE_ENGINE is set to "langgraph"
     When a workflow is submitted
     Then the LangGraph engine handles execution (not Temporal)
     And the gRPC API contract remains identical

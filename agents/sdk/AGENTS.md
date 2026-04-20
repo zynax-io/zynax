@@ -93,7 +93,7 @@ configuration. The migration is purely internal to the agent's codebase.
 ## SDK Package Layout
 
 ```
-sdk/src/keel_sdk/
+sdk/src/zynax_sdk/
 ├── runtime.py          ← AgentRuntime Protocol, Task, TaskEvent (PUBLIC API)
 ├── context.py          ← AgentContext (PUBLIC API — injected, never constructed)
 ├── capability.py       ← @capability decorator (PUBLIC API)
@@ -117,8 +117,8 @@ sdk/src/keel_sdk/
 These are the stable public symbols. Changing them is a breaking change requiring ADR + semver major bump.
 
 ```python
-# All public symbols exported from keel_sdk.__init__
-from keel_sdk import (
+# All public symbols exported from zynax_sdk.__init__
+from zynax_sdk import (
     AgentRuntime,       # Protocol
     AgentContext,       # dataclass (injected)
     Task,               # dataclass
@@ -136,7 +136,7 @@ from keel_sdk import (
 ## AgentServer — How It Wires Everything
 
 ```python
-# sdk/src/keel_sdk/server.py
+# sdk/src/zynax_sdk/server.py
 
 class AgentServer:
     """The main SDK entry point.
@@ -172,12 +172,12 @@ class AgentServer:
 ## FakeAgentContext — for agent unit tests
 
 ```python
-# sdk/src/keel_sdk/testing.py
+# sdk/src/zynax_sdk/testing.py
 
 from unittest.mock import AsyncMock
 import structlog
 from opentelemetry import trace
-from keel_sdk.context import AgentContext
+from zynax_sdk.context import AgentContext
 
 def FakeAgentContext(
     agent_id: str = "test-agent-01",
@@ -213,7 +213,7 @@ def FakeAgentContext(
 Each built-in runtime adapter follows this pattern:
 
 ```python
-# sdk/src/keel_sdk/runtimes/langgraph.py
+# sdk/src/zynax_sdk/runtimes/langgraph.py
 
 class LangGraphRuntime:
     """Base class for LangGraph-backed runtimes.
