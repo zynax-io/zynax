@@ -144,7 +144,17 @@ clean-all: clean dev-down clean-tools ## ⚠ Remove everything
 # ── Spec validation ───────────────────────────────────────────────────────────
 .PHONY: validate-spec validate-asyncapi dry-run
 
-validate-spec: validate-asyncapi ## Validate all specs (AsyncAPI + workflow manifests)
+validate-spec: validate-asyncapi validate-capability-schemas ## Validate all specs (AsyncAPI + capability schemas)
+
+validate-capability-schemas: ## Validate capability declarations in spec/ against capability.schema.json
+	docker run --rm \
+		-v "$(PWD)":/workspace \
+		-w /workspace \
+		python:3.12-slim sh -c " \
+			pip install --quiet jsonschema pyyaml && \
+			python tools/validate_capabilities.py spec/schemas/capability.schema.json spec/workflows/examples/ \
+		"
+	@echo "✅ Capability schemas valid"
 
 validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)
 	docker run --rm \

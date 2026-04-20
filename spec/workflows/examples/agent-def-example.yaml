@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: Apache-2.0
+# Example AgentDef manifest — illustrates valid capability declarations.
+# Validated by: make validate-spec (against spec/schemas/capability.schema.json)
+
+apiVersion: zynax.io/v1alpha1
+kind: AgentDef
+metadata:
+  name: code-review-agent
+  namespace: default
+  labels:
+    team: platform
+
+capabilities:
+  - name: summarize
+    description: >
+      Produces a concise summary of a pull request diff.
+      Returns a plain-text summary and an estimated word count.
+    input_schema:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          description: The raw diff or PR body text to summarize.
+        max_words:
+          type: integer
+          description: Upper bound on summary length in words.
+          default: 200
+          minimum: 10
+    output_schema:
+      type: object
+      required: [summary, word_count]
+      properties:
+        summary:
+          type: string
+          description: The generated summary text.
+        word_count:
+          type: integer
+          description: Number of words in the returned summary.
+    timeout_seconds: 30
+    max_retries: 2
+
+  - name: score-complexity
+    description: >
+      Assigns a complexity score (1–10) to a code change based on
+      cyclomatic complexity heuristics.
+    input_schema:
+      type: object
+      required: [diff]
+      properties:
+        diff:
+          type: string
+          description: Unified diff of the code change.
+        language:
+          type: string
+          description: Programming language hint (e.g. "go", "python").
+    output_schema:
+      type: object
+      required: [score]
+      properties:
+        score:
+          type: integer
+          description: Complexity score from 1 (trivial) to 10 (very complex).
+          minimum: 1
+          maximum: 10
+        rationale:
+          type: string
+          description: Human-readable explanation of the score.
+    timeout_seconds: 15
+    max_retries: 1
+
+  - name: ping
+    description: Health-check capability. Returns immediately with no payload processing.
+    timeout_seconds: 5
+    max_retries: 0
