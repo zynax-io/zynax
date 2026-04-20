@@ -76,8 +76,9 @@ jobs:
               per_page: 100,
             });
 
-            // Exclude generated stubs, lock files, binary fixtures, changelogs
-            const skipPattern = /\.(pb\.go|pb\.py|sum|lock|png|jpg|gif|svg)$|\/generated\/|CHANGELOG\.md$/;
+            // Exclude generated stubs, lock files, binary fixtures, changelogs,
+            // and CI workflow files (infrastructure scaffolding, not product code).
+            const skipPattern = /\.(pb\.go|pb\.py|sum|lock|png|jpg|gif|svg)$|\/generated\/|CHANGELOG\.md$|^\.github\/workflows\//;
             const lines = files
               .filter(f => !skipPattern.test(f.filename))
               .reduce((total, f) => total + f.additions + f.deletions, 0);
