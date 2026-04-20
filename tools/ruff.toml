@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: Apache-2.0
+# Keel — Shared Ruff Configuration
+# Applied to all services. Individual services extend this.
+# See root AGENTS.md §4.1 for why ruff was chosen.
+
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade (modern Python syntax)
+    "B",      # flake8-bugbear (common bugs)
+    "A",      # flake8-builtins (shadowing builtins)
+    "C4",     # flake8-comprehensions
+    "DTZ",    # flake8-datetimez (timezone-aware datetimes)
+    "EM",     # flake8-errmsg (exception messages)
+    "G",      # flake8-logging-format
+    "PIE",    # flake8-pie
+    "PT",     # flake8-pytest-style
+    "Q",      # flake8-quotes
+    "RET",    # flake8-return
+    "RSE",    # flake8-raise
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "TID",    # flake8-tidy-imports (no relative imports)
+    "T20",    # flake8-print (no print statements)
+    "PGH",    # pygrep-hooks
+    "RUF",    # ruff-specific rules
+    "S",      # flake8-bandit (security)
+    "ANN",    # flake8-annotations (type hints required)
+    "D",      # pydocstyle
+]
+
+ignore = [
+    "D100",   # Missing docstring in public module (not required everywhere)
+    "D104",   # Missing docstring in public package
+    "D107",   # Missing docstring in __init__
+    "ANN101", # Missing type annotation for self
+    "ANN102", # Missing type annotation for cls
+    "S101",   # Use of assert (allowed in tests)
+]
+
+[lint.per-file-ignores]
+"tests/**" = [
+    "S",     # Security checks not needed in tests
+    "ANN",   # Type annotations not required in every test helper
+    "D",     # Docstrings not required in tests
+]
+"**/main.py" = ["D"]  # Entry points don't need module docstrings
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.isort]
+known-first-party = ["keel"]
+force-sort-within-sections = true
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "all"  # Enforce absolute imports everywhere
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

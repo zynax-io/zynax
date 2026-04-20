@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+# Keel — golangci-lint (all Go platform services)
+version: "1"
+run:
+  timeout: 5m
+  go: "1.22"
+linters:
+  enable:
+    - errcheck       # never discard errors
+    - govet          # suspicious constructs
+    - staticcheck    # advanced static analysis
+    - unused
+    - ineffassign
+    - gofmt
+    - goimports
+    - revive
+    - gocritic
+    - funlen         # function length
+    - cyclop
+    - gosec          # security
+    - wrapcheck      # errors must be wrapped
+    - errorlint      # correct error wrapping
+    - contextcheck   # context.Context must be first arg
+    - stylecheck     # naming conventions
+    - goconst        # repeated strings → constants
+linters-settings:
+  funlen:
+    lines: 30
+    statements: 25
+  cyclop:
+    max-complexity: 10
+  wrapcheck:
+    ignorePackageGlobs: ["google.golang.org/grpc/*"]
+issues:
+  exclude-rules:
+    - path: "_test\\.go"
+      linters: [funlen, gocritic, gosec]
+    - path: "generated/"
+      linters: [all]
+    - path: "cmd/.*/main\\.go"
+      linters: [funlen]

@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: Apache-2.0
+# Keel — Tools Compose File
+#
+# Used by `make test-integration` to spin up real backing services
+# (PostgreSQL, Redis) alongside a test-runner container.
+# The test-runner has the repo mounted and runs pytest against real infra.
+#
+# NOT for running the platform itself — use docker-compose.yml for that.
+
+name: keel-tools
+
+networks:
+  test-net:
+    driver: bridge
+
+services:
+
+  postgres-test:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: agentmesh
+      POSTGRES_PASSWORD: testonly
+      POSTGRES_DB: agentmesh_test
+    networks: [test-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentmesh"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  redis-test:
+    image: redis:7-alpine
+    networks: [test-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 5
+
+  test-runner:
+    image: keel-tools:local
+    volumes:
+      # Mount the entire repo read-write so pytest can write coverage files
+      - type: bind
+        source: ../..
+        target: /workspace
+    working_dir: /workspace
+    networks: [test-net]
+    environment:
+      # These override service-specific env prefixes for integration tests
+      POSTGRES_URL: postgresql+asyncpg://agentmesh:testonly@postgres-test:5432/agentmesh_test
+      REDIS_URL: redis://redis-test:6379/0
+      # Tell testcontainers NOT to start its own Docker containers —
+      # we're providing real services via Compose instead
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    # Command is overridden by `make test-integration` per service
+    command: ["echo", "test-runner ready"]
