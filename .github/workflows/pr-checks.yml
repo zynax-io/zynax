@@ -160,7 +160,7 @@ jobs:
             if [ "$has_impl" -gt 0 ] && [ -z "$feature_commit" ]; then
               subject=$(git log -1 --format="%s" "$sha")
               # Allow commits that only touch _test.go files (test helpers are OK)
-              non_test_impl=$(echo "$files" | grep -E "\.(go|py|ts)$" | grep -v "_test\." || true)
+              non_test_impl=$(echo "$files" | grep -E "\.(go|py|ts)$" | grep -v "_test\." | grep -v "^protos/generated/" || true)
               if [ -n "$non_test_impl" ]; then
                 violation="${sha:0:12}: ${subject}"
                 break
