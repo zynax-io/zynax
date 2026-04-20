@@ -1,0 +1,141 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// AgentService — the universal capability provider contract.
+//
+// Any system that serves this single RPC becomes a first-class Zynax
+// capability: no SDK required, no framework required, no language requirement.
+// The task broker calls ExecuteCapability; the agent streams events back.
+//
+// Design rationale: ADR-013 (adapter-first, no SDK required), ADR-001 (gRPC
+// as the inter-service protocol). See protos/AGENTS.md §8 for language-specific
+// consuming instructions.
+//
+// Contract invariants (also expressed in protos/tests/features/agent_service.feature):
+//   1. Every stream MUST end with exactly one terminal event: COMPLETED or FAILED.
+//   2. Every TaskEvent MUST echo the task_id from the originating request.
+//   3. Agents MUST honour timeout_seconds and emit FAILED with code "TIMEOUT".
+//   4. The stream MUST NOT emit events after the terminal event.
+
+syntax = "proto3";
+
+package zynax.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
+
+// AgentService is the contract every Zynax capability provider must implement.
+// The task broker is the sole caller in production; test harnesses call it
+// directly to validate contract compliance.
+service AgentService {
+  // ExecuteCapability invokes a named capability and streams TaskEvents back
+  // to the caller. The stream ends with TASK_EVENT_TYPE_COMPLETED on success
+  // or TASK_EVENT_TYPE_FAILED on error. Zero or more PROGRESS events may
+  // precede the terminal event.
+  rpc ExecuteCapability(ExecuteCapabilityRequest) returns (stream TaskEvent);
+}
+
+// ExecuteCapabilityRequest is the entry point for all capability invocations.
+// Agents route internally based on capability_name — never on caller identity.
+message ExecuteCapabilityRequest {
+  // Idempotency key (UUID v4). Agents MAY use this to deduplicate retried
+  // requests. Required: empty string is rejected with INVALID_ARGUMENT.
+  string request_id = 1;
+
+  // The capability to invoke, as declared in the agent's AgentDef manifest.
+  // Format: lowercase letters, digits, and underscores; 1–64 characters.
+  // Examples: "summarize", "review_code", "run_tests".
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string capability_name = 2;
+
+  // Opaque task identifier set by the task broker. Echoed back in every
+  // TaskEvent so the broker can correlate stream events to queued tasks.
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string task_id = 3;
+
+  // The workflow run that owns this task. Used by agents to scope memory
+  // service reads/writes and by observability tooling for trace correlation.
+  string workflow_id = 4;
+
+  // JSON-encoded input conforming to the capability's declared input_schema.
+  // Agents MUST validate this against the schema and return INVALID_ARGUMENT
+  // if validation fails before any execution begins.
+  bytes input_payload = 5;
+
+  // Maximum wall-clock seconds the agent may spend executing this capability.
+  // Agents MUST emit TASK_EVENT_TYPE_FAILED with error code "TIMEOUT" if
+  // execution exceeds this value. Zero means no agent-side timeout (the
+  // caller's gRPC deadline still applies).
+  int32 timeout_seconds = 6;
+}
+
+// TaskEvent is streamed by the agent during capability execution.
+// The task broker consumes this stream to update task state, trigger
+// workflow transitions, and surface diagnostics to operators.
+message TaskEvent {
+  // Echoes ExecuteCapabilityRequest.task_id. Never empty.
+  string task_id = 1;
+
+  // The lifecycle stage this event represents.
+  // Streams MUST terminate with exactly one COMPLETED or FAILED event.
+  TaskEventType event_type = 2;
+
+  // JSON-encoded event data. Schema is capability-defined.
+  // Populated for PROGRESS and COMPLETED events.
+  // Empty for FAILED events — use the error field instead.
+  bytes payload = 3;
+
+  // Wall-clock time when the agent emitted this event.
+  // Agents MUST populate this on every event.
+  google.protobuf.Timestamp timestamp = 4;
+
+  // Structured error details. Populated only when event_type is
+  // TASK_EVENT_TYPE_FAILED. The task broker inspects error.code to
+  // determine retry eligibility and escalation policy.
+  CapabilityError error = 5;
+}
+
+// TaskEventType classifies each event in the ExecuteCapability stream.
+// Ordinal values are permanent — never reorder or reassign (ADR-001 §backward-compat).
+enum TaskEventType {
+  // Never used by agents. Proto3 default sentinel; presence indicates
+  // a missing or corrupt event_type field.
+  TASK_EVENT_TYPE_UNSPECIFIED = 0;
+
+  // An intermediate progress update. The capability is still running.
+  // Zero or more PROGRESS events MAY precede the terminal event.
+  TASK_EVENT_TYPE_PROGRESS = 1;
+
+  // Terminal: the capability completed successfully.
+  // The payload field MUST be populated with the capability output.
+  TASK_EVENT_TYPE_COMPLETED = 2;
+
+  // Terminal: the capability failed. The error field MUST be populated.
+  // The stream MUST close immediately after this event.
+  TASK_EVENT_TYPE_FAILED = 3;
+}
+
+// CapabilityError provides structured failure information.
+// The task broker uses error.code to drive retry and escalation decisions:
+//   "TIMEOUT"            → eligible for retry up to max_retries
+//   "INVALID_INPUT"      → not retried; surfaced to workflow author
+//   "UPSTREAM_ERROR"     → eligible for retry with backoff
+//   "RESOURCE_EXHAUSTED" → eligible for retry after delay
+//   "INTERNAL"           → eligible for limited retry; triggers alerting
+message CapabilityError {
+  // Machine-readable error code. Uppercase snake case.
+  // Well-known codes: "TIMEOUT", "INVALID_INPUT", "UPSTREAM_ERROR",
+  // "RESOURCE_EXHAUSTED", "INTERNAL".
+  // Agents SHOULD use well-known codes where applicable and document
+  // capability-specific codes in their AgentDef manifest.
+  string code = 1;
+
+  // Human-readable description of the failure. Non-empty when error is set.
+  // Surfaced in workflow logs and operator dashboards.
+  string message = 2;
+
+  // Optional key-value pairs for additional diagnostic context.
+  // Examples: {"upstream_status": "503"}, {"model": "claude-3-opus"},
+  //           {"line": "42", "field": "documents"}.
+  map<string, string> details = 3;
+}
