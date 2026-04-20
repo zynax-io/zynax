@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+# buf generation config — Go and Python stubs from a single make target.
+#
+# Run:  make generate-protos   (inside keel-tools Docker image)
+# Output:
+#   protos/generated/go/       — Go stubs (_pb.go + _grpc.pb.go)
+#   protos/generated/python/   — Python stubs (_pb2.py + _pb2_grpc.py)
+#
+# Design: ADR-003 (uv manages Python deps inside Docker). All plugins run
+# inside the keel-tools image so contributors need no local protoc install.
+# Commit generated stubs to the repo — CI enforces freshness via the
+# proto-stubs-fresh check (pr-checks.yml).
+#
+# Plugin versions are pinned in Dockerfile.tools to guarantee reproducible
+# output across machines.
+
+version: v2
+
+plugins:
+  # ── Go: proto messages ──────────────────────────────────────────────────
+  - remote: buf.build/protocolbuffers/go
+    out: generated/go
+    opt:
+      - paths=source_relative
+
+  # ── Go: gRPC service stubs ──────────────────────────────────────────────
+  - remote: buf.build/grpc/go
+    out: generated/go
+    opt:
+      - paths=source_relative
+      - require_unimplemented_servers=true
+
+  # ── Python: proto messages ──────────────────────────────────────────────
+  - remote: buf.build/protocolbuffers/python
+    out: generated/python
+
+  # ── Python: gRPC service stubs ──────────────────────────────────────────
+  - remote: buf.build/grpc/python
+    out: generated/python
