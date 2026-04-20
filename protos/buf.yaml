@@ -4,15 +4,21 @@
 # Run: make generate-protos  →  buf generate (issue #12)
 version: v2
 modules:
-  - path: zynax
+  # Module root is protos/ so that zynax/v1/agent.proto resolves to
+  # package zynax.v1 — matching PACKAGE_DIRECTORY_MATCH expectations.
+  - path: .
 lint:
   use:
-    - DEFAULT
+    - STANDARD
   except:
     # Versioning is handled at the directory level (zynax/v1/).
     # buf's PACKAGE_VERSION_SUFFIX rule would require the package name to
     # end in "v1" which conflicts with our zynax.v1 package naming choice.
     - PACKAGE_VERSION_SUFFIX
+    # Streaming RPCs emit typed event messages, not response wrappers.
+    # TaskEvent is the correct domain name for events in the ExecuteCapability
+    # stream; renaming it ExecuteCapabilityResponse would obscure its purpose.
+    - RPC_RESPONSE_STANDARD_NAME
 breaking:
   use:
     - FILE  # Detect breaking changes at the file boundary between versions
