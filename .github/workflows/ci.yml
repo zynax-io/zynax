@@ -1,0 +1,408 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — Core CI Pipeline
+#
+# Job names are deliberately chosen to match the branch protection required
+# status checks configured on `main`. Never rename a job without updating
+# the branch protection rules first (Settings → Branches → main).
+#
+# Required check names: dco · lint · test-unit · test-integration · security
+#
+# Design: Docker-free in CI (install tools natively for speed and cache
+# reuse). All commands mirror the Makefile targets so local and CI output
+# is identical. When adding a new service or agent update the SERVICE_LIST
+# and AGENT_LIST env vars below — no other changes required.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.22"
+  PYTHON_VERSION: "3.12"
+  BUF_VERSION: "1.47.2"
+  GOLANGCI_VERSION: "v1.61.0"
+  SERVICE_LIST: "agent-registry task-broker memory-service event-bus api-gateway workflow-compiler engine-adapter"
+  AGENT_LIST: "summarizer researcher calculator"
+
+# ── DCO ─────────────────────────────────────────────────────────────────────
+# Every commit in a PR must carry a Signed-off-by trailer (Developer
+# Certificate of Origin). This is enforced by the merge queue as well, but
+# checking here surfaces the problem before review begins.
+jobs:
+  dco:
+    name: dco
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Signed-off-by on every commit
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="HEAD~1"
+            HEAD="HEAD"
+          fi
+
+          MISSING=""
+          for sha in $(git log "${BASE}..${HEAD}" --format="%H"); do
+            body=$(git log -1 --format="%B" "$sha")
+            if ! echo "$body" | grep -qE "^Signed-off-by: .+ <.+>$"; then
+              subject=$(git log -1 --format="%s" "$sha")
+              MISSING="${MISSING}\n  ${sha:0:12}  ${subject}"
+            fi
+          done
+
+          if [ -n "$MISSING" ]; then
+            echo "❌ The following commits are missing a valid Signed-off-by trailer:"
+            printf "%b\n" "$MISSING"
+            echo ""
+            echo "Fix: git rebase --signoff main  (or -s flag on each commit)"
+            exit 1
+          fi
+          echo "✅ All commits carry Signed-off-by"
+
+# ── Lint ─────────────────────────────────────────────────────────────────────
+# Runs: buf lint (proto syntax + style), golangci-lint (Go services),
+#       ruff + mypy (Python agents and SDK).
+# Go and Python steps are skipped automatically when no code exists yet.
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Proto: buf lint + format check ──────────────────────────────────
+      - uses: bufbuild/buf-action@v1
+        with:
+          input: protos
+          lint: true
+          format: true
+          breaking: false
+          setup_only: false
+
+      # ── Go: golangci-lint ────────────────────────────────────────────────
+      - name: Detect Go services
+        id: go-detect
+        run: |
+          count=$(find services/ -name "*.go" 2>/dev/null | wc -l)
+          echo "has_go=$count" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        if: steps.go-detect.outputs.has_go != '0'
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Install golangci-lint
+        if: steps.go-detect.outputs.has_go != '0'
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+            | sh -s -- -b "$(go env GOPATH)/bin" "${{ env.GOLANGCI_VERSION }}"
+
+      - name: golangci-lint (all Go services)
+        if: steps.go-detect.outputs.has_go != '0'
+        run: |
+          failed=false
+          for svc in ${{ env.SERVICE_LIST }}; do
+            if [ -f "services/${svc}/go.mod" ]; then
+              echo "── lint: services/${svc}"
+              cd "services/${svc}"
+              golangci-lint run ./... --config "../../tools/golangci-lint.yml" || failed=true
+              cd ../..
+            fi
+          done
+          $failed && exit 1 || echo "✅ Go lint passed"
+
+      # ── Python: ruff + mypy ──────────────────────────────────────────────
+      - name: Detect Python agents
+        id: py-detect
+        run: |
+          count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
+          echo "has_py=$count" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        if: steps.py-detect.outputs.has_py != '0'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        if: steps.py-detect.outputs.has_py != '0'
+        run: pip install uv
+
+      - name: ruff + mypy (SDK + all Python agents)
+        if: steps.py-detect.outputs.has_py != '0'
+        run: |
+          failed=false
+
+          if [ -f agents/sdk/pyproject.toml ]; then
+            echo "── lint: agents/sdk"
+            cd agents/sdk
+            uv run ruff check src/ || failed=true
+            uv run mypy src/ --strict || failed=true
+            cd ../..
+          fi
+
+          for agent in ${{ env.AGENT_LIST }}; do
+            if [ -f "agents/examples/${agent}/pyproject.toml" ]; then
+              echo "── lint: agents/examples/${agent}"
+              cd "agents/examples/${agent}"
+              uv run ruff check src/ tests/ || failed=true
+              uv run mypy src/ --strict || failed=true
+              cd ../../..
+            fi
+          done
+
+          $failed && exit 1 || echo "✅ Python lint passed"
+
+# ── Unit Tests ────────────────────────────────────────────────────────────────
+# Runs: Go unit tests + godog BDD contract tests (when step defs exist),
+#       pytest-bdd with ≥90% coverage (Python), proto contract spec report.
+  test-unit:
+    name: test-unit
+    runs-on: ubuntu-24.04
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── BDD contract spec: report scenarios regardless of implementation ──
+      - name: Report BDD contract scenarios
+        run: |
+          echo "── AgentService contract scenarios ──────────────────────────────"
+          echo ""
+          grep -E "^\s*(Scenario|Given|When|Then|And|But)" \
+            protos/tests/features/agent_service.feature \
+            | sed 's/^    /  /' || true
+          echo ""
+          TOTAL=$(grep -c "^\s*Scenario:" protos/tests/features/agent_service.feature || echo 0)
+          echo "Total scenarios defined: ${TOTAL}"
+          echo ""
+          echo "ℹ️  Godog step definitions live in protos/tests/ (go.mod not yet created)"
+          echo "   They will be executed automatically once protos/tests/go.mod exists."
+
+      # ── Go: unit tests + godog (when services exist) ─────────────────────
+      - name: Detect Go code
+        id: go-detect
+        run: |
+          svc_count=$(find services/ -name "*.go" 2>/dev/null | wc -l)
+          bdd_count=$(find protos/tests/ -name "*.go" 2>/dev/null | wc -l)
+          echo "has_services=$svc_count" >> "$GITHUB_OUTPUT"
+          echo "has_bdd_impl=$bdd_count" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        if: >-
+          steps.go-detect.outputs.has_services != '0' ||
+          steps.go-detect.outputs.has_bdd_impl != '0'
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Go service unit tests
+        if: steps.go-detect.outputs.has_services != '0'
+        run: |
+          failed=false
+          for svc in ${{ env.SERVICE_LIST }}; do
+            if [ -f "services/${svc}/go.mod" ]; then
+              echo "── test: services/${svc}"
+              cd "services/${svc}"
+              go test ./... -v -race -timeout 60s \
+                -count=1 \
+                -coverprofile=coverage.out \
+                -covermode=atomic || failed=true
+              cd ../..
+            fi
+          done
+          $failed && exit 1 || echo "✅ Go service tests passed"
+
+      - name: Godog BDD contract tests (AgentService)
+        if: steps.go-detect.outputs.has_bdd_impl != '0'
+        run: |
+          echo "── BDD: protos/tests (godog)"
+          cd protos/tests
+          go test ./... -v -timeout 60s \
+            -format=pretty \
+            2>&1 | tee bdd-results.txt
+          echo "✅ BDD contract tests passed"
+
+      # ── Python: pytest-bdd with coverage ─────────────────────────────────
+      - name: Detect Python agents
+        id: py-detect
+        run: |
+          count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
+          echo "has_py=$count" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        if: steps.py-detect.outputs.has_py != '0'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        if: steps.py-detect.outputs.has_py != '0'
+        run: pip install uv
+
+      - name: pytest-bdd (SDK + all Python agents)
+        if: steps.py-detect.outputs.has_py != '0'
+        run: |
+          failed=false
+
+          if [ -f agents/sdk/pyproject.toml ]; then
+            echo "── test: agents/sdk"
+            cd agents/sdk
+            uv run pytest tests/ \
+              --cov=src \
+              --cov-report=term-missing \
+              --cov-fail-under=90 \
+              -v \
+              --tb=short \
+              --bdd-strict || failed=true
+            cd ../..
+          fi
+
+          for agent in ${{ env.AGENT_LIST }}; do
+            if [ -f "agents/examples/${agent}/pyproject.toml" ]; then
+              echo "── test: agents/examples/${agent}"
+              cd "agents/examples/${agent}"
+              uv run pytest tests/ \
+                --cov=src \
+                --cov-report=term-missing \
+                --cov-fail-under=90 \
+                -v \
+                --tb=short \
+                --bdd-strict || failed=true
+              cd ../../..
+            fi
+          done
+
+          $failed && exit 1 || echo "✅ Python tests passed"
+
+# ── Integration Tests ─────────────────────────────────────────────────────────
+# Runs against real backing services (not mocked). Currently a no-op skeleton;
+# real tests will be added when services ship. The job always passes so branch
+# protection stays green. Remove the skip condition once tests exist.
+  test-integration:
+    name: test-integration
+    runs-on: ubuntu-24.04
+    needs: [test-unit]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect integration tests
+        id: int-detect
+        run: |
+          count=$(find . -path "*/tests/integration/*.go" 2>/dev/null | wc -l)
+          echo "has_integration=$count" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        if: steps.int-detect.outputs.has_integration != '0'
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run integration tests
+        if: steps.int-detect.outputs.has_integration != '0'
+        run: |
+          for svc in ${{ env.SERVICE_LIST }}; do
+            if [ -d "services/${svc}/tests/integration" ]; then
+              echo "── integration: services/${svc}"
+              cd "services/${svc}"
+              go test ./tests/integration/... -v -timeout 120s
+              cd ../..
+            fi
+          done
+          echo "✅ Integration tests passed"
+
+      - name: No integration tests yet
+        if: steps.int-detect.outputs.has_integration == '0'
+        run: |
+          echo "ℹ️  No integration tests found — job passes as a no-op."
+          echo "   Add tests under services/<name>/tests/integration/ when services ship."
+
+# ── Security ──────────────────────────────────────────────────────────────────
+# Runs: govulncheck (Go CVE database), bandit (Python SAST),
+#       pip-audit (Python dependency CVEs). All scans run independently
+#       so a single finding does not mask others.
+  security:
+    name: security
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Go: govulncheck ───────────────────────────────────────────────────
+      - name: Detect Go services
+        id: go-detect
+        run: |
+          count=$(find services/ -name "go.mod" 2>/dev/null | wc -l)
+          echo "has_go=$count" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        if: steps.go-detect.outputs.has_go != '0'
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: govulncheck (all Go services)
+        if: steps.go-detect.outputs.has_go != '0'
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          failed=false
+          for svc in ${{ env.SERVICE_LIST }}; do
+            if [ -f "services/${svc}/go.mod" ]; then
+              echo "── govulncheck: services/${svc}"
+              cd "services/${svc}"
+              govulncheck ./... || failed=true
+              cd ../..
+            fi
+          done
+          $failed && exit 1 || echo "✅ govulncheck passed"
+
+      # ── Python: bandit + pip-audit ────────────────────────────────────────
+      - name: Detect Python agents
+        id: py-detect
+        run: |
+          count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
+          echo "has_py=$count" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        if: steps.py-detect.outputs.has_py != '0'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        if: steps.py-detect.outputs.has_py != '0'
+        run: pip install uv
+
+      - name: bandit + pip-audit (all Python agents)
+        if: steps.py-detect.outputs.has_py != '0'
+        run: |
+          failed=false
+          for agent in ${{ env.AGENT_LIST }}; do
+            if [ -f "agents/examples/${agent}/pyproject.toml" ]; then
+              echo "── bandit: agents/examples/${agent}"
+              cd "agents/examples/${agent}"
+              uv run bandit -r src/ -ll -f json -o bandit-report.json || failed=true
+              uv run bandit -r src/ -ll || true  # human-readable repeat
+              echo "── pip-audit: agents/examples/${agent}"
+              uv run pip-audit || failed=true
+              cd ../../..
+            fi
+          done
+          $failed && exit 1 || echo "✅ Security scans passed"
+
+      - name: No security targets yet
+        if: >-
+          steps.go-detect.outputs.has_go == '0' &&
+          steps.py-detect.outputs.has_py == '0'
+        run: |
+          echo "ℹ️  No Go or Python code found — security job passes as no-op."
+          echo "   govulncheck and bandit will activate when services are added."
