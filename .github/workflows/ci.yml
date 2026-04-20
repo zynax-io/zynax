@@ -115,6 +115,37 @@ jobs:
         working-directory: protos
         run: buf format --diff --exit-code
 
+      # ── Proto: stubs freshness (generate + diff) ─────────────────────────
+      - name: Detect buf.gen.yaml
+        id: gen-detect
+        run: |
+          if [ -f protos/buf.gen.yaml ]; then
+            echo "has_gen=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_gen=0" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  protos/buf.gen.yaml not found — stubs freshness check skipped."
+          fi
+
+      - name: Install protoc plugins for stub generation
+        if: steps.gen-detect.outputs.has_gen == '1'
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+        env:
+          GOPATH: /home/runner/go
+
+      - name: Generate stubs and check for drift
+        if: steps.gen-detect.outputs.has_gen == '1'
+        working-directory: protos
+        run: |
+          buf generate --template buf.gen.yaml
+          if ! git diff --quiet -- generated/; then
+            echo "❌ Generated stubs are out of date. Run 'make generate-protos' and commit."
+            git diff --stat -- generated/
+            exit 1
+          fi
+          echo "✅ Generated stubs are up to date"
+
       # ── Go: golangci-lint ────────────────────────────────────────────────
       - name: Detect Go services
         id: go-detect

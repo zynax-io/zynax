@@ -51,7 +51,7 @@ dev-restart: ## Rebuild one service: make dev-restart SVC=agent-registry
 
 # ── Lint ───────────────────────────────────────────────────────────────────
 .PHONY: lint lint-go lint-agents lint-go-svc lint-agent lint-fix
-lint: lint-go lint-agents ## Lint everything (Go + Python)
+lint: lint-protos lint-go lint-agents ## Lint everything (proto + Go + Python)
 
 lint-go: build-tools ## Lint all Go platform services with golangci-lint
 	@for svc in $(GO_SERVICES); do \
@@ -103,11 +103,15 @@ test-integration: check-docker ## Integration tests against real backing service
 		$(COMPOSE_TOOLS) run --rm test-runner sh -c "cd services/$$svc && go test ./tests/integration/... -v -timeout 120s"; \
 	done
 
-# ── Proto generation ────────────────────────────────────────────────────────
-.PHONY: generate-protos
+# ── Proto generation + lint ────────────────────────────────────────────────
+.PHONY: generate-protos lint-protos
 generate-protos: build-tools ## Generate Go + Python stubs from .proto files
-	$(TOOLS_RUN) buf generate protos/ --template protos/buf.gen.yaml
+	$(TOOLS_RUN) sh -c "cd protos && buf generate --template buf.gen.yaml"
 	@echo "✅ Stubs in protos/generated/go/ and protos/generated/python/ — commit them"
+
+lint-protos: build-tools ## buf lint + format check on all proto files
+	$(TOOLS_RUN) sh -c "cd protos && buf lint && buf format --diff --exit-code"
+	@echo "✅ Proto lint passed"
 
 # ── Security ───────────────────────────────────────────────────────────────
 .PHONY: security security-go security-agents
