@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zynax.io/schemas/capability/v1.0",
+  "title": "Zynax Capability Declaration",
+  "description": "JSON Schema for a single capability declared inside an AgentDef manifest. Defines the input/output contract, timeout, and retry policy for one agent capability. Used by the task broker to validate task inputs at dispatch time and by tooling to generate type-safe clients.",
+  "type": "object",
+  "required": ["name"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique identifier for this capability within the agent. Must be non-empty. Used as the routing key by the task broker.",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable explanation of what this capability does. Shown in the agent registry UI and generated documentation."
+    },
+    "input_schema": {
+      "$ref": "#/$defs/jsonSchemaObject",
+      "description": "JSON Schema object describing the expected task input payload. The task broker validates dispatch payloads against this schema. Omit if the capability accepts arbitrary input."
+    },
+    "output_schema": {
+      "$ref": "#/$defs/jsonSchemaObject",
+      "description": "JSON Schema object describing the task result payload. Downstream workflow steps and tooling use this to type-check outputs. Omit if the capability produces unstructured output."
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "description": "Maximum wall-clock seconds the capability may run before the task broker marks the task as FAILED. Must be a positive integer.",
+      "minimum": 1,
+      "default": 300
+    },
+    "max_retries": {
+      "type": "integer",
+      "description": "Maximum number of times the task broker will re-queue a failed task before marking it FAILED permanently. Zero means no retries.",
+      "minimum": 0,
+      "default": 0
+    }
+  },
+  "$defs": {
+    "jsonSchemaObject": {
+      "type": "object",
+      "description": "A JSON Schema object (draft 2020-12 subset). Must have type 'object' at the top level and declare properties.",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "object"
+        },
+        "description": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonSchemaField"
+          }
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "additionalProperties": {
+          "type": "boolean"
+        }
+      }
+    },
+    "jsonSchemaField": {
+      "type": "object",
+      "description": "A single field definition within a JSON Schema properties map.",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean", "array", "object", "null"],
+          "description": "The JSON Schema primitive type. Must be one of the seven standard types."
+        },
+        "description": {
+          "type": "string"
+        },
+        "default": {},
+        "enum": {
+          "type": "array"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "items": {
+          "type": "object"
+        },
+        "properties": {
+          "type": "object"
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
