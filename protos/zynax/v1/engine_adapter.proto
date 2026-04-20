@@ -1,0 +1,222 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// EngineAdapterService — workflow execution lifecycle contract.
+//
+// The engine adapter is the boundary between the Zynax control plane and
+// execution engines (Temporal, LangGraph, Argo Workflows). Any system that
+// implements this contract becomes a pluggable execution backend. The control
+// plane submits compiled WorkflowIR and reacts to events without knowing
+// which engine is running underneath.
+//
+// Design rationale: ADR-015 (engine abstraction — engines are plugins behind
+// this interface), ADR-001 (gRPC inter-service protocol).
+//
+// Contract invariants:
+//   1. run_id is assigned by the adapter on SubmitWorkflow. The adapter
+//      returns it in SubmitWorkflowResponse. Callers must not supply one
+//      except to re-submit with an idempotency key.
+//   2. Terminal statuses (COMPLETED, FAILED, CANCELLED) are immutable.
+//      SignalWorkflow and CancelWorkflow on terminal runs return
+//      FAILED_PRECONDITION.
+//   3. WatchWorkflow MUST emit at least one terminal WorkflowEvent before
+//      closing the stream.
+//   4. WorkflowStatus ordinals are permanent (ADR-001 §backward-compat).
+
+syntax = "proto3";
+
+package zynax.v1;
+
+import "google/protobuf/timestamp.proto";
+import "zynax/v1/workflow_compiler.proto";
+
+option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
+
+// EngineAdapterService is the contract every execution engine plugin must
+// implement. The Zynax control plane is the sole caller in production.
+service EngineAdapterService {
+  // SubmitWorkflow submits a compiled WorkflowIR to the engine for execution.
+  // The adapter assigns a run_id and returns it in the response.
+  // Returns ALREADY_EXISTS if a run with the same run_id is already active.
+  // Returns INVALID_ARGUMENT if workflow_ir is absent.
+  rpc SubmitWorkflow(SubmitWorkflowRequest) returns (SubmitWorkflowResponse);
+
+  // SignalWorkflow delivers an external event to a running workflow.
+  // Returns FAILED_PRECONDITION if the workflow is in a terminal state.
+  // Returns NOT_FOUND if the run_id is unknown.
+  rpc SignalWorkflow(SignalWorkflowRequest) returns (SignalWorkflowResponse);
+
+  // CancelWorkflow requests cancellation of a non-terminal workflow run.
+  // Returns FAILED_PRECONDITION if the workflow is already in a terminal state.
+  // Returns NOT_FOUND if the run_id is unknown.
+  rpc CancelWorkflow(CancelWorkflowRequest) returns (CancelWorkflowResponse);
+
+  // GetWorkflowStatus returns the current state and metadata of a run.
+  // Returns NOT_FOUND if the run_id is unknown.
+  rpc GetWorkflowStatus(GetWorkflowStatusRequest) returns (WorkflowRun);
+
+  // WatchWorkflow streams WorkflowEvents as the workflow progresses.
+  // The stream MUST close after emitting a terminal WorkflowEvent.
+  // Returns NOT_FOUND (before streaming) if the run_id is unknown.
+  rpc WatchWorkflow(WatchWorkflowRequest) returns (stream WorkflowEvent);
+}
+
+// WorkflowStatus is the execution state of a workflow run.
+// Ordinal values are permanent — never reorder or reassign (ADR-001 §backward-compat).
+enum WorkflowStatus {
+  // Never set by the adapter. Proto3 default sentinel.
+  WORKFLOW_STATUS_UNSPECIFIED = 0;
+
+  // Accepted by the adapter; engine execution has not started yet.
+  WORKFLOW_STATUS_PENDING = 1;
+
+  // The engine is actively executing the workflow.
+  WORKFLOW_STATUS_RUNNING = 2;
+
+  // Terminal: the workflow reached its terminal state successfully.
+  WORKFLOW_STATUS_COMPLETED = 3;
+
+  // Terminal: the workflow failed and will not be retried by the adapter.
+  WORKFLOW_STATUS_FAILED = 4;
+
+  // Terminal: the workflow was explicitly cancelled via CancelWorkflow.
+  WORKFLOW_STATUS_CANCELLED = 5;
+}
+
+// WorkflowRun is the adapter's record for a submitted workflow execution.
+// Returned by GetWorkflowStatus and embedded in WatchWorkflow events.
+message WorkflowRun {
+  // Adapter-assigned unique identifier for this execution instance.
+  string run_id = 1;
+
+  // The workflow_id from the original WorkflowIR.
+  string workflow_id = 2;
+
+  // The namespace from the original WorkflowIR.
+  string namespace = 3;
+
+  // Current lifecycle status of this run.
+  WorkflowStatus status = 4;
+
+  // The state machine node the workflow is currently in.
+  // Empty before the first state is entered.
+  string current_state = 5;
+
+  // Arbitrary labels forwarded from SubmitWorkflowRequest for filtering.
+  map<string, string> labels = 6;
+
+  // The engine this run is executing on (e.g. "temporal", "langgraph").
+  string engine = 7;
+
+  // Wall-clock time the adapter accepted the submission.
+  google.protobuf.Timestamp submitted_at = 8;
+
+  // Wall-clock time the engine began executing the workflow.
+  google.protobuf.Timestamp started_at = 9;
+
+  // Wall-clock time the workflow reached a terminal state.
+  // Zero until the run is terminal.
+  google.protobuf.Timestamp finished_at = 10;
+
+  // Human-readable reason for cancellation. Populated only when
+  // status is CANCELLED.
+  string cancellation_reason = 11;
+}
+
+// WorkflowEvent is streamed by WatchWorkflow and published to the event bus
+// whenever the workflow transitions state or reaches a terminal condition.
+message WorkflowEvent {
+  // The run this event belongs to. Never empty.
+  string run_id = 1;
+
+  // Identifies what occurred. Examples: "state.transition", "signal.received",
+  // "workflow.completed", "workflow.failed", "workflow.cancelled".
+  string event_type = 2;
+
+  // The state the workflow was in before this event. Empty on the first event.
+  string from_state = 3;
+
+  // The state the workflow moved into. Empty on terminal events.
+  string to_state = 4;
+
+  // Current status of the run at the time of this event.
+  WorkflowStatus status = 5;
+
+  // Wall-clock time the adapter emitted this event.
+  google.protobuf.Timestamp timestamp = 6;
+
+  // Optional JSON-encoded event payload (e.g. signal data, error details).
+  bytes payload = 7;
+}
+
+// SubmitWorkflowRequest carries the compiled workflow for execution.
+message SubmitWorkflowRequest {
+  // The compiled workflow to execute. Required.
+  WorkflowIR workflow_ir = 1;
+
+  // Preferred execution engine. The adapter selects the default engine when
+  // empty. Format: lowercase identifier, e.g. "temporal", "langgraph", "argo".
+  string engine_hint = 2;
+
+  // Namespace override. Defaults to WorkflowIR.namespace when empty.
+  string namespace = 3;
+
+  // Arbitrary key-value metadata attached to the run for filtering and
+  // observability. Forwarded verbatim to GetWorkflowStatus and WatchWorkflow.
+  map<string, string> labels = 4;
+}
+
+// SubmitWorkflowResponse confirms acceptance and returns the adapter-assigned id.
+message SubmitWorkflowResponse {
+  // Adapter-assigned unique identifier for this execution instance.
+  string run_id = 1;
+
+  // Wall-clock time the adapter recorded the submission.
+  google.protobuf.Timestamp submitted_at = 2;
+}
+
+// SignalWorkflowRequest delivers an external event to a running workflow.
+message SignalWorkflowRequest {
+  // The run to signal. Required: empty string returns INVALID_ARGUMENT.
+  string run_id = 1;
+
+  // The event type to deliver to the workflow's state machine.
+  // Required: empty string returns INVALID_ARGUMENT.
+  string event_type = 2;
+
+  // Optional JSON-encoded payload accompanying the signal.
+  bytes payload = 3;
+}
+
+// SignalWorkflowResponse confirms the signal was delivered.
+message SignalWorkflowResponse {
+  // Wall-clock time the adapter delivered the signal to the engine.
+  google.protobuf.Timestamp signalled_at = 1;
+}
+
+// CancelWorkflowRequest identifies the run to cancel.
+message CancelWorkflowRequest {
+  // The run to cancel. Required: empty string returns INVALID_ARGUMENT.
+  string run_id = 1;
+
+  // Human-readable reason stored on the run record.
+  // Surfaced in operator dashboards and workflow logs.
+  string reason = 2;
+}
+
+// CancelWorkflowResponse confirms the cancellation was recorded.
+message CancelWorkflowResponse {
+  // Wall-clock time the adapter recorded the cancellation.
+  google.protobuf.Timestamp cancelled_at = 1;
+}
+
+// GetWorkflowStatusRequest identifies the run to query.
+message GetWorkflowStatusRequest {
+  // Required: empty string returns INVALID_ARGUMENT.
+  string run_id = 1;
+}
+
+// WatchWorkflowRequest identifies the run to observe.
+message WatchWorkflowRequest {
+  // Required: empty string returns INVALID_ARGUMENT.
+  string run_id = 1;
+}
