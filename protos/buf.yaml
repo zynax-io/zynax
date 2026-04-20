@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# buf workspace configuration for all Zynax proto contracts.
+# Run: make lint-protos  →  buf lint
+# Run: make generate-protos  →  buf generate (issue #12)
+version: v2
+modules:
+  - path: zynax
+lint:
+  use:
+    - DEFAULT
+  except:
+    # Versioning is handled at the directory level (zynax/v1/).
+    # buf's PACKAGE_VERSION_SUFFIX rule would require the package name to
+    # end in "v1" which conflicts with our zynax.v1 package naming choice.
+    - PACKAGE_VERSION_SUFFIX
+breaking:
+  use:
+    - FILE  # Detect breaking changes at the file boundary between versions
