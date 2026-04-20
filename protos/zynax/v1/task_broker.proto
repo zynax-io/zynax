@@ -1,0 +1,247 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// TaskBrokerService — capability routing and task lifecycle contract.
+//
+// The task broker is the central dispatcher of the platform. It receives
+// WorkflowTasks from workflow engine adapters, routes each task to an
+// eligible agent via AgentRegistryService.FindByCapability, and tracks the
+// full task lifecycle from PENDING through COMPLETED, FAILED, or CANCELLED.
+//
+// Design rationale: ADR-001 (gRPC inter-service protocol). The broker owns
+// task state; agents are stateless executors. Retry policy is declared by
+// the caller (max_retries) and enforced by the broker.
+//
+// Contract invariants:
+//   1. task_id is assigned by the broker on DispatchTask — callers must not
+//      supply one. The broker returns it in DispatchTaskResponse.
+//   2. Terminal statuses (COMPLETED, FAILED, CANCELLED) are immutable —
+//      AcknowledgeTask and CancelTask on a terminal task return
+//      FAILED_PRECONDITION.
+//   3. COMPLETED acknowledgements MUST carry a non-empty result_payload.
+//   4. FAILED acknowledgements MUST carry a populated TaskError.
+//   5. The broker transitions FAILED → RETRYING when retry_count < max_retries,
+//      and FAILED → FAILED (terminal) when retry_count == max_retries.
+
+syntax = "proto3";
+
+package zynax.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
+
+// TaskBrokerService is the platform's capability dispatcher.
+// Workflow engine adapters call DispatchTask; agents call AcknowledgeTask.
+service TaskBrokerService {
+  // DispatchTask routes a capability request to an eligible agent.
+  // The broker assigns a task_id and returns it in the response.
+  // Returns NOT_FOUND if no active agent declares the requested capability.
+  // Returns INVALID_ARGUMENT if required WorkflowTask fields are missing.
+  rpc DispatchTask(DispatchTaskRequest) returns (DispatchTaskResponse);
+
+  // AcknowledgeTask records the outcome of a capability execution.
+  // Agents call this after their ExecuteCapability stream closes.
+  // Returns NOT_FOUND if the task_id is unknown.
+  // Returns FAILED_PRECONDITION if the task is already in a terminal state.
+  rpc AcknowledgeTask(AcknowledgeTaskRequest) returns (AcknowledgeTaskResponse);
+
+  // GetTask returns the current state of a task by its broker-assigned id.
+  // Returns NOT_FOUND if the task_id is unknown.
+  rpc GetTask(GetTaskRequest) returns (WorkflowTask);
+
+  // ListTasks returns tasks matching the supplied filter.
+  // All filter fields are optional; omitting all returns all tasks.
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+
+  // CancelTask requests cancellation of a non-terminal task.
+  // Returns FAILED_PRECONDITION if the task is already COMPLETED, FAILED,
+  // or CANCELLED. Returns NOT_FOUND if the task_id is unknown.
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+}
+
+// TaskStatus is the lifecycle state of a WorkflowTask.
+// Ordinal values are permanent — never reorder or reassign (ADR-001 §backward-compat).
+enum TaskStatus {
+  // Never set by the broker. Proto3 default sentinel; presence indicates a
+  // missing or corrupt status field.
+  TASK_STATUS_UNSPECIFIED = 0;
+
+  // Task has been accepted and assigned a task_id. Agent selection is in
+  // progress or the agent has not yet acknowledged receipt.
+  TASK_STATUS_PENDING = 1;
+
+  // Task has been routed to an agent and execution is underway.
+  TASK_STATUS_DISPATCHED = 2;
+
+  // Execution failed and the broker has scheduled a retry. The retry_count
+  // has been incremented; a new dispatch to an eligible agent is pending.
+  TASK_STATUS_RETRYING = 3;
+
+  // Terminal: the agent completed execution successfully.
+  // result_payload is populated.
+  TASK_STATUS_COMPLETED = 4;
+
+  // Terminal: the agent failed and all retries are exhausted, or max_retries
+  // was 0. error is populated.
+  TASK_STATUS_FAILED = 5;
+
+  // Terminal: the task was explicitly cancelled via CancelTask before
+  // reaching a terminal outcome.
+  TASK_STATUS_CANCELLED = 6;
+}
+
+// WorkflowTask is the broker's canonical task record.
+// It is returned by GetTask and ListTasks; it evolves as the task progresses.
+message WorkflowTask {
+  // Broker-assigned unique identifier. Never set by callers on input.
+  string task_id = 1;
+
+  // The workflow run that owns this task. Used to group related tasks and
+  // for trace correlation across services.
+  // Required on DispatchTask: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 2;
+
+  // The capability the broker must find an agent for.
+  // Must match a CapabilityDef.name in an active AgentRegistryService record.
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string capability_name = 3;
+
+  // JSON-encoded input to pass to the agent as ExecuteCapabilityRequest.input_payload.
+  // Must be valid JSON. Required: non-JSON bytes are rejected with INVALID_ARGUMENT.
+  bytes input_payload = 4;
+
+  // Maximum wall-clock seconds the assigned agent may spend on this task.
+  // Forwarded verbatim as ExecuteCapabilityRequest.timeout_seconds.
+  // Zero means no agent-side timeout (the broker's gRPC deadline still applies).
+  int32 timeout_seconds = 5;
+
+  // Maximum number of execution attempts. The broker retries on FAILED
+  // acknowledgements until retry_count equals max_retries, then marks FAILED.
+  // Zero means no retries — a single failure is terminal.
+  int32 max_retries = 6;
+
+  // Number of execution attempts completed so far. Incremented by the broker
+  // each time a FAILED acknowledgement triggers a retry.
+  int32 retry_count = 7;
+
+  // Current lifecycle state. Set and updated exclusively by the broker.
+  TaskStatus status = 8;
+
+  // agent_id of the agent the broker most recently dispatched this task to.
+  // Empty until the broker selects an agent.
+  string dispatched_to = 9;
+
+  // JSON-encoded result from the agent. Populated when status is COMPLETED.
+  bytes result_payload = 10;
+
+  // Structured failure detail. Populated when status is FAILED.
+  TaskError error = 11;
+
+  // Wall-clock time the broker accepted and assigned the task_id.
+  google.protobuf.Timestamp created_at = 12;
+
+  // Wall-clock time the broker most recently dispatched the task to an agent.
+  google.protobuf.Timestamp dispatched_at = 13;
+
+  // Wall-clock time the task reached a terminal state (COMPLETED, FAILED,
+  // or CANCELLED).
+  google.protobuf.Timestamp completed_at = 14;
+}
+
+// TaskError carries structured failure information from an agent acknowledgement.
+// The broker uses error.code to determine retry eligibility.
+message TaskError {
+  // Machine-readable error code. Mirrors CapabilityError.code from AgentService
+  // so the broker can apply consistent retry policy across both paths.
+  // Well-known codes: "TIMEOUT", "INVALID_INPUT", "UPSTREAM_ERROR",
+  // "RESOURCE_EXHAUSTED", "INTERNAL".
+  string code = 1;
+
+  // Human-readable description surfaced in workflow logs and dashboards.
+  string message = 2;
+
+  // Optional key-value diagnostic context forwarded from the agent's
+  // CapabilityError.details field.
+  map<string, string> details = 3;
+}
+
+// DispatchTaskRequest carries the work to be dispatched.
+message DispatchTaskRequest {
+  // The task specification. task_id must be empty — the broker assigns it.
+  // Required fields: workflow_id, capability_name, input_payload.
+  WorkflowTask task = 1;
+}
+
+// DispatchTaskResponse confirms acceptance and returns the broker-assigned id.
+message DispatchTaskResponse {
+  // The broker-assigned task identifier. Use this in all subsequent calls.
+  string task_id = 1;
+
+  // Wall-clock time the broker recorded task acceptance.
+  google.protobuf.Timestamp created_at = 2;
+}
+
+// AcknowledgeTaskRequest records a terminal or retry-triggering outcome.
+message AcknowledgeTaskRequest {
+  // The broker-assigned task identifier.
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string task_id = 1;
+
+  // The outcome status. Must be COMPLETED, FAILED, or CANCELLED.
+  // TASK_STATUS_UNSPECIFIED, PENDING, DISPATCHED, and RETRYING are rejected
+  // with INVALID_ARGUMENT.
+  TaskStatus status = 2;
+
+  // JSON-encoded capability output. Required when status is COMPLETED.
+  // Must be valid JSON. Empty when status is FAILED or CANCELLED.
+  bytes result_payload = 3;
+
+  // Structured failure detail. Required when status is FAILED.
+  // Empty when status is COMPLETED or CANCELLED.
+  TaskError error = 4;
+}
+
+// AcknowledgeTaskResponse confirms the broker recorded the acknowledgement.
+message AcknowledgeTaskResponse {
+  // The updated task status after the broker applied the acknowledgement.
+  // May differ from the requested status: e.g. FAILED → RETRYING when
+  // retries remain.
+  TaskStatus resulting_status = 1;
+}
+
+// GetTaskRequest identifies the task to retrieve.
+message GetTaskRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string task_id = 1;
+}
+
+// ListTasksRequest supports optional filtering.
+// All fields are optional; an empty request returns all tasks.
+message ListTasksRequest {
+  // Filter to tasks belonging to this workflow run.
+  string workflow_id = 1;
+
+  // Filter to tasks in this status. TASK_STATUS_UNSPECIFIED means no filter.
+  TaskStatus status = 2;
+
+  // Filter to tasks routed to this agent.
+  string agent_id = 3;
+}
+
+// ListTasksResponse carries the matched task records.
+message ListTasksResponse {
+  // Tasks matching all supplied filter criteria.
+  repeated WorkflowTask tasks = 1;
+}
+
+// CancelTaskRequest identifies the task to cancel.
+message CancelTaskRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string task_id = 1;
+}
+
+// CancelTaskResponse confirms the cancellation was recorded.
+message CancelTaskResponse {
+  // Wall-clock time the broker recorded the cancellation.
+  google.protobuf.Timestamp cancelled_at = 1;
+}
