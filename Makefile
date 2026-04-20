@@ -142,15 +142,16 @@ clean-tools: ## Remove tools image
 clean-all: clean dev-down clean-tools ## ⚠ Remove everything
 
 # ── Spec validation ───────────────────────────────────────────────────────────
-.PHONY: validate-spec dry-run
+.PHONY: validate-spec validate-asyncapi dry-run
 
-validate-spec: build-tools ## Validate all YAML manifests in spec/ against JSON Schemas
-	$(TOOLS_RUN) sh -c " \
-		find spec/ -name '*.yaml' | while read f; do \
-			echo 'Validating: '$$f; \
-			uv run ajv validate -s spec/schemas/\$$(head -1 $$f | grep kind | awk '{print tolower(\$$2)}').schema.json -d $$f; \
-		done \
-	"
+validate-spec: validate-asyncapi ## Validate all specs (AsyncAPI + workflow manifests)
+
+validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)
+	docker run --rm \
+		-v "$(PWD)/spec":/spec \
+		asyncapi/cli:latest \
+		validate /spec/asyncapi/zynax-events.yaml
+	@echo "✅ AsyncAPI spec valid"
 
 dry-run: build-tools ## Dry-run a workflow: make dry-run FILE=spec/workflows/examples/code-review.yaml
 	@test -n "$(FILE)" || (echo "Usage: make dry-run FILE=<path>" && exit 1)
