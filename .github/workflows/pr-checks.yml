@@ -201,16 +201,21 @@ jobs:
           changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/**/*.proto' | wc -l)
           echo "proto_changed=$changed" >> "$GITHUB_OUTPUT"
 
+      - name: Install buf
+        if: steps.proto-detect.outputs.proto_changed != '0'
+        run: |
+          curl -fsSL \
+            "https://github.com/bufbuild/buf/releases/download/v1.47.2/buf-Linux-x86_64" \
+            -o /usr/local/bin/buf
+          chmod +x /usr/local/bin/buf
+
       - name: buf breaking (compare against base branch)
         if: steps.proto-detect.outputs.proto_changed != '0'
-        uses: bufbuild/buf-action@v1
-        with:
-          input: protos
-          lint: false
-          format: false
-          breaking: true
-          breaking_against: >-
-            https://github.com/${{ github.repository }}.git#branch=${{ github.event.pull_request.base.ref }},subdir=protos
+        working-directory: protos
+        run: |
+          buf breaking \
+            --against \
+            "https://github.com/${{ github.repository }}.git#branch=${{ github.event.pull_request.base.ref }},subdir=protos"
 
       - name: No proto changes
         if: steps.proto-detect.outputs.proto_changed == '0'
