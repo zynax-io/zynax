@@ -1,0 +1,307 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — PR Automation Checks
+#
+# These jobs automate the PR template checklist so reviewers can focus on
+# design and correctness rather than process compliance.
+#
+# Coverage:
+#   conventional-commit  → PR title follows Conventional Commits format
+#   pr-size              → auto-labels size/S · size/M · size/L · size/XL
+#   bdd-first            → verifies .feature committed before implementation
+#   proto-breaking       → buf breaking change detection against base branch
+#   proto-stubs-fresh    → detects stale generated stubs (issue #12 tracks gen)
+#   layer-boundaries     → detects cross-layer imports (ADR-001 §separation)
+
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# ── Conventional Commit Title ─────────────────────────────────────────────────
+# The PR title becomes the squash commit subject on merge. It must follow the
+# Conventional Commits spec so changelog generation and semantic versioning work.
+jobs:
+  conventional-commit:
+    name: Conventional Commit title
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            docs
+            test
+            ci
+            chore
+          requireScope: false
+          subjectPattern: ^.{1,72}$
+          subjectPatternError: |
+            PR title subject must be ≤72 characters.
+            Current: "{subject}"
+
+# ── PR Size Labeling ──────────────────────────────────────────────────────────
+# Labels the PR with size/S · size/M · size/L · size/XL based on net lines
+# changed, excluding generated code, lock files, and test fixtures.
+# >800 lines fails the check — the PR must be decomposed before review.
+  pr-size:
+    name: PR size label
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Label PR by size and enforce 800-line limit
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+
+            // Exclude generated stubs, lock files, binary fixtures, changelogs,
+            // and CI workflow files (infrastructure scaffolding, not product code).
+            const skipPattern = /\.(pb\.go|pb\.py|sum|lock|png|jpg|gif|svg)$|\/generated\/|CHANGELOG\.md$|^\.github\/workflows\//;
+            const lines = files
+              .filter(f => !skipPattern.test(f.filename))
+              .reduce((total, f) => total + f.additions + f.deletions, 0);
+
+            const sizeLabel =
+              lines <= 100  ? 'size/S'  :
+              lines <= 400  ? 'size/M'  :
+              lines <= 800  ? 'size/L'  : 'size/XL';
+
+            // Remove any existing size/* labels then apply the new one
+            const { data: existing } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            for (const lbl of existing.filter(l => l.name.startsWith('size/'))) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: lbl.name,
+              });
+            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [sizeLabel],
+            });
+
+            core.info(`PR changes: ${lines} lines (excluding generated/lock files) → ${sizeLabel}`);
+
+            if (lines > 800) {
+              core.setFailed(
+                `PR is ${lines} lines — exceeds the 800-line hard limit.\n` +
+                `Decompose this PR into smaller, reviewable units before requesting review.\n` +
+                `See CONTRIBUTING.md §"PR Size Policy" for guidance.`
+              );
+            } else if (lines > 400) {
+              core.warning(
+                `PR is ${lines} lines — over the 400-line soft limit.\n` +
+                `If it cannot be split, document the reason in the PR template.`
+              );
+            }
+
+# ── BDD-First Order Check ─────────────────────────────────────────────────────
+# ADR-004: the .feature file (specification) MUST be committed before any
+# implementation code (.go, .py, .ts). This check walks the commit history
+# of the PR branch and fails if implementation arrives before the spec.
+  bdd-first:
+    name: BDD feature-file-before-implementation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify .feature committed before implementation
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          feature_commit=""
+          violation=""
+
+          # Walk commits oldest-first
+          for sha in $(git log "${BASE}..${HEAD}" --format="%H" --reverse); do
+            files=$(git diff-tree --no-commit-id -r --name-only "$sha")
+
+            has_feature=$(echo "$files" | grep -c "\.feature$" || true)
+            has_impl=$(echo "$files" | grep -cE "\.(go|py|ts)$" || true)
+
+            if [ "$has_feature" -gt 0 ]; then
+              feature_commit="$sha"
+            fi
+
+            # Implementation before the first .feature commit is a violation.
+            # Exception: if the commit contains ONLY test helpers or generated code.
+            if [ "$has_impl" -gt 0 ] && [ -z "$feature_commit" ]; then
+              subject=$(git log -1 --format="%s" "$sha")
+              # Allow commits that only touch _test.go files (test helpers are OK)
+              non_test_impl=$(echo "$files" | grep -E "\.(go|py|ts)$" | grep -v "_test\." || true)
+              if [ -n "$non_test_impl" ]; then
+                violation="${sha:0:12}: ${subject}"
+                break
+              fi
+            fi
+          done
+
+          if [ -n "$violation" ]; then
+            echo "❌ Implementation code committed before .feature file (ADR-004 violation):"
+            echo "   ${violation}"
+            echo ""
+            echo "Fix: reorder commits so the .feature file is the first commit."
+            echo "     git rebase -i ${BASE}  — move the feature file commit to the top."
+            exit 1
+          fi
+
+          if [ -z "$feature_commit" ]; then
+            echo "ℹ️  No .feature or implementation files found in this PR — check passes."
+          else
+            echo "✅ BDD ordering respected (.feature precedes implementation)"
+          fi
+
+# ── Proto Breaking-Change Detection ──────────────────────────────────────────
+# Fails if any change to protos/ breaks backward compatibility with the base
+# branch. buf compares field numbers, message names, enum values, and service
+# signatures. New fields and enums are always safe; removals and renames fail.
+  proto-breaking:
+    name: Proto backward compatibility
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect proto changes
+        id: proto-detect
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/**/*.proto' | wc -l)
+          echo "proto_changed=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Install buf
+        if: steps.proto-detect.outputs.proto_changed != '0'
+        run: |
+          curl -fsSL \
+            "https://github.com/bufbuild/buf/releases/download/v1.47.2/buf-Linux-x86_64" \
+            -o /usr/local/bin/buf
+          chmod +x /usr/local/bin/buf
+
+      - name: buf breaking (compare against base branch)
+        if: steps.proto-detect.outputs.proto_changed != '0'
+        working-directory: protos
+        run: |
+          buf breaking \
+            --against \
+            "https://github.com/${{ github.repository }}.git#branch=${{ github.event.pull_request.base.ref }},subdir=protos"
+
+      - name: No proto changes
+        if: steps.proto-detect.outputs.proto_changed == '0'
+        run: echo "ℹ️  No .proto files changed — backward-compat check skipped."
+
+# ── Generated Stub Freshness ──────────────────────────────────────────────────
+# If a .proto file changed and stubs exist in protos/generated/, verifies
+# that the stubs were regenerated in this PR (i.e. they are not stale).
+# Issue #12 tracks implementing `make generate-protos` in buf.gen.yaml.
+  proto-stubs-fresh:
+    name: Proto generated stubs freshness
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check stubs are not stale
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          proto_changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/**/*.proto' | wc -l)
+          stubs_changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/generated/' | wc -l)
+
+          if [ "$proto_changed" -gt 0 ] && [ -d protos/generated ] && [ "$stubs_changed" -eq 0 ]; then
+            echo "❌ .proto files changed but generated stubs were not updated."
+            echo ""
+            echo "Proto files modified:"
+            git diff --name-only "${BASE}..${HEAD}" -- 'protos/**/*.proto'
+            echo ""
+            echo "Fix: run  make generate-protos  and commit the updated stubs."
+            exit 1
+          fi
+
+          if [ "$proto_changed" -gt 0 ] && [ ! -d protos/generated ]; then
+            echo "ℹ️  protos/generated/ does not exist yet (issue #12 tracks this)."
+            echo "   Stub freshness check skipped until buf.gen.yaml is added."
+          else
+            echo "✅ Generated stubs are up to date (or no protos changed)."
+          fi
+
+# ── Layer Boundary Enforcement ────────────────────────────────────────────────
+# Detects cross-layer imports that violate the three-layer separation (AGENTS.md §1).
+# Scans only files changed in this PR to keep the check fast.
+# Rules:
+#   domain/  must NOT import from  api/  or  infrastructure/
+#   protos/  must NOT import service business logic
+  layer-boundaries:
+    name: Layer boundary enforcement
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for cross-layer imports
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          changed_go=$(git diff --name-only "${BASE}..${HEAD}" -- '*.go' | grep -v "_test.go" || true)
+          violations=""
+
+          for f in $changed_go; do
+            [ -f "$f" ] || continue
+
+            # domain/ must not import api/ or infrastructure/
+            if echo "$f" | grep -q "/domain/"; then
+              if grep -qE '".*/(api|infrastructure)/' "$f"; then
+                violations="${violations}\n  ${f}: domain/ imports api/ or infrastructure/"
+              fi
+            fi
+
+            # contracts (protos/) must not import service packages
+            if echo "$f" | grep -q "^protos/"; then
+              if grep -qE '"github\.com/zynax-io/zynax/services/' "$f"; then
+                violations="${violations}\n  ${f}: protos/ imports service business logic"
+              fi
+            fi
+          done
+
+          if [ -n "$violations" ]; then
+            echo "❌ Layer boundary violations detected (AGENTS.md §1 / ADR-001):"
+            printf "%b\n" "$violations"
+            echo ""
+            echo "See docs/adr/ADR-001-*.md for the three-layer separation rules."
+            exit 1
+          fi
+
+          echo "✅ Layer boundaries respected"
