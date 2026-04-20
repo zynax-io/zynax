@@ -1,0 +1,194 @@
+asyncapi: "2.6.0"
+
+info:
+  title: Zynax Event Bus
+  version: "1.0.0"
+  description: |
+    All Zynax async events published to the NATS JetStream event bus.
+    Every message payload is a CloudEvents v1.0 envelope as defined in
+    spec/schemas/cloudevent.schema.json. Consumers can process any event
+    without Zynax-specific clients.
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  production:
+    url: nats://nats:4222
+    protocol: nats
+    description: NATS JetStream broker (production). TLS required in prod.
+  local:
+    url: nats://localhost:4222
+    protocol: nats
+    description: Local development NATS instance (no TLS).
+
+defaultContentType: application/json
+
+components:
+  schemas:
+    CloudEvent:
+      $ref: "../../schemas/cloudevent.schema.json"
+
+channels:
+  # ── Workflow lifecycle ──────────────────────────────────────────────────
+
+  zynax.workflow.started:
+    description: >
+      Published by the EngineAdapterService when an engine begins executing
+      a submitted WorkflowIR. The CloudEvent workflow_id extension identifies
+      the workflow instance.
+    publish:
+      operationId: onWorkflowStarted
+      summary: A workflow execution has started.
+      message:
+        name: WorkflowStarted
+        summary: Emitted once per workflow run when execution begins.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  zynax.workflow.completed:
+    description: >
+      Published by the EngineAdapterService when a workflow reaches its
+      terminal state successfully. finished_at is set on the run record.
+    publish:
+      operationId: onWorkflowCompleted
+      summary: A workflow execution completed successfully.
+      message:
+        name: WorkflowCompleted
+        summary: Emitted when all states have been traversed and the terminal state reached.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  zynax.workflow.failed:
+    description: >
+      Published by the EngineAdapterService when a workflow terminates due
+      to an unrecoverable error and will not be retried by the adapter.
+    publish:
+      operationId: onWorkflowFailed
+      summary: A workflow execution failed terminally.
+      message:
+        name: WorkflowFailed
+        summary: Emitted when the engine reports a non-retryable failure.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  zynax.workflow.cancelled:
+    description: >
+      Published by the EngineAdapterService when a workflow is explicitly
+      cancelled via CancelWorkflow. The cancellation_reason is included in
+      the CloudEvent data payload.
+    publish:
+      operationId: onWorkflowCancelled
+      summary: A workflow execution was explicitly cancelled.
+      message:
+        name: WorkflowCancelled
+        summary: Emitted after CancelWorkflow is processed by the engine adapter.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  # ── Task lifecycle ──────────────────────────────────────────────────────
+
+  zynax.task.dispatched:
+    description: >
+      Published by the TaskBrokerService when a task transitions to
+      DISPATCHED status and is routed to a registered agent.
+    publish:
+      operationId: onTaskDispatched
+      summary: A task has been dispatched to an agent.
+      message:
+        name: TaskDispatched
+        summary: Emitted when the broker routes a task to a capable agent.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  zynax.task.completed:
+    description: >
+      Published by the TaskBrokerService when an agent acknowledges task
+      completion with a COMPLETED status.
+    publish:
+      operationId: onTaskCompleted
+      summary: A task has been completed successfully by an agent.
+      message:
+        name: TaskCompleted
+        summary: Emitted when the agent reports successful task execution.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  zynax.task.failed:
+    description: >
+      Published by the TaskBrokerService when a task transitions to FAILED
+      status (retry_count has reached max_retries or the task was hard-failed).
+    publish:
+      operationId: onTaskFailed
+      summary: A task has failed after exhausting retries.
+      message:
+        name: TaskFailed
+        summary: Emitted when a task cannot be completed and will not be retried.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  zynax.task.retrying:
+    description: >
+      Published by the TaskBrokerService when a failed task is re-queued
+      because retry_count is still below max_retries.
+    publish:
+      operationId: onTaskRetrying
+      summary: A failed task has been re-queued for retry.
+      message:
+        name: TaskRetrying
+        summary: Emitted each time the broker schedules a task retry.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  # ── Agent lifecycle ─────────────────────────────────────────────────────
+
+  zynax.agent.registered:
+    description: >
+      Published by the AgentRegistryService when a new AgentDef is stored
+      and the agent is available for task routing.
+    publish:
+      operationId: onAgentRegistered
+      summary: A new agent has been registered and is available for routing.
+      message:
+        name: AgentRegistered
+        summary: Emitted when RegisterAgent succeeds and the agent is REGISTERED.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  zynax.agent.deregistered:
+    description: >
+      Published by the AgentRegistryService when an agent is soft-deleted
+      via DeregisterAgent. DEREGISTERED agents are excluded from discovery.
+    publish:
+      operationId: onAgentDeregistered
+      summary: An agent has been deregistered and removed from routing.
+      message:
+        name: AgentDeregistered
+        summary: Emitted when DeregisterAgent marks the agent as DEREGISTERED.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  zynax.agent.capability.invoked:
+    description: >
+      Published by the AgentService when an ExecuteCapability streaming RPC
+      is opened by the workflow engine. Carries the capability name and
+      workflow context in the CloudEvent extension attributes.
+    publish:
+      operationId: onAgentCapabilityInvoked
+      summary: An agent capability has been invoked by the workflow engine.
+      message:
+        name: AgentCapabilityInvoked
+        summary: Emitted when the agent begins executing a capability for a workflow step.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
