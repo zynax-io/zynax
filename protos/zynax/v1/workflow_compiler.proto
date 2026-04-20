@@ -1,0 +1,183 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// WorkflowCompilerService — YAML manifest compilation contract.
+//
+// The workflow compiler transforms user-authored YAML manifests (Layer 1)
+// into an engine-agnostic Intermediate Representation (WorkflowIR) for
+// dispatch to any engine adapter (Layer 3). This contract is the API
+// boundary between the API gateway and the compiler service.
+//
+// Design rationale: ADR-011 (YAML is the primary user interface),
+// ADR-012 (IR is the canonical in-memory representation), ADR-001 (gRPC
+// as the inter-service protocol).
+//
+// Contract invariants:
+//   1. CompileWorkflow returns INVALID_ARGUMENT — never OK — when the
+//      manifest has structural errors. Errors are expressed as a repeated
+//      CompilationError in CompileWorkflowResponse, not in gRPC metadata.
+//   2. ValidateManifest never persists state and never returns a WorkflowIR.
+//   3. dry_run=true compiles and validates fully but persists nothing.
+//   4. CompilationErrorCode ordinals are permanent (ADR-001 §backward-compat).
+//   5. WorkflowIR is a stub envelope in M1. Full IR fields are added in M2
+//      without breaking this contract.
+
+syntax = "proto3";
+
+package zynax.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
+
+// WorkflowCompilerService transforms YAML manifests into engine-agnostic IR.
+service WorkflowCompilerService {
+  // CompileWorkflow parses, validates, and compiles a YAML manifest.
+  // On success: returns a WorkflowIR. dry_run=true skips persistence.
+  // On structural error: returns INVALID_ARGUMENT with CompilationErrors.
+  rpc CompileWorkflow(CompileWorkflowRequest) returns (CompileWorkflowResponse);
+
+  // ValidateManifest checks a manifest for structural correctness without
+  // compiling or persisting anything. Returns all errors found — not just
+  // the first. Never returns a WorkflowIR.
+  rpc ValidateManifest(ValidateManifestRequest) returns (ValidateManifestResponse);
+}
+
+// CompilationErrorCode classifies structural and syntactic errors in manifests.
+// Ordinal values are permanent — never reorder or reassign (ADR-001 §backward-compat).
+enum CompilationErrorCode {
+  // Never used by the compiler. Proto3 default sentinel.
+  COMPILATION_ERROR_CODE_UNSPECIFIED = 0;
+
+  // The YAML bytes are syntactically invalid. line_number is populated.
+  COMPILATION_ERROR_CODE_YAML_PARSE_ERROR = 1;
+
+  // No state in the manifest is designated as the initial state.
+  COMPILATION_ERROR_CODE_NO_INITIAL_STATE = 2;
+
+  // More than one state is designated as the initial state.
+  COMPILATION_ERROR_CODE_MULTIPLE_INITIAL_STATES = 3;
+
+  // No state in the manifest is designated as terminal. Workflows must be
+  // able to reach a terminal state or they will run forever.
+  COMPILATION_ERROR_CODE_NO_TERMINAL_STATE = 4;
+
+  // A state exists but no transition ever targets it, making it unreachable.
+  // state_name is populated with the orphaned state's name.
+  COMPILATION_ERROR_CODE_ORPHAN_STATE = 5;
+
+  // A transition references a state name that does not exist in the manifest.
+  // state_name is populated with the unknown reference.
+  COMPILATION_ERROR_CODE_UNKNOWN_STATE_REFERENCE = 6;
+
+  // The same state name appears more than once in the manifest.
+  // state_name is populated with the duplicated name.
+  COMPILATION_ERROR_CODE_DUPLICATE_STATE_NAME = 7;
+
+  // A required field in the manifest is missing or empty.
+  // message describes the missing field.
+  COMPILATION_ERROR_CODE_MISSING_REQUIRED_FIELD = 8;
+
+  // A field value does not conform to its declared type or constraints.
+  // line_number and message are populated.
+  COMPILATION_ERROR_CODE_INVALID_FIELD_VALUE = 9;
+}
+
+// CompilationError describes a single structural or syntactic error found
+// during compilation or validation.
+message CompilationError {
+  // Classification of the error for programmatic handling.
+  CompilationErrorCode code = 1;
+
+  // Human-readable description of the specific error instance.
+  string message = 2;
+
+  // 1-based line number in the YAML source where the error was detected.
+  // Zero when the error is not attributable to a specific line.
+  int32 line_number = 3;
+
+  // The state name involved in the error, when applicable.
+  // Populated for ORPHAN_STATE, UNKNOWN_STATE_REFERENCE, DUPLICATE_STATE_NAME.
+  string state_name = 4;
+}
+
+// WorkflowIR is the engine-agnostic Intermediate Representation of a compiled
+// workflow. In M1 this is a stub envelope. Full IR fields (states, transitions,
+// triggers, actions) are added in M2 (issue tracked in ROADMAP.md §M2) without
+// breaking this contract.
+message WorkflowIR {
+  // Unique identifier assigned by the compiler to this compiled workflow.
+  string workflow_id = 1;
+
+  // The workflow name from the source manifest.
+  string name = 2;
+
+  // The namespace from the source manifest, or "default" if omitted.
+  string namespace = 3;
+
+  // Schema version of the source manifest (e.g. "zynax.io/v1alpha1").
+  string api_version = 4;
+
+  // Wall-clock time this IR was compiled.
+  google.protobuf.Timestamp compiled_at = 5;
+
+  // Opaque serialised representation of the full IR graph.
+  // Content is defined in M2. Consumers MUST NOT parse this field in M1.
+  bytes ir_payload = 6;
+}
+
+// CompileWorkflowRequest carries the YAML manifest to compile.
+message CompileWorkflowRequest {
+  // The raw YAML bytes of the workflow manifest.
+  // Required: empty bytes are rejected with INVALID_ARGUMENT.
+  bytes manifest_yaml = 1;
+
+  // The namespace to associate with the compiled workflow.
+  // Defaults to "default" when empty.
+  string namespace = 2;
+
+  // When true the compiler performs full validation and IR generation but
+  // does not persist the workflow record. Use for pre-flight checks.
+  bool dry_run = 3;
+}
+
+// CompileWorkflowResponse carries either a compiled IR or structured errors.
+message CompileWorkflowResponse {
+  // The compiled IR. Populated on success; absent when errors is non-empty.
+  WorkflowIR workflow_ir = 1;
+
+  // Structured compilation errors. Non-empty when the manifest is invalid.
+  // The gRPC status is INVALID_ARGUMENT when this field is populated.
+  // All errors found are reported — not just the first.
+  repeated CompilationError errors = 2;
+
+  // Non-fatal warnings about deprecated fields or suboptimal constructs.
+  // The manifest compiled successfully even when warnings are present.
+  repeated string warnings = 3;
+
+  // Wall-clock milliseconds spent compiling, for observability.
+  int64 compilation_duration_ms = 4;
+}
+
+// ValidateManifestRequest carries the YAML manifest to validate.
+message ValidateManifestRequest {
+  // The raw YAML bytes of the workflow manifest.
+  // Required: empty bytes are rejected with INVALID_ARGUMENT.
+  bytes manifest_yaml = 1;
+
+  // The namespace context for validation (affects reference resolution).
+  // Defaults to "default" when empty.
+  string namespace = 2;
+}
+
+// ValidateManifestResponse carries the validation verdict and all errors found.
+// Never contains a WorkflowIR — use CompileWorkflow to obtain one.
+message ValidateManifestResponse {
+  // True if the manifest has no errors. False otherwise.
+  bool valid = 1;
+
+  // All structural and syntactic errors found. Empty when valid is true.
+  repeated CompilationError errors = 2;
+
+  // Non-fatal warnings. May be present even when valid is true.
+  repeated string warnings = 3;
+}
