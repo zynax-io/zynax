@@ -133,3 +133,35 @@ Feature: Proto stub generation pipeline
     Given all .proto files in protos/zynax/v1/ are present
     When buf format --diff --exit-code is run from the protos/ directory
     Then it reports no formatting differences
+
+  # ─── Committed generated stubs (#30) ──────────────────────────────────────
+  # These scenarios verify the initial generated stubs are committed to the
+  # repo, activating the proto-stubs-fresh freshness gate in CI.
+
+  Scenario: Go stubs are committed for every proto service
+    Given the repository contains protos/generated/go/zynax/v1/
+    Then it contains "agent.pb.go" and "agent_grpc.pb.go"
+    And it contains "agent_registry.pb.go" and "agent_registry_grpc.pb.go"
+    And it contains "task_broker.pb.go" and "task_broker_grpc.pb.go"
+    And it contains "workflow_compiler.pb.go" and "workflow_compiler_grpc.pb.go"
+    And it contains "engine_adapter.pb.go" and "engine_adapter_grpc.pb.go"
+    And it contains "memory.pb.go" and "memory_grpc.pb.go"
+    And it contains "event_bus.pb.go" and "event_bus_grpc.pb.go"
+    And it contains "cloudevents.pb.go"
+
+  Scenario: Python stubs are committed for every proto service
+    Given the repository contains protos/generated/python/zynax/v1/
+    Then it contains "agent_pb2.py" and "agent_pb2_grpc.py"
+    And it contains "agent_registry_pb2.py" and "agent_registry_pb2_grpc.py"
+    And it contains "task_broker_pb2.py" and "task_broker_pb2_grpc.py"
+    And it contains "workflow_compiler_pb2.py" and "workflow_compiler_pb2_grpc.py"
+    And it contains "engine_adapter_pb2.py" and "engine_adapter_pb2_grpc.py"
+    And it contains "memory_pb2.py" and "memory_pb2_grpc.py"
+    And it contains "event_bus_pb2.py" and "event_bus_pb2_grpc.py"
+    And it contains "cloudevents_pb2.py" and "cloudevents_pb2_grpc.py"
+
+  Scenario: Generated stubs are not excluded by .gitignore
+    Given the file ".gitignore" at the repository root
+    When the gitignore rules are inspected
+    Then "protos/generated/" is not excluded
+    And a comment confirms the stubs are intentionally committed
