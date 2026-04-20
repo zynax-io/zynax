@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Keel — Makefile
+# Zynax — Makefile
 # Docker-first. Only prerequisite: Docker Desktop.
 # Go platform services + Python/SDK agent layer.
 
@@ -9,8 +9,8 @@ GO_SERVICES   := agent-registry task-broker memory-service event-bus api-gateway
 AGENTS        := summarizer researcher calculator
 COMPOSE       := docker compose -f infra/docker/docker-compose.yml
 COMPOSE_TOOLS := docker compose -f infra/docker/docker-compose.tools.yml
-TOOLS_IMAGE   := keel-tools:local
-REGISTRY      := ghcr.io/keel-io
+TOOLS_IMAGE   := zynax-tools:local
+REGISTRY      := ghcr.io/zynax-io
 TOOLS_RUN     := docker run --rm -v "$(PWD)":/workspace -w /workspace --env-file infra/docker/.env.tools $(TOOLS_IMAGE)
 
 .PHONY: help
@@ -26,7 +26,7 @@ check-docker:
 	@docker info >/dev/null 2>&1 || (echo "❌ Docker not running" && exit 1)
 	@echo "✅ Docker $(shell docker version --format '{{.Server.Version}}')"
 
-build-tools: check-docker ## Build the dev-tools image (Go 1.22 + Python 3.12 + all tools)
+build-tools: check-docker ## Build zynax-tools:local (golang:1.22-alpine + python:3.12-alpine + all CI tools)
 	docker build -f infra/docker/Dockerfile.tools -t $(TOOLS_IMAGE) .
 	@echo "✅ Tools image: $(TOOLS_IMAGE)"
 
@@ -127,14 +127,14 @@ security-agents: build-tools ## bandit + pip-audit on all agents
 # ── Build images ───────────────────────────────────────────────────────────
 .PHONY: build build-svc build-agent
 build: check-docker ## Build all Docker images
-	@for svc in $(GO_SERVICES); do docker build services/$$svc -t $(REGISTRY)/keel-$$svc:local; done
-	@for a in $(AGENTS); do [ -f "agents/examples/$$a/Dockerfile" ] && docker build agents/examples/$$a -t $(REGISTRY)/keel-agent-$$a:local || true; done
+	@for svc in $(GO_SERVICES); do docker build services/$$svc -t $(REGISTRY)/zynax-$$svc:local; done
+	@for a in $(AGENTS); do [ -f "agents/examples/$$a/Dockerfile" ] && docker build agents/examples/$$a -t $(REGISTRY)/zynax-agent-$$a:local || true; done
 
 build-svc: ## Build one service image: make build-svc SVC=agent-registry
-	docker build services/$(SVC) -t $(REGISTRY)/keel-$(SVC):local
+	docker build services/$(SVC) -t $(REGISTRY)/zynax-$(SVC):local
 
 build-agent: ## Build one agent image: make build-agent AGENT=summarizer
-	docker build agents/examples/$(AGENT) -t $(REGISTRY)/keel-agent-$(AGENT):local
+	docker build agents/examples/$(AGENT) -t $(REGISTRY)/zynax-agent-$(AGENT):local
 
 # ── Cleanup ────────────────────────────────────────────────────────────────
 .PHONY: clean clean-all clean-tools
