@@ -404,12 +404,24 @@ Breaking any of them is a hard blocker at code review.
 - Never make changes outside the stated scope of an issue or task
 
 **Commit hygiene (human and AI contributors):**
-- Subject line ≤ 72 characters, imperative mood, capitalized, no period at end
+- Subject line ≤ 72 characters, imperative mood, no period at end
 - No `@mentions` anywhere in commit messages — issue references go in footer only (`Closes #123`)
 - No emojis in commit messages
 - Never merge `main` into a feature branch — always rebase (`git rebase origin/main`)
 - Use `--force-with-lease` when pushing after a rebase, never bare `--force`
 - `Assisted-by: ToolName/model-id` for AI attribution — never `Co-Authored-By:` for AI tools
+
+**PR title (enforced by CI — `conventional-commit` check):**
+- Format: `<type>: <subject>` — total length ≤ 72 characters including the prefix
+- `type` must be one of: `feat` `fix` `refactor` `docs` `test` `ci` `chore`
+- The subject is the part after `type: ` — with a 6-character prefix (`feat: `) you
+  have **66 characters** for the subject; longer prefixes leave even less room
+- Long service names eat budget fast — count before you title:
+  `feat: define AgentRegistryService proto` = 42 chars ✓
+  `feat: define AgentRegistryService proto — registration and capability discovery` = 80 chars ✗
+- The PR title becomes the squash commit subject on merge — apply the same
+  72-character discipline as you would for any commit subject line
+- Scope is optional and costs characters: `fix(ci):` = 8 chars vs `fix:` = 5 chars
 
 **Go services:**
 - Never `panic` in production code paths

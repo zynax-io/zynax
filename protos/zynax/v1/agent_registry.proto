@@ -1,0 +1,197 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// AgentRegistryService — capability provider registry contract.
+//
+// Agents and adapters call RegisterAgent on startup to announce themselves
+// and their capabilities. The task broker queries this registry at dispatch
+// time via FindByCapability to locate agents without hardcoded addresses.
+//
+// Design rationale: ADR-001 (gRPC as inter-service protocol), ADR-013
+// (adapter-first, no SDK required). Registration is the only mechanism
+// by which an agent becomes visible to the platform.
+//
+// Contract invariants:
+//   1. agent_id is the caller-supplied idempotency key — must be unique.
+//   2. DEREGISTERED agents are retained for audit; they are excluded from
+//      FindByCapability and ListAgents results.
+//   3. capability.name must be unique within an AgentDef.
+//   4. label keys and values follow Kubernetes label syntax constraints.
+//   5. input_schema and output_schema, when non-empty, MUST be valid JSON.
+
+syntax = "proto3";
+
+package zynax.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
+
+// AgentRegistryService is the platform's capability index.
+// Agents register on startup; the task broker queries at dispatch time.
+service AgentRegistryService {
+  // RegisterAgent records an agent and its capabilities in the registry.
+  // Returns ALREADY_EXISTS if the agent_id is already registered and active.
+  // Returns INVALID_ARGUMENT if required fields are empty or schemas are invalid.
+  rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
+
+  // DeregisterAgent marks an agent as DEREGISTERED.
+  // The record is retained for audit; the agent is excluded from discovery.
+  // Returns NOT_FOUND if no active agent with the given agent_id exists.
+  rpc DeregisterAgent(DeregisterAgentRequest) returns (DeregisterAgentResponse);
+
+  // GetAgent returns the full AgentDef for the given agent_id, including
+  // its current status. Returns NOT_FOUND if the agent_id is unknown.
+  rpc GetAgent(GetAgentRequest) returns (AgentDef);
+
+  // ListAgents returns all agents matching the optional label selector.
+  // DEREGISTERED agents are excluded unless include_deregistered is set.
+  // An empty selector matches all active agents.
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+
+  // FindByCapability returns all active agents that declare the named
+  // capability. Returns an empty list (not NOT_FOUND) when no agents match.
+  // Returns INVALID_ARGUMENT if capability_name is empty.
+  rpc FindByCapability(FindByCapabilityRequest) returns (FindByCapabilityResponse);
+}
+
+// AgentStatus is the lifecycle state of a registered agent.
+// Ordinal values are permanent — never reorder or reassign (ADR-001 §backward-compat).
+enum AgentStatus {
+  // Never used by the registry. Proto3 default sentinel; presence indicates
+  // a missing or corrupt status field.
+  AGENT_STATUS_UNSPECIFIED = 0;
+
+  // The agent is active and eligible for capability routing.
+  AGENT_STATUS_REGISTERED = 1;
+
+  // The agent has been deregistered. It is excluded from discovery results
+  // but retained in the registry for audit and replay purposes.
+  AGENT_STATUS_DEREGISTERED = 2;
+}
+
+// CapabilityDef declares a single named capability an agent can execute.
+// The task broker matches incoming tasks to agents via capability_name.
+message CapabilityDef {
+  // Unique capability identifier within this agent. Matches the
+  // capability_name field in ExecuteCapabilityRequest (AgentService).
+  // Format: lowercase letters, digits, and underscores; 1–64 characters.
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string name = 1;
+
+  // Human-readable description surfaced in operator dashboards.
+  string description = 2;
+
+  // JSON Schema (draft-07) describing the expected input_payload structure.
+  // Must be valid JSON when non-empty. Agents validate incoming payloads
+  // against this schema before execution begins.
+  bytes input_schema = 3;
+
+  // JSON Schema (draft-07) describing the output payload structure returned
+  // in TaskEvent.payload on COMPLETED events. Must be valid JSON when non-empty.
+  bytes output_schema = 4;
+}
+
+// AgentDef is the canonical record for a registered agent.
+// It is returned by GetAgent, ListAgents, and FindByCapability.
+message AgentDef {
+  // Unique identifier for this agent. Caller-supplied; used as an
+  // idempotency key during registration. Must be non-empty.
+  string agent_id = 1;
+
+  // Human-readable name for operator dashboards and logs.
+  string name = 2;
+
+  // Optional description of what this agent does.
+  string description = 3;
+
+  // gRPC address the task broker uses to call ExecuteCapability.
+  // Format: host:port. Required: empty string is rejected with INVALID_ARGUMENT.
+  string endpoint = 4;
+
+  // The capabilities this agent declares. Must contain at least one entry.
+  // capability.name must be unique within this list.
+  repeated CapabilityDef capabilities = 5;
+
+  // Arbitrary key-value metadata for filtering via ListAgents label selectors.
+  // Keys and values follow Kubernetes label syntax: alphanumeric, '-', '_', '.'.
+  // Maximum 63 characters per key and value.
+  map<string, string> labels = 6;
+
+  // Current lifecycle state of this agent. Set by the registry; ignored on
+  // RegisterAgent input.
+  AgentStatus status = 7;
+
+  // Wall-clock time when the agent was first registered. Set by the registry.
+  google.protobuf.Timestamp registered_at = 8;
+
+  // Wall-clock time of the most recent status change (register or deregister).
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// RegisterAgentRequest carries the agent's self-description.
+message RegisterAgentRequest {
+  // The agent manifest to register. All required fields within AgentDef
+  // (agent_id, endpoint, at least one capability) must be populated.
+  AgentDef agent = 1;
+}
+
+// RegisterAgentResponse confirms successful registration.
+message RegisterAgentResponse {
+  // Echoes the agent_id from the request for caller confirmation.
+  string agent_id = 1;
+
+  // Wall-clock time the registry recorded the registration.
+  google.protobuf.Timestamp registered_at = 2;
+}
+
+// DeregisterAgentRequest identifies the agent to deregister.
+message DeregisterAgentRequest {
+  // The agent to deregister. Required: empty string is rejected with
+  // INVALID_ARGUMENT.
+  string agent_id = 1;
+}
+
+// DeregisterAgentResponse confirms successful deregistration.
+message DeregisterAgentResponse {
+  // Wall-clock time the registry recorded the deregistration.
+  google.protobuf.Timestamp deregistered_at = 1;
+}
+
+// GetAgentRequest identifies the agent to retrieve.
+message GetAgentRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string agent_id = 1;
+}
+
+// ListAgentsRequest supports optional label-selector filtering.
+message ListAgentsRequest {
+  // Kubernetes-style equality-based label selector.
+  // Examples: "env=production", "env=production,tier=standard".
+  // Empty string matches all active agents.
+  string label_selector = 1;
+
+  // When true, DEREGISTERED agents are included in results.
+  // Default: false (active agents only).
+  bool include_deregistered = 2;
+}
+
+// ListAgentsResponse carries the matched agent records.
+message ListAgentsResponse {
+  // All agents matching the request filter. Empty list when none match.
+  repeated AgentDef agents = 1;
+}
+
+// FindByCapabilityRequest identifies the capability to search for.
+message FindByCapabilityRequest {
+  // The capability name to search for. Matched against CapabilityDef.name
+  // across all active registered agents.
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string capability_name = 1;
+}
+
+// FindByCapabilityResponse carries all agents that declare the capability.
+message FindByCapabilityResponse {
+  // Active agents that declared the requested capability.
+  // Empty list when no agents match (this is not an error condition).
+  repeated AgentDef agents = 1;
+}
