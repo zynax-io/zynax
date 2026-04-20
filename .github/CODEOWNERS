@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
-# Keel CODEOWNERS
+# Zynax CODEOWNERS
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-*                               @keel-io/maintainers
-/protos/                        @keel-io/maintainers @keel-io/proto-owners
-/spec/                          @keel-io/maintainers
-/.github/                       @keel-io/maintainers
-/SECURITY.md                    @keel-io/maintainers
-/services/agent-registry/       @keel-io/maintainers
-/services/task-broker/          @keel-io/maintainers
-/services/memory-service/       @keel-io/maintainers
-/services/event-bus/            @keel-io/maintainers
-/services/api-gateway/          @keel-io/maintainers
-/services/workflow-compiler/    @keel-io/maintainers
-/services/engine-adapter/       @keel-io/maintainers
-/agents/                        @keel-io/maintainers
+*                               @zynax-io/maintainers
+/protos/                        @zynax-io/maintainers @zynax-io/proto-owners
+/spec/                          @zynax-io/maintainers
+/.github/                       @zynax-io/maintainers
+/SECURITY.md                    @zynax-io/maintainers
+/services/agent-registry/       @zynax-io/maintainers
+/services/task-broker/          @zynax-io/maintainers
+/services/memory-service/       @zynax-io/maintainers
+/services/event-bus/            @zynax-io/maintainers
+/services/api-gateway/          @zynax-io/maintainers
+/services/workflow-compiler/    @zynax-io/maintainers
+/services/engine-adapter/       @zynax-io/maintainers
+/agents/                        @zynax-io/maintainers
