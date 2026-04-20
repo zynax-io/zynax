@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// CloudEvent — CNCF CloudEvents v1.0 compatible event envelope.
+//
+// All async events in Zynax use this envelope so that external consumers
+// (monitoring, audit, third-party tooling) can process events without
+// Zynax-specific clients. Every event published to the EventBusService
+// is wrapped in a CloudEvent.
+//
+// Design rationale: ADR-001 (gRPC inter-service protocol). The CloudEvent
+// message follows the CloudEvents v1.0 specification attribute names and
+// semantics exactly, with Zynax-specific extension attributes added as
+// optional fields. Extension attribute names are lowercase with no
+// separators, matching the CloudEvents extension attribute naming rules.
+//
+// Contract invariants:
+//   1. specversion is always "1.0". Publishers MUST set this value.
+//   2. id, source, and type are required. Publishers MUST set these.
+//   3. Extension attributes (workflow_id, run_id, namespace,
+//      capability_name) are optional and may be empty.
+//   4. data is arbitrary bytes. datacontenttype indicates the media type.
+//   5. Field numbers are permanent (ADR-001 §backward-compat).
+
+syntax = "proto3";
+
+package zynax.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
+
+// CloudEvent is a CNCF CloudEvents v1.0 compatible event envelope.
+// All Zynax async events are wrapped in this message before publication
+// to the EventBusService.
+message CloudEvent {
+  // CloudEvents required attributes ─────────────────────────────────────────
+
+  // Unique identifier for this event. Required; MUST be non-empty.
+  // Producers SHOULD use a UUID or similar collision-resistant identifier.
+  string id = 1;
+
+  // URI reference identifying the event producer context.
+  // Required; MUST be non-empty. Example: "/zynax/wf-42/compiler".
+  string source = 2;
+
+  // The CloudEvents specification version. Always "1.0".
+  // Required; MUST equal "1.0".
+  string specversion = 3;
+
+  // The fully-qualified event type. Required; MUST be non-empty.
+  // Zynax convention: "zynax.<service>.<verb>" e.g. "zynax.workflow.completed".
+  string type = 4;
+
+  // CloudEvents optional attributes ─────────────────────────────────────────
+
+  // The content type of the data field (RFC 2046 media type).
+  // Recommended: "application/json", "application/octet-stream".
+  string datacontenttype = 5;
+
+  // A URI reference identifying the event subject within the source context.
+  // Example: "wf-42/step-review".
+  string subject = 6;
+
+  // Wall-clock time the event occurred, per the event producer.
+  google.protobuf.Timestamp time = 7;
+
+  // Arbitrary event payload bytes. Format described by datacontenttype.
+  bytes data = 8;
+
+  // Zynax extension attributes ──────────────────────────────────────────────
+  // Extension attribute names follow CloudEvents naming rules: lowercase,
+  // no separators, no collision with core attribute names.
+
+  // The workflow instance this event belongs to.
+  // Maps to CloudEvents extension "workflowid".
+  string workflow_id = 9;
+
+  // The execution run identifier assigned by the engine adapter.
+  // Maps to CloudEvents extension "runid".
+  string run_id = 10;
+
+  // The Zynax namespace the workflow runs in.
+  // Maps to CloudEvents extension "namespace".
+  string namespace = 11;
+
+  // The capability name that produced this event, when applicable.
+  // Maps to CloudEvents extension "capabilityname".
+  string capability_name = 12;
+}
