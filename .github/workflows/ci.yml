@@ -87,24 +87,31 @@ jobs:
       - uses: actions/checkout@v4
 
       # ── Proto: buf lint + format check ──────────────────────────────────
-      # buf-action@v1 does not correctly resolve a workspace whose buf.yaml
-      # lives in a subdirectory when invoked from the repo root (it treats
-      # the subdirectory path as the module root and finds no .proto files).
-      # Using direct `buf` commands with working-directory is simpler and
-      # gives identical output without needing pull-requests: write.
+      - name: Detect proto workspace
+        id: proto-detect
+        run: |
+          if [ -f protos/buf.yaml ]; then
+            echo "has_protos=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_protos=0" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  protos/buf.yaml not found — buf lint skipped until proto branch merges."
+          fi
+
       - name: Install buf
+        if: steps.proto-detect.outputs.has_protos == '1'
         run: |
           curl -fsSL \
             "https://github.com/bufbuild/buf/releases/download/v${{ env.BUF_VERSION }}/buf-Linux-x86_64" \
             -o /usr/local/bin/buf
           chmod +x /usr/local/bin/buf
-          buf --version
 
       - name: buf lint (proto syntax and style)
+        if: steps.proto-detect.outputs.has_protos == '1'
         working-directory: protos
         run: buf lint
 
       - name: buf format check
+        if: steps.proto-detect.outputs.has_protos == '1'
         working-directory: protos
         run: buf format --diff --exit-code
 
