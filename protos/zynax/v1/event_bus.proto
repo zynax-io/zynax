@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// EventBusService — async event publish/subscribe contract.
+//
+// Zynax workflows are event-driven state machines (ADR-014). State transitions
+// are triggered by events — "review.approved", "push", "task.completed". All
+// events flow through this service as CloudEvent envelopes, enabling any
+// CloudEvents-compatible consumer to process them without Zynax-specific
+// clients.
+//
+// Design rationale: ADR-014 (event-driven workflow execution), ADR-001 (gRPC
+// inter-service protocol). Events are wrapped in CloudEvent envelopes
+// (cloudevents.proto) to ensure CNCF ecosystem interoperability.
+//
+// Contract invariants:
+//   1. Publish validates that id, source, and type are non-empty on the
+//      CloudEvent. Returns INVALID_ARGUMENT on validation failure.
+//   2. Subscribe streams CloudEvent messages to the caller until the
+//      caller calls Unsubscribe or the server closes the stream.
+//   3. type_pattern uses glob syntax: "*" matches a single segment,
+//      "**" matches zero or more segments. Empty pattern returns
+//      INVALID_ARGUMENT.
+//   4. workflow_id in SubscribeRequest is an optional scope filter.
+//      Empty string means "all workflows".
+//   5. event_id in PublishResponse is assigned by the service and
+//      uniquely identifies the published event within the bus.
+//   6. Field numbers are permanent (ADR-001 §backward-compat).
+
+syntax = "proto3";
+
+package zynax.v1;
+
+import "google/protobuf/timestamp.proto";
+import "zynax/v1/cloudevents.proto";
+
+option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
+
+// EventBusService provides async event publish/subscribe for workflow-driven
+// state transitions and cross-service communication.
+service EventBusService {
+  // Publish submits a CloudEvent to the bus for delivery to all matching
+  // subscribers. Returns INVALID_ARGUMENT if the CloudEvent envelope is
+  // missing or has empty required fields (id, source, type).
+  rpc Publish(PublishRequest) returns (PublishResponse);
+
+  // Subscribe opens a server-streaming channel that delivers CloudEvents
+  // matching the subscriber's type_pattern and optional workflow_id scope.
+  // The stream remains open until Unsubscribe is called or the server closes
+  // it. Returns INVALID_ARGUMENT if subscriber_id or type_pattern is empty.
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+
+  // Unsubscribe closes the active Subscribe stream for a subscriber_id and
+  // stops event delivery. Returns NOT_FOUND if the subscriber_id is unknown.
+  // Returns INVALID_ARGUMENT if subscriber_id is empty.
+  rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
+}
+
+// PublishRequest carries the CloudEvent to publish to the bus.
+message PublishRequest {
+  // The CloudEvent envelope to publish. Required.
+  // id, source, and type must be non-empty or INVALID_ARGUMENT is returned.
+  CloudEvent event = 1;
+}
+
+// PublishResponse confirms the event was accepted by the bus.
+message PublishResponse {
+  // Service-assigned unique identifier for the published event.
+  string event_id = 1;
+
+  // Wall-clock time the service accepted the event for delivery.
+  google.protobuf.Timestamp accepted_at = 2;
+}
+
+// SubscribeRequest registers a subscriber and opens the event stream.
+message SubscribeRequest {
+  // Unique identifier for this subscriber. Required; must be non-empty.
+  // Used as the key for Unsubscribe.
+  string subscriber_id = 1;
+
+  // Glob pattern matched against the event type field of incoming CloudEvents.
+  // Required; must be non-empty.
+  // "*" matches a single dot-separated segment.
+  // "**" matches zero or more dot-separated segments.
+  // Example: "zynax.workflow.*" matches "zynax.workflow.completed" but not
+  // "zynax.task.failed".
+  string type_pattern = 2;
+
+  // Optional scope filter. When non-empty, only events whose CloudEvent
+  // workflow_id extension matches this value are delivered.
+  // Empty string means "all workflows".
+  string workflow_id = 3;
+}
+
+// SubscribeResponse is streamed to the subscriber for each matching event.
+message SubscribeResponse {
+  // The subscriber_id from the SubscribeRequest.
+  // Included in every message to allow multiplexing on the caller side.
+  string subscriber_id = 1;
+
+  // The delivered CloudEvent. Never empty on a data message.
+  CloudEvent event = 2;
+}
+
+// UnsubscribeRequest identifies the subscriber to remove.
+message UnsubscribeRequest {
+  // The subscriber_id to unsubscribe. Required; must be non-empty.
+  string subscriber_id = 1;
+}
+
+// UnsubscribeResponse confirms the subscriber was removed.
+message UnsubscribeResponse {
+  // Wall-clock time the service closed the subscription.
+  google.protobuf.Timestamp unsubscribed_at = 1;
+}
