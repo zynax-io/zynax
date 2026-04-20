@@ -3,7 +3,7 @@
 **Status:** Accepted  **Date:** 2025-04-01
 
 ## Decision
-Single Git repository for all Keel services, with each service having
+Single Git repository for all Zynax services, with each service having
 its own `pyproject.toml`, virtualenv, and independent versioning.
 
 ## Rationale

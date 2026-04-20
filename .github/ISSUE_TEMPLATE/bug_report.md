@@ -60,7 +60,7 @@ paste it here:
 
 | Field | Value |
 |-------|-------|
-| Keel version / commit | |
+| Zynax version / commit | |
 | Service affected | |
 | OS / Arch | |
 | Docker version | |
@@ -81,7 +81,7 @@ Paste relevant structured log output or error messages. Remove any sensitive dat
 ## Impact
 
 - [ ] Data loss or corruption
-- [ ] Security-relevant (stop — use the [Security Advisory](https://github.com/keel-io/keel/security/advisories/new) form instead)
+- [ ] Security-relevant (stop — use the [Security Advisory](https://github.com/zynax-io/zynax/security/advisories/new) form instead)
 - [ ] Workflow execution blocked
 - [ ] Degraded behaviour (workaround exists)
 - [ ] Cosmetic / low impact

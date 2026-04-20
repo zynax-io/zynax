@@ -7,11 +7,11 @@
 
 ## Purpose
 
-The Engine Adapter is the **execution bridge** between the Keel IR
+The Engine Adapter is the **execution bridge** between the Zynax IR
 and concrete workflow engines. It implements one Go interface (`WorkflowEngine`)
 with different backends (Temporal, LangGraph, Argo) selectable at deploy time.
 
-Think of it as the containerd of Keel: a stable interface for
+Think of it as the containerd of Zynax: a stable interface for
 pluggable execution backends.
 
 **Responsibilities:**
@@ -19,7 +19,7 @@ pluggable execution backends.
 - Implement `WorkflowEngine` for LangGraph (M5).
 - Implement `WorkflowEngine` for Argo Workflows (M6).
 - Translate Canonical IR → engine-native format.
-- Translate engine-native events → Keel `WorkflowEvent`.
+- Translate engine-native events → Zynax `WorkflowEvent`.
 - Route capability invocations to task-broker.
 - Relay task results back to the engine as workflow signals.
 - Stream execution state changes via gRPC server-streaming.
@@ -120,7 +120,7 @@ func (e *TemporalEngine) Submit(
         // Temporal handles retries, timeouts at the workflow level
     }
     run, err := e.client.ExecuteWorkflow(ctx, workflowOptions,
-        "keel-state-machine",  // generic Temporal worker
+        "zynax-state-machine",  // generic Temporal worker
         ir, input,
     )
     if err != nil { return "", fmt.Errorf("submit to temporal: %w", err) }
@@ -139,7 +139,7 @@ func (e *TemporalEngine) Signal(
 ## Capability Dispatch (Cross-Service)
 
 When the Temporal worker needs to execute a capability (e.g. `summarize`),
-it calls back into Keel via task-broker. The engine adapter provides
+it calls back into Zynax via task-broker. The engine adapter provides
 a Temporal Activity that bridges this:
 
 ```go
@@ -178,8 +178,8 @@ type Config struct {
     ActiveEngine       string `envconfig:"ACTIVE_ENGINE"        default:"temporal"`
     // Temporal
     TemporalAddress    string `envconfig:"TEMPORAL_ADDRESS"     default:"temporal:7233"`
-    TemporalNamespace  string `envconfig:"TEMPORAL_NAMESPACE"   default:"keel"`
-    TemporalTaskQueue  string `envconfig:"TEMPORAL_TASK_QUEUE"  default:"keel-workflows"`
+    TemporalNamespace  string `envconfig:"TEMPORAL_NAMESPACE"   default:"zynax"`
+    TemporalTaskQueue  string `envconfig:"TEMPORAL_TASK_QUEUE"  default:"zynax-workflows"`
     // Task Broker
     BrokerURL          string `envconfig:"BROKER_URL"           required:"true"`
     ShutdownGraceSecs  int    `envconfig:"SHUTDOWN_GRACE_SECS"  default:"30"`

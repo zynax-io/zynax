@@ -2,13 +2,13 @@
 
 **Status:** Accepted
 **Date:** 2025-04-01
-**Deciders:** Keel Maintainers
+**Deciders:** Zynax Maintainers
 
 ---
 
 ## Context
 
-Keel is a multi-service platform where services must communicate
+Zynax is a multi-service platform where services must communicate
 frequently and with strong type guarantees. We need to choose an
 inter-service communication protocol.
 

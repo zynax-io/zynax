@@ -2,7 +2,7 @@
 
 # Contributor Covenant Code of Conduct
 
-Keel adopts the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/main/code-of-conduct.md) verbatim.
+Zynax adopts the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/main/code-of-conduct.md) verbatim.
 
 ## Our Pledge
 

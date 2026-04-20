@@ -7,7 +7,7 @@
 
 ## Purpose
 
-The API Gateway is the **single external entry point** to the Keel
+The API Gateway is the **single external entry point** to the Zynax
 platform. It translates HTTP REST requests from external clients into gRPC
 calls to internal services.
 
@@ -246,7 +246,7 @@ type Config struct {
     MemoryURL        string `envconfig:"MEMORY_URL"         required:"true"`
     RedisURL         string `envconfig:"REDIS_URL"          required:"true"`
     JWTSecret        string `envconfig:"JWT_SECRET"         required:"true"`
-    JWTIssuer        string `envconfig:"JWT_ISSUER"         default:"keel"`
+    JWTIssuer        string `envconfig:"JWT_ISSUER"         default:"zynax"`
     RateLimitPerMin  int    `envconfig:"RATE_LIMIT_PER_MIN" default:"100"`
     RateLimitPerHour int    `envconfig:"RATE_LIMIT_PER_HOUR" default:"1000"`
     AllowedOrigins   string `envconfig:"ALLOWED_ORIGINS"    default:"*"`

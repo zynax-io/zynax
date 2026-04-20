@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Keel Governance
+# Zynax Governance
 
-> Keel follows CNCF governance best practices and is working toward CNCF Sandbox
+> Zynax follows CNCF governance best practices and is working toward CNCF Sandbox
 > submission. Governance is neutral — no single company controls decisions.
 
 ---
@@ -96,7 +96,7 @@ Re-activation follows the normal Maintainer nomination process.
 
 ## 2. Decision-Making
 
-Keel uses **lazy consensus** for most decisions: a proposal is accepted if no
+Zynax uses **lazy consensus** for most decisions: a proposal is accepted if no
 maintainer objects within the defined period. Explicit votes are called when
 lazy consensus fails or the decision type requires it.
 
@@ -237,7 +237,7 @@ A release is managed as a GitHub Issue with this task list:
 ## 6. Roadmap Management
 
 The [ROADMAP.md](ROADMAP.md) is the narrative roadmap. The authoritative
-execution roadmap lives in the [GitHub Project board](https://github.com/orgs/keel-io/projects/1).
+execution roadmap lives in the [GitHub Project board](https://github.com/orgs/zynax-io/projects/1).
 
 ### GitHub Projects Structure
 
@@ -260,7 +260,7 @@ The issue will be evaluated at the next triage cycle.
 
 ## 7. AI Agent Contributors
 
-Keel explicitly welcomes AI-assisted contributions and provides a defined framework
+Zynax explicitly welcomes AI-assisted contributions and provides a defined framework
 for AI agents (Claude, Copilot, GPT-4, custom agents) to participate responsibly.
 
 ### Human Sponsorship Requirement
@@ -272,7 +272,7 @@ Every PR — regardless of how it was generated — requires a **human sponsor**
 - AI tools are attributed via `Assisted-by:` trailer — never `Co-Authored-By:` or
   `Signed-off-by:`, which are reserved for humans certifying the DCO.
 
-There is no "autonomous AI PR" in Keel. Every change has a human who reviewed
+There is no "autonomous AI PR" in Zynax. Every change has a human who reviewed
 and is accountable for it.
 
 ### AI Contribution Labels
@@ -325,7 +325,7 @@ Contributors using [Claude Code](https://claude.ai/code) (the Anthropic CLI):
 
 ### Code of Conduct Violations
 
-Report to conduct@keel.io (or the email in `CODE_OF_CONDUCT.md`). Maintainers
+Report to conduct@zynax.io (or the email in `CODE_OF_CONDUCT.md`). Maintainers
 who are the subject of a report must recuse themselves from that discussion.
 
 Enforcement levels: warning → temporary ban → permanent ban.
@@ -340,7 +340,7 @@ Enforcement levels: warning → temporary ban → permanent ban.
 2. The PR describes the nominee's contributions and qualifications.
 3. Minimum 5 business day comment period.
 4. Supermajority vote (>2/3 of current active maintainers approving).
-5. PR merged → nominee invited to the `keel-io/maintainers` GitHub team.
+5. PR merged → nominee invited to the `zynax-io/maintainers` GitHub team.
 
 ### Removing a Maintainer (Voluntary)
 
@@ -362,11 +362,11 @@ Triggered by sustained inactivity (>6 months) or Code of Conduct violation:
 
 | Channel | Purpose | Moderated by |
 |---------|---------|-------------|
-| [GitHub Issues](https://github.com/keel-io/keel/issues) | Bug reports, features, ADRs | Maintainers |
-| [GitHub Discussions](https://github.com/keel-io/keel/discussions) | Questions, ideas, proposals | Maintainers |
-| [GitHub PRs](https://github.com/keel-io/keel/pulls) | Code review | Reviewers + Maintainers |
-| conduct@keel.io | Code of conduct reports | All maintainers |
-| security@keel.io | Security vulnerability reports | All maintainers |
+| [GitHub Issues](https://github.com/zynax-io/zynax/issues) | Bug reports, features, ADRs | Maintainers |
+| [GitHub Discussions](https://github.com/zynax-io/zynax/discussions) | Questions, ideas, proposals | Maintainers |
+| [GitHub PRs](https://github.com/zynax-io/zynax/pulls) | Code review | Reviewers + Maintainers |
+| conduct@zynax.io | Code of conduct reports | All maintainers |
+| security@zynax.io | Security vulnerability reports | All maintainers |
 
 All project-relevant technical communication must happen in GitHub to maintain
 a public, searchable record. Private channels (email, DM) are for conduct and
@@ -376,7 +376,7 @@ security only.
 
 ## 11. CNCF Alignment
 
-Keel targets CNCF Sandbox submission at v1.0.0 (Milestone 8).
+Zynax targets CNCF Sandbox submission at v1.0.0 (Milestone 8).
 
 CNCF requirements we are tracking:
 - [ ] Adopt CNCF Code of Conduct (done — see `CODE_OF_CONDUCT.md`)

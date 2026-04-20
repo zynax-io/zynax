@@ -1,11 +1,11 @@
 # Code Review Workflow — Reference Example
 # Demonstrates: loops, async events, human-in-the-loop, timeout handling
 #
-# To apply: keel apply spec/workflows/examples/code-review.yaml
-# To dry-run: keel apply --dry-run spec/workflows/examples/code-review.yaml
+# To apply: zynax apply spec/workflows/examples/code-review.yaml
+# To dry-run: zynax apply --dry-run spec/workflows/examples/code-review.yaml
 
 kind: Workflow
-apiVersion: keel.io/v1
+apiVersion: zynax.io/v1
 
 metadata:
   name: code-review-workflow
@@ -23,7 +23,7 @@ spec:
   triggers:
     - event: github.pull_request.opened
       filter:
-        repo: "keel/keel"
+        repo: "zynax/zynax"
         base_branch: "main"
 
   states:

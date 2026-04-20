@@ -2,13 +2,13 @@
 Feature: Event Bus
 
   Scenario: Published event reaches all subscribers
-    Given consumers "a" and "b" subscribe to topic "keel.v1.task-broker.task.completed"
+    Given consumers "a" and "b" subscribe to topic "zynax.v1.task-broker.task.completed"
     When an event is published to that topic
     Then both "a" and "b" receive the event
 
   Scenario: Subscriber on different topic does not receive event
-    Given consumer "c" subscribes to "keel.v1.task-broker.task.assigned"
-    When an event is published to "keel.v1.task-broker.task.completed"
+    Given consumer "c" subscribes to "zynax.v1.task-broker.task.assigned"
+    When an event is published to "zynax.v1.task-broker.task.completed"
     Then consumer "c" does NOT receive the event
 
   Scenario: Failed delivery is retried with backoff

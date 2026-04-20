@@ -178,12 +178,12 @@ Every service uses this base. Adjust dependencies per service.
 
 ```toml
 [project]
-name = "keel-<service-name>"
+name = "zynax-<service-name>"
 version = "0.1.0"
 requires-python = ">=3.12"
 description = "<Service description>"
 license = { text = "Apache-2.0" }
-authors = [{ name = "Keel Contributors" }]
+authors = [{ name = "Zynax Contributors" }]
 
 dependencies = [
     "grpcio>=1.60.0",
@@ -268,7 +268,7 @@ COPY src ./src
 FROM python:3.12-slim AS runtime
 
 # Non-root user
-RUN useradd --system --no-create-home --uid 1001 --gid 0 keel
+RUN useradd --system --no-create-home --uid 1001 --gid 0 zynax
 
 # Copy only the installed packages
 COPY --from=builder /build/.venv /app/.venv
@@ -280,7 +280,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
-USER keel
+USER zynax
 
 # gRPC, metrics, health
 EXPOSE 50051 9090 8080

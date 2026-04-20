@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Keel — Agent Registry BDD Feature File
+# Zynax — Agent Registry BDD Feature File
 #
 # This file is the SPECIFICATION. It is written BEFORE the implementation.
 # It is the source of truth for what the agent-registry service does.

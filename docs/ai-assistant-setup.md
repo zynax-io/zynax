@@ -1,21 +1,21 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# AI Assistant Setup for Keel Contributors
+# AI Assistant Setup for Zynax Contributors
 
 > This guide is for contributors who use AI coding assistants (Claude Code,
-> Cursor, GitHub Copilot, Gemini Code Assist, or others) when working on Keel.
+> Cursor, GitHub Copilot, Gemini Code Assist, or others) when working on Zynax.
 >
 > **AI assistance is entirely optional.** Nothing in this guide is required to
 > contribute. The project has no dependency on any AI tool.
 
 ---
 
-## How Keel Uses `AGENTS.md`
+## How Zynax Uses `AGENTS.md`
 
-Keel provides `AGENTS.md` files at the root and in each major directory:
+Zynax provides `AGENTS.md` files at the root and in each major directory:
 
 ```
-keel/
+zynax/
   AGENTS.md                    ← root engineering contract
   services/AGENTS.md           ← Go service patterns
   services/<service>/AGENTS.md ← per-service rules

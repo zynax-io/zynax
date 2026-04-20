@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Git Workflow — Keel
+# Git Workflow — Zynax
 
-> This document is the definitive reference for how Keel manages its git history.
+> This document is the definitive reference for how Zynax manages its git history.
 > Clean history is a first-class project value: it is documentation, audit trail,
 > and bisection tool all at once.
 
@@ -49,7 +49,7 @@ These are not aesthetic preferences. They are operational requirements:
 
 ## 2. Branch Strategy
 
-Keel uses **trunk-based development**: all work happens in short-lived branches
+Zynax uses **trunk-based development**: all work happens in short-lived branches
 off `main`. Long-lived feature branches are prohibited.
 
 ### Branch Name Format
@@ -502,7 +502,7 @@ must be in `main` before it is cherry-picked to the release branch.
 
 ## 10. Tagging & Versioning
 
-Keel follows [Semantic Versioning 2.0](https://semver.org):
+Zynax follows [Semantic Versioning 2.0](https://semver.org):
 
 ```
 v<MAJOR>.<MINOR>.<PATCH>

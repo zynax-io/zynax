@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Keel — Tools Compose File
+# Zynax — Tools Compose File
 #
 # Used by `make test-integration` to spin up real backing services
 # (PostgreSQL, Redis) alongside a test-runner container.
@@ -7,7 +7,7 @@
 #
 # NOT for running the platform itself — use docker-compose.yml for that.
 
-name: keel-tools
+name: zynax-tools
 
 networks:
   test-net:
@@ -38,7 +38,7 @@ services:
       retries: 5
 
   test-runner:
-    image: keel-tools:local
+    image: zynax-tools:local
     volumes:
       # Mount the entire repo read-write so pytest can write coverage files
       - type: bind

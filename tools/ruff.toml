@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Keel — Shared Ruff Configuration
+# Zynax — Shared Ruff Configuration
 # Applied to all services. Individual services extend this.
 # See root AGENTS.md §4.1 for why ruff was chosen.
 
@@ -57,7 +57,7 @@ ignore = [
 convention = "google"
 
 [lint.isort]
-known-first-party = ["keel"]
+known-first-party = ["zynax"]
 force-sort-within-sections = true
 
 [lint.flake8-tidy-imports]

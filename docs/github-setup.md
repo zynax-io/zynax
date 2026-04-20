@@ -3,7 +3,7 @@
 # GitHub Repository Setup Guide
 
 > This is the step-by-step playbook for creating and configuring the
-> `keel-io/keel` repository from scratch. Run through this once, in order.
+> `zynax-io/zynax` repository from scratch. Run through this once, in order.
 > Each section is idempotent — safe to re-run if a step was missed.
 >
 > **Prerequisites:** `gh` CLI installed and authenticated as the org owner.
@@ -32,14 +32,14 @@
 ## 1. Create the GitHub Organisation
 
 1. Go to [github.com/organizations/new](https://github.com/organizations/new)
-2. **Organisation account name:** `keel-io`
+2. **Organisation account name:** `zynax-io`
 3. **Contact email:** your email
 4. **Plan:** Free (upgrade to Team later if private repos are needed)
 5. Skip the "Invite members" step — add members later via `MAINTAINERS.md` process
 6. Set the org profile:
-   - **Display name:** Keel
+   - **Display name:** Zynax
    - **Description:** Declarative control plane for AI agent workflows
-   - **URL:** (leave blank until keel.io DNS is set up)
+   - **URL:** (leave blank until zynax.io DNS is set up)
 
 ---
 
@@ -47,7 +47,7 @@
 
 ```bash
 # Create the repo under the org
-gh repo create keel-io/keel \
+gh repo create zynax-io/zynax \
   --public \
   --description "Declarative, cloud-native, engine-agnostic control plane for AI agent workflows" \
   --license apache-2.0 \
@@ -58,8 +58,8 @@ gh repo create keel-io/keel \
 ```
 
 Or via the UI:
-1. Go to [github.com/organizations/keel-io/repositories/new](https://github.com/organizations/keel-io/repositories/new)
-2. Name: `keel`
+1. Go to [github.com/organizations/zynax-io/repositories/new](https://github.com/organizations/zynax-io/repositories/new)
+2. Name: `zynax`
 3. Visibility: **Public**
 4. **Do not** initialise with README, .gitignore, or license (you have these already)
 5. Create repository
@@ -67,11 +67,11 @@ Or via the UI:
 ### Repository Settings to Set Now
 
 ```bash
-cd keel   # The cloned repo directory
+cd zynax   # The cloned repo directory
 
-# Set homepage (update when keel.io is live)
-gh repo edit keel-io/keel \
-  --homepage "https://github.com/keel-io/keel" \
+# Set homepage (update when zynax.io is live)
+gh repo edit zynax-io/zynax \
+  --homepage "https://github.com/zynax-io/zynax" \
   --topics "ai,workflow,control-plane,kubernetes,cncf,temporal,langgraph,go,cloud-native"
 ```
 
@@ -80,8 +80,8 @@ gh repo edit keel-io/keel \
 ## 3. Push the Initial Codebase
 
 ```bash
-# From your local keel/ directory
-git remote add origin https://github.com/keel-io/keel.git
+# From your local zynax/ directory
+git remote add origin https://github.com/zynax-io/zynax.git
 
 # Verify your GPG key is configured
 git config --global user.signingkey   # Must show a key ID
@@ -120,7 +120,7 @@ Branch protection rules enforce:
 ### Via `gh` CLI
 
 ```bash
-gh api repos/keel-io/keel/branches/main/protection \
+gh api repos/zynax-io/zynax/branches/main/protection \
   --method PUT \
   --field required_status_checks='{"strict":true,"contexts":["lint","test-unit","test-integration","security","dco"]}' \
   --field enforce_admins=false \
@@ -158,7 +158,7 @@ gh api repos/keel-io/keel/branches/main/protection \
 ### Protect `release/*` branches
 
 ```bash
-gh api repos/keel-io/keel/branches \
+gh api repos/zynax-io/zynax/branches \
   --method POST \
   -f pattern="release/*" \
   -f required_signatures=true \
@@ -174,36 +174,36 @@ Teams control who can do what in the repository.
 
 ```bash
 # Create teams in the org
-gh api orgs/keel-io/teams --method POST \
+gh api orgs/zynax-io/teams --method POST \
   -f name="maintainers" \
-  -f description="Keel core maintainers — merge access, release management" \
+  -f description="Zynax core maintainers — merge access, release management" \
   -f privacy="closed"
 
-gh api orgs/keel-io/teams --method POST \
+gh api orgs/zynax-io/teams --method POST \
   -f name="reviewers" \
-  -f description="Keel reviewers — PR review access" \
+  -f description="Zynax reviewers — PR review access" \
   -f privacy="closed"
 
-gh api orgs/keel-io/teams --method POST \
+gh api orgs/zynax-io/teams --method POST \
   -f name="proto-owners" \
   -f description="Proto contract owners — required reviewers for proto changes" \
   -f privacy="closed"
 
 # Add yourself to maintainers (replace YOUR_GITHUB_USERNAME)
-gh api orgs/keel-io/teams/maintainers/memberships/YOUR_GITHUB_USERNAME \
+gh api orgs/zynax-io/teams/maintainers/memberships/YOUR_GITHUB_USERNAME \
   --method PUT \
   -f role="maintainer"
 
 # Give the maintainers team write access to the repo
-gh api orgs/keel-io/teams/maintainers/repos/keel-io/keel \
+gh api orgs/zynax-io/teams/maintainers/repos/zynax-io/zynax \
   --method PUT \
   -f permission="maintain"
 
-gh api orgs/keel-io/teams/reviewers/repos/keel-io/keel \
+gh api orgs/zynax-io/teams/reviewers/repos/zynax-io/zynax \
   --method PUT \
   -f permission="push"
 
-gh api orgs/keel-io/teams/proto-owners/repos/keel-io/keel \
+gh api orgs/zynax-io/teams/proto-owners/repos/zynax-io/zynax \
   --method PUT \
   -f permission="push"
 ```
@@ -318,7 +318,7 @@ jobs:
 
 ## 7. Create Labels
 
-Delete GitHub's default labels first, then create the full Keel taxonomy from
+Delete GitHub's default labels first, then create the full Zynax taxonomy from
 `docs/labels.md`.
 
 ```bash
@@ -358,7 +358,7 @@ gh label create "area: spec"              --color "d1ecf1" --description "YAML s
 gh label create "area: infra"             --color "f9d0c4" --description "Docker, Helm, Kubernetes"
 gh label create "area: ci"                --color "f9d0c4" --description "CI/CD workflows"
 gh label create "area: docs"              --color "f9d0c4" --description "Documentation"
-gh label create "area: cli"               --color "bfd4f2" --description "keel CLI tool"
+gh label create "area: cli"               --color "bfd4f2" --description "zynax CLI tool"
 
 # --- priority: ---
 gh label create "priority: critical" --color "b60205" --description "Security/data loss. Fix before next patch."
@@ -409,42 +409,42 @@ Milestones map to roadmap milestones. Create them all upfront so issues can be
 assigned from day one.
 
 ```bash
-gh api repos/keel-io/keel/milestones --method POST \
+gh api repos/zynax-io/zynax/milestones --method POST \
   -f title="Contracts Foundation (M1)" \
   -f description="All communication contracts defined. gRPC protos + AsyncAPI + capability schema." \
   -f state="open"
 
-gh api repos/keel-io/keel/milestones --method POST \
+gh api repos/zynax-io/zynax/milestones --method POST \
   -f title="Workflow IR (M2)" \
   -f description="YAML manifests compile to canonical engine-agnostic IR." \
   -f state="open"
 
-gh api repos/keel-io/keel/milestones --method POST \
+gh api repos/zynax-io/zynax/milestones --method POST \
   -f title="Temporal Execution (M3)" \
   -f description="Workflow IR executes on Temporal. Engine abstraction proven." \
   -f state="open"
 
-gh api repos/keel-io/keel/milestones --method POST \
+gh api repos/zynax-io/zynax/milestones --method POST \
   -f title="YAML System + CLI (M4)" \
-  -f description="Users can keel apply workflow.yaml and see it run." \
+  -f description="Users can zynax apply workflow.yaml and see it run." \
   -f state="open"
 
-gh api repos/keel-io/keel/milestones --method POST \
+gh api repos/zynax-io/zynax/milestones --method POST \
   -f title="Adapter Library (M5)" \
   -f description="Existing systems become capabilities without SDK adoption." \
   -f state="open"
 
-gh api repos/keel-io/keel/milestones --method POST \
+gh api repos/zynax-io/zynax/milestones --method POST \
   -f title="K8s Production-Ready (M6)" \
   -f description="Production deployment on Kubernetes. Argo engine support." \
   -f state="open"
 
-gh api repos/keel-io/keel/milestones --method POST \
+gh api repos/zynax-io/zynax/milestones --method POST \
   -f title="Full Observability (M7)" \
   -f description="End-to-end observability across all workflow execution layers." \
   -f state="open"
 
-gh api repos/keel-io/keel/milestones --method POST \
+gh api repos/zynax-io/zynax/milestones --method POST \
   -f title="CNCF Sandbox (M8)" \
   -f description="Community, governance, and technical maturity for CNCF Sandbox." \
   -f state="open"
@@ -462,7 +462,7 @@ Enable Discussions and create the categories.
 
 Or:
 ```bash
-gh api repos/keel-io/keel --method PATCH -f has_discussions=true
+gh api repos/zynax-io/zynax --method PATCH -f has_discussions=true
 ```
 
 ### Create Discussion Categories
@@ -472,7 +472,7 @@ Do this in the GitHub UI (Discussions → pencil icon → Manage categories):
 | Category | Format | Description |
 |----------|--------|-------------|
 | **Announcements** | Announcement | Release notes, project updates. Maintainers only can create. |
-| **Q&A** | Question/Answer | Questions about using Keel. Community help. |
+| **Q&A** | Question/Answer | Questions about using Zynax. Community help. |
 | **Ideas** | Open-ended | Early-stage ideas before they become issues. |
 | **Technical Design** | Open-ended | Architecture discussions, design alternatives, RFC pre-drafts. |
 | **Roadmap** | Open-ended | Proposals for roadmap changes, milestone prioritisation. |
@@ -489,20 +489,20 @@ The board tracks execution of the roadmap. Create one project for the organisati
 
 ```bash
 # Create the org-level project
-gh project create --owner keel-io --title "Keel Platform Roadmap" --format table
+gh project create --owner zynax-io --title "Zynax Platform Roadmap" --format table
 ```
 
 Or via UI:
-1. Go to `github.com/orgs/keel-io/projects`
+1. Go to `github.com/orgs/zynax-io/projects`
 2. **New project** → **Board** (start with board, add views later)
-3. Name: **Keel Platform Roadmap**
+3. Name: **Zynax Platform Roadmap**
 4. Visibility: **Public**
 
 ### Link the Repository
 
 ```bash
 # Get the project number from the output of the create command, or from the URL
-gh project link --owner keel-io <PROJECT_NUMBER> --repo keel-io/keel
+gh project link --owner zynax-io <PROJECT_NUMBER> --repo zynax-io/zynax
 ```
 
 ### Add Custom Fields
@@ -548,7 +548,7 @@ In project settings → **Workflows**, enable:
 
 ```bash
 # Merge strategy: squash only (enforces one-commit-per-PR on main)
-gh api repos/keel-io/keel --method PATCH \
+gh api repos/zynax-io/zynax --method PATCH \
   -f allow_squash_merge=true \
   -f allow_merge_commit=false \
   -f allow_rebase_merge=true \
@@ -593,10 +593,10 @@ Run this checklist after completing all steps:
 
 ```bash
 # 1. Verify the repo exists and is public
-gh repo view keel-io/keel
+gh repo view zynax-io/zynax
 
 # 2. Verify branch protection
-gh api repos/keel-io/keel/branches/main/protection | jq '{
+gh api repos/zynax-io/zynax/branches/main/protection | jq '{
   signed_commits: .required_signatures.enabled,
   linear_history: .required_linear_history.enabled,
   status_checks: .required_status_checks.contexts,
@@ -607,10 +607,10 @@ gh api repos/keel-io/keel/branches/main/protection | jq '{
 gh label list | wc -l
 
 # 4. Verify milestones (should be 8)
-gh api repos/keel-io/keel/milestones | jq 'length'
+gh api repos/zynax-io/zynax/milestones | jq 'length'
 
 # 5. Verify merge settings (squash + rebase only, no merge commits)
-gh api repos/keel-io/keel | jq '{
+gh api repos/zynax-io/zynax | jq '{
   squash: .allow_squash_merge,
   rebase: .allow_rebase_merge,
   merge_commit: .allow_merge_commit,
@@ -632,7 +632,7 @@ git reset --hard HEAD~1        # Remove local test commit
 - [ ] Issue templates: Bug Report, Feature Request, ADR Proposal, Documentation — no blank issues
 - [ ] `CODEOWNERS` file is active (Settings → Code and automation → Code owners → green)
 - [ ] DCO bot is installed and active on the repo
-- [ ] `conduct@keel.io` and `security@keel.io` are set up and forwarding to your inbox
+- [ ] `conduct@zynax.io` and `security@zynax.io` are set up and forwarding to your inbox
 
 ---
 

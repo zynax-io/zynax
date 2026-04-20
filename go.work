@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Keel — Go workspace
+// Zynax — Go workspace
 // All platform services (Go). Agents/adapters are Python (separate pyproject.toml).
 
 go 1.22

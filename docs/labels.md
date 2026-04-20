@@ -3,7 +3,7 @@
 # GitHub Label Taxonomy
 
 > Labels are the primary way issues and PRs are organised, filtered, and
-> prioritised in Keel. This document defines every label, its colour, and
+> prioritised in Zynax. This document defines every label, its colour, and
 > when to use it.
 >
 > Labels are managed via the GitHub UI or `gh label` CLI.
@@ -54,7 +54,7 @@ Labels use a `group: value` naming convention so they sort and filter predictabl
 | `area: infra` | `#f9d0c4` (salmon) | Docker, Helm, Kubernetes infra |
 | `area: ci` | `#f9d0c4` (salmon) | CI/CD workflows |
 | `area: docs` | `#f9d0c4` (salmon) | Documentation |
-| `area: cli` | `#bfd4f2` (light blue) | `keel` CLI tool |
+| `area: cli` | `#bfd4f2` (light blue) | `zynax` CLI tool |
 
 ---
 

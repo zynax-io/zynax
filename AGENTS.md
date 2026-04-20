@@ -1,4 +1,4 @@
-# Keel Platform — Engineering Contract
+# Zynax Platform — Engineering Contract
 
 > **Authoritative engineering contract for contributors and AI assistants.**
 > Read entirely before writing a single line of code.
@@ -10,9 +10,9 @@
 
 ---
 
-## 0. What Is Keel?
+## 0. What Is Zynax?
 
-> **Keel is a declarative, cloud-native, engine-agnostic control plane
+> **Zynax is a declarative, cloud-native, engine-agnostic control plane
 > for AI agent workflows.**
 
 It is NOT:
@@ -28,7 +28,7 @@ It IS:
 
 The core insight:
 > Kubernetes won by abstracting containers.
-> Keel wins by abstracting intelligence workflows.
+> Zynax wins by abstracting intelligence workflows.
 
 ---
 
@@ -48,7 +48,7 @@ Every decision in this codebase must respect this separation:
 │  Contracts: gRPC (sync) + AsyncAPI/NATS (async)         │
 │  How things talk. Typed. Multi-language.                │
 │                                                         │
-│  protos/keel/v1/ · spec/asyncapi/                       │
+│  protos/zynax/v1/ · spec/asyncapi/                       │
 ├─────────────────────────────────────────────────────────┤
 │  LAYER 3 — EXECUTION                                    │
 │  Workflow Engine Plugins (Temporal / LangGraph / Argo)  │
@@ -73,7 +73,7 @@ Every decision in this codebase must respect this separation:
      │        YAML Manifests (Intent)               │
      │  kind: Workflow · AgentDef · Policy · Route   │
      └──────────────────┬───────────────────────────┘
-                        │ keel apply
+                        │ zynax apply
      ┌──────────────────▼───────────────────────────┐
      │         API Gateway (Go)                     │
      │  REST + gRPC-gateway · auth · rate limit     │
@@ -153,7 +153,7 @@ and Python (pytest-bdd). A feature without a passing scenario is not done.
 ## 5. Repository Layout
 
 ```
-keel/
+zynax/
 ├── AGENTS.md                      ← You are here
 ├── ARCHITECTURE.md                ← Deep dive: layers, IR, adapters
 ├── go.work                        ← Go workspace (all platform services)
@@ -182,7 +182,7 @@ keel/
 │
 ├── agents/                        ← Python pluggable agent layer
 │   ├── AGENTS.md
-│   ├── sdk/                       ← keel-sdk (optional, no SDK required)
+│   ├── sdk/                       ← zynax-sdk (optional, no SDK required)
 │   └── adapters/                  ← Execution adapters (no SDK required)
 │       ├── AGENTS.md
 │       ├── http/                  ← Wrap any HTTP API as an agent
@@ -190,7 +190,7 @@ keel/
 │       ├── git/                   ← GitHub/GitLab event-driven adapter
 │       └── langgraph/             ← LangGraph workflow adapter
 │
-├── protos/keel/v1/                ← gRPC contracts
+├── protos/zynax/v1/                ← gRPC contracts
 ├── infra/docker/                  ← Docker-first dev environment
 ├── docs/adr/                      ← ADR-001 through ADR-015
 └── tools/                         ← golangci-lint, ruff, mypy configs
@@ -200,13 +200,13 @@ keel/
 
 ## 6. The Workflow Model
 
-Keel workflows are **event-driven state machines**, not DAGs.
+Zynax workflows are **event-driven state machines**, not DAGs.
 This is a deliberate choice (see ADR-014).
 
 ```yaml
 # spec/workflows/examples/code-review.yaml
 kind: Workflow
-apiVersion: keel.io/v1
+apiVersion: zynax.io/v1
 
 metadata:
   name: code-review-workflow
@@ -264,7 +264,7 @@ Key properties supported by state machine model:
 
 ## 7. The Capability Model
 
-Everything executable in Keel is a **capability**, not a named agent.
+Everything executable in Zynax is a **capability**, not a named agent.
 
 ```
 summarize          request_review      run_tests
@@ -286,7 +286,7 @@ without changing the workflow definition.
 
 ## 8. Adapter-First Integration (No SDK Required)
 
-Agents do NOT need the Keel SDK. Any system can become a capability
+Agents do NOT need the Zynax SDK. Any system can become a capability
 by deploying an adapter. See `agents/adapters/AGENTS.md`.
 
 ```
@@ -311,8 +311,8 @@ it is in. Three paths exist and they are all equal from the platform's perspecti
 | Building a new Python agent | Python SDK | `agents/sdk/AGENTS.md` |
 | Connecting from Go, TypeScript, Java, Rust, or any other language | Raw proto stubs | `protos/AGENTS.md §8` |
 
-The proto files in `protos/keel/v1/` are the universal boundary. Any language
-that can speak gRPC can call any Keel service or implement any capability. See
+The proto files in `protos/zynax/v1/` are the universal boundary. Any language
+that can speak gRPC can call any Zynax service or implement any capability. See
 `ARCHITECTURE.md §11` for the full interoperability picture and `protos/AGENTS.md §8`
 for language-specific consuming instructions.
 
@@ -433,5 +433,5 @@ Breaking any of them is a hard blocker at code review.
 
 ---
 
-*Keel — The control plane for AI-driven systems*
+*Zynax — The control plane for AI-driven systems*
 *Apache 2.0 · CNCF Sandbox Candidate*
