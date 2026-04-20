@@ -126,14 +126,6 @@ jobs:
             echo "ℹ️  protos/buf.gen.yaml not found — stubs freshness check skipped."
           fi
 
-      - name: Install protoc plugins for stub generation
-        if: steps.gen-detect.outputs.has_gen == '1'
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-        env:
-          GOPATH: /home/runner/go
-
       - name: Generate stubs and check for drift
         if: steps.gen-detect.outputs.has_gen == '1'
         working-directory: protos
