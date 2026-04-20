@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: Apache-2.0
+# AgentMesh — Developer Tools Image
+#
+# Contains every tool for both layers:
+#   Go 1.22 + golangci-lint + govulncheck + buf + mockery + migrate
+#   Python 3.12 + uv + ruff + mypy + pytest + bandit + pip-audit
+#
+# Built once via `make build-tools`.
+# Bind-mounts the repo at /workspace — generated files appear on host.
+
+FROM golang:1.22-alpine AS go-tools
+
+RUN apk add --no-cache git curl
+
+# golangci-lint
+RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+    | sh -s -- -b /usr/local/bin v1.59.1
+
+# govulncheck
+RUN go install golang.org/x/vuln/cmd/govulncheck@latest
+
+# mockery (Go interface mock generator)
+RUN go install github.com/vektra/mockery/v2@v2.43.0
+
+# migrate (DB schema migrations)
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.17.1
+
+# grpc-health-probe
+RUN GRPC_HEALTH_PROBE_VERSION=v0.4.26 && \
+    curl -sSL "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64" \
+    -o /usr/local/bin/grpc_health_probe && chmod +x /usr/local/bin/grpc_health_probe
+
+# ── Final image: Go + Python + buf ──────────────────────────────────────────
+
+FROM python:3.12-slim AS tools
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git curl wget ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Go tools from go-tools stage
+COPY --from=go-tools /usr/local/go /usr/local/go
+COPY --from=go-tools /usr/local/bin/golangci-lint /usr/local/bin/
+COPY --from=go-tools /usr/local/bin/grpc_health_probe /usr/local/bin/
+COPY --from=go-tools /root/go/bin/govulncheck /usr/local/bin/
+COPY --from=go-tools /root/go/bin/mockery /usr/local/bin/
+COPY --from=go-tools /root/go/bin/migrate /usr/local/bin/
+
+# buf (proto linter + codegen — Go + Python)
+ARG BUF_VERSION=1.28.1
+RUN curl -sSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64" \
+    -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf
+
+# uv (Python package manager — used for all agents and SDK)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uvx /usr/local/bin/uvx
+
+# Python dev tools (globally available via uv tool)
+RUN uv tool install ruff \
+    && uv tool install mypy \
+    && uv tool install bandit \
+    && uv tool install pip-audit \
+    && uv tool install pytest
+
+ENV PATH="/usr/local/go/bin:/root/go/bin:/root/.local/bin:${PATH}" \
+    GOPATH=/root/go \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_PYTHON=python3.12 \
+    UV_CACHE_DIR=/root/.cache/uv \
+    GOCACHE=/root/.cache/go-build
+
+WORKDIR /workspace
+CMD ["/bin/bash"]

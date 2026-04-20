@@ -1,0 +1,131 @@
+# Code Review Workflow — Reference Example
+# Demonstrates: loops, async events, human-in-the-loop, timeout handling
+#
+# To apply: keel apply spec/workflows/examples/code-review.yaml
+# To dry-run: keel apply --dry-run spec/workflows/examples/code-review.yaml
+
+kind: Workflow
+apiVersion: keel.io/v1
+
+metadata:
+  name: code-review-workflow
+  namespace: engineering
+  labels:
+    team: platform
+    tier: production
+  annotations:
+    description: "Automated code review with human escalation"
+
+spec:
+  initial_state: review
+
+  # Events that automatically trigger a NEW workflow instance
+  triggers:
+    - event: github.pull_request.opened
+      filter:
+        repo: "keel/keel"
+        base_branch: "main"
+
+  states:
+    # ── Review state ─────────────────────────────────────────────
+    review:
+      actions:
+        - capability: request_review
+          input:
+            pr_url: "{{ .trigger.pr_url }}"
+            reviewers: "{{ .context.assigned_reviewers }}"
+          timeout: 24h   # If no review in 24h, emit review.timeout
+
+      on:
+        - event: review.approved
+          goto: merge
+
+        - event: review.changes_requested
+          goto: fix
+          # Store the feedback in workflow context for the fix state
+          set:
+            context.latest_feedback: "{{ .event.comments }}"
+
+        - event: review.timeout
+          goto: escalate
+          guard: "{{ .context.escalation_count }} < 2"
+
+        - event: review.timeout
+          goto: abandon
+          guard: "{{ .context.escalation_count }} >= 2"
+
+    # ── Fix state ────────────────────────────────────────────────
+    fix:
+      actions:
+        # Summarise the feedback so the agent knows what to fix
+        - capability: summarize_feedback
+          input:
+            feedback: "{{ .context.latest_feedback }}"
+          output:
+            context.feedback_summary: "{{ .result.summary }}"
+
+      on:
+        # Developer pushes a new commit → go back to review (the loop)
+        - event: github.push
+          goto: review
+          set:
+            context.escalation_count: 0
+
+        # Developer explicitly requests a re-review
+        - event: review.requested
+          goto: review
+
+    # ── Merge state ──────────────────────────────────────────────
+    merge:
+      actions:
+        - capability: merge_pr
+          input:
+            pr_url: "{{ .trigger.pr_url }}"
+            merge_strategy: "squash"
+      on:
+        - event: merge.success
+          goto: done
+
+        - event: merge.conflict
+          goto: fix
+          set:
+            context.latest_feedback: "Merge conflict — please rebase"
+
+    # ── Escalate state (human-in-the-loop) ───────────────────────
+    escalate:
+      type: human_in_the_loop    # Workflow pauses here until a human signals
+      actions:
+        - capability: notify_human
+          input:
+            channel: "#engineering"
+            message: "PR {{ .trigger.pr_url }} needs manual review — timed out"
+      on:
+        # Human approves via Slack command or dashboard
+        - event: human.approved
+          goto: merge
+        # Human requests more changes
+        - event: human.changes_requested
+          goto: fix
+          set:
+            context.latest_feedback: "{{ .event.feedback }}"
+            context.escalation_count: "{{ add .context.escalation_count 1 }}"
+
+    # ── Terminal states ──────────────────────────────────────────
+    done:
+      type: terminal
+      actions:
+        - capability: notify_author
+          input:
+            pr_url: "{{ .trigger.pr_url }}"
+            message: "Your PR has been merged. 🎉"
+
+    abandon:
+      type: terminal
+      actions:
+        - capability: notify_author
+          input:
+            pr_url: "{{ .trigger.pr_url }}"
+            message: "PR closed after repeated review timeouts."
+        - capability: close_pr
+          input:
+            pr_url: "{{ .trigger.pr_url }}"

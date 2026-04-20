@@ -1,0 +1,42 @@
+# Go
+/vendor/
+*.exe
+*.test
+*.prof
+*.out
+/bin/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+coverage.xml
+coverage-html/
+
+# Secrets
+.env.local
+.env.*.local
+*secrets*
+*credentials*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# AI assistant tool configuration — local only, never committed
+# These contain personal settings, hooks, and credentials for AI coding tools.
+# Engineering contracts (AGENTS.md) ARE committed — see docs/ai-assistant-setup.md
+.claude/
+.cursor/
+.copilot/
+.codeium/
+.aider*
+
+# Generated proto stubs ARE committed — do not add protos/generated/ here

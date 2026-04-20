@@ -1,0 +1,123 @@
+# CI Pipeline Workflow — Reference Example
+# Demonstrates: parallel actions, CI integration, failure recovery
+
+kind: Workflow
+apiVersion: keel.io/v1
+
+metadata:
+  name: ci-pipeline-workflow
+  namespace: platform
+
+spec:
+  initial_state: test
+
+  triggers:
+    - event: github.push
+      filter:
+        branch: "main"
+
+  states:
+    test:
+      actions:
+        - capability: run_tests
+          input:
+            repo: "{{ .trigger.repo }}"
+            commit: "{{ .trigger.commit_sha }}"
+          timeout: 30m
+      on:
+        - event: tests.passed
+          goto: security_scan
+        - event: tests.failed
+          goto: notify_failure
+        - event: tests.timeout
+          goto: notify_failure
+
+    security_scan:
+      actions:
+        - capability: run_security_scan
+          input:
+            commit: "{{ .trigger.commit_sha }}"
+          timeout: 15m
+      on:
+        - event: scan.passed
+          goto: build
+        - event: scan.failed
+          goto: block_merge
+        - event: scan.findings
+          guard: "{{ .event.severity }} == 'low'"
+          goto: build    # low severity findings don't block
+
+    build:
+      actions:
+        - capability: build_image
+          input:
+            commit: "{{ .trigger.commit_sha }}"
+            registry: "ghcr.io/keel-io"
+          timeout: 20m
+      on:
+        - event: build.success
+          goto: deploy_staging
+        - event: build.failed
+          goto: notify_failure
+
+    deploy_staging:
+      actions:
+        - capability: deploy
+          input:
+            environment: "staging"
+            image: "{{ .context.built_image }}"
+          timeout: 10m
+      on:
+        - event: deploy.success
+          goto: integration_test
+        - event: deploy.failed
+          goto: rollback
+
+    integration_test:
+      actions:
+        - capability: run_integration_tests
+          input:
+            environment: "staging"
+          timeout: 20m
+      on:
+        - event: integration_tests.passed
+          goto: done
+        - event: integration_tests.failed
+          goto: rollback
+
+    rollback:
+      actions:
+        - capability: rollback_deploy
+          input:
+            environment: "staging"
+      on:
+        - event: rollback.complete
+          goto: notify_failure
+
+    block_merge:
+      type: human_in_the_loop
+      actions:
+        - capability: notify_human
+          input:
+            channel: "#security"
+            message: "Security scan found HIGH findings on {{ .trigger.commit_sha }}"
+      on:
+        - event: human.approved
+          goto: build
+        - event: human.rejected
+          goto: notify_failure
+
+    notify_failure:
+      type: terminal
+      actions:
+        - capability: notify_author
+          input:
+            message: "CI pipeline failed for {{ .trigger.commit_sha }}"
+            channel: "#ci-failures"
+
+    done:
+      type: terminal
+      actions:
+        - capability: notify_author
+          input:
+            message: "CI pipeline passed ✅ — staging deployment live"
