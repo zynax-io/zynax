@@ -2,15 +2,15 @@
 
 <div align="center">
 
-# Keel
+# Zynax
 
 **The declarative control plane for AI agent workflows**
 
-[![CI](https://github.com/keel-io/keel/actions/workflows/ci.yml/badge.svg)](https://github.com/keel-io/keel/actions/workflows/ci.yml)
+[![CI](https://github.com/zynax-io/zynax/actions/workflows/ci.yml/badge.svg)](https://github.com/zynax-io/zynax/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![CNCF Sandbox Candidate](https://img.shields.io/badge/CNCF-Sandbox_Candidate-026be0.svg)](https://cncf.io)
 [![Go 1.22+](https://img.shields.io/badge/go-1.22+-00add8.svg)](https://go.dev)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/keel-io/keel/badge)](https://securityscorecards.dev)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zynax-io/zynax/badge)](https://securityscorecards.dev)
 
 [Quickstart](#-quickstart) · [Architecture](ARCHITECTURE.md) · [Documentation](docs/) · [Contributing](CONTRIBUTING.md) · [Roadmap](ROADMAP.md)
 
@@ -18,19 +18,19 @@
 
 ---
 
-## What is Keel?
+## What is Zynax?
 
-> Keel is to AI workflows what Kubernetes is to containers — a control plane
+> Zynax is to AI workflows what Kubernetes is to containers — a control plane
 > that abstracts the execution layer behind a declarative, versionable API.
 
-Keel lets you define AI agent workflows as YAML manifests and execute them
+Zynax lets you define AI agent workflows as YAML manifests and execute them
 on any workflow engine (Temporal, LangGraph, Argo) without changing your
 workflow definition.
 
 ```yaml
 # code-review.yaml
 kind: Workflow
-apiVersion: keel.io/v1
+apiVersion: zynax.io/v1
 
 metadata:
   name: code-review
@@ -66,7 +66,7 @@ spec:
 ```
 
 ```bash
-keel apply code-review.yaml
+zynax apply code-review.yaml
 ```
 
 ---
@@ -114,8 +114,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
 **Prerequisites:** Docker Desktop. Nothing else.
 
 ```bash
-git clone https://github.com/keel-io/keel.git
-cd keel
+git clone https://github.com/zynax-io/zynax.git
+cd zynax
 
 # Build the dev tools image (Go + Python + all tooling)
 make build-tools
@@ -124,10 +124,10 @@ make build-tools
 make dev-up
 
 # Apply a workflow
-keel apply spec/workflows/examples/code-review.yaml
+zynax apply spec/workflows/examples/code-review.yaml
 
 # Check status
-keel get workflows -n engineering
+zynax get workflows -n engineering
 ```
 
 ---
@@ -154,7 +154,7 @@ Key rules: `.feature` file before any code, BDD-first, Docker-only dev.
 
 ## Security
 
-Report vulnerabilities via [GitHub Security Advisories](https://github.com/keel-io/keel/security/advisories/new).
+Report vulnerabilities via [GitHub Security Advisories](https://github.com/zynax-io/zynax/security/advisories/new).
 See [SECURITY.md](SECURITY.md).
 
 ---
@@ -168,5 +168,5 @@ SPDX-License-Identifier: Apache-2.0
 ---
 
 <div align="center">
-<sub>Keel is a CNCF Sandbox candidate project.</sub>
+<sub>Zynax is a CNCF Sandbox candidate project.</sub>
 </div>

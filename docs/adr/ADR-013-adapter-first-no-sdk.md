@@ -3,7 +3,7 @@
 **Status:** Accepted  **Date:** 2025-04-01
 
 ## Decision
-Any system can become an Keel capability by implementing the
+Any system can become an Zynax capability by implementing the
 `AgentService` gRPC contract. No SDK is required.
 
 ## Rationale

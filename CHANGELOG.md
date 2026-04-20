@@ -4,7 +4,7 @@
 
 # Changelog
 
-All notable changes to Keel are documented here.
+All notable changes to Zynax are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com) +
 [Conventional Commits](https://conventionalcommits.org).

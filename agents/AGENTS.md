@@ -10,29 +10,29 @@
 
 Before writing any code, choose the right path. The decision depends on what you
 already have, what language you are working in, and how deeply you want to
-integrate with Keel.
+integrate with Zynax.
 
 ### The Three Paths
 
 **Path 1 — Adapter (preferred for existing systems)**
 
 You have an existing system — a LangGraph app, a REST API, a CI tool, an LLM
-provider — and you want it to be reachable as a Keel capability. You do not want
+provider — and you want it to be reachable as a Zynax capability. You do not want
 to change that system's code. Deploy an adapter alongside it. The adapter speaks
-the `AgentService` gRPC contract to Keel and translates to the existing system's
+the `AgentService` gRPC contract to Zynax and translates to the existing system's
 native protocol on the other side. See `agents/adapters/AGENTS.md`.
 
 Choose this path when:
 - The system already exists and works
-- You want zero Keel dependencies in the existing codebase
+- You want zero Zynax dependencies in the existing codebase
 - The integration is translation work, not new agent logic
 - You work in any language — adapters have no language restriction
 
-**Path 2 — Python SDK (for new Keel-native Python agents)**
+**Path 2 — Python SDK (for new Zynax-native Python agents)**
 
-You are building something new in Python specifically to run inside Keel. You want
+You are building something new in Python specifically to run inside Zynax. You want
 to write agent logic and have the platform handle registration, task routing,
-heartbeat, context injection, and shutdown. Install `keel-sdk`, implement the
+heartbeat, context injection, and shutdown. Install `zynax-sdk`, implement the
 `AgentRuntime` Protocol, and the SDK wires everything else. See `agents/sdk/AGENTS.md`.
 
 Choose this path when:
@@ -43,14 +43,14 @@ Choose this path when:
 **Path 3 — Raw proto stubs (for non-Python languages and client-side callers)**
 
 You work in Go, TypeScript, Java, Rust, or any other language with gRPC support.
-Generate stubs from `protos/keel/v1/`, implement the `AgentService` contract directly,
-and connect. There is no SDK requirement and no Keel-specific library to adopt —
+Generate stubs from `protos/zynax/v1/`, implement the `AgentService` contract directly,
+and connect. There is no SDK requirement and no Zynax-specific library to adopt —
 the generated stubs and a gRPC channel are sufficient. See `protos/AGENTS.md §8`.
 
 Choose this path when:
 - You are not working in Python
-- You are calling Keel services from an existing codebase (client role)
-- You want the minimum possible coupling to Keel internals
+- You are calling Zynax services from an existing codebase (client role)
+- You want the minimum possible coupling to Zynax internals
 
 ### Decision Table
 
@@ -62,17 +62,17 @@ Choose this path when:
 | Building a new Python agent, any framework | Python SDK (`DirectRuntime` or custom) |
 | Building an agent in Go | Raw stubs — implement `AgentService` directly |
 | Building an agent in TypeScript / Java / Rust | Raw stubs — generate and implement |
-| Calling Keel from an existing service (any language) | Raw stubs — client role only |
+| Calling Zynax from an existing service (any language) | Raw stubs — client role only |
 | Connecting a CI system (Jenkins, GitHub Actions) | Adapter (`ci-adapter` pattern) |
 | Connecting an LLM provider | Adapter (`llm-adapter`) |
 
 ### What All Three Paths Have in Common
 
 Regardless of path, the integration contract is always the same proto definition
-in `protos/keel/v1/`. The adapter, the SDK agent, and the raw-stub agent are all
+in `protos/zynax/v1/`. The adapter, the SDK agent, and the raw-stub agent are all
 identical from the task-broker's perspective. They register the same capability
 names, they receive the same `ExecuteCapabilityRequest`, and they return the same
-stream of `TaskEvent` responses. The path is an implementation detail that Keel
+stream of `TaskEvent` responses. The path is an implementation detail that Zynax
 is entirely unaware of.
 
 ---
@@ -82,7 +82,7 @@ is entirely unaware of.
 ```
 platform (Go) ──▶ AgentContract (gRPC)   ← Fixed. Versioned.
                         │
-                  Keel SDK           ← Registration, heartbeat, routing,
+                  Zynax SDK           ← Registration, heartbeat, routing,
                   (Python pkg)               observability, shutdown. YOU DO NOT WRITE THIS.
                         │ injects AgentContext
                   AgentRuntime            ← YOU implement this ONE method.
@@ -102,9 +102,9 @@ The runtime is a Plugin — swap it without touching anything else.
 ```
 agents/
 ├── AGENTS.md                         ← This file
-├── sdk/                              ← Keel Python SDK (no AI framework deps in core)
+├── sdk/                              ← Zynax Python SDK (no AI framework deps in core)
 │   ├── AGENTS.md
-│   ├── pyproject.toml                ← Published as: keel-sdk
+│   ├── pyproject.toml                ← Published as: zynax-sdk
 │   └── src/keel_sdk/
 │       ├── runtime.py                ← AgentRuntime Protocol, Task, TaskEvent
 │       ├── context.py                ← AgentContext (injected — never constructed by agent)
@@ -115,9 +115,9 @@ agents/
 │       ├── observability.py          ← structlog + OTel + Prometheus bootstrap
 │       └── runtimes/                 ← Optional adapters (installed as extras)
 │           ├── direct.py             ← DirectRuntime: plain async generator
-│           ├── langgraph.py          ← LangGraphRuntime (keel-sdk[langgraph])
-│           ├── autogen.py            ← AutoGenRuntime  (keel-sdk[autogen])
-│           └── crewai.py             ← CrewAIRuntime   (keel-sdk[crewai])
+│           ├── langgraph.py          ← LangGraphRuntime (zynax-sdk[langgraph])
+│           ├── autogen.py            ← AutoGenRuntime  (zynax-sdk[autogen])
+│           └── crewai.py             ← CrewAIRuntime   (zynax-sdk[crewai])
 └── examples/
     ├── calculator/                   ← DirectRuntime — no AI framework
     ├── summarizer/                   ← LangGraphRuntime
@@ -491,7 +491,7 @@ a fully cross-language execution path — by design, not by accident.
 
 ### Calling platform services from agent code
 
-Agent code sometimes needs to call back into Keel platform services during
+Agent code sometimes needs to call back into Zynax platform services during
 execution — reading from the memory service, querying the agent registry, or
 submitting a subtask to the broker. The mechanism is always the same: generate
 or import stubs for the target service's proto, open a gRPC channel using the

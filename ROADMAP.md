@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Keel Roadmap
+# Zynax Roadmap
 
-> Keel is the declarative control plane for AI agent workflows.
+> Zynax is the declarative control plane for AI agent workflows.
 > This document is the **narrative roadmap** — it explains the goals and sequence.
 > The **execution roadmap** (issue tracking, progress, and assignments) lives in the
-> [GitHub Project board](https://github.com/orgs/keel-io/projects/1).
+> [GitHub Project board](https://github.com/orgs/zynax-io/projects/1).
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## GitHub Projects Setup
 
-The board is at: **https://github.com/orgs/keel-io/projects/1**
+The board is at: **https://github.com/orgs/zynax-io/projects/1**
 
 ### Board Views
 
@@ -108,12 +108,12 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ## Milestone 4 — YAML System + CLI
 
-**Goal:** Users can `keel apply workflow.yaml` and see it run.
+**Goal:** Users can `zynax apply workflow.yaml` and see it run.
 
 > Label: `milestone: M4`
 
 - [ ] `api-gateway` extended with `/api/v1/apply` endpoint (accepts YAML)
-- [ ] `keel` CLI: `apply`, `get`, `delete`, `logs`, `status` commands
+- [ ] `zynax` CLI: `apply`, `get`, `delete`, `logs`, `status` commands
 - [ ] Local runner: Docker Compose-based (no Kubernetes required)
 - [ ] GitOps integration: watch a git repo, apply changes on push
 - [ ] `kind: AgentDef` apply: registers agent in registry + deploys adapter
@@ -147,7 +147,7 @@ Each roadmap milestone maps to a GitHub Milestone:
 - [ ] Kubernetes Runtime Provider (HPA, PDB, NetworkPolicy for all services)
 - [ ] Multi-namespace support in workflow-compiler
 - [ ] Policy enforcement: routing policies, rate limits, capability quotas
-- [ ] `keel-sdk` Python package published to PyPI
+- [ ] `zynax-sdk` Python package published to PyPI
 
 ---
 
@@ -186,7 +186,7 @@ Each roadmap milestone maps to a GitHub Milestone:
 |---------|-------------|---------------|
 | v0.1.0 | M1, M2 | Contracts + Workflow IR |
 | v0.2.0 | M3 | Temporal execution |
-| v0.3.0 | M4 | `keel apply` + CLI |
+| v0.3.0 | M4 | `zynax apply` + CLI |
 | v0.4.0 | M5 | Adapter library |
 | v0.5.0 | M6 | K8s production-ready |
 | v0.6.0 | M7 | Full observability |
@@ -213,7 +213,7 @@ Items that have been considered and explicitly not included:
 
 | Item | Decision | ADR |
 |------|----------|-----|
-| Keel as an LLM framework | Out of scope — Keel is the control plane, not the intelligence | ADR-011 |
+| Zynax as an LLM framework | Out of scope — Zynax is the control plane, not the intelligence | ADR-011 |
 | DAG-based workflows | Event-driven state machines chosen over DAGs | ADR-014 |
 | SDK required for agents | Adapter-first — no SDK required | ADR-013 |
 | Single workflow engine lock-in | Pluggable engine architecture | ADR-015 |

@@ -18,7 +18,7 @@ irrelevant to the platform. It is encapsulated behind the `AgentRuntime` Protoco
 
 ```
 Layer 1 — AgentContract (gRPC)         Fixed. Versioned. Platform-facing.
-Layer 2 — Keel SDK (Python pkg)   Registration, heartbeat, task routing, observability.
+Layer 2 — Zynax SDK (Python pkg)   Registration, heartbeat, task routing, observability.
 Layer 3 — AgentRuntime (Plugin)        execute(task, context) → events. Swappable.
 ```
 
@@ -34,10 +34,10 @@ class AgentRuntime(Protocol):
 ```
 
 Runtime adapters ship as optional extras:
-  keel-sdk                  # core only, zero AI framework deps
-  keel-sdk[langgraph]       # + LangGraphRuntime
-  keel-sdk[autogen]         # + AutoGenRuntime
-  keel-sdk[crewai]          # + CrewAIRuntime
+  zynax-sdk                  # core only, zero AI framework deps
+  zynax-sdk[langgraph]       # + LangGraphRuntime
+  zynax-sdk[autogen]         # + AutoGenRuntime
+  zynax-sdk[crewai]          # + CrewAIRuntime
 
 ## Consequences
 

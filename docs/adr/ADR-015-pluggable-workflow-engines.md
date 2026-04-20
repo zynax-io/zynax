@@ -3,7 +3,7 @@
 **Status:** Accepted  **Date:** 2025-04-01
 
 ## Decision
-Keel does NOT build a workflow engine.
+Zynax does NOT build a workflow engine.
 Instead, it builds a `WorkflowEngine` interface with pluggable backends.
 
 ## Rationale
@@ -24,6 +24,6 @@ The `WorkflowEngine` interface abstracts this complexity:
 Engine selected via config (`KEEL_ENGINE_ACTIVE_ENGINE`).
 No code change required to swap engines.
 
-## What Keel Owns vs Engines
-Keel owns: IR, routing, capability dispatch, observability, YAML API
+## What Zynax Owns vs Engines
+Zynax owns: IR, routing, capability dispatch, observability, YAML API
 Engines own: durable execution, activity retry, workflow persistence, scheduling

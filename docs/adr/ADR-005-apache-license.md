@@ -3,7 +3,7 @@
 **Status:** Accepted  **Date:** 2025-04-01
 
 ## Decision
-License Keel under Apache License 2.0.
+License Zynax under Apache License 2.0.
 
 ## Rationale
 - Permissive: enterprises can adopt without legal friction.

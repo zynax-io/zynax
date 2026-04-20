@@ -16,7 +16,7 @@
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
 Please report security vulnerabilities via GitHub's private
-[Security Advisories](https://github.com/keel-io/keel/security/advisories/new).
+[Security Advisories](https://github.com/zynax-io/zynax/security/advisories/new).
 
 Include: description, reproduction steps, impact assessment, and suggested fix if any.
 

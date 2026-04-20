@@ -6,7 +6,7 @@
 ## Decision
 
 - **Go 1.22+** for all five platform services (agent-registry, task-broker, memory-service, event-bus, api-gateway).
-- **Python 3.12+** for all AI agents, powered by the Keel SDK.
+- **Python 3.12+** for all AI agents, powered by the Zynax SDK.
 
 ## Rationale
 

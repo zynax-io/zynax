@@ -4,7 +4,7 @@
 
 > This document describes the recommended approach for maintaining personal
 > development configuration that **must not** be committed to the public
-> `keel-io/keel` repository.
+> `zynax-io/zynax` repository.
 >
 > This is for the project maintainer(s). Contributors using AI tools should
 > see [`docs/ai-assistant-setup.md`](ai-assistant-setup.md) for the simpler
@@ -14,7 +14,7 @@
 
 ## The Problem
 
-When developing Keel with an AI coding assistant, you accumulate configuration
+When developing Zynax with an AI coding assistant, you accumulate configuration
 that is personal to your development environment:
 
 - AI tool project settings (`.claude/settings.json`, hooks, permissions)
@@ -27,13 +27,13 @@ somewhere — losing it when you change machines or reinstall tools is painful.
 
 ---
 
-## The Solution: `keel-dev-config` Private Repository
+## The Solution: `zynax-dev-config` Private Repository
 
-A private repository `<your-github-username>/keel-dev-config` holds everything
+A private repository `<your-github-username>/zynax-dev-config` holds everything
 that should be tracked but not public.
 
 ```
-keel-dev-config/           ← private git repo
+zynax-dev-config/           ← private git repo
   .claude/
     settings.json          ← Claude Code project permissions
     commands/              ← custom slash commands
@@ -52,16 +52,16 @@ keel-dev-config/           ← private git repo
 ### Step 1 — Create the private repository
 
 ```bash
-gh repo create <your-username>/keel-dev-config \
+gh repo create <your-username>/zynax-dev-config \
   --private \
-  --description "Personal development configuration for keel-io/keel" \
+  --description "Personal development configuration for zynax-io/zynax" \
   --clone
 ```
 
 ### Step 2 — Create the directory structure
 
 ```bash
-cd keel-dev-config
+cd zynax-dev-config
 mkdir -p .claude/commands hooks notes
 ```
 
@@ -94,8 +94,8 @@ EOF
 ```bash
 cat > setup.sh << 'SETUP'
 #!/usr/bin/env bash
-# Links keel-dev-config into the keel project directory.
-# Run from inside the keel/ project directory:
+# Links zynax-dev-config into the zynax project directory.
+# Run from inside the zynax/ project directory:
 #   bash .dev/setup.sh
 
 set -euo pipefail
@@ -103,7 +103,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-echo "Linking keel-dev-config into ${PROJECT_DIR}..."
+echo "Linking zynax-dev-config into ${PROJECT_DIR}..."
 
 # Claude Code project settings
 mkdir -p "${PROJECT_DIR}/.claude"
@@ -137,20 +137,20 @@ chmod +x setup.sh
 Clone the dev config alongside your project and run the setup script:
 
 ```bash
-# From inside the keel/ project directory
-git clone git@github.com:<your-username>/keel-dev-config.git .dev
+# From inside the zynax/ project directory
+git clone git@github.com:<your-username>/zynax-dev-config.git .dev
 bash .dev/setup.sh
 ```
 
 The `.dev/` directory is in `.gitignore` — it will never be accidentally pushed
-to `keel-io/keel`.
+to `zynax-io/zynax`.
 
 ### Step 6 — Commit and push the private config
 
 ```bash
 cd .dev
 git add .
-git commit -m "chore: initial keel dev config"
+git commit -m "chore: initial zynax dev config"
 git push
 ```
 
@@ -160,13 +160,13 @@ git push
 
 | File / Directory | Location | Committed to |
 |-----------------|----------|-------------|
-| `AGENTS.md` files | `keel/` project | `keel-io/keel` (public) |
-| `.claude/settings.json` | `keel/.dev/.claude/` → symlinked | `<you>/keel-dev-config` (private) |
-| `.claude/commands/` | `keel/.dev/.claude/commands/` → symlinked | `<you>/keel-dev-config` (private) |
+| `AGENTS.md` files | `zynax/` project | `zynax-io/zynax` (public) |
+| `.claude/settings.json` | `zynax/.dev/.claude/` → symlinked | `<you>/zynax-dev-config` (private) |
+| `.claude/commands/` | `zynax/.dev/.claude/commands/` → symlinked | `<you>/zynax-dev-config` (private) |
 | `.claude/` session data | `~/.claude/` (home dir) | nowhere — ephemeral |
 | Memory files | `~/.claude/projects/.../memory/` | nowhere — local only |
-| Personal git hooks | `keel/.dev/hooks/` → symlinked | `<you>/keel-dev-config` (private) |
-| Working notes | `keel/.dev/notes/` | `<you>/keel-dev-config` (private) |
+| Personal git hooks | `zynax/.dev/hooks/` → symlinked | `<you>/zynax-dev-config` (private) |
+| Working notes | `zynax/.dev/notes/` | `<you>/zynax-dev-config` (private) |
 
 ---
 
@@ -174,11 +174,11 @@ git push
 
 ```bash
 # Clone the public project
-git clone git@github.com:keel-io/keel.git
-cd keel
+git clone git@github.com:zynax-io/zynax.git
+cd zynax
 
 # Clone your private dev config into .dev/
-git clone git@github.com:<your-username>/keel-dev-config.git .dev
+git clone git@github.com:<your-username>/zynax-dev-config.git .dev
 
 # Wire everything up
 bash .dev/setup.sh
@@ -190,7 +190,7 @@ make dev-up
 
 ---
 
-## What NOT to Put in `keel-dev-config`
+## What NOT to Put in `zynax-dev-config`
 
 - No secrets, API keys, or tokens (even in a private repo)
 - No production credentials
@@ -204,7 +204,7 @@ make dev-up
 If you add something to `.dev/` that you later realise other contributors would
 benefit from, promote it:
 
-1. Move the file from `.dev/` to the appropriate location in `keel/`
+1. Move the file from `.dev/` to the appropriate location in `zynax/`
 2. Open a PR with the change
 3. Remove the local copy from `.dev/` and update `setup.sh`
 

@@ -1,7 +1,7 @@
 # agents/sdk — AGENTS.md
 
-> The Keel Python SDK.
-> Published as `keel-sdk` on PyPI.
+> The Zynax Python SDK.
+> Published as `zynax-sdk` on PyPI.
 > Framework-agnostic core. AI runtimes are optional extras.
 
 ---
@@ -23,7 +23,7 @@ That is the `AgentRuntime`'s job.
 
 ## SDK vs Raw Proto Stubs — When to Use Which
 
-The Python SDK is not the only way to connect Python code to Keel. Understanding
+The Python SDK is not the only way to connect Python code to Zynax. Understanding
 when to use it and when to go directly to the raw generated stubs prevents
 over-engineering and under-engineering in equal measure.
 
@@ -46,7 +46,7 @@ Then the SDK is the right choice. The `AgentServer` class is the entry point.
 ### Use raw stubs when you are in client role or in a non-Python language
 
 The SDK is a server-side tool. It is not designed for, and adds no value to,
-the case where your Python code is calling Keel services rather than serving them.
+the case where your Python code is calling Zynax services rather than serving them.
 If you want to submit a workflow, query the agent registry, or read from the memory
 service from Python code that is not itself an agent, import the raw generated stubs
 from `protos/generated/python/` and call the service directly.
@@ -77,12 +77,12 @@ only when the proto contract changes.
 
 ### The SDK does not change the proto contract
 
-Installing and using `keel-sdk` does not give you access to different RPCs,
+Installing and using `zynax-sdk` does not give you access to different RPCs,
 different message types, or different capabilities than using raw stubs. The SDK
 is an implementation of the `AgentService` proto contract, not an extension of it.
 An agent built with the SDK and an agent built on raw stubs are indistinguishable
 from the task-broker's perspective. Both satisfy the same contract. Both are
-interoperable with every other part of the Keel platform.
+interoperable with every other part of the Zynax platform.
 
 This means you can migrate from raw stubs to the SDK or vice versa without any
 change to the platform, the workflow definitions, or the capability routing
@@ -255,10 +255,10 @@ class LangGraphRuntime:
 
 ```toml
 [project]
-name = "keel-sdk"
+name = "zynax-sdk"
 version = "0.1.0"
 requires-python = ">=3.12"
-description = "Keel Python SDK — framework-agnostic agent runtime adapter"
+description = "Zynax Python SDK — framework-agnostic agent runtime adapter"
 license = { text = "Apache-2.0" }
 
 # Core: zero AI framework deps
@@ -278,5 +278,5 @@ dependencies = [
 langgraph = ["langgraph>=0.1.0", "langchain-openai>=0.1.0"]
 autogen   = ["pyautogen>=0.2.0"]
 crewai    = ["crewai>=0.28.0"]
-all       = ["keel-sdk[langgraph,autogen,crewai]"]
+all       = ["zynax-sdk[langgraph,autogen,crewai]"]
 ```

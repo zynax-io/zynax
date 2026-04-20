@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Keel — golangci-lint (all Go platform services)
+# Zynax — golangci-lint (all Go platform services)
 version: "1"
 run:
   timeout: 5m

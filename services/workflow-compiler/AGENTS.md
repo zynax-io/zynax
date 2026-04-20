@@ -20,7 +20,7 @@ IR is the portable bytecode, engine adapters are the backends.
 - Select the target workflow engine (Temporal / LangGraph / Argo) based on Policy.
 - Submit IR to the Engine Adapter for execution.
 - Store compiled workflows and execution state in PostgreSQL.
-- Apply updates (`keel apply`) idempotently.
+- Apply updates (`zynax apply`) idempotently.
 - Diff existing vs new workflow and emit change events.
 
 **Non-responsibilities:**

@@ -3,7 +3,7 @@
 **Status:** Accepted  **Date:** 2025-04-01
 
 ## Decision
-YAML manifests (Kubernetes-style) are the primary user interface for Keel.
+YAML manifests (Kubernetes-style) are the primary user interface for Zynax.
 Users define workflows, agents, and policies in YAML — not code.
 
 ## Rationale
@@ -20,5 +20,5 @@ Users define workflows, agents, and policies in YAML — not code.
 
 ## Rules
 - YAML is NEVER imported by Go/Python code — it is compiled by workflow-compiler
-- Breaking schema changes require new apiVersion (e.g. `keel.io/v2`)
+- Breaking schema changes require new apiVersion (e.g. `zynax.io/v2`)
 - All manifest kinds have JSON Schema in `spec/schemas/`

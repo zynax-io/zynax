@@ -31,20 +31,20 @@ Does not orchestrate workflows.
 ## Topic Naming Convention
 
 ```
-keel.v1.<service>.<entity>.<event_type>
+zynax.v1.<service>.<entity>.<event_type>
 
 Examples:
-  keel.v1.agent-registry.agent.registered
-  keel.v1.agent-registry.agent.status-changed
-  keel.v1.task-broker.task.assigned
-  keel.v1.task-broker.task.completed
-  keel.v1.task-broker.task.failed
-  keel.v1.memory-service.namespace.deleted
+  zynax.v1.agent-registry.agent.registered
+  zynax.v1.agent-registry.agent.status-changed
+  zynax.v1.task-broker.task.assigned
+  zynax.v1.task-broker.task.completed
+  zynax.v1.task-broker.task.failed
+  zynax.v1.memory-service.namespace.deleted
 ```
 
 Rules:
 - All lowercase, dot-separated.
-- Always prefixed `keel.v1.` — version baked into topic.
+- Always prefixed `zynax.v1.` — version baked into topic.
 - Never use wildcards in topic names — be explicit.
 
 ---
@@ -81,7 +81,7 @@ services/event-bus/
 ```go
 // internal/domain/model.go
 
-type TopicID        string  // e.g. "keel.v1.task-broker.task.completed"
+type TopicID        string  // e.g. "zynax.v1.task-broker.task.completed"
 type ConsumerGroup  string  // e.g. "memory-service" or "my-agent-01"
 type EventID        = uuid.UUID
 
@@ -222,13 +222,13 @@ type Config struct {
 Feature: Event Bus
 
   Scenario: Published event is received by all subscribers
-    Given consumer "a" and consumer "b" subscribe to "keel.v1.task-broker.task.completed"
+    Given consumer "a" and consumer "b" subscribe to "zynax.v1.task-broker.task.completed"
     When an event is published to that topic
     Then both "a" and "b" receive the event
 
   Scenario: Event is NOT received by subscriber on a different topic
-    Given consumer "c" subscribes to "keel.v1.task-broker.task.assigned"
-    When an event is published to "keel.v1.task-broker.task.completed"
+    Given consumer "c" subscribes to "zynax.v1.task-broker.task.assigned"
+    When an event is published to "zynax.v1.task-broker.task.completed"
     Then consumer "c" does NOT receive the event
 
   Scenario: Delivery is retried on handler failure

@@ -1,4 +1,4 @@
-# Keel — Architecture
+# Zynax — Architecture
 
 > This document explains WHY the architecture is designed this way.
 > For WHAT to build and HOW to code it, see `AGENTS.md`.
@@ -14,9 +14,9 @@ Kubernetes didn't build a new container runtime. It built a control plane
 that abstracts container runtimes (Docker, containerd, CRI-O) behind a
 declarative API.
 
-Keel does the same for AI workflows:
+Zynax does the same for AI workflows:
 
-| Kubernetes | Keel |
+| Kubernetes | Zynax |
 |-----------|-----------|
 | Container | Capability |
 | Pod spec | AgentDef YAML |
@@ -163,7 +163,7 @@ No timer-based checks. Everything is event-driven.
 Classical agent systems route tasks to named agents:
 `task → agent:analyst-01`
 
-Keel routes tasks to capabilities:
+Zynax routes tasks to capabilities:
 `task → capability:summarize`
 
 **The difference:**
@@ -242,7 +242,7 @@ Each adapter in `services/engine-adapter/internal/adapters/` handles this transl
 
 ### The Problem with SDK-Required Architectures
 
-If Keel requires an SDK, adoption is:
+If Zynax requires an SDK, adoption is:
 - Language-limited (only SDK languages work)
 - Framework-coupled (upgrade SDK = upgrade all agents)
 - High-friction (non-engineering teams can't participate)
@@ -255,7 +255,7 @@ Any system becomes a capability by deploying an adapter that:
 3. Handles `ExecuteCapability` RPCs
 
 ```
-Existing system           Adapter                Keel
+Existing system           Adapter                Zynax
 ─────────────────         ──────────────         ─────────────
 Bedrock API      →   llm-adapter        →   capability: summarize
 GitHub API       →   git-adapter        →   capability: open_mr
@@ -264,7 +264,7 @@ Internal API     →   http-adapter       →   capability: call_payments
 LangGraph app    →   langgraph-adapter  →   capability: research_topic
 ```
 
-Adapters are thin. They translate between Keel contracts and
+Adapters are thin. They translate between Zynax contracts and
 the external system's native protocol. They contain no business logic.
 
 ---
@@ -294,7 +294,7 @@ Every async event is documented in `spec/asyncapi/`. The AsyncAPI spec is:
 
 ## 9. Runtime Abstraction
 
-Kubernetes is optional. Keel supports:
+Kubernetes is optional. Zynax supports:
 
 | Runtime | Use Case |
 |---------|---------|
@@ -302,7 +302,7 @@ Kubernetes is optional. Keel supports:
 | Kubernetes | Production, scale |
 | Cloud APIs (ECS, Cloud Run) | Serverless deployment |
 
-The `api-gateway` exposes `keel apply` which accepts YAML manifests
+The `api-gateway` exposes `zynax apply` which accepts YAML manifests
 regardless of the underlying runtime. Local dev and production accept
 identical YAML — the compiler and runtime layer handle the difference.
 
@@ -313,7 +313,7 @@ identical YAML — the compiler and runtime layer handle the difference.
 ### Workflow Execution Flow
 
 ```
-1. User: keel apply workflow.yaml
+1. User: zynax apply workflow.yaml
 2. API Gateway: validate auth → forward to Workflow Compiler
 3. Workflow Compiler: parse YAML → validate schema → compile to IR → select engine
 4. Engine Adapter: translate IR → Temporal workflow → submit to Temporal
@@ -341,7 +341,7 @@ Temporal → transitions workflow state: fix → review
 
 ### The Protocol Is the Contract
 
-Every integration point in Keel is defined in `protos/keel/v1/`. This is not
+Every integration point in Zynax is defined in `protos/zynax/v1/`. This is not
 an implementation detail — it is a deliberate architectural guarantee. The proto
 contract is the only thing that two systems need to agree on to work together.
 Neither system needs to know what language, framework, or runtime the other uses.
@@ -380,11 +380,11 @@ TypeScript API adapter are all equal participants in Layer 3. They implement the
 
 | Component | How it consumes the proto contract |
 |-----------|-----------------------------------|
-| Go platform services (internal) | Import from `gen/go/keel/v1/` via `go.work` workspace |
-| External Go consumers | Import `github.com/keel-io/keel/gen/go/keel/v1` via `go.mod` |
-| Python SDK agents | `keel-sdk` wraps `protos/generated/python/` — proto is abstracted |
+| Go platform services (internal) | Import from `gen/go/zynax/v1/` via `go.work` workspace |
+| External Go consumers | Import `github.com/zynax-io/zynax/gen/go/zynax/v1` via `go.mod` |
+| Python SDK agents | `zynax-sdk` wraps `protos/generated/python/` — proto is abstracted |
 | Python raw-stub callers | Import directly from `protos/generated/python/` |
-| Other languages | Run `buf generate` against `protos/keel/v1/` source |
+| Other languages | Run `buf generate` against `protos/zynax/v1/` source |
 | Future BSR consumers | Import from the Buf Schema Registry (planned for M1) |
 
 The generated stubs in `gen/go/` and `protos/generated/python/` are committed to
@@ -445,5 +445,5 @@ See `ROADMAP.md` for the full timeline. Architecture aligns with:
 | M3 — Engine Adapters | services/engine-adapter/ + Temporal first |
 | M4 — YAML System | spec/schemas/ + compiler → IR |
 | M5 — Adapter Layer | agents/adapters/ (http, llm, git) |
-| M6 — Runtime + CLI | `keel apply` + local runner |
+| M6 — Runtime + CLI | `zynax apply` + local runner |
 | M7 — Observability | OTel traces across all layers |

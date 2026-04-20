@@ -13,7 +13,7 @@ Every service Helm chart MUST include all of the following templates.
 A chart without any of these is incomplete and will fail chart-testing (`ct lint`).
 
 ```
-helm/keel-<service>/
+helm/zynax-<service>/
 ├── Chart.yaml
 ├── values.yaml              ← Defaults. No secrets here.
 ├── values-production.yaml   ← Production overrides. No secrets here.
@@ -38,12 +38,12 @@ helm/keel-<service>/
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "keel.fullname" . }}
-  labels: {{ include "keel.labels" . | nindent 4 }}
+  name: {{ include "zynax.fullname" . }}
+  labels: {{ include "zynax.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}  # Min 2 in production
   selector:
-    matchLabels: {{ include "keel.selectorLabels" . | nindent 6 }}
+    matchLabels: {{ include "zynax.selectorLabels" . | nindent 6 }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -51,13 +51,13 @@ spec:
       maxUnavailable: 0  # Zero downtime deployments
   template:
     metadata:
-      labels: {{ include "keel.selectorLabels" . | nindent 8 }}
+      labels: {{ include "zynax.selectorLabels" . | nindent 8 }}
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: {{ include "keel.serviceAccountName" . }}
+      serviceAccountName: {{ include "zynax.serviceAccountName" . }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -108,7 +108,7 @@ spec:
               value: {{ .Values.logLevel | quote }}
           envFrom:
             - secretRef:
-                name: {{ include "keel.fullname" . }}-secrets
+                name: {{ include "zynax.fullname" . }}-secrets
                 optional: false
           volumeMounts:
             - name: tmp
@@ -121,7 +121,7 @@ spec:
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: DoNotSchedule
           labelSelector:
-            matchLabels: {{ include "keel.selectorLabels" . | nindent 14 }}
+            matchLabels: {{ include "zynax.selectorLabels" . | nindent 14 }}
 ```
 
 ### HPA Template
@@ -131,12 +131,12 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "keel.fullname" . }}
+  name: {{ include "zynax.fullname" . }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "keel.fullname" . }}
+    name: {{ include "zynax.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
@@ -162,10 +162,10 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "keel.fullname" . }}
+  name: {{ include "zynax.fullname" . }}
 spec:
   podSelector:
-    matchLabels: {{ include "keel.selectorLabels" . | nindent 6 }}
+    matchLabels: {{ include "zynax.selectorLabels" . | nindent 6 }}
   policyTypes:
     - Ingress
     - Egress
@@ -173,7 +173,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/part-of: keel
+              app.kubernetes.io/part-of: zynax
       ports:
         - protocol: TCP
           port: 50051  # gRPC only from within the platform
@@ -185,7 +185,7 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/part-of: keel
+              app.kubernetes.io/part-of: zynax
     - to: []   # DNS
       ports:
         - protocol: UDP
@@ -199,11 +199,11 @@ spec:
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "keel.fullname" . }}
+  name: {{ include "zynax.fullname" . }}
 spec:
   minAvailable: 1  # Always keep at least one pod during node drain
   selector:
-    matchLabels: {{ include "keel.selectorLabels" . | nindent 6 }}
+    matchLabels: {{ include "zynax.selectorLabels" . | nindent 6 }}
 ```
 
 ---
@@ -219,7 +219,7 @@ Rules:
 - Use named volumes for data persistence.
 - Use health checks on all containers.
 - Services depend_on with `service_healthy` condition.
-- Network named `keel-net`.
+- Network named `zynax-net`.
 - Expose only necessary ports to host.
 
 ---
@@ -240,7 +240,7 @@ Rules:
 replicaCount: 1   # Override to 2+ in production values
 
 image:
-  repository: ghcr.io/keel-io/keel-<service>
+  repository: ghcr.io/zynax-io/zynax-<service>
   tag: "latest"   # Override with specific SHA in production
   pullPolicy: IfNotPresent
 

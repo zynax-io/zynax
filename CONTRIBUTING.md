@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Contributing to Keel
+# Contributing to Zynax
 
-Thank you for your interest in contributing. Keel is built by its community and held
+Thank you for your interest in contributing. Zynax is built by its community and held
 to the standards of the best-in-class CNCF projects. This guide is the single source
 of truth for how work flows from idea to merged code.
 
@@ -49,9 +49,9 @@ a reason, and knowing the reason makes it easier to apply in edge cases.
 
 | Channel | Purpose | When to use |
 |---------|---------|------------|
-| [GitHub Issues](https://github.com/keel-io/keel/issues) | Bug reports, feature requests, ADR proposals | Actionable work items |
-| [GitHub Discussions](https://github.com/keel-io/keel/discussions) | Questions, ideas, design exploration | Before an issue exists |
-| [GitHub PRs](https://github.com/keel-io/keel/pulls) | Code review, implementation discussion | After an issue is triaged |
+| [GitHub Issues](https://github.com/zynax-io/zynax/issues) | Bug reports, feature requests, ADR proposals | Actionable work items |
+| [GitHub Discussions](https://github.com/zynax-io/zynax/discussions) | Questions, ideas, design exploration | Before an issue exists |
+| [GitHub PRs](https://github.com/zynax-io/zynax/pulls) | Code review, implementation discussion | After an issue is triaged |
 
 **Rules:**
 - Do not use issues for questions — use Discussions. Issues are reserved for
@@ -79,8 +79,8 @@ a reason, and knowing the reason makes it easier to apply in edge cases.
 ### Setup
 
 ```bash
-git clone https://github.com/keel-io/keel.git
-cd keel
+git clone https://github.com/zynax-io/zynax.git
+cd zynax
 make bootstrap        # Install all tools + pre-commit hooks (includes commitlint + DCO)
 make dev-up           # Start local stack: PostgreSQL, Redis, NATS, all services
 make dev-ps           # Verify everything is healthy
@@ -153,7 +153,7 @@ that matter most are here.
 
 ### Branch Strategy
 
-Keel uses **trunk-based development**: short-lived feature branches off `main`.
+Zynax uses **trunk-based development**: short-lived feature branches off `main`.
 
 ```
 main
@@ -251,7 +251,7 @@ fixed the @jane issue        ← @mentions not allowed in commit message
 ```
 feat(protos)!: Rename AgentConfig to AgentSpec
 
-BREAKING CHANGE: All consumers of keel.v1.AgentConfig must update field
+BREAKING CHANGE: All consumers of zynax.v1.AgentConfig must update field
 references to AgentSpec. No field renaming — only the message name changes.
 Migration: docs/migrations/v0.2-to-v0.3.md
 
@@ -547,7 +547,7 @@ All of the following must be true before merge:
 
 ### Merge Strategy
 
-Keel uses **squash-and-merge** for feature branches. The squash commit message is
+Zynax uses **squash-and-merge** for feature branches. The squash commit message is
 the PR title (which must be a valid Conventional Commit). Individual commits within
 the PR are for the reviewer's benefit; the main branch history shows one commit per
 PR.
@@ -655,7 +655,7 @@ Large features that span multiple PRs are tracked as **Epic issues**. An epic:
 
 ## 11. AI-Assisted Contributions
 
-Keel welcomes contributions where AI tools (Claude, Copilot, GPT-4, etc.) assist
+Zynax welcomes contributions where AI tools (Claude, Copilot, GPT-4, etc.) assist
 with drafting code, documentation, or tests. AI assistance is a productivity tool,
 not a shortcut past quality standards.
 
@@ -758,11 +758,11 @@ extra scrutiny and versioning discipline.
 
 ## 14. First Contribution
 
-If this is your first contribution to Keel, welcome. Here is the fastest path to
+If this is your first contribution to Zynax, welcome. Here is the fastest path to
 your first merged PR:
 
 1. **Pick a `good first issue`** — these are pre-triaged, scoped, and have clear
-   acceptance criteria. Browse them [here](https://github.com/keel-io/keel/issues?q=is%3Aopen+label%3A%22good+first+issue%22).
+   acceptance criteria. Browse them [here](https://github.com/zynax-io/zynax/issues?q=is%3Aopen+label%3A%22good+first+issue%22).
 
 2. **Comment on the issue** — say you'd like to work on it. Wait for assignment.
 
@@ -788,5 +788,5 @@ change thoroughly.
 
 ## Questions?
 
-Open a [GitHub Discussion](https://github.com/keel-io/keel/discussions) tagged
+Open a [GitHub Discussion](https://github.com/zynax-io/zynax/discussions) tagged
 `question`. Do not use issues for questions — they are reserved for actionable work.

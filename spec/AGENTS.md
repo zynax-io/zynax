@@ -1,6 +1,6 @@
 # spec/ — AGENTS.md
 
-> The `spec/` directory contains the **declarative intent layer** of Keel.
+> The `spec/` directory contains the **declarative intent layer** of Zynax.
 > This is Layer 1 of the three-layer model. See `ARCHITECTURE.md §2`.
 >
 > Everything in this directory is YAML. There is no Go or Python here.
@@ -32,7 +32,7 @@ Defines an event-driven state machine. The primary user-facing primitive.
 
 ```yaml
 kind: Workflow
-apiVersion: keel.io/v1
+apiVersion: zynax.io/v1
 
 metadata:
   name: code-review-workflow
@@ -49,7 +49,7 @@ spec:
   triggers:
     - event: github.pull_request.opened
       filter:
-        repo: "keel/keel"
+        repo: "zynax/zynax"
 
   states:
     review:
@@ -103,7 +103,7 @@ Does NOT describe how the capability runs — only what it can do.
 
 ```yaml
 kind: AgentDef
-apiVersion: keel.io/v1
+apiVersion: zynax.io/v1
 
 metadata:
   name: summarizer-agent
@@ -157,7 +157,7 @@ Routing and scheduling policies for capability dispatch.
 
 ```yaml
 kind: Policy
-apiVersion: keel.io/v1
+apiVersion: zynax.io/v1
 
 metadata:
   name: summarize-routing-policy

@@ -2,18 +2,18 @@ blank_issues_enabled: false
 
 contact_links:
   - name: Question or Idea (GitHub Discussions)
-    url: https://github.com/keel-io/keel/discussions/new?category=q-a
+    url: https://github.com/zynax-io/zynax/discussions/new?category=q-a
     about: >
-      Questions about using Keel, design discussions, and ideas that are not
+      Questions about using Zynax, design discussions, and ideas that are not
       yet concrete enough for a feature issue belong in Discussions — not Issues.
       Issues are reserved for actionable work items.
 
   - name: Security Vulnerability
-    url: https://github.com/keel-io/keel/security/advisories/new
+    url: https://github.com/zynax-io/zynax/security/advisories/new
     about: >
       Do NOT use a public issue for security vulnerabilities.
       Use GitHub's private Security Advisory form. See SECURITY.md.
 
   - name: Code of Conduct Report
-    url: mailto:conduct@keel.io
-    about: Report Code of Conduct violations to conduct@keel.io (private).
+    url: mailto:conduct@zynax.io
+    about: Report Code of Conduct violations to conduct@zynax.io (private).

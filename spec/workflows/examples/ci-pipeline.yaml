@@ -2,7 +2,7 @@
 # Demonstrates: parallel actions, CI integration, failure recovery
 
 kind: Workflow
-apiVersion: keel.io/v1
+apiVersion: zynax.io/v1
 
 metadata:
   name: ci-pipeline-workflow
@@ -52,7 +52,7 @@ spec:
         - capability: build_image
           input:
             commit: "{{ .trigger.commit_sha }}"
-            registry: "ghcr.io/keel-io"
+            registry: "ghcr.io/zynax-io"
           timeout: 20m
       on:
         - event: build.success

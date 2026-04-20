@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Propose a new capability or improvement to Keel
+about: Propose a new capability or improvement to Zynax
 labels: ["type: feature", "status: needs-triage"]
 assignees: ''
 ---
@@ -23,7 +23,7 @@ Be specific — avoid "it would be nice if...". Describe the pain point.
 
 ## Proposed Capability
 
-What should Keel be able to do that it cannot do today?
+What should Zynax be able to do that it cannot do today?
 
 Write the expected behaviour as Gherkin if possible — this will become the
 `.feature` file when implementation begins:

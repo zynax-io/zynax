@@ -4,7 +4,7 @@
 > See `ARCHITECTURE.md §7` and `docs/adr/ADR-013-adapter-first.md`.
 >
 > This directory contains execution adapters — thin wrappers that expose
-> external systems as Keel capabilities WITHOUT requiring the SDK.
+> external systems as Zynax capabilities WITHOUT requiring the SDK.
 
 ---
 
@@ -15,7 +15,7 @@
 That is the ONLY requirement. No language. No framework. No SDK import.
 
 ```
-External System      Adapter             Keel
+External System      Adapter             Zynax
 ─────────────────    ──────────────      ─────────────────
 Bedrock API     →    llm/              → capability: summarize
 GitHub API      →    git/              → capability: open_mr, request_review
@@ -32,20 +32,20 @@ Ollama          →    llm/              → capability: generate_code
 An adapter sits between two worlds. These two sides are completely independent
 of each other, and understanding them separately is the key to adapter design.
 
-### The Keel-Facing Side
+### The Zynax-Facing Side
 
 Every adapter, in every language, implements the `AgentService` gRPC contract
-defined in `protos/keel/v1/`. This side is always identical regardless of what
+defined in `protos/zynax/v1/`. This side is always identical regardless of what
 the adapter wraps or what language it is written in. The task-broker, which
 dispatches tasks to adapters, sees exactly the same contract whether it is
 talking to a Python HTTP adapter, a Go database adapter, or a Java enterprise
-system adapter. The Keel platform is entirely unaware of what is on the other
+system adapter. The Zynax platform is entirely unaware of what is on the other
 side of this interface.
 
 Adapters implement this side using **raw generated proto stubs** — not the
 Python SDK. Rule 6 in this file states this explicitly: "Never import from
 agents/sdk." The stubs for Go, Python, and any other language are generated
-from the same proto source in `protos/keel/v1/`. See `protos/AGENTS.md §8`
+from the same proto source in `protos/zynax/v1/`. See `protos/AGENTS.md §8`
 for how to obtain stubs in any language.
 
 ### The External-Facing Side
@@ -97,7 +97,7 @@ one that fits the external system:
 | Any language with gRPC support | That language |
 
 For any language, the workflow is:
-1. Generate `AgentService` stubs from `protos/keel/v1/` using `buf generate`
+1. Generate `AgentService` stubs from `protos/zynax/v1/` using `buf generate`
    with your language's gRPC plugin. See `protos/AGENTS.md §8`.
 2. Implement `ExecuteCapability` and `GetCapabilities` against those stubs.
 3. Start a gRPC server on the adapter's port.
@@ -116,8 +116,8 @@ things:
 
 | | Adapter | SDK Agent |
 |---|---------|-----------|
-| **Purpose** | Wrap an existing external system | Build new Keel-native intelligence |
-| **SDK dependency** | None — raw stubs only | `keel-sdk` package |
+| **Purpose** | Wrap an existing external system | Build new Zynax-native intelligence |
+| **SDK dependency** | None — raw stubs only | `zynax-sdk` package |
 | **AgentContext injection** | Not applicable — no platform context needed | Core feature — SDK injects context |
 | **Platform service access** | Minimal — translate and forward | Full — memory, registry, broker via context |
 | **Lifecycle management** | Self-managed or minimal | SDK manages registration, heartbeat, shutdown |
@@ -207,7 +207,7 @@ message CapabilityEvent {
 ```python
 # agents/adapters/http/src/keel_http_adapter/adapter.py
 
-"""HTTP Adapter — wraps any REST API as an Keel capability.
+"""HTTP Adapter — wraps any REST API as an Zynax capability.
 
 Configuration via env vars (no config files):
   KEEL_HTTP_TARGET_URL=https://api.example.com
@@ -220,13 +220,13 @@ import json
 import grpc
 import httpx
 import structlog
-from keel.v1 import agent_pb2, agent_pb2_grpc
+from zynax.v1 import agent_pb2, agent_pb2_grpc
 from keel_http_adapter.config import settings
 
 logger = structlog.get_logger(__name__)
 
 class HTTPAdapter(agent_pb2_grpc.AgentServiceServicer):
-    """Wraps a REST API as an Keel capability.
+    """Wraps a REST API as an Zynax capability.
 
     No business logic here — pure protocol translation:
     gRPC ExecuteCapability → HTTP call → stream CapabilityEvent responses.
@@ -290,7 +290,7 @@ class HTTPAdapter(agent_pb2_grpc.AgentServiceServicer):
 ```python
 # agents/adapters/llm/src/keel_llm_adapter/adapter.py
 
-"""LLM Adapter — wraps LLM providers as Keel capabilities.
+"""LLM Adapter — wraps LLM providers as Zynax capabilities.
 
 Supported providers (via KEEL_LLM_PROVIDER env var):
   - bedrock  (Amazon Bedrock)
@@ -351,9 +351,9 @@ class LLMAdapter(agent_pb2_grpc.AgentServiceServicer):
 ```python
 # agents/adapters/git/src/keel_git_adapter/webhook.py
 
-"""GitHub webhook receiver → Keel event-bus publisher.
+"""GitHub webhook receiver → Zynax event-bus publisher.
 
-GitHub events are translated to Keel workflow events and published
+GitHub events are translated to Zynax workflow events and published
 to event-bus. Running workflows that trigger on these events are signaled.
 
 Event mapping:
@@ -369,7 +369,7 @@ class GitHubWebhookHandler:
     async def handle(self, event_type: str, payload: dict) -> None:
         keel_event = self._translate(event_type, payload)
         if keel_event is None:
-            return  # not an event Keel cares about
+            return  # not an event Zynax cares about
 
         await self._bus.Publish(PublishRequest(
             topic=keel_event.topic,
@@ -386,7 +386,7 @@ class GitHubWebhookHandler:
         handler = MAPPING.get(event_type)
         if handler is None: return None
         if callable(handler): return handler(payload)
-        return KeelEvent(topic=f"keel.v1.git.{handler}", payload=payload)
+        return KeelEvent(topic=f"zynax.v1.git.{handler}", payload=payload)
 ```
 
 ---
@@ -396,7 +396,7 @@ class GitHubWebhookHandler:
 ```yaml
 # Deploy the LLM adapter and register its capabilities:
 kind: AgentDef
-apiVersion: keel.io/v1
+apiVersion: zynax.io/v1
 
 metadata:
   name: llm-bedrock-adapter
@@ -448,9 +448,9 @@ The two built-in adapter types that most clearly demonstrate this:
 
 - The `http-adapter` is config-only — it can wrap any REST API in any language on
   any platform by changing environment variables, with zero code changes to the
-  adapter itself. The wrapped API does not need to know it is connected to Keel.
+  adapter itself. The wrapped API does not need to know it is connected to Zynax.
 
 The adapter pattern is the fullest expression of the architecture's language
 neutrality. The proto contract is the only thing that matters. Everything else
 — language, framework, runtime, deployment model — is an implementation detail
-that Keel is unaware of and indifferent to.
+that Zynax is unaware of and indifferent to.

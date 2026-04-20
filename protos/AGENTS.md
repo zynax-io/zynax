@@ -12,7 +12,7 @@
 
 ```
 protos/
-├── keel/
+├── zynax/
 │   ├── v1/
 │   │   ├── agent_registry.proto     ← One proto per service
 │   │   ├── task_broker.proto
@@ -24,7 +24,7 @@ protos/
 │       └── pagination.proto         ← PageRequest / PageResponse
 └── generated/                       ← Auto-generated. Never edit manually.
     └── python/
-        └── keel/
+        └── zynax/
             └── v1/
 ```
 
@@ -33,9 +33,9 @@ protos/
 ```protobuf
 // ✅ Package: reverse-DNS, versioned
 syntax = "proto3";
-package keel.v1;
-option go_package = "github.com/keel-io/keel/gen/go/keel/v1";
-option java_package = "io.keel.v1";
+package zynax.v1;
+option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1";
+option java_package = "io.zynax.v1";
 
 // ✅ Service: PascalCase, singular, descriptive
 service AgentRegistryService { ... }
@@ -96,7 +96,7 @@ These rules prevent breaking consumers:
 - **Never** rename a package.
 - Adding new fields is safe (they default to zero value).
 - Adding new enum values is safe (unknown values are ignored).
-- Breaking changes require a new version package: `keel/v2/`.
+- Breaking changes require a new version package: `zynax/v2/`.
 
 ```protobuf
 // Removing a field correctly:
@@ -124,7 +124,7 @@ make generate-protos
 # protos/buf.yaml
 version: v2
 modules:
-  - path: keel
+  - path: zynax
 lint:
   use:
     - DEFAULT
@@ -139,10 +139,10 @@ breaking:
 
 ## 8. Consuming These Contracts — Language Interoperability Guide
 
-> The proto files in `protos/keel/v1/` are the **universal integration boundary**
-> for Keel. Any language, framework, or runtime that can speak gRPC can call
-> any Keel service, implement any adapter, or build any agent — without the Keel
-> Python SDK and without importing any Keel-specific library beyond the generated
+> The proto files in `protos/zynax/v1/` are the **universal integration boundary**
+> for Zynax. Any language, framework, or runtime that can speak gRPC can call
+> any Zynax service, implement any adapter, or build any agent — without the Zynax
+> Python SDK and without importing any Zynax-specific library beyond the generated
 > stubs.
 >
 > This section explains what that means concretely for each supported language tier.
@@ -153,7 +153,7 @@ breaking:
 
 Before choosing how to consume these contracts, understand which role your code plays:
 
-**Client role** — Your system calls Keel services (registers an agent, queries capabilities,
+**Client role** — Your system calls Zynax services (registers an agent, queries capabilities,
 submits a task, reads memory). You need the generated stubs for your language and a gRPC
 channel. Nothing else. The generated stubs are all you need.
 
@@ -176,16 +176,16 @@ the memory service is both a server receiving tasks and a client reading memory)
 | **2 — Supported** | Any language with a gRPC plugin for `buf generate` | No — generate locally | Maintainers provide the proto source; consumers generate |
 | **3 — Community** | Language-specific wrapper libraries built on Tier 2 | N/A | Community contributors |
 
-**Tier 1** means Keel CI validates the generated stubs on every proto change and
+**Tier 1** means Zynax CI validates the generated stubs on every proto change and
 ships them alongside the source. Consumers import them directly.
 
 **Tier 2** means you run `buf generate` with your language's plugin against the
-`protos/keel/v1/` source and get idiomatic stubs. Every major language has a gRPC
+`protos/zynax/v1/` source and get idiomatic stubs. Every major language has a gRPC
 plugin: Java, TypeScript/Node.js, Rust, C#, Kotlin, Swift, Ruby, Dart, PHP, and more.
 The proto source is the contract — stub generation is a build step, not a dependency.
 
 **Tier 3** is community-contributed SDKs or client libraries built on top of Tier 2
-stubs. The Keel project welcomes these but does not maintain them.
+stubs. The Zynax project welcomes these but does not maintain them.
 
 ---
 
@@ -193,16 +193,16 @@ stubs. The Keel project welcomes these but does not maintain them.
 
 Go platform services and any Go consumer import the generated stubs as a standard
 Go module dependency. The import path follows the `go_package` option declared in
-each proto file: `github.com/keel-io/keel/gen/go/keel/v1`.
+each proto file: `github.com/zynax-io/zynax/gen/go/zynax/v1`.
 
 The generated stubs contain typed request and response structs, service client
 interfaces, and service server interfaces — everything needed to call or implement
-any Keel service. There is no separate Go SDK because the generated stubs and a
+any Zynax service. There is no separate Go SDK because the generated stubs and a
 gRPC channel are sufficient. Go's type system and the generated interfaces provide
 the same safety guarantees that a higher-level SDK would add in a less statically
 typed language.
 
-Within the Keel monorepo, Go services reference the generated stubs via the
+Within the Zynax monorepo, Go services reference the generated stubs via the
 `go.work` workspace without needing to declare an external module dependency.
 External Go consumers declare the import as a standard `go.mod` dependency.
 
@@ -215,15 +215,15 @@ Python consumers have two options depending on the role they play:
 **Path A — Raw generated stubs** (`protos/generated/python/`)
 
 Use this path when:
-- Your system calls Keel services as a client (submitting tasks, querying agents, reading memory)
+- Your system calls Zynax services as a client (submitting tasks, querying agents, reading memory)
 - You are building a non-SDK adapter and want full control over the gRPC lifecycle
-- You are integrating Keel into an existing Python service that already manages its own gRPC connections
+- You are integrating Zynax into an existing Python service that already manages its own gRPC connections
 
 The raw stubs give you typed request/response classes and service stubs for every
 proto. You manage the channel, the connection lifecycle, and the serialisation
 yourself. This is the lowest-level, most explicit path.
 
-**Path B — The `keel-sdk` Python package** (`agents/sdk/`)
+**Path B — The `zynax-sdk` Python package** (`agents/sdk/`)
 
 Use this path when:
 - You are building a new Python agent that receives and executes tasks (server role)
@@ -243,16 +243,16 @@ decision between these two paths in detail.
 For any language not in Tier 1, the workflow is:
 
 1. Install `buf` and the gRPC plugin for your target language.
-2. Add a `buf.gen.yaml` template that points at the `protos/keel/v1/` source.
+2. Add a `buf.gen.yaml` template that points at the `protos/zynax/v1/` source.
 3. Run `buf generate` to produce idiomatic stubs for your language.
-4. Implement the client (if calling Keel services) or the server (if implementing
+4. Implement the client (if calling Zynax services) or the server (if implementing
    an adapter) against those stubs.
 
 The generated stubs are entirely derived from the proto source. They contain no
-Keel business logic. They change only when the proto source changes. Treat them
+Zynax business logic. They change only when the proto source changes. Treat them
 as a build artifact, not a dependency to version separately.
 
-When Keel is published to the Buf Schema Registry (BSR), consumers will be able to
+When Zynax is published to the Buf Schema Registry (BSR), consumers will be able to
 depend on the registry directly instead of running `buf generate` locally. This is
 planned for Milestone 1.
 
@@ -263,7 +263,7 @@ planned for Milestone 1.
 Because every integration point is defined in proto, the following is always true:
 
 - A Go service can invoke a capability implemented by a Python agent. They communicate
-  exclusively via the gRPC contracts in `protos/keel/v1/`. Neither knows what language
+  exclusively via the gRPC contracts in `protos/zynax/v1/`. Neither knows what language
   the other is written in.
 
 - A TypeScript web client can call the API Gateway, submit a workflow, and receive
@@ -271,14 +271,14 @@ Because every integration point is defined in proto, the following is always tru
   services that process the request.
 
 - A Java-based enterprise system can register capabilities and receive tasks from
-  the task-broker, making it a first-class participant in Keel workflows without
-  Python, Go, or any Keel SDK.
+  the task-broker, making it a first-class participant in Zynax workflows without
+  Python, Go, or any Zynax SDK.
 
 - A Rust high-performance adapter can serve capabilities to the task-broker,
   implement the `AgentService` contract directly from generated Rust stubs, and
   be indistinguishable from a Python SDK agent from the platform's perspective.
 
-The proto contract is the only thing that matters for interoperability. Keel is
+The proto contract is the only thing that matters for interoperability. Zynax is
 agnostic about what is on the other end of the gRPC connection.
 
 ---
@@ -292,7 +292,7 @@ When a proto change is merged (see §4, Backward Compatibility Rules, and
 Existing generated stubs in all languages continue to work. Consumers can
 regenerate to access new fields, but are not required to.
 
-**Breaking changes** (new package version `keel/v2/`):
+**Breaking changes** (new package version `zynax/v2/`):
 A new import path is published. Consumers opt in to the new version on their
 own schedule. The old version remains available until formally deprecated via
 a migration timeline documented in `docs/migrations/`.
@@ -312,7 +312,7 @@ contract is honoured.
 ```gherkin
 # tests/features/agent_registry_contract.feature
 Feature: AgentRegistryService Contract
-  The agent registry gRPC contract as defined in keel/v1/agent_registry.proto
+  The agent registry gRPC contract as defined in zynax/v1/agent_registry.proto
 
   Scenario: RegisterAgent returns valid response for valid spec
     Given a valid RegisterAgentRequest with request_id and spec

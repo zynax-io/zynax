@@ -3,7 +3,7 @@
 **Status:** Accepted  **Date:** 2025-04-01
 
 ## Decision
-Keel workflows are event-driven state machines.
+Zynax workflows are event-driven state machines.
 They are NOT DAGs (directed acyclic graphs).
 
 ## Rationale
