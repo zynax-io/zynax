@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zynax.io/schemas/cloudevent/v1.0",
+  "title": "Zynax CloudEvent Envelope",
+  "description": "JSON Schema for the Zynax CloudEvent envelope. Compatible with the CNCF CloudEvents v1.0 specification. All async events published to the EventBusService must conform to this schema.",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type"],
+  "properties": {
+    "specversion": {
+      "type": "string",
+      "description": "The version of the CloudEvents specification. Must be '1.0'.",
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this event. Must be non-empty.",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string",
+      "description": "URI reference identifying the event producer context. Must be non-empty.",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "description": "The fully-qualified event type. Zynax convention: 'zynax.<service>.<verb>'. Must be non-empty.",
+      "minLength": 1
+    },
+    "datacontenttype": {
+      "type": "string",
+      "description": "The content type of the data field (RFC 2046 media type). Recommended: 'application/json'."
+    },
+    "subject": {
+      "type": "string",
+      "description": "A URI reference identifying the event subject within the source context."
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wall-clock time the event occurred (RFC 3339)."
+    },
+    "data": {
+      "description": "Arbitrary event payload. Format described by datacontenttype."
+    },
+    "workflow_id": {
+      "type": "string",
+      "description": "Zynax extension: the workflow instance this event belongs to. Maps to CloudEvents extension 'workflowid'."
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Zynax extension: the execution run identifier assigned by the engine adapter. Maps to CloudEvents extension 'runid'."
+    },
+    "namespace": {
+      "type": "string",
+      "description": "Zynax extension: the Zynax namespace the workflow runs in. Maps to CloudEvents extension 'namespace'."
+    },
+    "capability_name": {
+      "type": "string",
+      "description": "Zynax extension: the capability name that produced this event. Maps to CloudEvents extension 'capabilityname'."
+    }
+  },
+  "additionalProperties": true
+}
