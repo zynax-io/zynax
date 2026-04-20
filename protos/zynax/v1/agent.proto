@@ -32,8 +32,7 @@ service AgentService {
   // to the caller. The stream ends with TASK_EVENT_TYPE_COMPLETED on success
   // or TASK_EVENT_TYPE_FAILED on error. Zero or more PROGRESS events may
   // precede the terminal event.
-  rpc ExecuteCapability(ExecuteCapabilityRequest)
-      returns (stream TaskEvent);
+  rpc ExecuteCapability(ExecuteCapabilityRequest) returns (stream TaskEvent);
 }
 
 // ExecuteCapabilityRequest is the entry point for all capability invocations.
