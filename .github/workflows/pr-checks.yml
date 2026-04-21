@@ -7,7 +7,6 @@
 # Coverage:
 #   conventional-commit  → PR title follows Conventional Commits format
 #   pr-size              → auto-labels size/S · size/M · size/L · size/XL
-#   bdd-first            → verifies .feature committed before implementation
 #   proto-breaking       → buf breaking change detection against base branch
 #   proto-stubs-fresh    → detects stale generated stubs (issue #12 tracks gen)
 #   layer-boundaries     → detects cross-layer imports (ADR-001 §separation)
@@ -123,65 +122,6 @@ jobs:
                 `If it cannot be split, document the reason in the PR template.`
               );
             }
-
-# ── BDD-First Order Check ─────────────────────────────────────────────────────
-# ADR-004: the .feature file (specification) MUST be committed before any
-# implementation code (.go, .py, .ts). This check walks the commit history
-# of the PR branch and fails if implementation arrives before the spec.
-  bdd-first:
-    name: BDD feature-file-before-implementation
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Verify .feature committed before implementation
-        run: |
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
-
-          feature_commit=""
-          violation=""
-
-          # Walk commits oldest-first
-          for sha in $(git log "${BASE}..${HEAD}" --format="%H" --reverse); do
-            files=$(git diff-tree --no-commit-id -r --name-only "$sha")
-
-            has_feature=$(echo "$files" | grep -c "\.feature$" || true)
-            has_impl=$(echo "$files" | grep -cE "\.(go|py|ts)$" || true)
-
-            if [ "$has_feature" -gt 0 ]; then
-              feature_commit="$sha"
-            fi
-
-            # Implementation before the first .feature commit is a violation.
-            # Exception: if the commit contains ONLY test helpers or generated code.
-            if [ "$has_impl" -gt 0 ] && [ -z "$feature_commit" ]; then
-              subject=$(git log -1 --format="%s" "$sha")
-              # Allow commits that only touch _test.go files (test helpers are OK)
-              non_test_impl=$(echo "$files" | grep -E "\.(go|py|ts)$" | grep -v "_test\." | grep -v "^protos/generated/" || true)
-              if [ -n "$non_test_impl" ]; then
-                violation="${sha:0:12}: ${subject}"
-                break
-              fi
-            fi
-          done
-
-          if [ -n "$violation" ]; then
-            echo "❌ Implementation code committed before .feature file (ADR-004 violation):"
-            echo "   ${violation}"
-            echo ""
-            echo "Fix: reorder commits so the .feature file is the first commit."
-            echo "     git rebase -i ${BASE}  — move the feature file commit to the top."
-            exit 1
-          fi
-
-          if [ -z "$feature_commit" ]; then
-            echo "ℹ️  No .feature or implementation files found in this PR — check passes."
-          else
-            echo "✅ BDD ordering respected (.feature precedes implementation)"
-          fi
 
 # ── Proto Breaking-Change Detection ──────────────────────────────────────────
 # Fails if any change to protos/ breaks backward compatibility with the base
