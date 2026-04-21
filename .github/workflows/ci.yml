@@ -275,8 +275,7 @@ jobs:
         run: |
           echo "── BDD: protos/tests (godog)"
           cd protos/tests
-          go test ./... -v -timeout 60s \
-            -format=pretty \
+          GOWORK=off go test ./... -v -timeout 60s \
             2>&1 | tee bdd-results.txt
           echo "✅ BDD contract tests passed"
 
