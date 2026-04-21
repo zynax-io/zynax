@@ -144,9 +144,23 @@ Backing services as attached resources.
 - Python (agents/adapters): functions ≤ 20 lines. No `print()`. Types 100%.
 - Both: no magic numbers. No dead code. Comments explain WHY.
 
-### 4.4 BDD-First
-`.feature` file written before any implementation. Gherkin for both Go (godog)
-and Python (pytest-bdd). A feature without a passing scenario is not done.
+### 4.4 Layered Testing Strategy
+
+Four testing tiers — use the right one for the right scope (ADR-016).
+
+| Tier | Volume | What goes here |
+|------|--------|---------------|
+| BDD | 10–15% | Agent capability contracts, inter-service gRPC, E2E workflows |
+| Unit / property-based | ≥ 40% | Domain logic, routing, state transitions, message handling |
+| Contract | CI gate | Proto breaking-change detection, YAML manifest schema |
+| Simulation | As needed | Fault injection, retry storms, topology changes |
+
+**BDD-first at system boundaries:** `.feature` file committed before any
+boundary implementation. Gherkin for Go (godog) and Python (pytest-bdd).
+
+**TDD for domain logic:** Red → green → refactor. No `.feature` file required.
+
+**Property-based tests for invariants:** `hypothesis` (Python), `rapid` (Go).
 
 ---
 
@@ -377,8 +391,9 @@ Two ways to add execution capability:
 
 A feature is DONE when **ALL** are true:
 
-- [ ] `.feature` file written before implementation
-- [ ] All unit tests pass (`make test-unit`)
+- [ ] System-boundary features: `.feature` file committed before implementation
+- [ ] Domain logic: unit tests or property tests (≥ 90% coverage)
+- [ ] All tests pass (`make test-unit`)
 - [ ] Go: `golangci-lint` clean. Python: `ruff` + `mypy --strict` clean.
 - [ ] `make security` clean
 - [ ] Health probes correct
@@ -398,7 +413,8 @@ Breaking any of them is a hard blocker at code review.
 **Both layers:**
 - Never install tools on host — everything in Docker
 - Never commit secrets, tokens, or credentials
-- Never skip the `.feature` file — no feature exists without a passing scenario
+- System-boundary features require a `.feature` file before implementation (BDD-first)
+- Domain logic requires unit or property tests — `.feature` files are optional here
 - Never share a database between services
 - Never couple Layer 1 (YAML) to Layer 3 (engines)
 - Never make changes outside the stated scope of an issue or task

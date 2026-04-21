@@ -19,7 +19,7 @@ a reason, and knowing the reason makes it easier to apply in edge cases.
 4. [Engineering Standards](#4-engineering-standards)
 5. [Git Workflow & Commit Hygiene](#5-git-workflow--commit-hygiene)
 6. [PR Size & Decomposition](#6-pr-size--decomposition)
-7. [BDD-First Workflow](#7-bdd-first-workflow)
+7. [Layered Testing Strategy](#7-layered-testing-strategy)
 8. [Pull Request Process](#8-pull-request-process)
 9. [Code Review Etiquette](#9-code-review-etiquette)
 10. [Issue Workflow](#10-issue-workflow)
@@ -429,17 +429,35 @@ the code that uses it). In that case:
 
 ---
 
-## 7. BDD-First Workflow
+## 7. Layered Testing Strategy
 
-This is the required development flow for all features. No exceptions.
+Zynax uses a four-tier testing pyramid (ADR-016). Apply the right tier for the
+scope of the code you are writing — not every change needs a BDD scenario.
+
+### Which tier to use
+
+| Tier | When to use | Tools |
+|------|-------------|-------|
+| **BDD** | Agent contracts, inter-service gRPC, E2E workflows | pytest-bdd, godog |
+| **Unit / property-based** | Domain logic, routing, state transitions, message handling | pytest + hypothesis, testing + rapid |
+| **Contract** | Any proto or schema change | `buf breaking`, `make validate-spec` |
+| **Simulation** | Fault injection, retry storms, topology changes | testcontainers harness (coming) |
+
+### Tier 1: BDD — system boundaries only
+
+Use BDD when the behaviour you are defining is observable at a service boundary:
+a gRPC contract, a capability execution path, or a full workflow end-to-end.
+
+**Do NOT use BDD for** internal domain logic, scheduling algorithms, networking
+internals, or performance characteristics. Use unit or property-based tests instead.
+
+**BDD-first flow (required when BDD applies):**
 
 ```
-1. Write .feature file  →  2. Commit it  →  3. Implement steps  →  4. Write domain code  →  5. Pass tests
+1. Write .feature file  →  2. Commit it  →  3. Write step definitions  →  4. Write domain code  →  5. Pass
 ```
 
-### Step 1: Feature File First
-
-Before writing any Go or Python, create the `.feature` file:
+Commit the `.feature` file alone, before any implementation:
 
 ```gherkin
 # services/agent-registry/tests/features/capability_discovery.feature
@@ -454,17 +472,9 @@ Feature: Capability-based agent discovery
     When I query for agents with capability "summarize"
     Then I receive exactly two agents
     And none of the agents have only "search" capability
-
-  Scenario: No agents for an unknown capability
-    Given no agent is registered with capability "fly"
-    When I query for agents with capability "fly"
-    Then I receive an empty result
-    And no error is returned
 ```
 
-Commit the `.feature` file alone, before any implementation:
 ```bash
-git add services/agent-registry/tests/features/capability_discovery.feature
 git commit -s -m "test(agent-registry): add BDD scenarios for capability discovery
 
 Defines expected behaviour for capability-based agent lookup.
@@ -473,12 +483,72 @@ No implementation yet — scenarios will fail until domain code is added.
 Closes #123"
 ```
 
-### Step 2–4: Implement
+Only after the feature file is committed: write step definitions, then domain code.
+All scenarios must pass before the PR is opened.
 
-Only after the feature file is committed:
-1. Write step definitions (test code).
-2. Write domain code driven by failing tests.
-3. All scenarios must pass before the PR is opened.
+### Tier 2: Unit and property-based tests — domain logic
+
+Domain logic (routing algorithms, state transitions, message handlers) is tested
+with standard unit tests and property-based tests. No `.feature` file is required.
+
+Property tests express invariants that hold across the entire input space:
+
+```python
+# Python — hypothesis
+from hypothesis import given, strategies as st
+
+@given(st.lists(st.builds(Agent), min_size=1))
+def test_task_always_assigned(agents):
+    result = route_task(agents, task_id="t1")
+    assert result is not None
+```
+
+```go
+// Go — rapid
+func TestRoutingAlwaysAssigns(t *testing.T) {
+    rapid.Check(t, func(tc *rapid.T) {
+        agents := rapid.SliceOfN(genAgent(), 1, 10).Draw(tc, "agents").([]*Agent)
+        result, err := RouteTask(agents, "task-1")
+        require.NoError(t, err)
+        require.NotNil(t, result)
+    })
+}
+```
+
+### Tier 3: Contract tests — enforced by CI
+
+Every PR that touches `.proto` files must pass `buf breaking --against main`.
+Every PR that modifies YAML schemas must pass `make validate-spec`.
+These run automatically — no action needed beyond keeping them green.
+
+### Tier 4: Simulation tests — distributed faults
+
+For scenarios that require multiple agents, injected failures, or message
+drops, use the simulation harness in `tests/simulation/` (introduced in a
+follow-up PR). Write simulation tests for: retry storms, agent timeouts,
+topology changes, eventual consistency violations.
+
+### BDD as an AI prompting tool
+
+When using Claude or another AI assistant, write the `.feature` file first and
+ask the model to generate code that satisfies the scenarios. This forces precise
+behaviour definition before generation and dramatically improves output quality:
+
+```
+Feature: Task distribution
+
+  Scenario: Assign to least-loaded agent
+    Given 3 available agents with loads 2, 5, 1
+    When a task is submitted
+    Then it is assigned to the agent with load 1
+
+  Scenario: Reassign on agent failure
+    Given an agent is assigned a task
+    When the agent becomes unresponsive for 5 seconds
+    Then the task is reassigned to another agent
+```
+
+Then: "Generate production Go code that satisfies these scenarios, including tests."
 
 ---
 
