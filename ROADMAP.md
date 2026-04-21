@@ -58,18 +58,19 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 1 — Contracts Foundation
+## Milestone 1 — Contracts Foundation ✅ Complete (v0.1.0)
 
 **Goal:** All communication contracts defined. Nothing builds on sand.
 
-> An issue must exist for each item. Label: `milestone: M1`
+> Released 2026-04-21. See [Engineering Review](docs/milestones/M1-engineering-review.md)
+> and [Release Notes](docs/milestones/M1-release-notes.md).
 
-- [ ] gRPC proto definitions: `AgentService`, `AgentRegistryService`, `TaskBrokerService`, `MemoryService`, `EventBusService`, `WorkflowCompilerService`, `EngineAdapterService`
-- [ ] AsyncAPI spec: all async events documented (workflow events, task events, agent events)
-- [ ] Event envelope schema: `CloudEvents`-compatible wrapper for all events
-- [ ] Capability schema: JSON Schema for capability input/output declarations
-- [ ] `buf generate` produces Go stubs + Python stubs in one command
-- [ ] Contract tests: every proto method has a BDD scenario
+- [x] gRPC proto definitions: `AgentService`, `AgentRegistryService`, `TaskBrokerService`, `MemoryService`, `EventBusService`, `WorkflowCompilerService`, `EngineAdapterService`
+- [x] AsyncAPI spec: all async events documented (workflow events, task events, agent events)
+- [x] Event envelope schema: `CloudEvents`-compatible wrapper for all events
+- [x] Capability schema: JSON Schema for capability input/output declarations
+- [x] `buf generate` produces Go stubs + Python stubs in one command
+- [x] Contract tests: every proto method has a BDD scenario (140+ scenarios across all services)
 
 ---
 

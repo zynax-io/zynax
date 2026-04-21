@@ -132,15 +132,31 @@ zynax get workflows -n engineering
 
 ---
 
+## Milestone Status
+
+| Milestone | Status | Version | Docs |
+|-----------|--------|---------|------|
+| **M1 — Contracts Foundation** | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
+| M2 — Workflow IR | Planned | v0.1.0 | — |
+| M3 — Temporal Execution | Planned | v0.2.0 | — |
+| M4 — YAML System + CLI | Planned | v0.3.0 | — |
+
+M1 is the contracts-only foundation: 8 gRPC services, AsyncAPI spec, generated Go + Python stubs,
+140+ BDD contract test scenarios, and 5 CI gates. No service implementation yet — M2 onwards.
+
+---
+
 ## Repository Structure
 
 ```
-spec/           Workflow YAML manifests and schemas
-services/       Go platform services (7 services)
-agents/         Python execution adapters + optional SDK
-protos/         gRPC contracts (Go + Python stubs generated)
-infra/          Docker-first dev environment + Helm charts
-docs/adr/       Architecture Decision Records (ADR-001 – ADR-015)
+spec/                Workflow YAML manifests and schemas
+services/            Go platform services (8 services — M2+)
+agents/              Python execution adapters + optional SDK
+protos/              gRPC contracts (Go + Python stubs generated)
+protos/tests/        BDD contract test suites (godog)
+infra/               Docker-first dev environment + Helm charts
+docs/adr/            Architecture Decision Records (ADR-001 – ADR-016)
+docs/milestones/     Per-milestone engineering reviews and release notes
 ```
 
 ---
