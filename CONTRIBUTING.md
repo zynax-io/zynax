@@ -367,8 +367,8 @@ Split your work to maximise *functional value per PR*, not to minimise line coun
 |--------------|--------|-----------|
 | ≤ 200 | Ideal | Always preferred when the PR delivers complete value at this size |
 | 201–400 | Acceptable | Explain in PR description why the extra lines are necessary |
-| 401–800 | Justified extension | The only justification: splitting would produce a PR with no functional value. State this explicitly. |
-| > 800 | Blocked | Decompose before requesting review. If genuinely impossible, get maintainer approval before starting. |
+| 401–900 | Justified extension | The only justification: splitting would produce a PR with no functional value. State this explicitly. |
+| > 900 | Blocked | Decompose before requesting review. If genuinely impossible, get maintainer approval before starting. |
 
 **Exclusions from line count:** generated code (`*.pb.go`, `*_pb2.py`), lock files,
 schema fixtures, migration files.

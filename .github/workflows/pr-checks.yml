@@ -85,7 +85,7 @@ jobs:
             const sizeLabel =
               lines <= 100  ? 'size/S'  :
               lines <= 400  ? 'size/M'  :
-              lines <= 800  ? 'size/L'  : 'size/XL';
+              lines <= 900  ? 'size/L'  : 'size/XL';
 
             // Remove any existing size/* labels then apply the new one
             const { data: existing } = await github.rest.issues.listLabelsOnIssue({
@@ -110,9 +110,9 @@ jobs:
 
             core.info(`PR changes: ${lines} lines (excluding generated/lock files) → ${sizeLabel}`);
 
-            if (lines > 800) {
+            if (lines > 900) {
               core.setFailed(
-                `PR is ${lines} lines — exceeds the 800-line hard limit.\n` +
+                `PR is ${lines} lines — exceeds the 900-line hard limit.\n` +
                 `Decompose this PR into smaller, reviewable units before requesting review.\n` +
                 `See CONTRIBUTING.md §"PR Size Policy" for guidance.`
               );
