@@ -22,6 +22,11 @@ class AgentServiceStub(object):
                 request_serializer=zynax_dot_v1_dot_agent__pb2.ExecuteCapabilityRequest.SerializeToString,
                 response_deserializer=zynax_dot_v1_dot_agent__pb2.TaskEvent.FromString,
                 _registered_method=True)
+        self.GetCapabilitySchema = channel.unary_unary(
+                '/zynax.v1.AgentService/GetCapabilitySchema',
+                request_serializer=zynax_dot_v1_dot_agent__pb2.GetCapabilitySchemaRequest.SerializeToString,
+                response_deserializer=zynax_dot_v1_dot_agent__pb2.GetCapabilitySchemaResponse.FromString,
+                _registered_method=True)
 
 
 class AgentServiceServicer(object):
@@ -40,6 +45,17 @@ class AgentServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetCapabilitySchema(self, request, context):
+        """GetCapabilitySchema returns the live input and output JSON Schema for a
+        named capability. The task broker uses this to validate input_payload
+        when the registry schema is suspected stale (e.g. after a re-registration).
+        Returns NOT_FOUND if the agent does not implement the named capability.
+        Returns INVALID_ARGUMENT if capability_name is empty.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_AgentServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -47,6 +63,11 @@ def add_AgentServiceServicer_to_server(servicer, server):
                     servicer.ExecuteCapability,
                     request_deserializer=zynax_dot_v1_dot_agent__pb2.ExecuteCapabilityRequest.FromString,
                     response_serializer=zynax_dot_v1_dot_agent__pb2.TaskEvent.SerializeToString,
+            ),
+            'GetCapabilitySchema': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCapabilitySchema,
+                    request_deserializer=zynax_dot_v1_dot_agent__pb2.GetCapabilitySchemaRequest.FromString,
+                    response_serializer=zynax_dot_v1_dot_agent__pb2.GetCapabilitySchemaResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -79,6 +100,33 @@ class AgentService(object):
             '/zynax.v1.AgentService/ExecuteCapability',
             zynax_dot_v1_dot_agent__pb2.ExecuteCapabilityRequest.SerializeToString,
             zynax_dot_v1_dot_agent__pb2.TaskEvent.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetCapabilitySchema(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/zynax.v1.AgentService/GetCapabilitySchema',
+            zynax_dot_v1_dot_agent__pb2.GetCapabilitySchemaRequest.SerializeToString,
+            zynax_dot_v1_dot_agent__pb2.GetCapabilitySchemaResponse.FromString,
             options,
             channel_credentials,
             insecure,

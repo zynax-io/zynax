@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14zynax/v1/agent.proto\x12\x08zynax.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xea\x01\n\x18\x45xecuteCapabilityRequest\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId\x12\'\n\x0f\x63\x61pability_name\x18\x02 \x01(\tR\x0e\x63\x61pabilityName\x12\x17\n\x07task_id\x18\x03 \x01(\tR\x06taskId\x12\x1f\n\x0bworkflow_id\x18\x04 \x01(\tR\nworkflowId\x12#\n\rinput_payload\x18\x05 \x01(\x0cR\x0cinputPayload\x12\'\n\x0ftimeout_seconds\x18\x06 \x01(\x05R\x0etimeoutSeconds\"\xe1\x01\n\tTaskEvent\x12\x17\n\x07task_id\x18\x01 \x01(\tR\x06taskId\x12\x36\n\nevent_type\x18\x02 \x01(\x0e\x32\x17.zynax.v1.TaskEventTypeR\teventType\x12\x18\n\x07payload\x18\x03 \x01(\x0cR\x07payload\x12\x38\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ttimestamp\x12/\n\x05\x65rror\x18\x05 \x01(\x0b\x32\x19.zynax.v1.CapabilityErrorR\x05\x65rror\"\xbd\x01\n\x0f\x43\x61pabilityError\x12\x12\n\x04\x63ode\x18\x01 \x01(\tR\x04\x63ode\x12\x18\n\x07message\x18\x02 \x01(\tR\x07message\x12@\n\x07\x64\x65tails\x18\x03 \x03(\x0b\x32&.zynax.v1.CapabilityError.DetailsEntryR\x07\x64\x65tails\x1a:\n\x0c\x44\x65tailsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01*\x89\x01\n\rTaskEventType\x12\x1f\n\x1bTASK_EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n\x18TASK_EVENT_TYPE_PROGRESS\x10\x01\x12\x1d\n\x19TASK_EVENT_TYPE_COMPLETED\x10\x02\x12\x1a\n\x16TASK_EVENT_TYPE_FAILED\x10\x03\x32^\n\x0c\x41gentService\x12N\n\x11\x45xecuteCapability\x12\".zynax.v1.ExecuteCapabilityRequest\x1a\x13.zynax.v1.TaskEvent0\x01\x42\x33Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14zynax/v1/agent.proto\x12\x08zynax.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xea\x01\n\x18\x45xecuteCapabilityRequest\x12\x1d\n\nrequest_id\x18\x01 \x01(\tR\trequestId\x12\'\n\x0f\x63\x61pability_name\x18\x02 \x01(\tR\x0e\x63\x61pabilityName\x12\x17\n\x07task_id\x18\x03 \x01(\tR\x06taskId\x12\x1f\n\x0bworkflow_id\x18\x04 \x01(\tR\nworkflowId\x12#\n\rinput_payload\x18\x05 \x01(\x0cR\x0cinputPayload\x12\'\n\x0ftimeout_seconds\x18\x06 \x01(\x05R\x0etimeoutSeconds\"\xe1\x01\n\tTaskEvent\x12\x17\n\x07task_id\x18\x01 \x01(\tR\x06taskId\x12\x36\n\nevent_type\x18\x02 \x01(\x0e\x32\x17.zynax.v1.TaskEventTypeR\teventType\x12\x18\n\x07payload\x18\x03 \x01(\x0cR\x07payload\x12\x38\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ttimestamp\x12/\n\x05\x65rror\x18\x05 \x01(\x0b\x32\x19.zynax.v1.CapabilityErrorR\x05\x65rror\"\xbd\x01\n\x0f\x43\x61pabilityError\x12\x12\n\x04\x63ode\x18\x01 \x01(\tR\x04\x63ode\x12\x18\n\x07message\x18\x02 \x01(\tR\x07message\x12@\n\x07\x64\x65tails\x18\x03 \x03(\x0b\x32&.zynax.v1.CapabilityError.DetailsEntryR\x07\x64\x65tails\x1a:\n\x0c\x44\x65tailsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"E\n\x1aGetCapabilitySchemaRequest\x12\'\n\x0f\x63\x61pability_name\x18\x01 \x01(\tR\x0e\x63\x61pabilityName\"\xc2\x01\n\x1bGetCapabilitySchemaResponse\x12\'\n\x0f\x63\x61pability_name\x18\x01 \x01(\tR\x0e\x63\x61pabilityName\x12*\n\x11input_schema_json\x18\x02 \x01(\tR\x0finputSchemaJson\x12,\n\x12output_schema_json\x18\x03 \x01(\tR\x10outputSchemaJson\x12 \n\x0b\x64\x65scription\x18\x04 \x01(\tR\x0b\x64\x65scription*\x89\x01\n\rTaskEventType\x12\x1f\n\x1bTASK_EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n\x18TASK_EVENT_TYPE_PROGRESS\x10\x01\x12\x1d\n\x19TASK_EVENT_TYPE_COMPLETED\x10\x02\x12\x1a\n\x16TASK_EVENT_TYPE_FAILED\x10\x03\x32\xc2\x01\n\x0c\x41gentService\x12N\n\x11\x45xecuteCapability\x12\".zynax.v1.ExecuteCapabilityRequest\x1a\x13.zynax.v1.TaskEvent0\x01\x12\x62\n\x13GetCapabilitySchema\x12$.zynax.v1.GetCapabilitySchemaRequest\x1a%.zynax.v1.GetCapabilitySchemaResponseB3Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,8 +35,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1'
   _globals['_CAPABILITYERROR_DETAILSENTRY']._loaded_options = None
   _globals['_CAPABILITYERROR_DETAILSENTRY']._serialized_options = b'8\001'
-  _globals['_TASKEVENTTYPE']._serialized_start=725
-  _globals['_TASKEVENTTYPE']._serialized_end=862
+  _globals['_TASKEVENTTYPE']._serialized_start=993
+  _globals['_TASKEVENTTYPE']._serialized_end=1130
   _globals['_EXECUTECAPABILITYREQUEST']._serialized_start=68
   _globals['_EXECUTECAPABILITYREQUEST']._serialized_end=302
   _globals['_TASKEVENT']._serialized_start=305
@@ -45,6 +45,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CAPABILITYERROR']._serialized_end=722
   _globals['_CAPABILITYERROR_DETAILSENTRY']._serialized_start=664
   _globals['_CAPABILITYERROR_DETAILSENTRY']._serialized_end=722
-  _globals['_AGENTSERVICE']._serialized_start=864
-  _globals['_AGENTSERVICE']._serialized_end=958
+  _globals['_GETCAPABILITYSCHEMAREQUEST']._serialized_start=724
+  _globals['_GETCAPABILITYSCHEMAREQUEST']._serialized_end=793
+  _globals['_GETCAPABILITYSCHEMARESPONSE']._serialized_start=796
+  _globals['_GETCAPABILITYSCHEMARESPONSE']._serialized_end=990
+  _globals['_AGENTSERVICE']._serialized_start=1133
+  _globals['_AGENTSERVICE']._serialized_end=1327
 # @@protoc_insertion_point(module_scope)
