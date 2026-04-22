@@ -87,6 +87,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── Security: AI context file scan ──────────────────────────────────
+      - name: Detect AI context file changes
+        id: ai-detect
+        run: |
+          changed=$(git diff --name-only origin/main...HEAD -- \
+            'CLAUDE.md' '*/AGENTS.md' 'AGENTS.md' \
+            'docs/ai-assistant-setup.md' '.ai/' '.claude/' 2>/dev/null | wc -l)
+          echo "has_changes=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Install gitleaks
+        if: steps.ai-detect.outputs.has_changes != '0'
+        run: |
+          curl -sSfL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+
+      - name: Scan AI context files for secrets and PII
+        if: steps.ai-detect.outputs.has_changes != '0'
+        run: |
+          files=$(git diff --name-only origin/main...HEAD -- \
+            'CLAUDE.md' '*/AGENTS.md' 'AGENTS.md' \
+            'docs/ai-assistant-setup.md' '.ai/' '.claude/')
+          echo "── scanning AI context files for secrets / PII / local paths"
+          echo "$files"
+          gitleaks detect --no-git --source . \
+            --config tools/gitleaks-ai-context.toml \
+            --report-format json \
+            --report-path /tmp/gitleaks-report.json 2>/dev/null || {
+            echo "❌ Sensitive content detected in AI context files:"
+            cat /tmp/gitleaks-report.json
+            echo ""
+            echo "See docs/knowledge-base-policy.md for sanitization guidance."
+            exit 1
+          }
+          echo "✅ AI context files passed security scan"
+
       # ── Proto: buf lint + format check ──────────────────────────────────
       - name: Detect proto workspace
         id: proto-detect
