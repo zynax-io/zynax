@@ -139,3 +139,30 @@ Feature: WorkflowCompilerService contract — YAML manifest compilation
     When ValidateManifest is called
     Then the gRPC status is INVALID_ARGUMENT
     And the error message mentions "manifest_yaml"
+
+  # ─── GetCompiledWorkflow ───────────────────────────────────────────────────
+
+  Scenario: GetCompiledWorkflow returns the IR for a previously compiled workflow
+    Given a valid YAML manifest has been compiled successfully
+    And the CompileWorkflow response contains workflow_id "wf-stored"
+    When GetCompiledWorkflow is called with workflow_id "wf-stored"
+    Then the gRPC status is OK
+    And the response workflow_ir.workflow_id is "wf-stored"
+    And the response compiled_at is a valid timestamp
+
+  Scenario: GetCompiledWorkflow returns NOT_FOUND for an unknown workflow_id
+    When GetCompiledWorkflow is called with workflow_id "nonexistent-wf"
+    Then the gRPC status is NOT_FOUND
+    And the error message contains "nonexistent-wf"
+
+  Scenario: GetCompiledWorkflow returns NOT_FOUND for a dry_run compiled workflow
+    Given a valid YAML manifest is compiled with dry_run set to true
+    And the CompileWorkflow response contains workflow_id "wf-dryrun"
+    When GetCompiledWorkflow is called with workflow_id "wf-dryrun"
+    Then the gRPC status is NOT_FOUND
+
+  Scenario: GetCompiledWorkflow with empty workflow_id is rejected
+    Given a GetCompiledWorkflowRequest with workflow_id set to ""
+    When GetCompiledWorkflow is called
+    Then the gRPC status is INVALID_ARGUMENT
+    And the error message mentions "workflow_id"

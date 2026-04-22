@@ -20,6 +20,8 @@
 //   4. CompilationErrorCode ordinals are permanent (ADR-001 §backward-compat).
 //   5. WorkflowIR is a stub envelope in M1. Full IR fields are added in M2
 //      without breaking this contract.
+//   6. GetCompiledWorkflow returns the IR stored by CompileWorkflow. IRs
+//      compiled with dry_run=true are NOT stored and return NOT_FOUND.
 
 syntax = "proto3";
 
@@ -40,6 +42,19 @@ service WorkflowCompilerService {
   // compiling or persisting anything. Returns all errors found — not just
   // the first. Never returns a WorkflowIR.
   rpc ValidateManifest(ValidateManifestRequest) returns (ValidateManifestResponse);
+
+  // GetCompiledWorkflow retrieves a previously compiled WorkflowIR by workflow_id.
+  //
+  // The compiler persists compiled IRs for a configurable retention window
+  // (default: 30 days). Callers SHOULD NOT rely on indefinite retention —
+  // store the IR returned by CompileWorkflow for long-term use.
+  //
+  // Returns NOT_FOUND if:
+  //   - The workflow_id was never compiled by this service instance.
+  //   - The compiled IR has been evicted past the retention window.
+  //   - dry_run=true was used when compiling (dry-run results are not persisted).
+  rpc GetCompiledWorkflow(GetCompiledWorkflowRequest)
+      returns (GetCompiledWorkflowResponse);
 }
 
 // CompilationErrorCode classifies structural and syntactic errors in manifests.
@@ -180,4 +195,23 @@ message ValidateManifestResponse {
 
   // Non-fatal warnings. May be present even when valid is true.
   repeated string warnings = 3;
+}
+
+// GetCompiledWorkflowRequest identifies a previously compiled workflow.
+message GetCompiledWorkflowRequest {
+  // The workflow_id returned by a previous CompileWorkflow call.
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+}
+
+// GetCompiledWorkflowResponse carries the stored WorkflowIR.
+message GetCompiledWorkflowResponse {
+  // The stored WorkflowIR for the requested workflow_id.
+  // Always populated on success (gRPC status OK).
+  WorkflowIR workflow_ir = 1;
+
+  // Wall-clock time the IR was originally compiled.
+  // Identical to WorkflowIR.compiled_at — provided here for convenience
+  // so callers can check staleness without deserialising the full IR.
+  google.protobuf.Timestamp compiled_at = 2;
 }
