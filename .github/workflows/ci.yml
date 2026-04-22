@@ -268,20 +268,19 @@ except Exception as e:
     steps:
       - uses: actions/checkout@v4
 
-      # ── BDD contract spec: report scenarios regardless of implementation ──
-      - name: Report BDD contract scenarios
+      # ── BDD contract spec: scenario count summary ────────────────────────
+      - name: Report BDD contract scenario counts
         run: |
-          echo "── AgentService contract scenarios ──────────────────────────────"
+          echo "── Zynax contract BDD scenario summary ──────────────────────────"
+          total=0
+          for feature in protos/tests/features/*.feature; do
+            svc=$(basename "$feature" .feature)
+            count=$(grep -c "^\s*Scenario:" "$feature" 2>/dev/null || echo 0)
+            total=$((total + count))
+            printf "  %-40s %3d scenarios\n" "$svc" "$count"
+          done
           echo ""
-          grep -E "^\s*(Scenario|Given|When|Then|And|But)" \
-            protos/tests/features/agent_service.feature \
-            | sed 's/^    /  /' || true
-          echo ""
-          TOTAL=$(grep -c "^\s*Scenario:" protos/tests/features/agent_service.feature || echo 0)
-          echo "Total scenarios defined: ${TOTAL}"
-          echo ""
-          echo "ℹ️  Godog step definitions live in protos/tests/ (go.mod not yet created)"
-          echo "   They will be executed automatically once protos/tests/go.mod exists."
+          echo "Total: ${total} scenarios across $(ls protos/tests/features/*.feature | wc -l) contracts"
 
       # ── Go: unit tests + godog (when services exist) ─────────────────────
       - name: Detect Go code
@@ -316,13 +315,78 @@ except Exception as e:
           done
           $failed && exit 1 || echo "✅ Go service tests passed"
 
-      - name: Godog BDD contract tests (AgentService)
+      - name: Godog BDD contract tests (selective by changed proto)
         if: steps.go-detect.outputs.has_bdd_impl != '0'
         run: |
-          echo "── BDD: protos/tests (godog)"
+          # Proto file → test package mapping
+          declare -A PKG_MAP
+          PKG_MAP["agent.proto"]="agent_service"
+          PKG_MAP["agent_registry.proto"]="agent_registry_service"
+          PKG_MAP["cloudevents.proto"]="cloudevents_envelope"
+          PKG_MAP["engine_adapter.proto"]="engine_adapter_service"
+          PKG_MAP["event_bus.proto"]="event_bus_service"
+          PKG_MAP["memory.proto"]="memory_service"
+          PKG_MAP["task_broker.proto"]="task_broker_service"
+          PKG_MAP["workflow_compiler.proto"]="workflow_compiler_service"
+
+          # Diff range
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="HEAD~1"
+            HEAD="HEAD"
+          fi
+          changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/' 2>/dev/null || true)
+
+          # Shared infra changes → run full suite
+          run_all=false
+          if echo "$changed" | grep -qE "^protos/tests/(go\.(mod|sum)|testserver/)"; then
+            run_all=true
+            echo "ℹ️  Shared test infrastructure changed — running full suite."
+          fi
+
+          # Map changed files to packages
+          pkgs=""
+          if [ "$run_all" = "false" ]; then
+            while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              case "$f" in
+                protos/zynax/v1/*.proto)
+                  b=$(basename "$f")
+                  pkg="${PKG_MAP[$b]:-}"
+                  [ -n "$pkg" ] && pkgs="$pkgs $pkg"
+                  ;;
+                protos/tests/features/*)
+                  run_all=true
+                  echo "ℹ️  Feature file changed — running full suite."
+                  break
+                  ;;
+                protos/tests/*/*)
+                  pkg=$(echo "$f" | cut -d/ -f3)
+                  [ "$pkg" != "features" ] && pkgs="$pkgs $pkg"
+                  ;;
+              esac
+            done <<< "$changed"
+          fi
+
+          # Deduplicate
+          pkgs=$(echo "$pkgs" | tr ' ' '\n' | sort -u | grep -v '^$' | tr '\n' ' ')
+
+          # Run
           cd protos/tests
-          GOWORK=off go test ./... -v -timeout 60s \
-            2>&1 | tee bdd-results.txt
+          if [ "$run_all" = "true" ] || [ -n "$pkgs" ]; then
+            if [ "$run_all" = "true" ] || [ -z "$pkgs" ]; then
+              echo "── BDD: full suite"
+              GOWORK=off go test ./... -v -timeout 120s 2>&1 | tee bdd-results.txt
+            else
+              pkg_args=$(echo "$pkgs" | tr ' ' '\n' | sed 's|^|./|;s|$|/...|' | tr '\n' ' ')
+              echo "── BDD: selective — $pkgs"
+              GOWORK=off go test $pkg_args -v -timeout 120s 2>&1 | tee bdd-results.txt
+            fi
+          else
+            echo "ℹ️  No proto or contract test files changed — BDD suite skipped."
+          fi
           echo "✅ BDD contract tests passed"
 
       # ── Python: pytest-bdd with coverage ─────────────────────────────────
