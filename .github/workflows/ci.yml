@@ -138,6 +138,52 @@ jobs:
           fi
           echo "✅ Generated stubs are up to date"
 
+      # ── Spec: AsyncAPI + JSON Schema validation ──────────────────────────
+      - name: Detect spec files
+        id: spec-detect
+        run: |
+          if [ -f spec/asyncapi/zynax-events.yaml ]; then
+            echo "has_spec=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_spec=0" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  spec/asyncapi/zynax-events.yaml not found — spec validation skipped."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.spec-detect.outputs.has_spec == '1'
+        with:
+          node-version: "20"
+
+      - name: Install AsyncAPI CLI
+        if: steps.spec-detect.outputs.has_spec == '1'
+        run: npm install -g @asyncapi/cli --quiet
+
+      - name: Validate AsyncAPI spec
+        if: steps.spec-detect.outputs.has_spec == '1'
+        run: |
+          echo "── asyncapi validate: spec/asyncapi/zynax-events.yaml"
+          asyncapi validate spec/asyncapi/zynax-events.yaml
+          echo "✅ AsyncAPI spec is valid"
+
+      - name: Validate JSON Schemas are well-formed
+        if: steps.spec-detect.outputs.has_spec == '1'
+        run: |
+          failed=false
+          for schema in spec/schemas/*.json; do
+            echo "── json parse: $schema"
+            python3 -c "
+import json, sys
+try:
+    data = json.load(open('$schema'))
+    assert '\$schema' in data, 'missing \$schema field'
+    print('  ok')
+except Exception as e:
+    print(f'  ❌ {e}')
+    sys.exit(1)
+" || failed=true
+          done
+          $failed && exit 1 || echo "✅ JSON Schemas are well-formed"
+
       # ── Go: golangci-lint ────────────────────────────────────────────────
       - name: Detect Go services
         id: go-detect
