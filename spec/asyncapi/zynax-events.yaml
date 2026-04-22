@@ -57,7 +57,7 @@ defaultContentType: application/json
 components:
   schemas:
     CloudEvent:
-      $ref: "../../schemas/cloudevent.schema.json"
+      $ref: "../schemas/cloudevent.schema.json"
 
   # ── Standard CloudEvents extension attributes added by Zynax ───────────────
   #
