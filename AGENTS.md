@@ -429,7 +429,13 @@ Breaking any of them is a hard blocker at code review.
 
 **PR title (enforced by CI — `conventional-commit` check):**
 - Format: `<type>: <subject>` — total length ≤ 72 characters including the prefix
-- `type` must be one of: `feat` `fix` `refactor` `docs` `test` `ci` `chore`
+- `type` MUST be exactly one of: `feat` `fix` `refactor` `docs` `test` `ci` `chore`
+- **Any other prefix is rejected by CI.** Common mistakes to avoid:
+  - ✗ `spec:` → use `docs:` (spec changes are documentation)
+  - ✗ `proto:` → use `feat:` (new RPC) or `chore:` (stub regen) or `fix:`
+  - ✗ `service:` → use `feat:` (new service) or `fix:` or `refactor:`
+  - ✗ `make:` → use `chore:` (Makefile/tooling changes)
+  - ✗ `adr:` → use `docs:` (ADR files are documentation)
 - The subject is the part after `type: ` — with a 6-character prefix (`feat: `) you
   have **66 characters** for the subject; longer prefixes leave even less room
 - Long service names eat budget fast — count before you title:

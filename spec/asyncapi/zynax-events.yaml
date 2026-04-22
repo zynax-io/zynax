@@ -8,9 +8,39 @@ info:
     Every message payload is a CloudEvents v1.0 envelope as defined in
     spec/schemas/cloudevent.schema.json. Consumers can process any event
     without Zynax-specific clients.
+
+    ## Event Type Versioning
+
+    Channel names follow the pattern `<domain>.<resource>.<action>` and are
+    considered stable addresses. Versioning rules:
+
+    - **Non-breaking additions** (new optional fields in the CloudEvent data
+      payload) require no channel rename. Consumers MUST ignore unknown fields.
+    - **Breaking changes** (field removal, rename, type change, semantic change)
+      produce a new channel with a `.v2` suffix, e.g. `zynax.workflow.started.v2`.
+      The old channel continues to publish during the deprecation period.
+    - **Deprecation lifecycle**: deprecated channels are marked with
+      `x-zynax-deprecated: true` and `x-zynax-removal-milestone`. Both channels
+      publish in parallel for exactly one full milestone. The old channel is
+      removed at the start of the milestone after that.
+    - **Schema version tracking**: every CloudEvent carries a `zynaxschemarev`
+      extension attribute (e.g. `workflow/started@v1`) so consumers can detect
+      schema drift without inspecting the channel name.
+
+    All channels in this file are currently at schema revision v1. The current
+    stable suffix for all channels is unversioned (implicit v1).
   license:
     name: Apache-2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
+
+  # Versioning scheme extension — documents the active policy
+  x-zynax-versioning:
+    scheme: channel-suffix
+    current-revision: v1
+    breaking-change-policy: new-channel-with-v2-suffix
+    deprecation-period: one-milestone
+    schema-version-extension: zynaxschemarev
+    schema-version-format: "<domain>/<resource>/<action>@v<N>"
 
 servers:
   production:
@@ -29,14 +59,26 @@ components:
     CloudEvent:
       $ref: "../../schemas/cloudevent.schema.json"
 
+  # ── Standard CloudEvents extension attributes added by Zynax ───────────────
+  #
+  # All Zynax events extend the base CloudEvent envelope with these attributes.
+  # Consumers SHOULD read zynaxschemarev to detect schema version changes
+  # without subscribing to version-suffixed channels.
+  #
+  # zynaxschemarev  string  Schema revision, e.g. "workflow/started@v1"
+  # zynaxrunid      string  The workflow run_id this event belongs to (when applicable)
+  # zynaxns         string  The namespace of the originating resource
+
 channels:
-  # ── Workflow lifecycle ──────────────────────────────────────────────────
+  # ── Workflow lifecycle ──────────────────────────────────────────────────────
 
   zynax.workflow.started:
     description: >
       Published by the EngineAdapterService when an engine begins executing
       a submitted WorkflowIR. The CloudEvent workflow_id extension identifies
       the workflow instance.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "workflow/started@v1"
     publish:
       operationId: onWorkflowStarted
       summary: A workflow execution has started.
@@ -51,6 +93,8 @@ channels:
     description: >
       Published by the EngineAdapterService when a workflow reaches its
       terminal state successfully. finished_at is set on the run record.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "workflow/completed@v1"
     publish:
       operationId: onWorkflowCompleted
       summary: A workflow execution completed successfully.
@@ -65,6 +109,8 @@ channels:
     description: >
       Published by the EngineAdapterService when a workflow terminates due
       to an unrecoverable error and will not be retried by the adapter.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "workflow/failed@v1"
     publish:
       operationId: onWorkflowFailed
       summary: A workflow execution failed terminally.
@@ -80,6 +126,8 @@ channels:
       Published by the EngineAdapterService when a workflow is explicitly
       cancelled via CancelWorkflow. The cancellation_reason is included in
       the CloudEvent data payload.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "workflow/cancelled@v1"
     publish:
       operationId: onWorkflowCancelled
       summary: A workflow execution was explicitly cancelled.
@@ -90,12 +138,14 @@ channels:
         payload:
           $ref: "#/components/schemas/CloudEvent"
 
-  # ── Task lifecycle ──────────────────────────────────────────────────────
+  # ── Task lifecycle ──────────────────────────────────────────────────────────
 
   zynax.task.dispatched:
     description: >
       Published by the TaskBrokerService when a task transitions to
       DISPATCHED status and is routed to a registered agent.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "task/dispatched@v1"
     publish:
       operationId: onTaskDispatched
       summary: A task has been dispatched to an agent.
@@ -110,6 +160,8 @@ channels:
     description: >
       Published by the TaskBrokerService when an agent acknowledges task
       completion with a COMPLETED status.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "task/completed@v1"
     publish:
       operationId: onTaskCompleted
       summary: A task has been completed successfully by an agent.
@@ -124,6 +176,8 @@ channels:
     description: >
       Published by the TaskBrokerService when a task transitions to FAILED
       status (retry_count has reached max_retries or the task was hard-failed).
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "task/failed@v1"
     publish:
       operationId: onTaskFailed
       summary: A task has failed after exhausting retries.
@@ -138,6 +192,8 @@ channels:
     description: >
       Published by the TaskBrokerService when a failed task is re-queued
       because retry_count is still below max_retries.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "task/retrying@v1"
     publish:
       operationId: onTaskRetrying
       summary: A failed task has been re-queued for retry.
@@ -148,12 +204,14 @@ channels:
         payload:
           $ref: "#/components/schemas/CloudEvent"
 
-  # ── Agent lifecycle ─────────────────────────────────────────────────────
+  # ── Agent lifecycle ─────────────────────────────────────────────────────────
 
   zynax.agent.registered:
     description: >
       Published by the AgentRegistryService when a new AgentDef is stored
       and the agent is available for task routing.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "agent/registered@v1"
     publish:
       operationId: onAgentRegistered
       summary: A new agent has been registered and is available for routing.
@@ -168,6 +226,8 @@ channels:
     description: >
       Published by the AgentRegistryService when an agent is soft-deleted
       via DeregisterAgent. DEREGISTERED agents are excluded from discovery.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "agent/deregistered@v1"
     publish:
       operationId: onAgentDeregistered
       summary: An agent has been deregistered and removed from routing.
@@ -183,6 +243,8 @@ channels:
       Published by the AgentService when an ExecuteCapability streaming RPC
       is opened by the workflow engine. Carries the capability name and
       workflow context in the CloudEvent extension attributes.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "agent/capability.invoked@v1"
     publish:
       operationId: onAgentCapabilityInvoked
       summary: An agent capability has been invoked by the workflow engine.
