@@ -66,3 +66,56 @@ Testing tiers per ADR-016:
 - Unit/property (≥40%): domain logic — per-service `_test.go`
 - Contract (CI gate): `buf breaking` on every proto PR
 - Simulation (M3+): fault injection, retry storms
+
+## Architecture Invariants
+
+These three rules must never be broken regardless of milestone:
+
+1. **No shared database.** Each service owns its own schema/namespace. Cross-service
+   reads go through gRPC, never through a shared table or ORM model.
+2. **No Layer 1→3 coupling.** YAML manifests (`spec/`) are never imported by Go
+   services. The Workflow Compiler transforms Layer 1 → Layer 2 (WorkflowIR).
+3. **Contracts before implementations.** `.proto` files and `.feature` files are
+   committed and CI-green before any service implementation begins (ADR-016).
+
+## Per-Milestone Scope
+
+| Milestone | In scope | Out of scope / defer |
+|-----------|----------|----------------------|
+| **M1** (Complete) | Proto contracts, AsyncAPI spec, generated stubs, BDD scenarios, CI gates | Service implementations, DB schemas, runtime |
+| **M2** (next) | WorkflowIR structured fields in `workflow_compiler.proto`, `WorkflowCompilerService` skeleton (in-memory), JSON Schema for WorkflowIR | Temporal integration, persistence, CLI |
+| **M3** | Temporal-backed `EngineAdapterService` implementation | Other engine adapters, K8s deployment |
+| **M4+** | CLI, YAML validation, observability, production hardening | — |
+
+For M2: touch `protos/zynax/v1/workflow_compiler.proto` and `services/workflow-compiler/`.
+Do not touch `services/engine-adapter/` or any Temporal code — that is M3.
+
+## Common AI Anti-Patterns
+
+Things that have gone wrong in this repo — avoid these:
+
+| Anti-pattern | Correct approach |
+|--------------|-----------------|
+| Writing Python in `services/` | All platform services are Go (ADR-009). Python lives only in `agents/` |
+| Editing `protos/generated/` directly | Run `make generate-protos` — generated files are never hand-edited |
+| Mocking the database in integration tests | Use `testcontainers-go` for real DB (ADR-016) |
+| Adding complexity beyond the issue scope | Implement exactly what the issue asks; open a follow-up for anything extra |
+| Using `Co-Authored-By:` for AI | Use `Assisted-by: Claude/<model>` — DCO is human-only |
+| PR title prefix `spec:` / `proto:` / `adr:` | Use `docs:` for spec/ADR changes, `feat:`/`chore:` for proto changes |
+| Running `go test` in `protos/tests/` without `GOWORK=off` | Always prefix: `GOWORK=off go test ./...` (ADR-017) |
+| Importing domain types across services | Cross-service communication is gRPC only, never shared types |
+
+## Decision-Making Guide
+
+**Create an issue vs just fix it:** If the change touches an interface visible to
+other layers (proto field, event schema, API contract), open an issue first. For
+internal refactors within a single service, fix directly.
+
+**Create an ADR vs just do it:** Any decision that another engineer would reverse
+without knowing the rationale needs an ADR. One-way doors always get ADRs.
+Reversible implementation choices do not.
+
+**Ask the user vs proceed:** Proceed if the task is within the current issue scope
+and the approach is consistent with existing ADRs. Ask if the work would require
+touching files outside the stated scope, or if two valid approaches exist with
+materially different tradeoffs.
