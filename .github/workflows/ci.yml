@@ -28,10 +28,11 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.22"
+  GO_VERSION: "1.25"
   PYTHON_VERSION: "3.12"
   BUF_VERSION: "1.47.2"
-  GOLANGCI_VERSION: "v1.61.0"
+  GOLANGCI_VERSION: "v2.11.4"
+  GOVULNCHECK_VERSION: "v1.1.4"
   SERVICE_LIST: "agent-registry task-broker memory-service event-bus api-gateway workflow-compiler engine-adapter"
   AGENT_LIST: "summarizer researcher calculator"
 
@@ -167,22 +168,7 @@ jobs:
 
       - name: Validate JSON Schemas are well-formed
         if: steps.spec-detect.outputs.has_spec == '1'
-        run: |
-          failed=false
-          for schema in spec/schemas/*.json; do
-            echo "── json parse: $schema"
-            python3 -c "
-import json, sys
-try:
-    data = json.load(open('$schema'))
-    assert '\$schema' in data, 'missing \$schema field'
-    print('  ok')
-except Exception as e:
-    print(f'  ❌ {e}')
-    sys.exit(1)
-" || failed=true
-          done
-          $failed && exit 1 || echo "✅ JSON Schemas are well-formed"
+        run: python3 tools/validate_json_schemas.py spec/schemas/
 
       # ── Go: golangci-lint ────────────────────────────────────────────────
       - name: Detect Go services
@@ -211,7 +197,7 @@ except Exception as e:
             if [ -f "services/${svc}/go.mod" ]; then
               echo "── lint: services/${svc}"
               cd "services/${svc}"
-              golangci-lint run ./... --config "../../tools/golangci-lint.yml" || failed=true
+              GOWORK=off golangci-lint run ./... --config "../../tools/golangci-lint.yml" || failed=true
               cd ../..
             fi
           done
@@ -309,7 +295,7 @@ except Exception as e:
             if [ -f "services/${svc}/go.mod" ]; then
               echo "── test: services/${svc}"
               cd "services/${svc}"
-              go test ./... -v -race -timeout 60s \
+              GOWORK=off go test ./... -v -race -timeout 60s \
                 -count=1 \
                 -coverprofile=coverage.out \
                 -covermode=atomic || failed=true
@@ -576,13 +562,13 @@ except Exception as e:
       - name: govulncheck (all Go services)
         if: steps.go-detect.outputs.has_go != '0'
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULNCHECK_VERSION }}
           failed=false
           for svc in ${{ env.SERVICE_LIST }}; do
             if [ -f "services/${svc}/go.mod" ]; then
               echo "── govulncheck: services/${svc}"
               cd "services/${svc}"
-              govulncheck ./... || failed=true
+              GOWORK=off govulncheck ./... || failed=true
               cd ../..
             fi
           done

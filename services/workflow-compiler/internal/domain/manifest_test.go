@@ -75,8 +75,8 @@ func TestParseManifest_MinimalValid(t *testing.T) {
 	if m.Name != "test-wf" {
 		t.Errorf("name = %q, want %q", m.Name, "test-wf")
 	}
-	if m.Namespace != "default" {
-		t.Errorf("namespace = %q, want %q", m.Namespace, "default")
+	if m.Namespace != defaultNamespace {
+		t.Errorf("namespace = %q, want %q", m.Namespace, defaultNamespace)
 	}
 	if m.InitialState != "start" {
 		t.Errorf("initial_state = %q, want %q", m.InitialState, "start")
@@ -375,8 +375,8 @@ func TestParseManifest_DefaultNamespace(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
-	if m.Namespace != "default" {
-		t.Errorf("namespace = %q, want default", m.Namespace)
+	if m.Namespace != defaultNamespace {
+		t.Errorf("namespace = %q, want %q", m.Namespace, defaultNamespace)
 	}
 }
 

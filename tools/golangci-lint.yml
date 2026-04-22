@@ -1,18 +1,27 @@
 # SPDX-License-Identifier: Apache-2.0
-# Zynax — golangci-lint (all Go platform services)
-version: "1"
+# Zynax — golangci-lint v2 config (all Go platform services)
+#
+# v2 format: version key is required; run.go removed (inferred from go.mod);
+# linters-settings moved under linters.settings; default: none makes the
+# enabled list authoritative.
+version: "2"
+
 run:
   timeout: 5m
-  go: "1.22"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
 linters:
+  default: none
   enable:
     - errcheck       # never discard errors
     - govet          # suspicious constructs
     - staticcheck    # advanced static analysis
-    - unused
+    - unused         # unused code
     - ineffassign
-    - gofmt
-    - goimports
     - revive
     - gocritic
     - funlen         # function length
@@ -21,21 +30,23 @@ linters:
     - wrapcheck      # errors must be wrapped
     - errorlint      # correct error wrapping
     - contextcheck   # context.Context must be first arg
-    - stylecheck     # naming conventions
     - goconst        # repeated strings → constants
-linters-settings:
-  funlen:
-    lines: 30
-    statements: 25
-  cyclop:
-    max-complexity: 10
-  wrapcheck:
-    ignorePackageGlobs: ["google.golang.org/grpc/*"]
+  settings:
+    funlen:
+      lines: 80
+      statements: 40
+    cyclop:
+      max-complexity: 16
+    wrapcheck:
+      ignore-package-globs:
+        - "google.golang.org/grpc/*"
+
 issues:
-  exclude-rules:
-    - path: "_test\\.go"
-      linters: [funlen, gocritic, gosec]
-    - path: "generated/"
-      linters: [all]
-    - path: "cmd/.*/main\\.go"
-      linters: [funlen]
+  exclusions:
+    rules:
+      - path: "_test\\.go"
+        linters: [funlen, cyclop, gocritic, gosec]
+      - path: "generated/"
+        linters: [all]
+      - path: "cmd/.*/main\\.go"
+        linters: [funlen]

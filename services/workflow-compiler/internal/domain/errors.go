@@ -9,8 +9,9 @@ import "fmt"
 // permanent — the api layer maps domain codes to proto codes.
 type CompilationErrorCode int
 
+// Compilation error code constants. Ordinals are permanent — never reorder.
 const (
-	ErrorCodeUnspecified           CompilationErrorCode = 0
+	ErrorCodeUnspecified           CompilationErrorCode = 0 // no error (proto default)
 	ErrorCodeYAMLParseError        CompilationErrorCode = 1
 	ErrorCodeNoInitialState        CompilationErrorCode = 2
 	ErrorCodeMultipleInitialStates CompilationErrorCode = 3

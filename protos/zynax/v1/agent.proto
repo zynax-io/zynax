@@ -43,8 +43,7 @@ service AgentService {
   // when the registry schema is suspected stale (e.g. after a re-registration).
   // Returns NOT_FOUND if the agent does not implement the named capability.
   // Returns INVALID_ARGUMENT if capability_name is empty.
-  rpc GetCapabilitySchema(GetCapabilitySchemaRequest)
-      returns (GetCapabilitySchemaResponse);
+  rpc GetCapabilitySchema(GetCapabilitySchemaRequest) returns (GetCapabilitySchemaResponse);
 }
 
 // ExecuteCapabilityRequest is the entry point for all capability invocations.

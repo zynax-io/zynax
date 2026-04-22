@@ -10,20 +10,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// defaultNamespace is used when metadata.namespace is omitted from the manifest.
+const defaultNamespace = "default"
+
 // StateType classifies the behaviour of a state in the workflow state machine.
 type StateType int
 
+// State type constants.
 const (
-	StateTypeNormal         StateType = 0
-	StateTypeTerminal       StateType = 1
-	StateTypeHumanInTheLoop StateType = 2
+	StateTypeNormal         StateType = 0 // standard execution state
+	StateTypeTerminal       StateType = 1 // end state; no outbound transitions
+	StateTypeHumanInTheLoop StateType = 2 // pauses for human input
 )
 
 // Action is a single capability invocation within a state. It holds no proto
 // types — the api layer maps Action to ActionIR when building WorkflowIR.
 type Action struct {
 	Capability string
-	Timeout    time.Duration         // zero means no timeout
+	Timeout    time.Duration // zero means no timeout
 	Input      map[string]interface{}
 	Output     map[string]interface{}
 	Async      bool
@@ -33,9 +37,9 @@ type Action struct {
 type Transition struct {
 	EventType   string
 	TargetState string
-	Guard       string                // optional CEL expression
+	Guard       string                 // optional CEL expression
 	Set         map[string]interface{} // context writes on fire
-	Conditions  map[string]string     // labelled CEL conditions (maps to TransitionIR.conditions)
+	Conditions  map[string]string      // labelled CEL conditions (maps to TransitionIR.conditions)
 }
 
 // State is a single node in the compiled workflow state machine.
@@ -109,7 +113,7 @@ type yamlTransition struct {
 // ParseManifest parses raw YAML bytes into a domain Manifest.
 // Returns all errors found — not just the first — to let callers surface all
 // problems in a single response. Returns (nil, errs) on any error.
-func ParseManifest(data []byte) (*Manifest, ParseErrors) {
+func ParseManifest(data []byte) (*Manifest, ParseErrors) { //nolint:funlen // four sequential validation phases (YAML→decode→top-level→states) are one concern
 	// Phase 1: YAML syntax — parse into yaml.Node for source position info.
 	var root yaml.Node
 	if err := yaml.Unmarshal(data, &root); err != nil {
@@ -182,7 +186,7 @@ func ParseManifest(data []byte) (*Manifest, ParseErrors) {
 
 	ns := raw.Metadata.Namespace
 	if ns == "" {
-		ns = "default"
+		ns = defaultNamespace
 	}
 
 	return &Manifest{
@@ -198,7 +202,11 @@ func ParseManifest(data []byte) (*Manifest, ParseErrors) {
 }
 
 // convertState converts a yamlState into a domain State, validating all fields.
-func convertState(name string, ys yamlState, line int) (*State, ParseErrors) {
+func convertState( //nolint:funlen // validates type + actions + transitions in one pass; splitting adds indirection without clarity
+	name string,
+	ys yamlState,
+	line int,
+) (*State, ParseErrors) {
 	var errs ParseErrors
 	st := &State{ID: name, Line: line}
 

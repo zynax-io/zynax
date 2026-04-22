@@ -1,7 +1,11 @@
 // Package config loads workflow-compiler configuration from environment variables.
 package config
 
-import "github.com/kelseyhightower/envconfig"
+import (
+	"fmt"
+
+	"github.com/kelseyhightower/envconfig"
+)
 
 // Config holds all runtime configuration for the workflow-compiler service.
 type Config struct {
@@ -17,7 +21,7 @@ type Config struct {
 func Load() (*Config, error) {
 	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loading config: %w", err)
 	}
 	return &cfg, nil
 }
