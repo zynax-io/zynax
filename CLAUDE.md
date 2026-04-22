@@ -9,12 +9,16 @@ any layer.
 | Milestone | Status | Version | Review |
 |-----------|--------|---------|--------|
 | M1 — Contracts Foundation | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
-| M2 — Workflow IR | Not started | v0.1.0 | — |
+| M2 — Workflow IR | **In progress** | v0.1.0 | Epic #101 |
 | M3 — Temporal Execution | Not started | v0.2.0 | — |
 | M4 — YAML System + CLI | Not started | v0.3.0 | — |
 
 M1 delivered: 8 gRPC contracts, AsyncAPI spec, JSON schemas, Go + Python generated stubs,
 140+ BDD scenarios across all services, 5 CI gates. All work tracked in Epic #1 (closed).
+
+M2 progress: workflow-compiler bootstrap (#82), domain types + YAML parser (#83 part 1),
+WorkflowGraph builder (#83 part 2). Remaining: structural validators (#84), semantic
+validators (#85), IR serialization (#86), gRPC API layer (#87).
 
 ## Key pointers
 
@@ -61,6 +65,10 @@ GOWORK=off go test ./... -v -timeout 60s
 
 CI enforces this in `.github/workflows/ci.yml` `test-unit` job (Godog BDD step).
 
+**Also applies to service modules.** Running `go test ./...` inside `services/<svc>/`
+also picks up the workspace root's `go.work`. Use `GOWORK=off` for all `go` commands
+run from within any service directory — not just `protos/tests/`.
+
 Testing tiers per ADR-016:
 - BDD (10–15%): system boundaries, gRPC contracts — `protos/tests/`
 - Unit/property (≥40%): domain logic — per-service `_test.go`
@@ -103,6 +111,10 @@ Things that have gone wrong in this repo — avoid these:
 | Using `Co-Authored-By:` for AI | Use `Assisted-by: Claude/<model>` — DCO is human-only |
 | PR title prefix `spec:` / `proto:` / `adr:` | Use `docs:` for spec/ADR changes, `feat:`/`chore:` for proto changes |
 | Running `go test` in `protos/tests/` without `GOWORK=off` | Always prefix: `GOWORK=off go test ./...` (ADR-017) |
+| Running `go test` in `services/<svc>/` without `GOWORK=off` | Same rule — applies to ALL go commands in any service directory |
+| Embedding multi-line scripts in `run: \|` YAML blocks | Extract to `tools/<name>.py` — un-indented Python terminates the YAML scalar |
+| Using `govulncheck@latest` with Go 1.22 | Pin to `GOVULNCHECK_VERSION` env var — @latest requires Go ≥ 1.25 |
+| `golang:1.22-alpine` COPY paths using `/root/go/bin/` | Use `/go/bin/` — GOPATH on Alpine is `/go`, not `/root/go` |
 | Importing domain types across services | Cross-service communication is gRPC only, never shared types |
 
 ## Decision-Making Guide
