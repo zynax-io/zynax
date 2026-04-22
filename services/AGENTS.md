@@ -2,6 +2,9 @@
 
 > Inherit all rules from the root `AGENTS.md`. This file adds service-specific
 > implementation patterns that apply to **every** service in this directory.
+>
+> All services in this directory are Go (ADR-009). Python patterns belong in
+> `agents/AGENTS.md`.
 
 ---
 
@@ -9,234 +12,335 @@
 
 When creating or modifying a service, verify:
 
-1. The `.feature` file is written and committed first.
-2. The service has a `pyproject.toml` with all required dependencies.
-3. The `config.py` uses `pydantic-settings`. No config files read at runtime.
+1. The `.feature` file is written and committed first (ADR-016).
+2. The service has a `go.mod` with the correct module path.
+3. Config uses `envconfig` — no config files read at runtime.
 4. The `domain/` layer has zero imports from `api/` or `infrastructure/`.
-5. The `main.py` is wiring-only — no business logic.
-6. The Helm chart exists with all required resources (HPA, PDB, NetworkPolicy).
-7. Health probes are implemented and registered.
-8. OTel instrumentation is initialized.
-9. Prometheus metrics are initialized.
-10. `.importlinter` is configured to enforce layer boundaries.
+5. `cmd/<service>/main.go` is wiring-only — no business logic.
+6. Health probes are implemented and registered.
+7. OTel instrumentation is initialized.
+8. Prometheus metrics are initialized.
+9. `golangci-lint` passes with the repo-level `.golangci.yml`.
+10. Import layering enforced (CI fails on violations).
+
+---
+
+## Directory Structure
+
+Every service follows this layout:
+
+```
+services/<service-name>/
+├── cmd/
+│   └── <service-name>/
+│       └── main.go          ← wiring only — create server, inject deps, start
+├── internal/
+│   ├── domain/              ← pure business logic; ZERO imports from api or infrastructure
+│   │   ├── models.go        ← value objects, entities, domain errors
+│   │   ├── ports.go         ← repository/service interfaces (Go interfaces, not impls)
+│   │   └── service.go       ← domain service — only imports domain sub-packages
+│   ├── api/                 ← gRPC handlers; maps proto ↔ domain; error translation here
+│   │   └── handler.go
+│   └── infrastructure/      ← DB, cache, external clients; implements domain ports
+│       └── repository.go
+├── go.mod
+└── go.sum
+```
+
+Layer rule (enforced by import analysis in CI):
+```
+api → domain ← infrastructure
+       ↑
+  domain: ZERO imports from api or infrastructure
+```
+
+---
+
+## go.mod Template
+
+Every service uses this base. Module path follows `github.com/zynax-io/zynax/services/<name>`.
+
+```go
+module github.com/zynax-io/zynax/services/<service-name>
+
+go 1.22
+
+require (
+    google.golang.org/grpc v1.63.0
+    google.golang.org/protobuf v1.34.0
+    github.com/zynax-io/zynax/protos/generated/go v0.0.0
+    go.opentelemetry.io/otel v1.26.0
+    go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.51.0
+    github.com/prometheus/client_golang v1.19.0
+    github.com/kelseyhightower/envconfig v1.4.0
+    log/slog v0.0.0  // stdlib since Go 1.21
+)
+
+replace github.com/zynax-io/zynax/protos/generated/go => ../../protos/generated/go
+```
 
 ---
 
 ## gRPC Server Bootstrap Pattern
 
-Every service `main.py` follows this exact pattern. Do not deviate.
+Every service `cmd/<service>/main.go` follows this exact pattern. Do not deviate.
 
-```python
-# src/<service>/main.py
-import asyncio
-import logging
-import signal
-from typing import Any
+```go
+// cmd/<service-name>/main.go
+package main
 
-import grpc
-import structlog
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
-from prometheus_client import start_http_server
+import (
+    "context"
+    "fmt"
+    "log/slog"
+    "net"
+    "net/http"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
 
-from .<service>.api.handlers import <ServiceName>Handler
-from .<service>.config import settings
-from .<service>.observability import configure_logging, configure_tracing
+    "google.golang.org/grpc"
+    "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
 
-logger = structlog.get_logger(__name__)
+    "<module>/internal/api"
+    "<module>/internal/domain"
+    "<module>/internal/infrastructure"
+    "<module>/internal/config"
+    pb "<proto-module>/zynax/v1"
+)
 
+func main() {
+    cfg, err := config.Load()
+    if err != nil {
+        slog.Error("config load failed", "err", err)
+        os.Exit(1)
+    }
 
-async def serve() -> None:
-    configure_logging(settings.log_level)
-    configure_tracing(settings.otel_endpoint, settings.service_name)
+    // Infrastructure
+    repo, err := infrastructure.NewRepository(cfg)
+    if err != nil {
+        slog.Error("repository init failed", "err", err)
+        os.Exit(1)
+    }
 
-    # Start metrics server (separate port from gRPC)
-    start_http_server(port=settings.metrics_port)
+    // Domain
+    svc := domain.NewService(repo)
 
-    GrpcInstrumentorServer().instrument()
-
-    server = grpc.aio.server(
-        interceptors=[
-            AuthInterceptor(settings),
-            LoggingInterceptor(),
-            TracingInterceptor(),
-        ]
+    // gRPC server
+    grpcServer := grpc.NewServer(
+        grpc.StatsHandler(otelgrpc.NewServerHandler()),
     )
+    pb.Register<ServiceName>Server(grpcServer, api.NewHandler(svc))
 
-    # Register handlers
-    add_<ServiceName>Servicer_to_server(<ServiceName>Handler(settings), server)
+    lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
+    if err != nil {
+        slog.Error("listen failed", "err", err)
+        os.Exit(1)
+    }
 
-    # Health probe server (HTTP, separate from gRPC)
-    health_app = create_health_app(server)
-    await health_app.start(port=settings.health_port)
+    // Metrics server (separate port from gRPC)
+    mux := http.NewServeMux()
+    mux.Handle("/metrics", promhttp.Handler())
+    mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+        w.WriteHeader(http.StatusOK)
+    })
+    metricsSrv := &http.Server{Addr: fmt.Sprintf(":%d", cfg.MetricsPort), Handler: mux}
+    go metricsSrv.ListenAndServe()
 
-    listen_addr = f"[::]:{settings.grpc_port}"
-    server.add_insecure_port(listen_addr)  # TLS handled by service mesh (Istio/Linkerd)
+    // Graceful shutdown on SIGTERM (Kubernetes sends this)
+    ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+    defer stop()
 
-    await server.start()
-    logger.info("server_started", port=settings.grpc_port, service=settings.service_name)
+    go func() {
+        slog.Info("server started", "grpc_port", cfg.GRPCPort)
+        if err := grpcServer.Serve(lis); err != nil {
+            slog.Error("grpc serve error", "err", err)
+        }
+    }()
 
-    # Graceful shutdown on SIGTERM (Kubernetes sends this)
-    stop_event = asyncio.Event()
-    loop = asyncio.get_event_loop()
-    loop.add_signal_handler(signal.SIGTERM, stop_event.set)
-    loop.add_signal_handler(signal.SIGINT, stop_event.set)
-
-    await stop_event.wait()
-
-    logger.info("server_stopping", grace_period_seconds=settings.shutdown_grace_seconds)
-    await server.stop(grace=settings.shutdown_grace_seconds)
-    logger.info("server_stopped")
-
-
-if __name__ == "__main__":
-    asyncio.run(serve())
+    <-ctx.Done()
+    slog.Info("shutting down")
+    grpcServer.GracefulStop()
+    shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    metricsSrv.Shutdown(shutdownCtx)
+    slog.Info("shutdown complete")
+}
 ```
 
 ---
 
 ## Domain Service Pattern
 
-```python
-# src/<service>/domain/services.py
+```go
+// internal/domain/service.go
+package domain
 
-from dataclasses import dataclass
-from typing import Protocol
+import (
+    "context"
+    "fmt"
+)
 
-from .<service>.domain.models import AgentSpec, AgentId
-from .<service>.domain.exceptions import AgentNotFound, AgentAlreadyExists
+// AgentRepository is the port — implemented by the infrastructure layer.
+type AgentRepository interface {
+    Save(ctx context.Context, agent *Agent) error
+    FindByID(ctx context.Context, id AgentID) (*Agent, error)
+    FindByCapability(ctx context.Context, capability string) ([]*Agent, error)
+    Delete(ctx context.Context, id AgentID) error
+}
 
+type Service struct {
+    repo AgentRepository
+}
 
-class AgentRepository(Protocol):
-    """Port — implemented by infrastructure layer."""
-    async def save(self, spec: AgentSpec) -> AgentId: ...
-    async def find_by_id(self, agent_id: AgentId) -> AgentSpec | None: ...
-    async def find_by_capability(self, capability: str) -> list[AgentSpec]: ...
-    async def delete(self, agent_id: AgentId) -> None: ...
+func NewService(repo AgentRepository) *Service {
+    return &Service{repo: repo}
+}
 
-
-@dataclass(frozen=True)
-class AgentRegistrar:
-    """
-    Domain service for agent registration and discovery.
-
-    Pure Python. Zero I/O. Injected with repository via constructor.
-    Testable in complete isolation from infrastructure.
-    """
-
-    _repository: AgentRepository
-
-    async def register(self, spec: AgentSpec) -> AgentId:
-        existing = await self._repository.find_by_id(spec.id)
-        if existing is not None:
-            raise AgentAlreadyExists(spec.id)
-        self._validate_spec(spec)
-        return await self._repository.save(spec)
-
-    def _validate_spec(self, spec: AgentSpec) -> None:
-        if len(spec.capabilities) > MAX_CAPABILITIES:
-            raise CapabilityLimitExceeded(len(spec.capabilities), MAX_CAPABILITIES)
-        if not spec.capabilities:
-            raise InvalidAgentSpec("Agent must declare at least one capability")
+func (s *Service) Register(ctx context.Context, agent *Agent) error {
+    if err := agent.Validate(); err != nil {
+        return fmt.Errorf("validate agent: %w", err)
+    }
+    existing, err := s.repo.FindByID(ctx, agent.ID)
+    if err != nil && !IsNotFound(err) {
+        return fmt.Errorf("check existing agent %s: %w", agent.ID, err)
+    }
+    if existing != nil {
+        return fmt.Errorf("register agent %s: %w", agent.ID, ErrAgentAlreadyExists)
+    }
+    if err := s.repo.Save(ctx, agent); err != nil {
+        return fmt.Errorf("save agent %s: %w", agent.ID, err)
+    }
+    return nil
+}
 ```
 
 ---
 
 ## Repository Pattern
 
-```python
-# src/<service>/infrastructure/repositories.py
+```go
+// internal/infrastructure/repository.go
+package infrastructure
 
-from sqlalchemy.ext.asyncio import AsyncSession
+import (
+    "context"
+    "database/sql"
+    "errors"
+    "fmt"
 
-from .<service>.domain.models import AgentSpec, AgentId
-from .<service>.domain.services import AgentRepository  # Implements this protocol
-from .<service>.infrastructure.orm import AgentORM
+    "<module>/internal/domain"
+)
 
+type PostgresRepository struct {
+    db *sql.DB
+}
 
-class PostgresAgentRepository:
-    """Implements AgentRepository protocol using PostgreSQL."""
+func NewRepository(cfg *config.Config) (*PostgresRepository, error) {
+    db, err := sql.Open("pgx", cfg.DatabaseURL)
+    if err != nil {
+        return nil, fmt.Errorf("open db: %w", err)
+    }
+    return &PostgresRepository{db: db}, nil
+}
 
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
-
-    async def save(self, spec: AgentSpec) -> AgentId:
-        orm = AgentORM.from_domain(spec)
-        self._session.add(orm)
-        await self._session.flush()
-        return orm.to_domain_id()
-
-    async def find_by_id(self, agent_id: AgentId) -> AgentSpec | None:
-        result = await self._session.get(AgentORM, str(agent_id))
-        return result.to_domain() if result else None
+func (r *PostgresRepository) FindByID(ctx context.Context, id domain.AgentID) (*domain.Agent, error) {
+    row := r.db.QueryRowContext(ctx, `SELECT id, name, endpoint FROM agents WHERE id = $1`, string(id))
+    var a domain.Agent
+    if err := row.Scan(&a.ID, &a.Name, &a.Endpoint); err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            return nil, domain.ErrAgentNotFound
+        }
+        return nil, fmt.Errorf("scan agent %s: %w", id, err)
+    }
+    return &a, nil
+}
 ```
 
 ---
 
-## pyproject.toml Template
+## API Handler Pattern (gRPC ↔ Domain translation)
 
-Every service uses this base. Adjust dependencies per service.
+Error translation from domain to gRPC status codes lives **only** in the api layer.
 
-```toml
-[project]
-name = "zynax-<service-name>"
-version = "0.1.0"
-requires-python = ">=3.12"
-description = "<Service description>"
-license = { text = "Apache-2.0" }
-authors = [{ name = "Zynax Contributors" }]
+```go
+// internal/api/handler.go
+package api
 
-dependencies = [
-    "grpcio>=1.60.0",
-    "grpcio-tools>=1.60.0",
-    "pydantic>=2.5.0",
-    "pydantic-settings>=2.1.0",
-    "structlog>=24.0.0",
-    "prometheus-client>=0.19.0",
-    "opentelemetry-api>=1.22.0",
-    "opentelemetry-sdk>=1.22.0",
-    "opentelemetry-instrumentation-grpc>=0.43b0",
-    "sqlalchemy[asyncio]>=2.0.0",
-    "asyncpg>=0.29.0",
-]
+import (
+    "context"
+    "errors"
+    "fmt"
 
-[dependency-groups]
-dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
-    "pytest-bdd>=7.0.0",
-    "pytest-cov>=4.1.0",
-    "testcontainers[postgres,redis]>=4.0.0",
-    "mypy>=1.8.0",
-    "ruff>=0.2.0",
-    "import-linter>=2.0.0",
-    "mutmut>=2.4.0",
-    "grpcio-testing>=1.60.0",
-    "factory-boy>=3.3.0",
-    "faker>=22.0.0",
-]
+    "google.golang.org/grpc/codes"
+    "google.golang.org/grpc/status"
 
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
-addopts = [
-    "--cov=src",
-    "--cov-report=term-missing",
-    "--cov-fail-under=90",
-    "--strict-markers",
-    "-v",
-]
+    "<module>/internal/domain"
+    pb "<proto-module>/zynax/v1"
+)
 
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "if TYPE_CHECKING:",
-    "raise NotImplementedError",
-    "@abstractmethod",
-]
+type Handler struct {
+    pb.Unimplemented<ServiceName>Server
+    svc *domain.Service
+}
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+func NewHandler(svc *domain.Service) *Handler {
+    return &Handler{svc: svc}
+}
+
+func (h *Handler) RegisterAgent(ctx context.Context, req *pb.RegisterAgentRequest) (*pb.RegisterAgentResponse, error) {
+    agent, err := protoToAgent(req)
+    if err != nil {
+        return nil, status.Errorf(codes.InvalidArgument, "invalid request: %v", err)
+    }
+    if err := h.svc.Register(ctx, agent); err != nil {
+        return nil, mapError(err)
+    }
+    return &pb.RegisterAgentResponse{AgentId: string(agent.ID)}, nil
+}
+
+func mapError(err error) error {
+    switch {
+    case errors.Is(err, domain.ErrAgentNotFound):
+        return status.Errorf(codes.NotFound, err.Error())
+    case errors.Is(err, domain.ErrAgentAlreadyExists):
+        return status.Errorf(codes.AlreadyExists, err.Error())
+    default:
+        return status.Errorf(codes.Internal, "internal error")
+    }
+}
+```
+
+---
+
+## Config Pattern
+
+```go
+// internal/config/config.go
+package config
+
+import (
+    "fmt"
+
+    "github.com/kelseyhightower/envconfig"
+)
+
+type Config struct {
+    GRPCPort    int    `envconfig:"GRPC_PORT"     default:"50051"`
+    MetricsPort int    `envconfig:"METRICS_PORT"  default:"9090"`
+    DatabaseURL string `envconfig:"DATABASE_URL"  required:"true"`
+    LogLevel    string `envconfig:"LOG_LEVEL"     default:"info"`
+}
+
+func Load() (*Config, error) {
+    var cfg Config
+    if err := envconfig.Process("ZYNAX_<SVC>", &cfg); err != nil {
+        return nil, fmt.Errorf("load config: %w", err)
+    }
+    return &cfg, nil
+}
 ```
 
 ---
@@ -248,76 +352,78 @@ build-backend = "hatchling.build"
 # ─────────────────────────────────────────────────
 # Stage 1: builder
 # ─────────────────────────────────────────────────
-FROM python:3.12-slim AS builder
-
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+FROM golang:1.22-alpine AS builder
 
 WORKDIR /build
-COPY pyproject.toml uv.lock ./
 
-# Install deps into isolated layer (no editable install)
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable
+COPY go.mod go.sum ./
+RUN go mod download
 
-COPY src ./src
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /service ./cmd/<service-name>
 
 # ─────────────────────────────────────────────────
 # Stage 2: runtime
 # ─────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+FROM gcr.io/distroless/static:nonroot AS runtime
 
-# Non-root user
-RUN useradd --system --no-create-home --uid 1001 --gid 0 zynax
+COPY --from=builder /service /service
 
-# Copy only the installed packages
-COPY --from=builder /build/.venv /app/.venv
-COPY --from=builder /build/src /app/src
-
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/src"
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-WORKDIR /app
-USER zynax
-
-# gRPC, metrics, health
-EXPOSE 50051 9090 8080
+# gRPC, metrics, health (metrics/health share one port via HTTP mux)
+EXPOSE 50051 9090
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import grpc; c=grpc.insecure_channel('localhost:50051'); grpc.channel_ready_future(c).result(timeout=3)"
+    CMD ["/service", "-healthcheck"]
 
-ENTRYPOINT ["python", "-m", "<service_module>.main"]
+ENTRYPOINT ["/service"]
 ```
 
 ---
 
-## Integration Test Pattern (testcontainers)
+## Testing
 
-```python
-# tests/conftest.py
-import pytest
-from testcontainers.postgres import PostgresContainer
-from testcontainers.redis import RedisContainer
+Run service tests (add `-v` for verbose output):
 
-@pytest.fixture(scope="session")
-def postgres_container():
-    with PostgresContainer("postgres:16-alpine") as container:
-        yield container
+```bash
+# All tests for one service
+cd services/<service-name>
+go test ./... -timeout 60s
 
-@pytest.fixture(scope="session")
-def redis_container():
-    with RedisContainer("redis:7-alpine") as container:
-        yield container
+# With race detector
+go test -race ./... -timeout 60s
 
-@pytest.fixture
-async def db_session(postgres_container):
-    """Real DB session — never mock the database."""
-    engine = create_async_engine(postgres_container.get_connection_url())
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    async with AsyncSession(engine) as session:
-        yield session
-        await session.rollback()
+# Single package
+go test ./internal/domain/... -v
+
+# With coverage
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out
 ```
+
+Lint:
+
+```bash
+# From repo root (uses tools Docker image)
+make lint
+
+# Or directly (requires golangci-lint installed)
+golangci-lint run ./services/<service-name>/...
+```
+
+Coverage requirement: ≥ 90% on `internal/domain/` (pure logic, no I/O to mock).
+Integration tests hitting real databases use `testcontainers-go`.
+
+---
+
+## Health Probes
+
+Every service exposes health on the metrics HTTP server:
+
+| Path | Response | Meaning |
+|------|----------|---------|
+| `/healthz` | `200 OK` | Process is alive (liveness probe) |
+| `/readyz` | `200 OK` / `503` | Ready to serve traffic (readiness probe) |
+
+`/readyz` MUST return `503` until the gRPC server is fully started and all dependency
+connections (DB, NATS) are verified. Kubernetes uses readiness to gate traffic — a
+service that returns `200` before it's ready causes request failures on rollout.
