@@ -173,3 +173,30 @@ Feature: TaskBrokerService contract — capability routing and task lifecycle
     When AcknowledgeTask is called
     Then the gRPC status is INVALID_ARGUMENT
     And the error message mentions "result_payload"
+
+  # ─── Pagination ───────────────────────────────────────────────────────────
+
+  Scenario: ListTasks first page returns page_size results and a next_page_token
+    Given 5 tasks exist in workflow "wf-paged"
+    When ListTasks is called with page_size 3 and no page_token
+    Then the response contains exactly 3 tasks
+    And the response next_page_token is non-empty
+
+  Scenario: ListTasks subsequent page returns remaining results
+    Given 5 tasks exist in workflow "wf-paged"
+    And ListTasks has been called with page_size 3 returning next_page_token "tok-1"
+    When ListTasks is called with page_size 3 and page_token "tok-1"
+    Then the response contains exactly 2 tasks
+    And the response next_page_token is empty
+
+  Scenario: ListTasks last page has empty next_page_token
+    Given 2 tasks exist in workflow "wf-small"
+    When ListTasks is called with page_size 10 and no page_token
+    Then the response contains exactly 2 tasks
+    And the response next_page_token is empty
+
+  Scenario: ListTasks with page_size 0 uses server default
+    Given 3 tasks exist in workflow "wf-default"
+    When ListTasks is called with page_size 0 and no page_token
+    Then the gRPC status is OK
+    And the response contains at least 1 task
