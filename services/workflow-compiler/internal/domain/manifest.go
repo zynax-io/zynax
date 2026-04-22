@@ -202,7 +202,11 @@ func ParseManifest(data []byte) (*Manifest, ParseErrors) { //nolint:funlen // fo
 }
 
 // convertState converts a yamlState into a domain State, validating all fields.
-func convertState(name string, ys yamlState, line int) (*State, ParseErrors) { //nolint:funlen // validates type + actions + transitions in one pass; splitting adds indirection without clarity
+func convertState( //nolint:funlen // validates type + actions + transitions in one pass; splitting adds indirection without clarity
+	name string,
+	ys yamlState,
+	line int,
+) (*State, ParseErrors) {
 	var errs ParseErrors
 	st := &State{ID: name, Line: line}
 
