@@ -11,15 +11,16 @@
 
 1. [Roles & Responsibilities](#1-roles--responsibilities)
 2. [Decision-Making](#2-decision-making)
-3. [RFC Process](#3-rfc-process)
-4. [Issue Triage Process](#4-issue-triage-process)
-5. [Release Process](#5-release-process)
-6. [Roadmap Management](#6-roadmap-management)
-7. [AI Agent Contributors](#7-ai-agent-contributors)
-8. [Conflict Resolution](#8-conflict-resolution)
-9. [Adding and Removing Maintainers](#9-adding-and-removing-maintainers)
-10. [Communication Channels](#10-communication-channels)
-11. [CNCF Alignment](#11-cncf-alignment)
+3. [DCO and Commit Hygiene](#3-dco-and-commit-hygiene)
+4. [RFC Process](#4-rfc-process)
+5. [Issue Triage Process](#5-issue-triage-process)
+6. [Release Process](#6-release-process)
+7. [Roadmap Management](#7-roadmap-management)
+8. [AI Agent Contributors](#8-ai-agent-contributors)
+9. [Conflict Resolution](#9-conflict-resolution)
+10. [Adding and Removing Maintainers](#10-adding-and-removing-maintainers)
+11. [Communication Channels](#11-communication-channels)
+12. [CNCF Alignment](#12-cncf-alignment)
 
 ---
 
@@ -137,7 +138,46 @@ is considered inactive for voting purposes.
 
 ---
 
-## 3. RFC Process
+## 3. DCO and Commit Hygiene
+
+### DCO Sign-Off
+
+Every commit must include a `Signed-off-by` trailer certifying the
+[Developer Certificate of Origin](https://developercertificate.org/):
+
+```
+Signed-off-by: Your Full Name <your@email.com>
+```
+
+Add automatically with `git commit -s`. The DCO bot enforced in CI blocks merges
+without it. `Signed-off-by` is reserved for humans — AI tools cannot certify DCO
+and must use `Assisted-by:` instead (see §7).
+
+Fixing a missing sign-off:
+
+```bash
+# Single commit
+git commit --amend -s --no-edit
+
+# Multiple commits (rebase and re-sign all since diverging from main)
+git rebase --signoff main
+git push --force-with-lease
+```
+
+### Commit Message Hygiene
+
+- **Subject line:** conventional commit format, ≤ 72 characters
+- **Valid types:** `feat` `fix` `refactor` `docs` `test` `ci` `chore`
+- **Breaking changes:** include `BREAKING CHANGE:` footer
+- **No `@mentions`** in commit messages — they generate GitHub notifications
+- **No emoji** in commit messages
+- **AI attribution:** `Assisted-by: Claude/<model-id>` — never `Co-Authored-By:`
+
+PR titles follow the same format and are validated by CI.
+
+---
+
+## 4. RFC Process
 
 An RFC (Request for Comments) is required for any decision classified as
 "significant" or higher in §2.
@@ -168,7 +208,7 @@ Draft → Under Review → Accepted / Rejected / Withdrawn
 
 ---
 
-## 4. Issue Triage Process
+## 5. Issue Triage Process
 
 Maintainers triage new issues within **3 business days** of opening.
 
@@ -199,10 +239,27 @@ stale-bot. If no response within 14 days, they are closed with the note:
 
 ---
 
-## 5. Release Process
+## 6. Release Process
 
 Releases follow [Semantic Versioning 2.0](https://semver.org). Release managers
 rotate among maintainers.
+
+### Milestone → Version Mapping
+
+| Milestone | Version | Description |
+|-----------|---------|-------------|
+| M1 — Contracts Foundation | v0.1.0 | gRPC contracts, AsyncAPI spec, generated stubs |
+| M2 — Workflow IR | v0.2.0 | WorkflowIR proto + compiler service skeleton |
+| M3 — Temporal Execution | v0.3.0 | Temporal-backed engine adapter |
+| M4 — YAML System + CLI | v0.4.0 | `zynaxctl` CLI + YAML manifest validation |
+| M5 — Observability | v0.5.0 | OTel traces, metrics dashboards, audit log |
+| M6 — Production Hardening | v1.0.0-rc.1 | HA, multi-tenancy, security audit |
+| M7 — Developer Experience | v1.0.0-rc.2 | SDKs, docs site, quickstart |
+| M8 — CNCF Sandbox | v1.0.0 | Sandbox submission, governance complete |
+
+A version tag is cut when **all** milestone acceptance criteria are closed and CI
+is green on `main`. Patch versions (v0.x.y) may be cut between milestones for
+critical bug fixes without waiting for the next minor release.
 
 ### Release Cadence
 
@@ -234,7 +291,7 @@ A release is managed as a GitHub Issue with this task list:
 
 ---
 
-## 6. Roadmap Management
+## 7. Roadmap Management
 
 The [ROADMAP.md](ROADMAP.md) is the narrative roadmap. The authoritative
 execution roadmap lives in the [GitHub Project board](https://github.com/orgs/zynax-io/projects/1).
@@ -258,7 +315,7 @@ The issue will be evaluated at the next triage cycle.
 
 ---
 
-## 7. AI Agent Contributors
+## 8. AI Agent Contributors
 
 Zynax explicitly welcomes AI-assisted contributions and provides a defined framework
 for AI agents (Claude, Copilot, GPT-4, custom agents) to participate responsibly.
@@ -312,7 +369,7 @@ Contributors using [Claude Code](https://claude.ai/code) (the Anthropic CLI):
 
 ---
 
-## 8. Conflict Resolution
+## 9. Conflict Resolution
 
 ### Technical Disagreements
 
@@ -332,7 +389,7 @@ Enforcement levels: warning → temporary ban → permanent ban.
 
 ---
 
-## 9. Adding and Removing Maintainers
+## 10. Adding and Removing Maintainers
 
 ### Adding a Maintainer
 
@@ -358,7 +415,7 @@ Triggered by sustained inactivity (>6 months) or Code of Conduct violation:
 
 ---
 
-## 10. Communication Channels
+## 11. Communication Channels
 
 | Channel | Purpose | Moderated by |
 |---------|---------|-------------|
@@ -374,7 +431,7 @@ security only.
 
 ---
 
-## 11. CNCF Alignment
+## 12. CNCF Alignment
 
 Zynax targets CNCF Sandbox submission at v1.0.0 (Milestone 8).
 
