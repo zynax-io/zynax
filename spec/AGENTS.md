@@ -247,7 +247,7 @@ make validate-spec
 # Validate a single file
 make validate-spec FILE=spec/workflows/examples/code-review.yaml
 
-# Dry-run a workflow (compile to IR without executing)
+# Dry-run a workflow (compile to WorkflowIR without executing)
 make dry-run WORKFLOW=spec/workflows/examples/code-review.yaml
 ```
 

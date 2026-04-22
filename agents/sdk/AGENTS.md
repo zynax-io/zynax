@@ -3,6 +3,9 @@
 > The Zynax Python SDK.
 > Published as `zynax-sdk` on PyPI.
 > Framework-agnostic core. AI runtimes are optional extras.
+>
+> **M1 status:** Python gRPC stubs are generated (`protos/generated/python/`).
+> SDK implementation begins in M2. Write `.feature` files first (ADR-016).
 
 ---
 
