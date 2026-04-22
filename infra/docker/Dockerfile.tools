@@ -2,7 +2,7 @@
 # Zynax — Developer Tools Image
 #
 # Multi-stage Alpine build. No Debian, no apt, no systemd.
-#   Stage go-tools : golang:1.22-alpine  — all Go binaries + buf
+#   Stage go-tools : golang:1.25-alpine  — all Go binaries + buf
 #   Stage final    : python:3.12-alpine  — copies Go binaries, adds Python tools
 #
 # Built once via `make build-tools`. Bind-mounts the repo at /workspace.
@@ -24,7 +24,7 @@
 #   uv                  0.5.10
 
 # ── Stage 1: Go binaries ────────────────────────────────────────────────────
-FROM golang:1.22-alpine AS go-tools
+FROM golang:1.25-alpine AS go-tools
 
 RUN apk add --no-cache git curl
 
