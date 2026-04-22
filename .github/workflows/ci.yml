@@ -31,7 +31,7 @@ env:
   GO_VERSION: "1.25"
   PYTHON_VERSION: "3.12"
   BUF_VERSION: "1.47.2"
-  GOLANGCI_VERSION: "v1.61.0"
+  GOLANGCI_VERSION: "v2.11.4"
   GOVULNCHECK_VERSION: "v1.1.4"
   SERVICE_LIST: "agent-registry task-broker memory-service event-bus api-gateway workflow-compiler engine-adapter"
   AGENT_LIST: "summarizer researcher calculator"

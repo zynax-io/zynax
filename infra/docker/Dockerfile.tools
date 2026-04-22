@@ -13,7 +13,7 @@
 # compatible so bot PRs keep them in sync automatically.
 #
 #   buf                 1.47.2   (ci.yml BUF_VERSION must match)
-#   golangci-lint       v1.61.0  (ci.yml GOLANGCI_VERSION must match)
+#   golangci-lint       v2.11.4  (ci.yml GOLANGCI_VERSION must match)
 #   godog               v0.14.1
 #   protoc-gen-go       v1.36.5
 #   protoc-gen-go-grpc  v1.5.1
@@ -31,7 +31,7 @@ RUN apk add --no-cache git curl
 # golangci-lint
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-    | sh -s -- -b /usr/local/bin v1.61.0
+    | sh -s -- -b /usr/local/bin v2.11.4
 
 # govulncheck — CVE scanner for Go modules
 # renovate: datasource=github-releases depName=golang/vuln
