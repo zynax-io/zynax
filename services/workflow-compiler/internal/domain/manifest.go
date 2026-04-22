@@ -113,7 +113,7 @@ type yamlTransition struct {
 // ParseManifest parses raw YAML bytes into a domain Manifest.
 // Returns all errors found — not just the first — to let callers surface all
 // problems in a single response. Returns (nil, errs) on any error.
-func ParseManifest(data []byte) (*Manifest, ParseErrors) {
+func ParseManifest(data []byte) (*Manifest, ParseErrors) { //nolint:funlen // four sequential validation phases (YAML→decode→top-level→states) are one concern
 	// Phase 1: YAML syntax — parse into yaml.Node for source position info.
 	var root yaml.Node
 	if err := yaml.Unmarshal(data, &root); err != nil {
@@ -202,7 +202,7 @@ func ParseManifest(data []byte) (*Manifest, ParseErrors) {
 }
 
 // convertState converts a yamlState into a domain State, validating all fields.
-func convertState(name string, ys yamlState, line int) (*State, ParseErrors) {
+func convertState(name string, ys yamlState, line int) (*State, ParseErrors) { //nolint:funlen // validates type + actions + transitions in one pass; splitting adds indirection without clarity
 	var errs ParseErrors
 	st := &State{ID: name, Line: line}
 
