@@ -146,9 +146,9 @@ clean-tools: ## Remove tools image
 clean-all: clean dev-down clean-tools ## ⚠ Remove everything
 
 # ── Spec validation ───────────────────────────────────────────────────────────
-.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema dry-run
+.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema dry-run
 
-validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def manifests)
+validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema validate-policy-schema ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def + policy manifests)
 
 validate-capability-schemas: ## Validate capability declarations in spec/ against capability.schema.json
 	docker run --rm \
@@ -179,6 +179,16 @@ validate-agent-def-schema: ## Validate AgentDef manifests in spec/workflows/exam
 			python tools/validate_agent_defs.py spec/schemas/agent-def.schema.json spec/workflows/examples/ \
 		"
 	@echo "✅ AgentDef schemas valid"
+
+validate-policy-schema: ## Validate Policy manifests in spec/workflows/examples/ against policy.schema.json
+	docker run --rm \
+		-v "$(PWD)":/workspace \
+		-w /workspace \
+		python:3.12-slim sh -c " \
+			pip install --quiet jsonschema pyyaml && \
+			python tools/validate_policies.py spec/schemas/policy.schema.json spec/workflows/examples/ \
+		"
+	@echo "✅ Policy schemas valid"
 
 validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)
 	docker run --rm \
