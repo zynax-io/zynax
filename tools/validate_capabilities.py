@@ -25,7 +25,8 @@ def main() -> None:
     errors_found = False
     for yaml_file in sorted(yaml_dir.glob("*.yaml")):
         doc = yaml.safe_load(yaml_file.read_text())
-        capabilities = doc.get("capabilities", [])
+        # Support both legacy top-level and current spec.capabilities structure.
+        capabilities = doc.get("spec", {}).get("capabilities") or doc.get("capabilities", [])
         if not capabilities:
             continue
         for cap in capabilities:
