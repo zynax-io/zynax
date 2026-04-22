@@ -55,8 +55,7 @@ service WorkflowCompilerService {
   //   - The workflow_id was never compiled by this service instance.
   //   - The compiled IR has been evicted past the retention window.
   //   - dry_run=true was used when compiling (dry-run results are not persisted).
-  rpc GetCompiledWorkflow(GetCompiledWorkflowRequest)
-      returns (GetCompiledWorkflowResponse);
+  rpc GetCompiledWorkflow(GetCompiledWorkflowRequest) returns (GetCompiledWorkflowResponse);
 }
 
 // CompilationErrorCode classifies structural and syntactic errors in manifests.
