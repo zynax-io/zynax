@@ -1,8 +1,12 @@
 asyncapi: "2.6.0"
+id: "urn:io:zynax:event-bus"
 
 info:
   title: Zynax Event Bus
   version: "1.0.0"
+  contact:
+    name: Zynax Engineering
+    url: https://github.com/zynax-io/zynax
   description: |
     All Zynax async events published to the NATS JetStream event bus.
     Every message payload is a CloudEvents v1.0 envelope as defined in
@@ -54,6 +58,14 @@ servers:
 
 defaultContentType: application/json
 
+tags:
+  - name: workflow
+    description: Events related to workflow lifecycle (start, complete, fail, cancel, state transitions).
+  - name: task
+    description: Events related to task dispatch and execution lifecycle.
+  - name: agent
+    description: Events related to agent registration and capability invocations.
+
 components:
   schemas:
     CloudEvent:
@@ -83,6 +95,7 @@ channels:
       operationId: onWorkflowStarted
       summary: A workflow execution has started.
       message:
+        messageId: workflow.started
         name: WorkflowStarted
         summary: Emitted once per workflow run when execution begins.
         contentType: application/json
@@ -99,6 +112,7 @@ channels:
       operationId: onWorkflowCompleted
       summary: A workflow execution completed successfully.
       message:
+        messageId: workflow.completed
         name: WorkflowCompleted
         summary: Emitted when all states have been traversed and the terminal state reached.
         contentType: application/json
@@ -115,6 +129,7 @@ channels:
       operationId: onWorkflowFailed
       summary: A workflow execution failed terminally.
       message:
+        messageId: workflow.failed
         name: WorkflowFailed
         summary: Emitted when the engine reports a non-retryable failure.
         contentType: application/json
@@ -132,6 +147,7 @@ channels:
       operationId: onWorkflowCancelled
       summary: A workflow execution was explicitly cancelled.
       message:
+        messageId: workflow.cancelled
         name: WorkflowCancelled
         summary: Emitted after CancelWorkflow is processed by the engine adapter.
         contentType: application/json
@@ -160,6 +176,7 @@ channels:
       operationId: onWorkflowStateEntered
       summary: The workflow state machine has entered a new state.
       message:
+        messageId: workflow.state.entered
         name: WorkflowStateEntered
         summary: >
           Emitted after every state transition. Carries from_state and to_state
@@ -192,6 +209,7 @@ channels:
       operationId: onWorkflowStateExited
       summary: The workflow state machine has exited a state due to a transition.
       message:
+        messageId: workflow.state.exited
         name: WorkflowStateExited
         summary: >
           Emitted on every state transition before the target state is entered.
@@ -212,6 +230,7 @@ channels:
       operationId: onTaskDispatched
       summary: A task has been dispatched to an agent.
       message:
+        messageId: task.dispatched
         name: TaskDispatched
         summary: Emitted when the broker routes a task to a capable agent.
         contentType: application/json
@@ -228,6 +247,7 @@ channels:
       operationId: onTaskCompleted
       summary: A task has been completed successfully by an agent.
       message:
+        messageId: task.completed
         name: TaskCompleted
         summary: Emitted when the agent reports successful task execution.
         contentType: application/json
@@ -244,6 +264,7 @@ channels:
       operationId: onTaskFailed
       summary: A task has failed after exhausting retries.
       message:
+        messageId: task.failed
         name: TaskFailed
         summary: Emitted when a task cannot be completed and will not be retried.
         contentType: application/json
@@ -260,6 +281,7 @@ channels:
       operationId: onTaskRetrying
       summary: A failed task has been re-queued for retry.
       message:
+        messageId: task.retrying
         name: TaskRetrying
         summary: Emitted each time the broker schedules a task retry.
         contentType: application/json
@@ -278,6 +300,7 @@ channels:
       operationId: onAgentRegistered
       summary: A new agent has been registered and is available for routing.
       message:
+        messageId: agent.registered
         name: AgentRegistered
         summary: Emitted when RegisterAgent succeeds and the agent is REGISTERED.
         contentType: application/json
@@ -294,6 +317,7 @@ channels:
       operationId: onAgentDeregistered
       summary: An agent has been deregistered and removed from routing.
       message:
+        messageId: agent.deregistered
         name: AgentDeregistered
         summary: Emitted when DeregisterAgent marks the agent as DEREGISTERED.
         contentType: application/json
@@ -311,6 +335,7 @@ channels:
       operationId: onAgentCapabilityInvoked
       summary: An agent capability has been invoked by the workflow engine.
       message:
+        messageId: agent.capability.invoked
         name: AgentCapabilityInvoked
         summary: Emitted when the agent begins executing a capability for a workflow step.
         contentType: application/json

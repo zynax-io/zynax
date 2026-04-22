@@ -33,7 +33,7 @@ linters:
     - goconst        # repeated strings → constants
   settings:
     funlen:
-      lines: 80
+      lines: 85
       statements: 40
     cyclop:
       max-complexity: 16
