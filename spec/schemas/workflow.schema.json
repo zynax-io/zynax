@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zynax.io/schemas/workflow/v1.0",
+  "title": "Zynax Workflow Manifest",
+  "description": "JSON Schema for a Zynax Workflow manifest (kind: Workflow, apiVersion: zynax.io/v1). Defines the state machine, triggers, and action invocations for a declarative AI workflow. Consumed by the workflow compiler (WorkflowCompilerService) and validated by 'make validate-spec'.",
+  "type": "object",
+  "required": ["kind", "apiVersion", "metadata", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "Workflow",
+      "description": "Must be 'Workflow'. Distinguishes workflow manifests from AgentDef and other Zynax resource kinds."
+    },
+    "apiVersion": {
+      "type": "string",
+      "const": "zynax.io/v1",
+      "description": "Schema version. The workflow compiler rejects manifests with an unrecognised apiVersion."
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/spec"
+    }
+  },
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "description": "Identifying information for the workflow resource.",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique workflow name within the namespace. Used as the human-readable identifier in the registry and logs.",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Logical namespace for multi-tenant isolation. Defaults to 'default' when omitted.",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "labels": {
+          "type": "object",
+          "description": "Arbitrary key-value labels for grouping and filtering. Keys and values must be strings.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Arbitrary key-value annotations for tooling metadata (e.g. description, owner). Keys and values must be strings.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "description": "The workflow state machine definition.",
+      "required": ["initial_state", "states"],
+      "additionalProperties": false,
+      "properties": {
+        "initial_state": {
+          "type": "string",
+          "description": "The name of the state the workflow enters on submission. Must match a key in the 'states' map.",
+          "minLength": 1
+        },
+        "triggers": {
+          "type": "array",
+          "description": "Optional list of CloudEvent patterns that automatically start a new workflow instance. Omit for manually triggered workflows.",
+          "items": {
+            "$ref": "#/$defs/trigger"
+          }
+        },
+        "states": {
+          "type": "object",
+          "description": "Map of state name to state definition. Keys are state names used as routing targets in transitions. At least one terminal state must be reachable (enforced by the compiler, not this schema).",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/state"
+          }
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "description": "A CloudEvent pattern that creates a new workflow instance when matched.",
+      "required": ["event"],
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "type": "string",
+          "description": "CloudEvent type to match. Supports dot-separated hierarchical names (e.g. 'github.pull_request.opened').",
+          "minLength": 1
+        },
+        "filter": {
+          "type": "object",
+          "description": "Optional key-value conditions applied to the event attributes. All entries must match for the trigger to fire.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "description": "A single node in the workflow state machine.",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Classification of this state's behaviour. Defaults to 'normal' when omitted. Terminal states must not define 'on' transitions. human_in_the_loop states pause execution until an external signal.",
+          "enum": ["normal", "terminal", "human_in_the_loop"]
+        },
+        "actions": {
+          "type": "array",
+          "description": "Ordered list of capability invocations executed when the state is entered. All actions start before the state machine waits for a transition event.",
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "on": {
+          "type": "array",
+          "description": "Outbound transitions from this state. The state machine evaluates transitions in order and fires the first one whose event and guard conditions are satisfied. Must be empty or absent for terminal states.",
+          "items": {
+            "$ref": "#/$defs/transition"
+          }
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "description": "A single capability invocation. The task broker dispatches this to a matching registered agent.",
+      "required": ["capability"],
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "type": "string",
+          "description": "The capability name to invoke. Must match a capability declared in a registered AgentDef.",
+          "minLength": 1
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Maximum time to wait for the agent to emit a COMPLETED event. ISO 8601 duration string (e.g. '30m', '1h', '24h'). Zero or absent means no action-level timeout (the workflow TTL still applies).",
+          "pattern": "^([0-9]+(ns|us|ms|s|m|h))+$"
+        },
+        "input": {
+          "type": "object",
+          "description": "Key-value input template passed to the agent. Values may reference workflow context with expression syntax '{{ .ctx.key }}' or trigger data '{{ .trigger.field }}'.",
+          "additionalProperties": true
+        },
+        "output": {
+          "type": "object",
+          "description": "Mapping from capability result fields to workflow context keys. Allows the result of this action to be consumed by subsequent states.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "description": "An outbound edge in the workflow state machine. Fires when the named event arrives and the optional guard evaluates to true.",
+      "required": ["event", "goto"],
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "type": "string",
+          "description": "The CloudEvent type that triggers this transition. Matched against the 'type' attribute of incoming events.",
+          "minLength": 1
+        },
+        "goto": {
+          "type": "string",
+          "description": "The target state to enter when this transition fires. Must match a key in spec.states.",
+          "minLength": 1
+        },
+        "guard": {
+          "type": "string",
+          "description": "Optional CEL expression that must evaluate to true for this transition to fire. When multiple transitions share the same event, guards disambiguate them. Evaluated in the workflow context.",
+          "minLength": 1
+        },
+        "set": {
+          "type": "object",
+          "description": "Key-value pairs to write into the workflow context when this transition fires. Values may use expression syntax.",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
