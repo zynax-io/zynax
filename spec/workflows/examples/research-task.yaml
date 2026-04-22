@@ -1,0 +1,151 @@
+# Research Task Workflow — Reference Example
+# Demonstrates: iterative event-driven loop, human-in-the-loop review,
+# context accumulation across states, and terminal success/abandon paths.
+#
+# Business purpose: A research agent searches the web for information on a
+# topic, summarises the findings, and presents them to a human reviewer.
+# The human can approve the summary, request another iteration (up to a
+# configurable limit), or abandon the task. This pattern is reusable for
+# any iterative AI task that requires human sign-off before completion.
+#
+# To apply: zynax apply spec/workflows/examples/research-task.yaml
+# To dry-run: zynax apply --dry-run spec/workflows/examples/research-task.yaml
+
+kind: Workflow
+apiVersion: zynax.io/v1
+
+metadata:
+  name: research-task-workflow
+  namespace: research
+  labels:
+    team: platform
+    tier: staging
+  annotations:
+    description: "Iterative web research with human review and approval"
+
+spec:
+  initial_state: search
+
+  # Triggered when a research request is submitted via the API or CLI
+  triggers:
+    - event: research.requested
+      filter:
+        namespace: research
+
+  states:
+    # ── Search state ──────────────────────────────────────────────
+    search:
+      actions:
+        - capability: search_web
+          input:
+            query: "{{ .trigger.topic }}"
+            max_results: "{{ .context.max_results | default 10 }}"
+          output:
+            context.raw_results: "{{ .result.results }}"
+          timeout: 30s
+
+      on:
+        - event: search.completed
+          goto: summarize
+
+        - event: search.no_results
+          goto: abandon
+          set:
+            context.abandon_reason: "No results found for topic"
+
+        - event: search.failed
+          goto: abandon
+          set:
+            context.abandon_reason: "Search capability failed"
+
+    # ── Summarize state ───────────────────────────────────────────
+    summarize:
+      actions:
+        - capability: summarize
+          input:
+            text: "{{ .context.raw_results }}"
+            max_words: 500
+          output:
+            context.summary: "{{ .result.summary }}"
+            context.word_count: "{{ .result.word_count }}"
+          timeout: 60s
+
+      on:
+        - event: summarize.completed
+          goto: human_review
+
+        - event: summarize.failed
+          goto: abandon
+          set:
+            context.abandon_reason: "Summarize capability failed"
+
+    # ── Human review state (human-in-the-loop) ────────────────────
+    human_review:
+      type: human_in_the_loop
+      actions:
+        - capability: notify_human
+          input:
+            channel: "#research-reviews"
+            message: "Research summary ready for review: {{ .context.summary }}"
+            workflow_id: "{{ .trigger.workflow_id }}"
+
+      on:
+        # Human approves — deliver the final summary
+        - event: human.approved
+          goto: deliver
+
+        # Human requests another search iteration (loop back)
+        - event: human.iterate
+          goto: search
+          guard: "{{ .context.iteration_count }} < 3"
+          set:
+            context.iteration_count: "{{ add .context.iteration_count 1 }}"
+            context.search_refinement: "{{ .event.feedback }}"
+
+        # Too many iterations — escalate to abandon
+        - event: human.iterate
+          goto: abandon
+          guard: "{{ .context.iteration_count }} >= 3"
+          set:
+            context.abandon_reason: "Maximum iteration limit reached"
+
+        # Human explicitly rejects — abandon
+        - event: human.rejected
+          goto: abandon
+          set:
+            context.abandon_reason: "Rejected by reviewer: {{ .event.reason }}"
+
+    # ── Deliver state ─────────────────────────────────────────────
+    deliver:
+      actions:
+        - capability: deliver_result
+          input:
+            recipient: "{{ .trigger.requester }}"
+            summary: "{{ .context.summary }}"
+            word_count: "{{ .context.word_count }}"
+            iterations: "{{ .context.iteration_count }}"
+      on:
+        - event: deliver.success
+          goto: done
+
+        - event: deliver.failed
+          goto: abandon
+          set:
+            context.abandon_reason: "Delivery failed"
+
+    # ── Terminal states ───────────────────────────────────────────
+    done:
+      type: terminal
+      actions:
+        - capability: notify_author
+          input:
+            recipient: "{{ .trigger.requester }}"
+            message: "Research task complete. Summary delivered."
+
+    abandon:
+      type: terminal
+      actions:
+        - capability: notify_author
+          input:
+            recipient: "{{ .trigger.requester }}"
+            message: "Research task abandoned: {{ .context.abandon_reason }}"
