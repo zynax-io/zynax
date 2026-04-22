@@ -196,6 +196,48 @@ spec:
 
 ---
 
+## Event Type Versioning
+
+All async events are declared in `spec/asyncapi/zynax-events.yaml`.
+Follow these rules when adding or changing event types.
+
+### Channel naming
+
+Channels follow `<domain>.<resource>.<action>` (e.g. `zynax.workflow.started`).
+Channel names are **stable addresses** — they do not carry version numbers by default.
+
+### Non-breaking changes (safe, no rename)
+
+Adding optional fields to the CloudEvent `data` payload is non-breaking.
+Consumers MUST ignore unknown fields (standard CloudEvents contract).
+
+### Breaking changes (field removal, rename, type change, semantic change)
+
+1. Create a **new channel** with a `.v2` suffix: `zynax.workflow.started.v2`
+2. Mark the old channel deprecated in the AsyncAPI spec:
+   ```yaml
+   zynax.workflow.started:
+     x-zynax-deprecated: true
+     x-zynax-removal-milestone: M4
+   ```
+3. Publish to **both** channels for exactly one full milestone (the deprecation period).
+4. Remove the old channel at the start of the milestone after the deprecation period.
+
+### Schema version extension attribute
+
+Every CloudEvent published by Zynax MUST include the `zynaxschemarev` extension
+attribute so consumers can detect schema drift without inspecting channel names:
+
+```
+zynaxschemarev: "workflow/started@v1"
+```
+
+Format: `<domain>/<resource>/<action>@v<N>` — increment `N` on every breaking change.
+
+All channels in this file are currently at `v1`.
+
+---
+
 ## Validation
 
 ```bash
