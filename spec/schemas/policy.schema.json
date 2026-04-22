@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zynax.io/schemas/policy/v1.0",
+  "title": "Zynax Policy Manifest",
+  "description": "JSON Schema for a Zynax Policy manifest (kind: Policy, apiVersion: zynax.io/v1alpha1). Defines routing, rate-limiting, and quota rules that govern workflow execution. Policy enforcement is implemented in M6 (Kubernetes operator); this schema is committed in M2 so the workflow compiler can validate policy references. See ROADMAP.md §M6 and ADR-011.",
+  "type": "object",
+  "required": ["kind", "apiVersion", "metadata", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "Policy",
+      "description": "Must be 'Policy'. Distinguishes policy manifests from Workflow, AgentDef, and other Zynax resource kinds."
+    },
+    "apiVersion": {
+      "type": "string",
+      "const": "zynax.io/v1alpha1",
+      "description": "Schema version. The policy enforcer rejects manifests with an unrecognised apiVersion."
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/spec"
+    }
+  },
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "description": "Identifying information for the Policy resource.",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique policy name within the namespace.",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Logical namespace this policy is scoped to. Defaults to 'default' when omitted.",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "labels": {
+          "type": "object",
+          "description": "Key-value labels for filtering and grouping policies.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "description": "The policy rule set.",
+      "required": ["rules"],
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "type": "array",
+          "description": "Ordered list of policy rules. Rules are evaluated in order; the first matching rule wins. Each rule must declare exactly one rule type (capability_routing, rate_limit, or quota).",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/rule"
+          }
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "description": "A single policy rule. The 'type' field determines which additional fields are required. Scope fields ('capability_selector', 'namespace_selector') support glob patterns.",
+      "required": ["type", "capability_selector"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Rule type discriminator. Determines which enforcement fields are required.",
+          "enum": ["capability_routing", "rate_limit", "quota"]
+        },
+        "capability_selector": {
+          "type": "string",
+          "description": "Glob pattern matching capability names this rule applies to. Use '*' to match all capabilities, 'review_*' to match a prefix, or an exact name like 'summarize'.",
+          "minLength": 1
+        },
+        "namespace_selector": {
+          "type": "string",
+          "description": "Optional glob pattern matching the workflow namespace this rule applies to. Omit to match all namespaces. Examples: 'platform', 'team-*', '*'.",
+          "minLength": 1
+        },
+        "target_namespace": {
+          "type": "string",
+          "description": "Required for type 'capability_routing'. The namespace to route matching capability invocations to. Allows cross-namespace capability delegation.",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "max_rps": {
+          "type": "number",
+          "description": "Required for type 'rate_limit'. Maximum requests per second allowed for matching capabilities across all workflow instances in scope. Must be greater than zero.",
+          "exclusiveMinimum": 0
+        },
+        "burst": {
+          "type": "integer",
+          "description": "Optional for type 'rate_limit'. Maximum number of requests allowed to exceed max_rps momentarily (token-bucket burst size). Must be at least 1. Defaults to ceil(max_rps) when omitted.",
+          "minimum": 1
+        },
+        "max_concurrent": {
+          "type": "integer",
+          "description": "Required for type 'quota'. Maximum number of simultaneously executing capability invocations in scope. Requests beyond this limit are queued or rejected.",
+          "minimum": 1
+        }
+      },
+      "if": {
+        "properties": { "type": { "const": "capability_routing" } }
+      },
+      "then": {
+        "required": ["target_namespace"]
+      },
+      "else": {
+        "if": {
+          "properties": { "type": { "const": "rate_limit" } }
+        },
+        "then": {
+          "required": ["max_rps"]
+        },
+        "else": {
+          "if": {
+            "properties": { "type": { "const": "quota" } }
+          },
+          "then": {
+            "required": ["max_concurrent"]
+          }
+        }
+      }
+    }
+  }
+}
