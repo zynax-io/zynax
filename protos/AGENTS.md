@@ -309,6 +309,9 @@ Every RPC method in every proto **must** have at least one BDD scenario
 in the consuming service's `tests/features/` directory that verifies the
 contract is honoured.
 
+See `protos/tests/AGENTS.md` for the full guide: GOWORK=off requirement, bufconn
+pattern, running individual packages, adding steps, and the two-file split pattern.
+
 ```gherkin
 # tests/features/agent_registry_contract.feature
 Feature: AgentRegistryService Contract
