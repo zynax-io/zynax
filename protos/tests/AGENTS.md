@@ -6,7 +6,8 @@
 >
 > See `protos/AGENTS.md §7` for the contract testing mandate and `CLAUDE.md §testing`
 > for the CI enforcement rules. The architectural decision is in ADR-016 and
-> ADR-017.
+> ADR-017. Tactical decisions (test split pattern, bufconn rationale, GOWORK=off)
+> are in `docs/decisions/`.
 
 ---
 
