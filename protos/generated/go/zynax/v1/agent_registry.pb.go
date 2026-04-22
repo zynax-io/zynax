@@ -544,7 +544,8 @@ func (x *GetAgentRequest) GetAgentId() string {
 	return ""
 }
 
-// ListAgentsRequest supports optional label-selector filtering.
+// ListAgentsRequest supports optional label-selector filtering and pagination.
+// Pagination follows AIP-158 (cursor-based, not offset-based).
 type ListAgentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Kubernetes-style equality-based label selector.
@@ -554,8 +555,15 @@ type ListAgentsRequest struct {
 	// When true, DEREGISTERED agents are included in results.
 	// Default: false (active agents only).
 	IncludeDeregistered bool `protobuf:"varint,2,opt,name=include_deregistered,json=includeDeregistered,proto3" json:"include_deregistered,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Opaque cursor returned by the previous ListAgents call as next_page_token.
+	// Omit or leave empty to start from the first page.
+	PageToken string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// Maximum number of agents to return per page.
+	// 0 means the server chooses a default (currently 100).
+	// Values above the server maximum (1000) are clamped.
+	PageSize      int32 `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListAgentsRequest) Reset() {
@@ -602,11 +610,29 @@ func (x *ListAgentsRequest) GetIncludeDeregistered() bool {
 	return false
 }
 
-// ListAgentsResponse carries the matched agent records.
+func (x *ListAgentsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListAgentsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+// ListAgentsResponse carries the matched agent records for one page.
 type ListAgentsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// All agents matching the request filter. Empty list when none match.
-	Agents        []*AgentDef `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
+	// Agents matching the request filter for the current page.
+	// Empty list when none match or no further pages exist.
+	Agents []*AgentDef `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
+	// Cursor for the next page of results. Empty string indicates this is the
+	// last page. Pass this value as page_token in the next request.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -646,6 +672,13 @@ func (x *ListAgentsResponse) GetAgents() []*AgentDef {
 		return x.Agents
 	}
 	return nil
+}
+
+func (x *ListAgentsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
 }
 
 // FindByCapabilityRequest identifies the capability to search for.
@@ -777,12 +810,16 @@ const file_zynax_v1_agent_registry_proto_rawDesc = "" +
 	"\x17DeregisterAgentResponse\x12C\n" +
 	"\x0fderegistered_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0ederegisteredAt\",\n" +
 	"\x0fGetAgentRequest\x12\x19\n" +
-	"\bagent_id\x18\x01 \x01(\tR\aagentId\"m\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\"\xa9\x01\n" +
 	"\x11ListAgentsRequest\x12%\n" +
 	"\x0elabel_selector\x18\x01 \x01(\tR\rlabelSelector\x121\n" +
-	"\x14include_deregistered\x18\x02 \x01(\bR\x13includeDeregistered\"@\n" +
+	"\x14include_deregistered\x18\x02 \x01(\bR\x13includeDeregistered\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\"h\n" +
 	"\x12ListAgentsResponse\x12*\n" +
-	"\x06agents\x18\x01 \x03(\v2\x12.zynax.v1.AgentDefR\x06agents\"B\n" +
+	"\x06agents\x18\x01 \x03(\v2\x12.zynax.v1.AgentDefR\x06agents\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"B\n" +
 	"\x17FindByCapabilityRequest\x12'\n" +
 	"\x0fcapability_name\x18\x01 \x01(\tR\x0ecapabilityName\"F\n" +
 	"\x18FindByCapabilityResponse\x12*\n" +

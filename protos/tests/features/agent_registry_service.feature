@@ -167,3 +167,30 @@ Feature: AgentRegistryService contract — agent registration and capability dis
     When RegisterAgent is called
     Then the gRPC status is INVALID_ARGUMENT
     And the error message mentions "output_schema"
+
+  # ─── Pagination ───────────────────────────────────────────────────────────
+
+  Scenario: ListAgents first page returns page_size results and a next_page_token
+    Given 5 agents are registered with capability "summarize"
+    When ListAgents is called with page_size 3 and no page_token
+    Then the response contains exactly 3 agents
+    And the response next_page_token is non-empty
+
+  Scenario: ListAgents subsequent page returns remaining results
+    Given 5 agents are registered with capability "summarize"
+    And ListAgents has been called with page_size 3 returning next_page_token "tok-1"
+    When ListAgents is called with page_size 3 and page_token "tok-1"
+    Then the response contains exactly 2 agents
+    And the response next_page_token is empty
+
+  Scenario: ListAgents last page has empty next_page_token
+    Given 2 agents are registered with capability "summarize"
+    When ListAgents is called with page_size 10 and no page_token
+    Then the response contains exactly 2 agents
+    And the response next_page_token is empty
+
+  Scenario: ListAgents with page_size 0 uses server default
+    Given 3 agents are registered with capability "summarize"
+    When ListAgents is called with page_size 0 and no page_token
+    Then the gRPC status is OK
+    And the response contains at least 1 agent

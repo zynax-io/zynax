@@ -641,8 +641,9 @@ func (x *GetTaskRequest) GetTaskId() string {
 	return ""
 }
 
-// ListTasksRequest supports optional filtering.
-// All fields are optional; an empty request returns all tasks.
+// ListTasksRequest supports optional filtering and pagination.
+// All fields are optional; an empty request returns the first page of all tasks.
+// Pagination follows AIP-158 (cursor-based, not offset-based).
 type ListTasksRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Filter to tasks belonging to this workflow run.
@@ -650,7 +651,14 @@ type ListTasksRequest struct {
 	// Filter to tasks in this status. TASK_STATUS_UNSPECIFIED means no filter.
 	Status TaskStatus `protobuf:"varint,2,opt,name=status,proto3,enum=zynax.v1.TaskStatus" json:"status,omitempty"`
 	// Filter to tasks routed to this agent.
-	AgentId       string `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	AgentId string `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Opaque cursor returned by the previous ListTasks call as next_page_token.
+	// Omit or leave empty to start from the first page.
+	PageToken string `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// Maximum number of tasks to return per page.
+	// 0 means the server chooses a default (currently 50).
+	// Values above the server maximum (500) are clamped.
+	PageSize      int32 `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -706,11 +714,28 @@ func (x *ListTasksRequest) GetAgentId() string {
 	return ""
 }
 
-// ListTasksResponse carries the matched task records.
+func (x *ListTasksRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListTasksRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+// ListTasksResponse carries the matched task records for one page.
 type ListTasksResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Tasks matching all supplied filter criteria.
-	Tasks         []*WorkflowTask `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	// Tasks matching all supplied filter criteria for the current page.
+	Tasks []*WorkflowTask `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	// Cursor for the next page of results. Empty string indicates this is the
+	// last page. Pass this value as page_token in the next request.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -750,6 +775,13 @@ func (x *ListTasksResponse) GetTasks() []*WorkflowTask {
 		return x.Tasks
 	}
 	return nil
+}
+
+func (x *ListTasksResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
 }
 
 // CancelTaskRequest identifies the task to cancel.
@@ -890,14 +922,18 @@ const file_zynax_v1_task_broker_proto_rawDesc = "" +
 	"\x17AcknowledgeTaskResponse\x12?\n" +
 	"\x10resulting_status\x18\x01 \x01(\x0e2\x14.zynax.v1.TaskStatusR\x0fresultingStatus\")\n" +
 	"\x0eGetTaskRequest\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskId\"|\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\"\xb8\x01\n" +
 	"\x10ListTasksRequest\x12\x1f\n" +
 	"\vworkflow_id\x18\x01 \x01(\tR\n" +
 	"workflowId\x12,\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x14.zynax.v1.TaskStatusR\x06status\x12\x19\n" +
-	"\bagent_id\x18\x03 \x01(\tR\aagentId\"A\n" +
+	"\bagent_id\x18\x03 \x01(\tR\aagentId\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x04 \x01(\tR\tpageToken\x12\x1b\n" +
+	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\"i\n" +
 	"\x11ListTasksResponse\x12,\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x16.zynax.v1.WorkflowTaskR\x05tasks\",\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x16.zynax.v1.WorkflowTaskR\x05tasks\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\",\n" +
 	"\x11CancelTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"S\n" +
 	"\x12CancelTaskResponse\x12=\n" +

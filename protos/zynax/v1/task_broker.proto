@@ -215,8 +215,9 @@ message GetTaskRequest {
   string task_id = 1;
 }
 
-// ListTasksRequest supports optional filtering.
-// All fields are optional; an empty request returns all tasks.
+// ListTasksRequest supports optional filtering and pagination.
+// All fields are optional; an empty request returns the first page of all tasks.
+// Pagination follows AIP-158 (cursor-based, not offset-based).
 message ListTasksRequest {
   // Filter to tasks belonging to this workflow run.
   string workflow_id = 1;
@@ -226,12 +227,25 @@ message ListTasksRequest {
 
   // Filter to tasks routed to this agent.
   string agent_id = 3;
+
+  // Opaque cursor returned by the previous ListTasks call as next_page_token.
+  // Omit or leave empty to start from the first page.
+  string page_token = 4;
+
+  // Maximum number of tasks to return per page.
+  // 0 means the server chooses a default (currently 50).
+  // Values above the server maximum (500) are clamped.
+  int32 page_size = 5;
 }
 
-// ListTasksResponse carries the matched task records.
+// ListTasksResponse carries the matched task records for one page.
 message ListTasksResponse {
-  // Tasks matching all supplied filter criteria.
+  // Tasks matching all supplied filter criteria for the current page.
   repeated WorkflowTask tasks = 1;
+
+  // Cursor for the next page of results. Empty string indicates this is the
+  // last page. Pass this value as page_token in the next request.
+  string next_page_token = 2;
 }
 
 // CancelTaskRequest identifies the task to cancel.

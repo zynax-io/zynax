@@ -163,7 +163,8 @@ message GetAgentRequest {
   string agent_id = 1;
 }
 
-// ListAgentsRequest supports optional label-selector filtering.
+// ListAgentsRequest supports optional label-selector filtering and pagination.
+// Pagination follows AIP-158 (cursor-based, not offset-based).
 message ListAgentsRequest {
   // Kubernetes-style equality-based label selector.
   // Examples: "env=production", "env=production,tier=standard".
@@ -173,12 +174,26 @@ message ListAgentsRequest {
   // When true, DEREGISTERED agents are included in results.
   // Default: false (active agents only).
   bool include_deregistered = 2;
+
+  // Opaque cursor returned by the previous ListAgents call as next_page_token.
+  // Omit or leave empty to start from the first page.
+  string page_token = 3;
+
+  // Maximum number of agents to return per page.
+  // 0 means the server chooses a default (currently 100).
+  // Values above the server maximum (1000) are clamped.
+  int32 page_size = 4;
 }
 
-// ListAgentsResponse carries the matched agent records.
+// ListAgentsResponse carries the matched agent records for one page.
 message ListAgentsResponse {
-  // All agents matching the request filter. Empty list when none match.
+  // Agents matching the request filter for the current page.
+  // Empty list when none match or no further pages exist.
   repeated AgentDef agents = 1;
+
+  // Cursor for the next page of results. Empty string indicates this is the
+  // last page. Pass this value as page_token in the next request.
+  string next_page_token = 2;
 }
 
 // FindByCapabilityRequest identifies the capability to search for.

@@ -34,7 +34,8 @@ RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/i
     | sh -s -- -b /usr/local/bin v1.61.0
 
 # govulncheck — CVE scanner for Go modules
-RUN go install golang.org/x/vuln/cmd/govulncheck@latest
+# renovate: datasource=github-releases depName=golang/vuln
+RUN go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
 
 # Proto codegen plugins — used by `buf generate` (local plugin path)
 # renovate: datasource=github-releases depName=protocolbuffers/protobuf-go
@@ -81,12 +82,12 @@ COPY --from=go-tools /usr/local/go              /usr/local/go
 COPY --from=go-tools /usr/local/bin/golangci-lint     /usr/local/bin/
 COPY --from=go-tools /usr/local/bin/grpc_health_probe /usr/local/bin/
 COPY --from=go-tools /usr/local/bin/buf               /usr/local/bin/
-COPY --from=go-tools /root/go/bin/govulncheck         /usr/local/bin/
-COPY --from=go-tools /root/go/bin/protoc-gen-go       /usr/local/bin/
-COPY --from=go-tools /root/go/bin/protoc-gen-go-grpc  /usr/local/bin/
-COPY --from=go-tools /root/go/bin/godog               /usr/local/bin/
-COPY --from=go-tools /root/go/bin/mockery             /usr/local/bin/
-COPY --from=go-tools /root/go/bin/migrate             /usr/local/bin/
+COPY --from=go-tools /go/bin/govulncheck         /usr/local/bin/
+COPY --from=go-tools /go/bin/protoc-gen-go       /usr/local/bin/
+COPY --from=go-tools /go/bin/protoc-gen-go-grpc  /usr/local/bin/
+COPY --from=go-tools /go/bin/godog               /usr/local/bin/
+COPY --from=go-tools /go/bin/mockery             /usr/local/bin/
+COPY --from=go-tools /go/bin/migrate             /usr/local/bin/
 
 # ── uv — Python package manager ──────────────────────────────────────────
 # renovate: datasource=github-releases depName=astral-sh/uv
