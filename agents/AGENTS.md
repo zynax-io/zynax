@@ -1,8 +1,12 @@
 # agents/ — AGENTS.md
 
-> **Agents are contracts + capabilities. Everything else is a plugin.**
-> See `docs/adr/ADR-010-pluggable-agent-runtime.md`.
+> **Agents are contracts + capabilities. Everything else is an adapter.**
+> See `docs/adr/ADR-010-pluggable-agent-runtime.md` and `ADR-013-adapter-first-no-sdk.md`.
 > Read this file entirely before writing any agent code.
+>
+> **M1 status:** gRPC contracts and Python stub generation are complete.
+> The SDK and adapter patterns in this file describe the target design for M2+.
+> Generated stubs live in `protos/generated/python/`.
 
 ---
 
@@ -485,7 +489,7 @@ whether the agent receiving it is a Python SDK agent, a Go raw-stub agent, or
 a TypeScript adapter. The `ExecuteCapabilityRequest` message is identical in
 every case. The stream of `TaskEvent` responses is identical in every case.
 
-A workflow written in YAML, compiled to IR by the Go workflow-compiler, executed
+A workflow written in YAML, compiled to WorkflowIR by the Go workflow-compiler, executed
 by Temporal via the Go engine-adapter, and dispatching to a Python SDK agent is
 a fully cross-language execution path — by design, not by accident.
 
@@ -521,6 +525,6 @@ generation output and the CI pipeline.
 | Nodes (LangGraph) are pure: no mixed I/O + logic | Single responsibility |
 | `AgentRuntime` is a Protocol — never subclass it | Structural subtyping, no coupling |
 | `main.py` is wiring only | Clean architecture |
-| `.feature` file before implementation | BDD-first |
+| `.feature` file before implementation | BDD-first (ADR-016) |
 | LLM model always from `context.config` | 12-Factor, easy model upgrades |
 | Never log `SecretStr` fields | Security |

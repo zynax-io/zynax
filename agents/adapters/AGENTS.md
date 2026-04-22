@@ -1,10 +1,13 @@
 # agents/adapters/ — AGENTS.md
 
 > **Adapter-First Integration. No SDK Required.**
-> See `ARCHITECTURE.md §7` and `docs/adr/ADR-013-adapter-first.md`.
+> See `ARCHITECTURE.md §7` and `docs/adr/ADR-013-adapter-first-no-sdk.md`.
 >
 > This directory contains execution adapters — thin wrappers that expose
 > external systems as Zynax capabilities WITHOUT requiring the SDK.
+>
+> **M1 status:** Python stub generation is complete (`protos/generated/python/`).
+> Adapter implementations begin in M2. Feature files are written first (ADR-016).
 
 ---
 
@@ -98,7 +101,7 @@ one that fits the external system:
 
 For any language, the workflow is:
 1. Generate `AgentService` stubs from `protos/zynax/v1/` using `buf generate`
-   with your language's gRPC plugin. See `protos/AGENTS.md §8`.
+   with your language's gRPC stub generator. See `protos/AGENTS.md §8`.
 2. Implement `ExecuteCapability` and `GetCapabilities` against those stubs.
 3. Start a gRPC server on the adapter's port.
 4. Register capabilities via `AgentDef` YAML (the same format used by Python
