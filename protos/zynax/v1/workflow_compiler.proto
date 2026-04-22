@@ -18,8 +18,9 @@
 //   2. ValidateManifest never persists state and never returns a WorkflowIR.
 //   3. dry_run=true compiles and validates fully but persists nothing.
 //   4. CompilationErrorCode ordinals are permanent (ADR-001 §backward-compat).
-//   5. WorkflowIR is a stub envelope in M1. Full IR fields are added in M2
-//      without breaking this contract.
+//   5. WorkflowIR fields 1–6 are the M1 envelope. Fields 7–9 (initial_state,
+//      states, ir_version) are the M2 structured IR. All are additive.
+//      Engine adapters SHOULD use structured fields when ir_version is present.
 //   6. GetCompiledWorkflow returns the IR stored by CompileWorkflow. IRs
 //      compiled with dry_run=true are NOT stored and return NOT_FOUND.
 
@@ -27,6 +28,7 @@ syntax = "proto3";
 
 package zynax.v1;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
@@ -115,10 +117,79 @@ message CompilationError {
   string state_name = 4;
 }
 
+// StateType classifies the behaviour of a state in the workflow graph.
+// Ordinal values are permanent — never reorder or reassign (ADR-001 §backward-compat).
+enum StateType {
+  // Never used by the compiler. Proto3 default sentinel.
+  STATE_TYPE_UNSPECIFIED = 0;
+
+  // A normal active state: executes actions and waits for a transition event.
+  STATE_TYPE_NORMAL = 1;
+
+  // The workflow ends when this state is reached. No transitions are valid.
+  STATE_TYPE_TERMINAL = 2;
+
+  // Pauses execution until an external human signal is received.
+  // The engine adapter emits a WAITING event and blocks until the signal arrives.
+  STATE_TYPE_HUMAN_IN_THE_LOOP = 3;
+}
+
+// ActionIR is a single capability invocation within a state.
+message ActionIR {
+  // The capability name to invoke (e.g. "summarize", "review_code").
+  // Matched against registered agents at dispatch time by the task broker.
+  string capability = 1;
+
+  // Maximum time to wait for a COMPLETED event from the agent.
+  // Zero means no timeout (not recommended for production).
+  google.protobuf.Duration timeout = 2;
+
+  // JSON-encoded input template. Values may reference workflow context
+  // using the expression syntax "{{ .ctx.key }}".
+  string input_template_json = 3;
+
+  // When true the broker dispatches this capability but does not block the
+  // state machine waiting for a result. The result is delivered via an event.
+  bool async = 4;
+}
+
+// TransitionIR is an edge in the workflow state machine graph.
+message TransitionIR {
+  // The event type that triggers this transition (e.g. "review.approved").
+  // Must be non-empty. Matched against incoming CloudEvents by event_type.
+  string event_type = 1;
+
+  // The target state to enter when this transition fires.
+  // Must reference a state name defined in WorkflowIR.states.
+  string target_state = 2;
+
+  // Optional CEL expressions that must all evaluate to true for the
+  // transition to fire. Empty map means the transition fires unconditionally.
+  // Keys are human-readable labels; values are CEL expression strings.
+  map<string, string> conditions = 3;
+}
+
+// StateIR is a single node in the compiled workflow state machine.
+message StateIR {
+  // Unique identifier for this state within the workflow (e.g. "review", "merge").
+  // Matches the state name from the YAML manifest.
+  string id = 1;
+
+  // Classification of this state's behaviour.
+  StateType type = 2;
+
+  // Ordered list of capability invocations to execute when entering this state.
+  // All actions are started before the state machine waits for a transition event.
+  repeated ActionIR actions = 3;
+
+  // All valid outbound transitions from this state.
+  // Empty for TERMINAL states (no outbound edges by definition).
+  repeated TransitionIR transitions = 4;
+}
+
 // WorkflowIR is the engine-agnostic Intermediate Representation of a compiled
-// workflow. In M1 this is a stub envelope. Full IR fields (states, transitions,
-// triggers, actions) are added in M2 (issue tracked in ROADMAP.md §M2) without
-// breaking this contract.
+// workflow. M1 provided the envelope fields (1–6). M2 adds the structured state
+// machine fields (7–9). All fields are additive — no breaking change.
 message WorkflowIR {
   // Unique identifier assigned by the compiler to this compiled workflow.
   string workflow_id = 1;
@@ -136,8 +207,22 @@ message WorkflowIR {
   google.protobuf.Timestamp compiled_at = 5;
 
   // Opaque serialised representation of the full IR graph.
-  // Content is defined in M2. Consumers MUST NOT parse this field in M1.
+  // Kept for backward compatibility and future opaque extensions.
+  // Engine adapters SHOULD use the structured fields (7–9) in M2+.
   bytes ir_payload = 6;
+
+  // The name of the state the workflow enters on submission.
+  // Must match the id of one StateIR in the states list.
+  string initial_state = 7;
+
+  // All states in the compiled workflow graph. Order is not significant;
+  // the graph is traversed by following TransitionIR.target_state references.
+  repeated StateIR states = 8;
+
+  // Schema version of this IR format (e.g. "v1", "v2").
+  // Incremented when the structured fields change in a breaking way.
+  // Consumers SHOULD check this before deserialising states.
+  string ir_version = 9;
 }
 
 // CompileWorkflowRequest carries the YAML manifest to compile.

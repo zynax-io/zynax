@@ -18,8 +18,9 @@
 //   2. ValidateManifest never persists state and never returns a WorkflowIR.
 //   3. dry_run=true compiles and validates fully but persists nothing.
 //   4. CompilationErrorCode ordinals are permanent (ADR-001 §backward-compat).
-//   5. WorkflowIR is a stub envelope in M1. Full IR fields are added in M2
-//      without breaking this contract.
+//   5. WorkflowIR fields 1–6 are the M1 envelope. Fields 7–9 (initial_state,
+//      states, ir_version) are the M2 structured IR. All are additive.
+//      Engine adapters SHOULD use structured fields when ir_version is present.
 //   6. GetCompiledWorkflow returns the IR stored by CompileWorkflow. IRs
 //      compiled with dry_run=true are NOT stored and return NOT_FOUND.
 
@@ -34,6 +35,7 @@ package zynaxv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -135,6 +137,65 @@ func (CompilationErrorCode) EnumDescriptor() ([]byte, []int) {
 	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{0}
 }
 
+// StateType classifies the behaviour of a state in the workflow graph.
+// Ordinal values are permanent — never reorder or reassign (ADR-001 §backward-compat).
+type StateType int32
+
+const (
+	// Never used by the compiler. Proto3 default sentinel.
+	StateType_STATE_TYPE_UNSPECIFIED StateType = 0
+	// A normal active state: executes actions and waits for a transition event.
+	StateType_STATE_TYPE_NORMAL StateType = 1
+	// The workflow ends when this state is reached. No transitions are valid.
+	StateType_STATE_TYPE_TERMINAL StateType = 2
+	// Pauses execution until an external human signal is received.
+	// The engine adapter emits a WAITING event and blocks until the signal arrives.
+	StateType_STATE_TYPE_HUMAN_IN_THE_LOOP StateType = 3
+)
+
+// Enum value maps for StateType.
+var (
+	StateType_name = map[int32]string{
+		0: "STATE_TYPE_UNSPECIFIED",
+		1: "STATE_TYPE_NORMAL",
+		2: "STATE_TYPE_TERMINAL",
+		3: "STATE_TYPE_HUMAN_IN_THE_LOOP",
+	}
+	StateType_value = map[string]int32{
+		"STATE_TYPE_UNSPECIFIED":       0,
+		"STATE_TYPE_NORMAL":            1,
+		"STATE_TYPE_TERMINAL":          2,
+		"STATE_TYPE_HUMAN_IN_THE_LOOP": 3,
+	}
+)
+
+func (x StateType) Enum() *StateType {
+	p := new(StateType)
+	*p = x
+	return p
+}
+
+func (x StateType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StateType) Descriptor() protoreflect.EnumDescriptor {
+	return file_zynax_v1_workflow_compiler_proto_enumTypes[1].Descriptor()
+}
+
+func (StateType) Type() protoreflect.EnumType {
+	return &file_zynax_v1_workflow_compiler_proto_enumTypes[1]
+}
+
+func (x StateType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StateType.Descriptor instead.
+func (StateType) EnumDescriptor() ([]byte, []int) {
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{1}
+}
+
 // CompilationError describes a single structural or syntactic error found
 // during compilation or validation.
 type CompilationError struct {
@@ -211,10 +272,230 @@ func (x *CompilationError) GetStateName() string {
 	return ""
 }
 
+// ActionIR is a single capability invocation within a state.
+type ActionIR struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The capability name to invoke (e.g. "summarize", "review_code").
+	// Matched against registered agents at dispatch time by the task broker.
+	Capability string `protobuf:"bytes,1,opt,name=capability,proto3" json:"capability,omitempty"`
+	// Maximum time to wait for a COMPLETED event from the agent.
+	// Zero means no timeout (not recommended for production).
+	Timeout *durationpb.Duration `protobuf:"bytes,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// JSON-encoded input template. Values may reference workflow context
+	// using the expression syntax "{{ .ctx.key }}".
+	InputTemplateJson string `protobuf:"bytes,3,opt,name=input_template_json,json=inputTemplateJson,proto3" json:"input_template_json,omitempty"`
+	// When true the broker dispatches this capability but does not block the
+	// state machine waiting for a result. The result is delivered via an event.
+	Async         bool `protobuf:"varint,4,opt,name=async,proto3" json:"async,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActionIR) Reset() {
+	*x = ActionIR{}
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActionIR) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActionIR) ProtoMessage() {}
+
+func (x *ActionIR) ProtoReflect() protoreflect.Message {
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActionIR.ProtoReflect.Descriptor instead.
+func (*ActionIR) Descriptor() ([]byte, []int) {
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ActionIR) GetCapability() string {
+	if x != nil {
+		return x.Capability
+	}
+	return ""
+}
+
+func (x *ActionIR) GetTimeout() *durationpb.Duration {
+	if x != nil {
+		return x.Timeout
+	}
+	return nil
+}
+
+func (x *ActionIR) GetInputTemplateJson() string {
+	if x != nil {
+		return x.InputTemplateJson
+	}
+	return ""
+}
+
+func (x *ActionIR) GetAsync() bool {
+	if x != nil {
+		return x.Async
+	}
+	return false
+}
+
+// TransitionIR is an edge in the workflow state machine graph.
+type TransitionIR struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The event type that triggers this transition (e.g. "review.approved").
+	// Must be non-empty. Matched against incoming CloudEvents by event_type.
+	EventType string `protobuf:"bytes,1,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	// The target state to enter when this transition fires.
+	// Must reference a state name defined in WorkflowIR.states.
+	TargetState string `protobuf:"bytes,2,opt,name=target_state,json=targetState,proto3" json:"target_state,omitempty"`
+	// Optional CEL expressions that must all evaluate to true for the
+	// transition to fire. Empty map means the transition fires unconditionally.
+	// Keys are human-readable labels; values are CEL expression strings.
+	Conditions    map[string]string `protobuf:"bytes,3,rep,name=conditions,proto3" json:"conditions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TransitionIR) Reset() {
+	*x = TransitionIR{}
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransitionIR) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransitionIR) ProtoMessage() {}
+
+func (x *TransitionIR) ProtoReflect() protoreflect.Message {
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransitionIR.ProtoReflect.Descriptor instead.
+func (*TransitionIR) Descriptor() ([]byte, []int) {
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *TransitionIR) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
+func (x *TransitionIR) GetTargetState() string {
+	if x != nil {
+		return x.TargetState
+	}
+	return ""
+}
+
+func (x *TransitionIR) GetConditions() map[string]string {
+	if x != nil {
+		return x.Conditions
+	}
+	return nil
+}
+
+// StateIR is a single node in the compiled workflow state machine.
+type StateIR struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unique identifier for this state within the workflow (e.g. "review", "merge").
+	// Matches the state name from the YAML manifest.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Classification of this state's behaviour.
+	Type StateType `protobuf:"varint,2,opt,name=type,proto3,enum=zynax.v1.StateType" json:"type,omitempty"`
+	// Ordered list of capability invocations to execute when entering this state.
+	// All actions are started before the state machine waits for a transition event.
+	Actions []*ActionIR `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
+	// All valid outbound transitions from this state.
+	// Empty for TERMINAL states (no outbound edges by definition).
+	Transitions   []*TransitionIR `protobuf:"bytes,4,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StateIR) Reset() {
+	*x = StateIR{}
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StateIR) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StateIR) ProtoMessage() {}
+
+func (x *StateIR) ProtoReflect() protoreflect.Message {
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StateIR.ProtoReflect.Descriptor instead.
+func (*StateIR) Descriptor() ([]byte, []int) {
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *StateIR) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *StateIR) GetType() StateType {
+	if x != nil {
+		return x.Type
+	}
+	return StateType_STATE_TYPE_UNSPECIFIED
+}
+
+func (x *StateIR) GetActions() []*ActionIR {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
+func (x *StateIR) GetTransitions() []*TransitionIR {
+	if x != nil {
+		return x.Transitions
+	}
+	return nil
+}
+
 // WorkflowIR is the engine-agnostic Intermediate Representation of a compiled
-// workflow. In M1 this is a stub envelope. Full IR fields (states, transitions,
-// triggers, actions) are added in M2 (issue tracked in ROADMAP.md §M2) without
-// breaking this contract.
+// workflow. M1 provided the envelope fields (1–6). M2 adds the structured state
+// machine fields (7–9). All fields are additive — no breaking change.
 type WorkflowIR struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Unique identifier assigned by the compiler to this compiled workflow.
@@ -228,15 +509,26 @@ type WorkflowIR struct {
 	// Wall-clock time this IR was compiled.
 	CompiledAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=compiled_at,json=compiledAt,proto3" json:"compiled_at,omitempty"`
 	// Opaque serialised representation of the full IR graph.
-	// Content is defined in M2. Consumers MUST NOT parse this field in M1.
-	IrPayload     []byte `protobuf:"bytes,6,opt,name=ir_payload,json=irPayload,proto3" json:"ir_payload,omitempty"`
+	// Kept for backward compatibility and future opaque extensions.
+	// Engine adapters SHOULD use the structured fields (7–9) in M2+.
+	IrPayload []byte `protobuf:"bytes,6,opt,name=ir_payload,json=irPayload,proto3" json:"ir_payload,omitempty"`
+	// The name of the state the workflow enters on submission.
+	// Must match the id of one StateIR in the states list.
+	InitialState string `protobuf:"bytes,7,opt,name=initial_state,json=initialState,proto3" json:"initial_state,omitempty"`
+	// All states in the compiled workflow graph. Order is not significant;
+	// the graph is traversed by following TransitionIR.target_state references.
+	States []*StateIR `protobuf:"bytes,8,rep,name=states,proto3" json:"states,omitempty"`
+	// Schema version of this IR format (e.g. "v1", "v2").
+	// Incremented when the structured fields change in a breaking way.
+	// Consumers SHOULD check this before deserialising states.
+	IrVersion     string `protobuf:"bytes,9,opt,name=ir_version,json=irVersion,proto3" json:"ir_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WorkflowIR) Reset() {
 	*x = WorkflowIR{}
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[1]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -248,7 +540,7 @@ func (x *WorkflowIR) String() string {
 func (*WorkflowIR) ProtoMessage() {}
 
 func (x *WorkflowIR) ProtoReflect() protoreflect.Message {
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[1]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -261,7 +553,7 @@ func (x *WorkflowIR) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowIR.ProtoReflect.Descriptor instead.
 func (*WorkflowIR) Descriptor() ([]byte, []int) {
-	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{1}
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *WorkflowIR) GetWorkflowId() string {
@@ -306,6 +598,27 @@ func (x *WorkflowIR) GetIrPayload() []byte {
 	return nil
 }
 
+func (x *WorkflowIR) GetInitialState() string {
+	if x != nil {
+		return x.InitialState
+	}
+	return ""
+}
+
+func (x *WorkflowIR) GetStates() []*StateIR {
+	if x != nil {
+		return x.States
+	}
+	return nil
+}
+
+func (x *WorkflowIR) GetIrVersion() string {
+	if x != nil {
+		return x.IrVersion
+	}
+	return ""
+}
+
 // CompileWorkflowRequest carries the YAML manifest to compile.
 type CompileWorkflowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -324,7 +637,7 @@ type CompileWorkflowRequest struct {
 
 func (x *CompileWorkflowRequest) Reset() {
 	*x = CompileWorkflowRequest{}
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[2]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -336,7 +649,7 @@ func (x *CompileWorkflowRequest) String() string {
 func (*CompileWorkflowRequest) ProtoMessage() {}
 
 func (x *CompileWorkflowRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[2]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -349,7 +662,7 @@ func (x *CompileWorkflowRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileWorkflowRequest.ProtoReflect.Descriptor instead.
 func (*CompileWorkflowRequest) Descriptor() ([]byte, []int) {
-	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{2}
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CompileWorkflowRequest) GetManifestYaml() []byte {
@@ -393,7 +706,7 @@ type CompileWorkflowResponse struct {
 
 func (x *CompileWorkflowResponse) Reset() {
 	*x = CompileWorkflowResponse{}
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[3]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -405,7 +718,7 @@ func (x *CompileWorkflowResponse) String() string {
 func (*CompileWorkflowResponse) ProtoMessage() {}
 
 func (x *CompileWorkflowResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[3]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -418,7 +731,7 @@ func (x *CompileWorkflowResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileWorkflowResponse.ProtoReflect.Descriptor instead.
 func (*CompileWorkflowResponse) Descriptor() ([]byte, []int) {
-	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{3}
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CompileWorkflowResponse) GetWorkflowIr() *WorkflowIR {
@@ -464,7 +777,7 @@ type ValidateManifestRequest struct {
 
 func (x *ValidateManifestRequest) Reset() {
 	*x = ValidateManifestRequest{}
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[4]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -476,7 +789,7 @@ func (x *ValidateManifestRequest) String() string {
 func (*ValidateManifestRequest) ProtoMessage() {}
 
 func (x *ValidateManifestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[4]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -489,7 +802,7 @@ func (x *ValidateManifestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateManifestRequest.ProtoReflect.Descriptor instead.
 func (*ValidateManifestRequest) Descriptor() ([]byte, []int) {
-	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{4}
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ValidateManifestRequest) GetManifestYaml() []byte {
@@ -522,7 +835,7 @@ type ValidateManifestResponse struct {
 
 func (x *ValidateManifestResponse) Reset() {
 	*x = ValidateManifestResponse{}
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[5]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -534,7 +847,7 @@ func (x *ValidateManifestResponse) String() string {
 func (*ValidateManifestResponse) ProtoMessage() {}
 
 func (x *ValidateManifestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[5]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -547,7 +860,7 @@ func (x *ValidateManifestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateManifestResponse.ProtoReflect.Descriptor instead.
 func (*ValidateManifestResponse) Descriptor() ([]byte, []int) {
-	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{5}
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ValidateManifestResponse) GetValid() bool {
@@ -583,7 +896,7 @@ type GetCompiledWorkflowRequest struct {
 
 func (x *GetCompiledWorkflowRequest) Reset() {
 	*x = GetCompiledWorkflowRequest{}
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[6]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -595,7 +908,7 @@ func (x *GetCompiledWorkflowRequest) String() string {
 func (*GetCompiledWorkflowRequest) ProtoMessage() {}
 
 func (x *GetCompiledWorkflowRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[6]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -608,7 +921,7 @@ func (x *GetCompiledWorkflowRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCompiledWorkflowRequest.ProtoReflect.Descriptor instead.
 func (*GetCompiledWorkflowRequest) Descriptor() ([]byte, []int) {
-	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{6}
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetCompiledWorkflowRequest) GetWorkflowId() string {
@@ -634,7 +947,7 @@ type GetCompiledWorkflowResponse struct {
 
 func (x *GetCompiledWorkflowResponse) Reset() {
 	*x = GetCompiledWorkflowResponse{}
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[7]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -646,7 +959,7 @@ func (x *GetCompiledWorkflowResponse) String() string {
 func (*GetCompiledWorkflowResponse) ProtoMessage() {}
 
 func (x *GetCompiledWorkflowResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[7]
+	mi := &file_zynax_v1_workflow_compiler_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -659,7 +972,7 @@ func (x *GetCompiledWorkflowResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCompiledWorkflowResponse.ProtoReflect.Descriptor instead.
 func (*GetCompiledWorkflowResponse) Descriptor() ([]byte, []int) {
-	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{7}
+	return file_zynax_v1_workflow_compiler_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetCompiledWorkflowResponse) GetWorkflowIr() *WorkflowIR {
@@ -680,14 +993,36 @@ var File_zynax_v1_workflow_compiler_proto protoreflect.FileDescriptor
 
 const file_zynax_v1_workflow_compiler_proto_rawDesc = "" +
 	"\n" +
-	" zynax/v1/workflow_compiler.proto\x12\bzynax.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa0\x01\n" +
+	" zynax/v1/workflow_compiler.proto\x12\bzynax.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa0\x01\n" +
 	"\x10CompilationError\x122\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x1e.zynax.v1.CompilationErrorCodeR\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1f\n" +
 	"\vline_number\x18\x03 \x01(\x05R\n" +
 	"lineNumber\x12\x1d\n" +
 	"\n" +
-	"state_name\x18\x04 \x01(\tR\tstateName\"\xdc\x01\n" +
+	"state_name\x18\x04 \x01(\tR\tstateName\"\xa5\x01\n" +
+	"\bActionIR\x12\x1e\n" +
+	"\n" +
+	"capability\x18\x01 \x01(\tR\n" +
+	"capability\x123\n" +
+	"\atimeout\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\atimeout\x12.\n" +
+	"\x13input_template_json\x18\x03 \x01(\tR\x11inputTemplateJson\x12\x14\n" +
+	"\x05async\x18\x04 \x01(\bR\x05async\"\xd7\x01\n" +
+	"\fTransitionIR\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x01 \x01(\tR\teventType\x12!\n" +
+	"\ftarget_state\x18\x02 \x01(\tR\vtargetState\x12F\n" +
+	"\n" +
+	"conditions\x18\x03 \x03(\v2&.zynax.v1.TransitionIR.ConditionsEntryR\n" +
+	"conditions\x1a=\n" +
+	"\x0fConditionsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xaa\x01\n" +
+	"\aStateIR\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
+	"\x04type\x18\x02 \x01(\x0e2\x13.zynax.v1.StateTypeR\x04type\x12,\n" +
+	"\aactions\x18\x03 \x03(\v2\x12.zynax.v1.ActionIRR\aactions\x128\n" +
+	"\vtransitions\x18\x04 \x03(\v2\x16.zynax.v1.TransitionIRR\vtransitions\"\xcb\x02\n" +
 	"\n" +
 	"WorkflowIR\x12\x1f\n" +
 	"\vworkflow_id\x18\x01 \x01(\tR\n" +
@@ -699,7 +1034,11 @@ const file_zynax_v1_workflow_compiler_proto_rawDesc = "" +
 	"\vcompiled_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"compiledAt\x12\x1d\n" +
 	"\n" +
-	"ir_payload\x18\x06 \x01(\fR\tirPayload\"t\n" +
+	"ir_payload\x18\x06 \x01(\fR\tirPayload\x12#\n" +
+	"\rinitial_state\x18\a \x01(\tR\finitialState\x12)\n" +
+	"\x06states\x18\b \x03(\v2\x11.zynax.v1.StateIRR\x06states\x12\x1d\n" +
+	"\n" +
+	"ir_version\x18\t \x01(\tR\tirVersion\"t\n" +
 	"\x16CompileWorkflowRequest\x12#\n" +
 	"\rmanifest_yaml\x18\x01 \x01(\fR\fmanifestYaml\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x17\n" +
@@ -735,7 +1074,12 @@ const file_zynax_v1_workflow_compiler_proto_rawDesc = "" +
 	".COMPILATION_ERROR_CODE_UNKNOWN_STATE_REFERENCE\x10\x06\x12/\n" +
 	"+COMPILATION_ERROR_CODE_DUPLICATE_STATE_NAME\x10\a\x121\n" +
 	"-COMPILATION_ERROR_CODE_MISSING_REQUIRED_FIELD\x10\b\x12.\n" +
-	"*COMPILATION_ERROR_CODE_INVALID_FIELD_VALUE\x10\t2\xb0\x02\n" +
+	"*COMPILATION_ERROR_CODE_INVALID_FIELD_VALUE\x10\t*y\n" +
+	"\tStateType\x12\x1a\n" +
+	"\x16STATE_TYPE_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11STATE_TYPE_NORMAL\x10\x01\x12\x17\n" +
+	"\x13STATE_TYPE_TERMINAL\x10\x02\x12 \n" +
+	"\x1cSTATE_TYPE_HUMAN_IN_THE_LOOP\x10\x032\xb0\x02\n" +
 	"\x17WorkflowCompilerService\x12V\n" +
 	"\x0fCompileWorkflow\x12 .zynax.v1.CompileWorkflowRequest\x1a!.zynax.v1.CompileWorkflowResponse\x12Y\n" +
 	"\x10ValidateManifest\x12!.zynax.v1.ValidateManifestRequest\x1a\".zynax.v1.ValidateManifestResponse\x12b\n" +
@@ -753,39 +1097,51 @@ func file_zynax_v1_workflow_compiler_proto_rawDescGZIP() []byte {
 	return file_zynax_v1_workflow_compiler_proto_rawDescData
 }
 
-var file_zynax_v1_workflow_compiler_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_zynax_v1_workflow_compiler_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_zynax_v1_workflow_compiler_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_zynax_v1_workflow_compiler_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_zynax_v1_workflow_compiler_proto_goTypes = []any{
 	(CompilationErrorCode)(0),           // 0: zynax.v1.CompilationErrorCode
-	(*CompilationError)(nil),            // 1: zynax.v1.CompilationError
-	(*WorkflowIR)(nil),                  // 2: zynax.v1.WorkflowIR
-	(*CompileWorkflowRequest)(nil),      // 3: zynax.v1.CompileWorkflowRequest
-	(*CompileWorkflowResponse)(nil),     // 4: zynax.v1.CompileWorkflowResponse
-	(*ValidateManifestRequest)(nil),     // 5: zynax.v1.ValidateManifestRequest
-	(*ValidateManifestResponse)(nil),    // 6: zynax.v1.ValidateManifestResponse
-	(*GetCompiledWorkflowRequest)(nil),  // 7: zynax.v1.GetCompiledWorkflowRequest
-	(*GetCompiledWorkflowResponse)(nil), // 8: zynax.v1.GetCompiledWorkflowResponse
-	(*timestamppb.Timestamp)(nil),       // 9: google.protobuf.Timestamp
+	(StateType)(0),                      // 1: zynax.v1.StateType
+	(*CompilationError)(nil),            // 2: zynax.v1.CompilationError
+	(*ActionIR)(nil),                    // 3: zynax.v1.ActionIR
+	(*TransitionIR)(nil),                // 4: zynax.v1.TransitionIR
+	(*StateIR)(nil),                     // 5: zynax.v1.StateIR
+	(*WorkflowIR)(nil),                  // 6: zynax.v1.WorkflowIR
+	(*CompileWorkflowRequest)(nil),      // 7: zynax.v1.CompileWorkflowRequest
+	(*CompileWorkflowResponse)(nil),     // 8: zynax.v1.CompileWorkflowResponse
+	(*ValidateManifestRequest)(nil),     // 9: zynax.v1.ValidateManifestRequest
+	(*ValidateManifestResponse)(nil),    // 10: zynax.v1.ValidateManifestResponse
+	(*GetCompiledWorkflowRequest)(nil),  // 11: zynax.v1.GetCompiledWorkflowRequest
+	(*GetCompiledWorkflowResponse)(nil), // 12: zynax.v1.GetCompiledWorkflowResponse
+	nil,                                 // 13: zynax.v1.TransitionIR.ConditionsEntry
+	(*durationpb.Duration)(nil),         // 14: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),       // 15: google.protobuf.Timestamp
 }
 var file_zynax_v1_workflow_compiler_proto_depIdxs = []int32{
 	0,  // 0: zynax.v1.CompilationError.code:type_name -> zynax.v1.CompilationErrorCode
-	9,  // 1: zynax.v1.WorkflowIR.compiled_at:type_name -> google.protobuf.Timestamp
-	2,  // 2: zynax.v1.CompileWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
-	1,  // 3: zynax.v1.CompileWorkflowResponse.errors:type_name -> zynax.v1.CompilationError
-	1,  // 4: zynax.v1.ValidateManifestResponse.errors:type_name -> zynax.v1.CompilationError
-	2,  // 5: zynax.v1.GetCompiledWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
-	9,  // 6: zynax.v1.GetCompiledWorkflowResponse.compiled_at:type_name -> google.protobuf.Timestamp
-	3,  // 7: zynax.v1.WorkflowCompilerService.CompileWorkflow:input_type -> zynax.v1.CompileWorkflowRequest
-	5,  // 8: zynax.v1.WorkflowCompilerService.ValidateManifest:input_type -> zynax.v1.ValidateManifestRequest
-	7,  // 9: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:input_type -> zynax.v1.GetCompiledWorkflowRequest
-	4,  // 10: zynax.v1.WorkflowCompilerService.CompileWorkflow:output_type -> zynax.v1.CompileWorkflowResponse
-	6,  // 11: zynax.v1.WorkflowCompilerService.ValidateManifest:output_type -> zynax.v1.ValidateManifestResponse
-	8,  // 12: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:output_type -> zynax.v1.GetCompiledWorkflowResponse
-	10, // [10:13] is the sub-list for method output_type
-	7,  // [7:10] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	14, // 1: zynax.v1.ActionIR.timeout:type_name -> google.protobuf.Duration
+	13, // 2: zynax.v1.TransitionIR.conditions:type_name -> zynax.v1.TransitionIR.ConditionsEntry
+	1,  // 3: zynax.v1.StateIR.type:type_name -> zynax.v1.StateType
+	3,  // 4: zynax.v1.StateIR.actions:type_name -> zynax.v1.ActionIR
+	4,  // 5: zynax.v1.StateIR.transitions:type_name -> zynax.v1.TransitionIR
+	15, // 6: zynax.v1.WorkflowIR.compiled_at:type_name -> google.protobuf.Timestamp
+	5,  // 7: zynax.v1.WorkflowIR.states:type_name -> zynax.v1.StateIR
+	6,  // 8: zynax.v1.CompileWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
+	2,  // 9: zynax.v1.CompileWorkflowResponse.errors:type_name -> zynax.v1.CompilationError
+	2,  // 10: zynax.v1.ValidateManifestResponse.errors:type_name -> zynax.v1.CompilationError
+	6,  // 11: zynax.v1.GetCompiledWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
+	15, // 12: zynax.v1.GetCompiledWorkflowResponse.compiled_at:type_name -> google.protobuf.Timestamp
+	7,  // 13: zynax.v1.WorkflowCompilerService.CompileWorkflow:input_type -> zynax.v1.CompileWorkflowRequest
+	9,  // 14: zynax.v1.WorkflowCompilerService.ValidateManifest:input_type -> zynax.v1.ValidateManifestRequest
+	11, // 15: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:input_type -> zynax.v1.GetCompiledWorkflowRequest
+	8,  // 16: zynax.v1.WorkflowCompilerService.CompileWorkflow:output_type -> zynax.v1.CompileWorkflowResponse
+	10, // 17: zynax.v1.WorkflowCompilerService.ValidateManifest:output_type -> zynax.v1.ValidateManifestResponse
+	12, // 18: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:output_type -> zynax.v1.GetCompiledWorkflowResponse
+	16, // [16:19] is the sub-list for method output_type
+	13, // [13:16] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_zynax_v1_workflow_compiler_proto_init() }
@@ -798,8 +1154,8 @@ func file_zynax_v1_workflow_compiler_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zynax_v1_workflow_compiler_proto_rawDesc), len(file_zynax_v1_workflow_compiler_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   8,
+			NumEnums:      2,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

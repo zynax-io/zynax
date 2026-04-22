@@ -18,8 +18,9 @@
 //   2. ValidateManifest never persists state and never returns a WorkflowIR.
 //   3. dry_run=true compiles and validates fully but persists nothing.
 //   4. CompilationErrorCode ordinals are permanent (ADR-001 §backward-compat).
-//   5. WorkflowIR is a stub envelope in M1. Full IR fields are added in M2
-//      without breaking this contract.
+//   5. WorkflowIR fields 1–6 are the M1 envelope. Fields 7–9 (initial_state,
+//      states, ir_version) are the M2 structured IR. All are additive.
+//      Engine adapters SHOULD use structured fields when ir_version is present.
 //   6. GetCompiledWorkflow returns the IR stored by CompileWorkflow. IRs
 //      compiled with dry_run=true are NOT stored and return NOT_FOUND.
 
