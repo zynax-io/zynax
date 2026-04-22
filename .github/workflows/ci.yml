@@ -197,7 +197,7 @@ jobs:
             if [ -f "services/${svc}/go.mod" ]; then
               echo "── lint: services/${svc}"
               cd "services/${svc}"
-              golangci-lint run ./... --config "../../tools/golangci-lint.yml" || failed=true
+              GOWORK=off golangci-lint run ./... --config "../../tools/golangci-lint.yml" || failed=true
               cd ../..
             fi
           done
