@@ -50,6 +50,21 @@ class MemoryServiceStub(object):
                 request_serializer=zynax_dot_v1_dot_memory__pb2.DeleteVectorRequest.SerializeToString,
                 response_deserializer=zynax_dot_v1_dot_memory__pb2.DeleteVectorResponse.FromString,
                 _registered_method=True)
+        self.MGet = channel.unary_unary(
+                '/zynax.v1.MemoryService/MGet',
+                request_serializer=zynax_dot_v1_dot_memory__pb2.MGetRequest.SerializeToString,
+                response_deserializer=zynax_dot_v1_dot_memory__pb2.MGetResponse.FromString,
+                _registered_method=True)
+        self.MSet = channel.unary_unary(
+                '/zynax.v1.MemoryService/MSet',
+                request_serializer=zynax_dot_v1_dot_memory__pb2.MSetRequest.SerializeToString,
+                response_deserializer=zynax_dot_v1_dot_memory__pb2.MSetResponse.FromString,
+                _registered_method=True)
+        self.DeleteNamespace = channel.unary_unary(
+                '/zynax.v1.MemoryService/DeleteNamespace',
+                request_serializer=zynax_dot_v1_dot_memory__pb2.DeleteNamespaceRequest.SerializeToString,
+                response_deserializer=zynax_dot_v1_dot_memory__pb2.DeleteNamespaceResponse.FromString,
+                _registered_method=True)
 
 
 class MemoryServiceServicer(object):
@@ -115,6 +130,37 @@ class MemoryServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def MGet(self, request, context):
+        """MGet retrieves multiple KV entries in a single RPC.
+        Keys that do not exist or have expired are omitted from the response
+        (not an error). Returns INVALID_ARGUMENT if workflow_id is empty or
+        the keys list is empty.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MSet(self, request, context):
+        """MSet stores or overwrites multiple KV entries atomically.
+        All entries share the same workflow_id. Each entry may carry its own TTL.
+        Returns INVALID_ARGUMENT if workflow_id is empty or entries list is empty.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteNamespace(self, request, context):
+        """DeleteNamespace removes all KV entries scoped to a workflow_id.
+        Intended for use by the engine adapter when a workflow reaches a
+        terminal state. Vector entries are not affected — use DeleteVector
+        to clean those up individually.
+        Returns INVALID_ARGUMENT if workflow_id is empty.
+        Returns OK (not NOT_FOUND) even when the namespace has no entries.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_MemoryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -152,6 +198,21 @@ def add_MemoryServiceServicer_to_server(servicer, server):
                     servicer.DeleteVector,
                     request_deserializer=zynax_dot_v1_dot_memory__pb2.DeleteVectorRequest.FromString,
                     response_serializer=zynax_dot_v1_dot_memory__pb2.DeleteVectorResponse.SerializeToString,
+            ),
+            'MGet': grpc.unary_unary_rpc_method_handler(
+                    servicer.MGet,
+                    request_deserializer=zynax_dot_v1_dot_memory__pb2.MGetRequest.FromString,
+                    response_serializer=zynax_dot_v1_dot_memory__pb2.MGetResponse.SerializeToString,
+            ),
+            'MSet': grpc.unary_unary_rpc_method_handler(
+                    servicer.MSet,
+                    request_deserializer=zynax_dot_v1_dot_memory__pb2.MSetRequest.FromString,
+                    response_serializer=zynax_dot_v1_dot_memory__pb2.MSetResponse.SerializeToString,
+            ),
+            'DeleteNamespace': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteNamespace,
+                    request_deserializer=zynax_dot_v1_dot_memory__pb2.DeleteNamespaceRequest.FromString,
+                    response_serializer=zynax_dot_v1_dot_memory__pb2.DeleteNamespaceResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -344,6 +405,87 @@ class MemoryService(object):
             '/zynax.v1.MemoryService/DeleteVector',
             zynax_dot_v1_dot_memory__pb2.DeleteVectorRequest.SerializeToString,
             zynax_dot_v1_dot_memory__pb2.DeleteVectorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MGet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/zynax.v1.MemoryService/MGet',
+            zynax_dot_v1_dot_memory__pb2.MGetRequest.SerializeToString,
+            zynax_dot_v1_dot_memory__pb2.MGetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def MSet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/zynax.v1.MemoryService/MSet',
+            zynax_dot_v1_dot_memory__pb2.MSetRequest.SerializeToString,
+            zynax_dot_v1_dot_memory__pb2.MSetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteNamespace(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/zynax.v1.MemoryService/DeleteNamespace',
+            zynax_dot_v1_dot_memory__pb2.DeleteNamespaceRequest.SerializeToString,
+            zynax_dot_v1_dot_memory__pb2.DeleteNamespaceResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -22,6 +22,11 @@
 //      the Set call. Callers must not depend on sub-second TTL precision.
 //   4. vector_id is assigned by the service on StoreVector and returned
 //      in StoreVectorResponse. Callers must not supply one.
+//   5. MGet silently omits missing or expired keys — callers must compare
+//      the response entries against their requested keys to detect misses.
+//   6. DeleteNamespace returns OK even when the namespace is already empty.
+//      It is safe to call after a terminal state is reached, regardless of
+//      whether any keys were ever written.
 
 syntax = "proto3";
 
@@ -63,6 +68,25 @@ service MemoryService {
   // DeleteVector removes a stored embedding by its service-assigned id.
   // Returns NOT_FOUND if the vector_id does not exist in the workflow scope.
   rpc DeleteVector(DeleteVectorRequest) returns (DeleteVectorResponse);
+
+  // MGet retrieves multiple KV entries in a single RPC.
+  // Keys that do not exist or have expired are omitted from the response
+  // (not an error). Returns INVALID_ARGUMENT if workflow_id is empty or
+  // the keys list is empty.
+  rpc MGet(MGetRequest) returns (MGetResponse);
+
+  // MSet stores or overwrites multiple KV entries atomically.
+  // All entries share the same workflow_id. Each entry may carry its own TTL.
+  // Returns INVALID_ARGUMENT if workflow_id is empty or entries list is empty.
+  rpc MSet(MSetRequest) returns (MSetResponse);
+
+  // DeleteNamespace removes all KV entries scoped to a workflow_id.
+  // Intended for use by the engine adapter when a workflow reaches a
+  // terminal state. Vector entries are not affected — use DeleteVector
+  // to clean those up individually.
+  // Returns INVALID_ARGUMENT if workflow_id is empty.
+  // Returns OK (not NOT_FOUND) even when the namespace has no entries.
+  rpc DeleteNamespace(DeleteNamespaceRequest) returns (DeleteNamespaceResponse);
 }
 
 // SetRequest stores or overwrites a key-value entry.
@@ -219,4 +243,82 @@ message DeleteVectorRequest {
 message DeleteVectorResponse {
   // Wall-clock time the service recorded the deletion.
   google.protobuf.Timestamp deleted_at = 1;
+}
+
+// MGetRequest retrieves multiple KV entries in one call.
+message MGetRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+
+  // Keys to retrieve. Must be non-empty. Duplicate keys are deduplicated.
+  // Required: empty list is rejected with INVALID_ARGUMENT.
+  repeated string keys = 2;
+}
+
+// MGetEntry is one hit in an MGet response.
+message MGetEntry {
+  // The key that was found.
+  string key = 1;
+
+  // The stored bytes for this key.
+  bytes value = 2;
+
+  // Wall-clock time the entry was last written.
+  google.protobuf.Timestamp stored_at = 3;
+
+  // Wall-clock time the entry will expire. Zero if no TTL was set.
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+// MGetResponse carries only the keys that exist and have not expired.
+// Missing or expired keys are silently omitted (see contract invariant 5).
+message MGetResponse {
+  // Found entries. May be fewer than the requested keys.
+  repeated MGetEntry entries = 1;
+}
+
+// MSetEntry is one key-value pair in an MSet request.
+message MSetEntry {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string key = 1;
+
+  // The value to store. Arbitrary bytes.
+  bytes value = 2;
+
+  // Optional TTL in seconds for this entry. Zero means no expiry.
+  int32 ttl_seconds = 3;
+}
+
+// MSetRequest stores multiple KV entries for one workflow atomically.
+message MSetRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+
+  // Entries to store. Must be non-empty.
+  // Required: empty list is rejected with INVALID_ARGUMENT.
+  repeated MSetEntry entries = 2;
+}
+
+// MSetResponse confirms all entries were stored.
+message MSetResponse {
+  // Wall-clock time the service recorded the write batch.
+  google.protobuf.Timestamp stored_at = 1;
+
+  // Number of entries written (equals len(request.entries) on success).
+  int32 count = 2;
+}
+
+// DeleteNamespaceRequest removes all KV entries for a workflow.
+message DeleteNamespaceRequest {
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string workflow_id = 1;
+}
+
+// DeleteNamespaceResponse confirms the namespace was cleared.
+message DeleteNamespaceResponse {
+  // Wall-clock time the service recorded the deletion.
+  google.protobuf.Timestamp deleted_at = 1;
+
+  // Number of KV entries removed. Zero if the namespace was already empty.
+  int32 deleted_count = 2;
 }

@@ -161,3 +161,78 @@ Feature: MemoryService contract — shared KV and vector storage
     When QueryVector is called
     Then the gRPC status is INVALID_ARGUMENT
     And the error message mentions "top_k"
+
+  # ─── MGet ─────────────────────────────────────────────────────────────────
+
+  Scenario: MGet returns values for all existing keys
+    Given keys "ctx:a" and "ctx:b" are set for workflow "wf-mget" with values "va" and "vb"
+    When MGet is called for workflow "wf-mget" with keys ["ctx:a", "ctx:b"]
+    Then the gRPC status is OK
+    And the response contains entry with key "ctx:a" and value "va"
+    And the response contains entry with key "ctx:b" and value "vb"
+
+  Scenario: MGet silently omits missing keys
+    Given key "ctx:exists" is set for workflow "wf-mget-miss" with value "v1"
+    When MGet is called for workflow "wf-mget-miss" with keys ["ctx:exists", "ctx:missing"]
+    Then the gRPC status is OK
+    And the response contains entry with key "ctx:exists"
+    And the response does not contain entry with key "ctx:missing"
+
+  Scenario: MGet with empty workflow_id is rejected
+    Given an MGetRequest with workflow_id set to ""
+    When MGet is called
+    Then the gRPC status is INVALID_ARGUMENT
+    And the error message mentions "workflow_id"
+
+  Scenario: MGet with empty keys list is rejected
+    Given an MGetRequest for workflow "wf-mget-empty" with no keys
+    When MGet is called
+    Then the gRPC status is INVALID_ARGUMENT
+    And the error message mentions "keys"
+
+  # ─── MSet ─────────────────────────────────────────────────────────────────
+
+  Scenario: MSet stores multiple entries and returns correct count
+    When MSet is called for workflow "wf-mset" with entries key "k1" value "v1" and key "k2" value "v2"
+    Then the gRPC status is OK
+    And the response count is 2
+    And Get for workflow "wf-mset" key "k1" returns "v1"
+    And Get for workflow "wf-mset" key "k2" returns "v2"
+
+  Scenario: MSet entries with TTL are retrievable before expiry
+    When MSet is called for workflow "wf-mset-ttl" with entry key "k-ttl" value "v-ttl" ttl 3600
+    Then the gRPC status is OK
+    And Get for workflow "wf-mset-ttl" key "k-ttl" returns "v-ttl"
+
+  Scenario: MSet with empty workflow_id is rejected
+    Given an MSetRequest with workflow_id set to ""
+    When MSet is called
+    Then the gRPC status is INVALID_ARGUMENT
+    And the error message mentions "workflow_id"
+
+  Scenario: MSet with empty entries list is rejected
+    Given an MSetRequest for workflow "wf-mset-empty" with no entries
+    When MSet is called
+    Then the gRPC status is INVALID_ARGUMENT
+    And the error message mentions "entries"
+
+  # ─── DeleteNamespace ──────────────────────────────────────────────────────
+
+  Scenario: DeleteNamespace removes all KV entries for a workflow
+    Given keys "ns:a" and "ns:b" are set for workflow "wf-del-ns"
+    When DeleteNamespace is called for workflow "wf-del-ns"
+    Then the gRPC status is OK
+    And the response deleted_count is 2
+    And Get for workflow "wf-del-ns" key "ns:a" returns NOT_FOUND
+    And Get for workflow "wf-del-ns" key "ns:b" returns NOT_FOUND
+
+  Scenario: DeleteNamespace on an empty namespace returns OK with count zero
+    When DeleteNamespace is called for workflow "wf-empty-ns"
+    Then the gRPC status is OK
+    And the response deleted_count is 0
+
+  Scenario: DeleteNamespace with empty workflow_id is rejected
+    Given a DeleteNamespaceRequest with workflow_id set to ""
+    When DeleteNamespace is called
+    Then the gRPC status is INVALID_ARGUMENT
+    And the error message mentions "workflow_id"
