@@ -15,6 +15,10 @@
 //   2. Every TaskEvent MUST echo the task_id from the originating request.
 //   3. Agents MUST honour timeout_seconds and emit FAILED with code "TIMEOUT".
 //   4. The stream MUST NOT emit events after the terminal event.
+//   5. GetCapabilitySchema returns the agent's live schema. The registry stores
+//      schema at registration time; the live schema is authoritative for
+//      dispatch-time validation. The task broker MAY call GetCapabilitySchema
+//      when validation against the registry fails, to detect stale entries.
 
 syntax = "proto3";
 
@@ -33,6 +37,14 @@ service AgentService {
   // or TASK_EVENT_TYPE_FAILED on error. Zero or more PROGRESS events may
   // precede the terminal event.
   rpc ExecuteCapability(ExecuteCapabilityRequest) returns (stream TaskEvent);
+
+  // GetCapabilitySchema returns the live input and output JSON Schema for a
+  // named capability. The task broker uses this to validate input_payload
+  // when the registry schema is suspected stale (e.g. after a re-registration).
+  // Returns NOT_FOUND if the agent does not implement the named capability.
+  // Returns INVALID_ARGUMENT if capability_name is empty.
+  rpc GetCapabilitySchema(GetCapabilitySchemaRequest)
+      returns (GetCapabilitySchemaResponse);
 }
 
 // ExecuteCapabilityRequest is the entry point for all capability invocations.
@@ -138,4 +150,29 @@ message CapabilityError {
   // Examples: {"upstream_status": "503"}, {"model": "claude-3-opus"},
   //           {"line": "42", "field": "documents"}.
   map<string, string> details = 3;
+}
+
+// GetCapabilitySchemaRequest identifies the capability to introspect.
+message GetCapabilitySchemaRequest {
+  // The capability name to introspect.
+  // Format: same as ExecuteCapabilityRequest.capability_name.
+  // Required: empty string is rejected with INVALID_ARGUMENT.
+  string capability_name = 1;
+}
+
+// GetCapabilitySchemaResponse carries the live schema for a capability.
+message GetCapabilitySchemaResponse {
+  // The capability name this schema describes.
+  string capability_name = 1;
+
+  // JSON Schema (draft-07) describing the valid input_payload structure.
+  // Identical to the schema registered in AgentRegistryService when the
+  // agent is healthy and up-to-date.
+  string input_schema_json = 2;
+
+  // JSON Schema (draft-07) describing the result_payload structure.
+  string output_schema_json = 3;
+
+  // Human-readable description of what the capability does.
+  string description = 4;
 }

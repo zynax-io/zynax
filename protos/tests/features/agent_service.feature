@@ -96,3 +96,24 @@ Feature: AgentService contract — ExecuteCapability streaming RPC
     Given a valid ExecuteCapabilityRequest for capability "always_fails"
     When ExecuteCapability is called and the stream is fully consumed
     Then no TaskEvent is received after the first FAILED event
+
+  # ─── GetCapabilitySchema ──────────────────────────────────────────────────
+
+  Scenario: GetCapabilitySchema returns schema for a known capability
+    When GetCapabilitySchema is called with capability_name "summarize"
+    Then the gRPC status is OK
+    And the response capability_name is "summarize"
+    And the response input_schema_json is valid JSON
+    And the response output_schema_json is valid JSON
+    And the response description is non-empty
+
+  Scenario: GetCapabilitySchema returns NOT_FOUND for an unknown capability
+    When GetCapabilitySchema is called with capability_name "nonexistent_cap"
+    Then the gRPC status is NOT_FOUND
+    And the error message contains "nonexistent_cap"
+
+  Scenario: GetCapabilitySchema with empty capability_name is rejected
+    Given a GetCapabilitySchemaRequest with capability_name set to ""
+    When GetCapabilitySchema is called
+    Then the gRPC status is INVALID_ARGUMENT
+    And the error message mentions "capability_name"
