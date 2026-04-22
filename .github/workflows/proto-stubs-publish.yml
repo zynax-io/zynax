@@ -1,0 +1,141 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — Proto Stub Publication
+#
+# Fires on every merge to main that touches .proto files or generated stubs.
+# Packages the Go and Python stubs as tar.gz archives and attaches them to
+# a GitHub Release so polyglot consumers can download stubs without running
+# buf locally.
+#
+# Optional BSR push: set the BUF_TOKEN repository secret to also push the
+# module to the Buf Schema Registry (buf.build/zynax-io/zynax). The step
+# skips gracefully when the secret is absent — no failure.
+#
+# Release tag format: proto-stubs-YYYYMMDD-<sha7>
+# Archive names:
+#   zynax-protos-go-<sha7>.tar.gz     — contents of protos/generated/go/
+#   zynax-protos-python-<sha7>.tar.gz — contents of protos/generated/python/
+
+name: Publish Proto Stubs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "protos/zynax/**/*.proto"
+      - "protos/generated/**"
+
+permissions:
+  contents: write
+
+env:
+  BUF_VERSION: "1.47.2"
+
+jobs:
+  publish-stubs:
+    name: publish-stubs
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect proto changes and set release metadata
+        id: meta
+        run: |
+          proto_changed=$(git diff --name-only HEAD~1..HEAD -- 'protos/zynax/v1/*.proto' | wc -l)
+          echo "proto_changed=$proto_changed" >> "$GITHUB_OUTPUT"
+          echo "sha7=${GITHUB_SHA:0:7}"       >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y%m%d)"      >> "$GITHUB_OUTPUT"
+
+      - name: No proto changes — skip publication
+        if: steps.meta.outputs.proto_changed == '0'
+        run: |
+          echo "ℹ️  No .proto files changed in HEAD~1..HEAD — stub publication skipped."
+
+      # ── Package archives ───────────────────────────────────────────────────
+      - name: Package Go stubs
+        if: steps.meta.outputs.proto_changed != '0'
+        run: |
+          tar -czf "zynax-protos-go-${{ steps.meta.outputs.sha7 }}.tar.gz" \
+            -C protos/generated/go .
+          echo "✅ Go stubs packaged ($(du -sh protos/generated/go | cut -f1))"
+
+      - name: Package Python stubs
+        if: steps.meta.outputs.proto_changed != '0'
+        run: |
+          tar -czf "zynax-protos-python-${{ steps.meta.outputs.sha7 }}.tar.gz" \
+            -C protos/generated/python .
+          echo "✅ Python stubs packaged ($(du -sh protos/generated/python | cut -f1))"
+
+      # ── GitHub Release ─────────────────────────────────────────────────────
+      - name: Create GitHub Release with stub archives
+        if: steps.meta.outputs.proto_changed != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA7="${{ steps.meta.outputs.sha7 }}"
+          DATE="${{ steps.meta.outputs.date }}"
+          TAG="proto-stubs-${DATE}-${SHA7}"
+
+          # List changed proto files for the release notes
+          changed_protos=$(git diff --name-only HEAD~1..HEAD -- 'protos/zynax/v1/*.proto' \
+            | sed 's|protos/||' | sed 's/^/  - /')
+
+          cat > release-notes.md << EOF
+          Auto-generated proto stubs from commit [\`${SHA7}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}).
+
+          ## Changed contracts
+
+          ${changed_protos}
+
+          ## Download and use
+
+          | Language | Archive | Import path |
+          |----------|---------|-------------|
+          | Go | \`zynax-protos-go-${SHA7}.tar.gz\` | \`github.com/zynax-io/zynax/protos/generated/go\` |
+          | Python | \`zynax-protos-python-${SHA7}.tar.gz\` | add dir to \`PYTHONPATH\` |
+
+          **Go** — extract the archive and add the \`go\` directory to your module's replace directives,
+          or copy the generated files into your module.
+
+          **Python** — extract the archive and add it to \`PYTHONPATH\` or install via the
+          zynax-sdk package (M6+).
+
+          > Stubs are also committed to the repository at \`protos/generated/\` and are always
+          > up to date with the proto files. Use the repo source directly if you have access.
+          EOF
+
+          gh release create "$TAG" \
+            --title "Proto Stubs — ${DATE} (${SHA7})" \
+            --notes-file release-notes.md \
+            "zynax-protos-go-${SHA7}.tar.gz" \
+            "zynax-protos-python-${SHA7}.tar.gz"
+
+          echo "✅ Release ${TAG} created"
+          echo "   https://github.com/${{ github.repository }}/releases/tag/${TAG}"
+
+      # ── Buf Schema Registry (optional) ─────────────────────────────────────
+      - name: Push to Buf Schema Registry
+        if: steps.meta.outputs.proto_changed != '0'
+        env:
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
+        run: |
+          if [ -z "$BUF_TOKEN" ]; then
+            echo "ℹ️  BUF_TOKEN secret not set — BSR push skipped."
+            echo "   To enable: add BUF_TOKEN to repository secrets."
+            echo "   See https://buf.build/docs/tutorials/getting-started-with-bsr"
+            exit 0
+          fi
+
+          curl -fsSL \
+            "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64" \
+            -o /usr/local/bin/buf
+          chmod +x /usr/local/bin/buf
+
+          cd protos
+          echo "$BUF_TOKEN" | buf registry login buf.build \
+            --username zynax-io \
+            --token-stdin
+
+          buf push --tag "${{ github.sha }}"
+          echo "✅ Proto module pushed to buf.build/zynax-io/zynax"
