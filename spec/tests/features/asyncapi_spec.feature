@@ -66,6 +66,18 @@ Feature: AsyncAPI specification for all Zynax async events
     And the channel specifies a publish operation
     And the message payload references the CloudEvent schema
 
+  Scenario: Workflow state entered event channel is documented
+    When the AsyncAPI spec channels are inspected
+    Then it contains a channel for subject "zynax.workflow.state.entered"
+    And the channel specifies a publish operation
+    And the message payload references the CloudEvent schema
+
+  Scenario: Workflow state exited event channel is documented
+    When the AsyncAPI spec channels are inspected
+    Then it contains a channel for subject "zynax.workflow.state.exited"
+    And the channel specifies a publish operation
+    And the message payload references the CloudEvent schema
+
   # ─── Task lifecycle events ────────────────────────────────────────────────
 
   Scenario: Task dispatched event channel is documented

@@ -138,6 +138,68 @@ channels:
         payload:
           $ref: "#/components/schemas/CloudEvent"
 
+  zynax.workflow.state.entered:
+    description: >
+      Published by the EngineAdapterService each time the workflow's state
+      machine activates a new state. Fired after any transition completes
+      and before the state's actions begin executing.
+
+      The CloudEvent data payload carries:
+        run_id      — the workflow run identifier
+        workflow_id — the workflow definition identifier
+        namespace   — the namespace the workflow belongs to
+        state       — the name of the state now active (same as to_state)
+        from_state  — the state that was exited (empty on the first state)
+        to_state    — the state now entered
+
+      Consumers use this event to build audit trails, trigger downstream
+      reactions, and power real-time workflow progress views.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "workflow/state.entered@v1"
+    publish:
+      operationId: onWorkflowStateEntered
+      summary: The workflow state machine has entered a new state.
+      message:
+        name: WorkflowStateEntered
+        summary: >
+          Emitted after every state transition. Carries from_state and to_state
+          so consumers can reconstruct the full execution path.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
+  zynax.workflow.state.exited:
+    description: >
+      Published by the EngineAdapterService each time the workflow's state
+      machine leaves a state. Fired when a transition event is received and
+      processed, before the target state is entered.
+
+      The CloudEvent data payload carries:
+        run_id      — the workflow run identifier
+        workflow_id — the workflow definition identifier
+        namespace   — the namespace the workflow belongs to
+        state       — the name of the state being exited (same as from_state)
+        from_state  — the state being exited
+        to_state    — the next state (empty if transitioning to terminal)
+        trigger     — the event_type that caused the transition (e.g. "review.approved")
+
+      Together with zynax.workflow.state.entered, this pair gives consumers
+      a complete picture of every transition: exited fires first, entered fires
+      after the transition is committed.
+    x-zynax-schema-version: v1
+    x-zynax-schema-rev: "workflow/state.exited@v1"
+    publish:
+      operationId: onWorkflowStateExited
+      summary: The workflow state machine has exited a state due to a transition.
+      message:
+        name: WorkflowStateExited
+        summary: >
+          Emitted on every state transition before the target state is entered.
+          Carries the trigger event_type that caused the transition.
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CloudEvent"
+
   # ── Task lifecycle ──────────────────────────────────────────────────────────
 
   zynax.task.dispatched:
