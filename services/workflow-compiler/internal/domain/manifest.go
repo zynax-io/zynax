@@ -10,20 +10,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// defaultNamespace is used when metadata.namespace is omitted from the manifest.
+const defaultNamespace = "default"
+
 // StateType classifies the behaviour of a state in the workflow state machine.
 type StateType int
 
+// State type constants.
 const (
-	StateTypeNormal         StateType = 0
-	StateTypeTerminal       StateType = 1
-	StateTypeHumanInTheLoop StateType = 2
+	StateTypeNormal         StateType = 0 // standard execution state
+	StateTypeTerminal       StateType = 1 // end state; no outbound transitions
+	StateTypeHumanInTheLoop StateType = 2 // pauses for human input
 )
 
 // Action is a single capability invocation within a state. It holds no proto
 // types — the api layer maps Action to ActionIR when building WorkflowIR.
 type Action struct {
 	Capability string
-	Timeout    time.Duration         // zero means no timeout
+	Timeout    time.Duration // zero means no timeout
 	Input      map[string]interface{}
 	Output     map[string]interface{}
 	Async      bool
@@ -33,9 +37,9 @@ type Action struct {
 type Transition struct {
 	EventType   string
 	TargetState string
-	Guard       string                // optional CEL expression
+	Guard       string                 // optional CEL expression
 	Set         map[string]interface{} // context writes on fire
-	Conditions  map[string]string     // labelled CEL conditions (maps to TransitionIR.conditions)
+	Conditions  map[string]string      // labelled CEL conditions (maps to TransitionIR.conditions)
 }
 
 // State is a single node in the compiled workflow state machine.
@@ -182,7 +186,7 @@ func ParseManifest(data []byte) (*Manifest, ParseErrors) {
 
 	ns := raw.Metadata.Namespace
 	if ns == "" {
-		ns = "default"
+		ns = defaultNamespace
 	}
 
 	return &Manifest{

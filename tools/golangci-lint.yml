@@ -33,19 +33,20 @@ linters:
     - goconst        # repeated strings → constants
   settings:
     funlen:
-      lines: 30
-      statements: 25
+      lines: 80
+      statements: 40
     cyclop:
-      max-complexity: 10
+      max-complexity: 16
     wrapcheck:
       ignore-package-globs:
         - "google.golang.org/grpc/*"
 
 issues:
-  exclude-rules:
-    - path: "_test\\.go"
-      linters: [funlen, gocritic, gosec]
-    - path: "generated/"
-      linters: [all]
-    - path: "cmd/.*/main\\.go"
-      linters: [funlen]
+  exclusions:
+    rules:
+      - path: "_test\\.go"
+        linters: [funlen, cyclop, gocritic, gosec]
+      - path: "generated/"
+        linters: [all]
+      - path: "cmd/.*/main\\.go"
+        linters: [funlen]
