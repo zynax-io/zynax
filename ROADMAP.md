@@ -15,7 +15,7 @@
   on its checklist has a merged PR.
 - **Issues** on the Project board map to individual checklist items below. Each
   checklist item should correspond to a `type: feature` or `type: task` issue.
-- **Versions** are cut when a milestone is complete (see `GOVERNANCE.md §5`).
+- **Versions** are cut when a milestone is complete (see `GOVERNANCE.md §6`).
 - **Contributing to the roadmap**: see §9 — Propose a Roadmap Addition.
 
 ---
@@ -204,7 +204,7 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 Large additions (new milestones, reprioritisation of existing milestones) require
 a GitHub Discussion tagged `roadmap` with 3-day lazy consensus among maintainers.
-See `GOVERNANCE.md §6`.
+See `GOVERNANCE.md §7`.
 
 ---
 

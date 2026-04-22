@@ -762,7 +762,7 @@ not a shortcut past quality standards.
    — AI models can hallucinate plausible-looking but incorrect or sensitive values.
 
 7. **AI agents acting as contributors** must have a human sponsor who is accountable
-   for the work. The human sponsor is the PR author of record. See `GOVERNANCE.md §7`.
+   for the work. The human sponsor is the PR author of record. See `GOVERNANCE.md §8`.
 
 8. **Human engagement in discussions** — do not use AI tools to generate responses
    to maintainer feedback or in issue/PR threads. Communicate directly and personally.
