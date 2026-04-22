@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zynax.io/schemas/agent-def/v1.0",
+  "title": "Zynax AgentDef Manifest",
+  "description": "JSON Schema for a Zynax AgentDef manifest (kind: AgentDef, apiVersion: zynax.io/v1alpha1). Declares the capabilities a gRPC agent provides, the container image to run, and the runtime configuration. Submitted to AgentRegistryService via 'zynax apply' or the CLI. The registry derives its AgentDef record from this manifest.",
+  "type": "object",
+  "required": ["kind", "apiVersion", "metadata", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "AgentDef",
+      "description": "Must be 'AgentDef'. Distinguishes agent declarations from Workflow and other Zynax resource kinds."
+    },
+    "apiVersion": {
+      "type": "string",
+      "const": "zynax.io/v1alpha1",
+      "description": "Schema version. The registry rejects manifests with an unrecognised apiVersion."
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/spec"
+    }
+  },
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "description": "Identifying information for the AgentDef resource.",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique agent name within the namespace. Used as agent_id in the registry.",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Logical namespace for multi-tenant isolation. Defaults to 'default' when omitted.",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "labels": {
+          "type": "object",
+          "description": "Key-value labels for filtering via ListAgents label selectors. Follows Kubernetes label syntax: alphanumeric, '-', '_', '.'; max 63 chars per key and value.",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 63
+          }
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "description": "The agent's capability declarations and runtime configuration.",
+      "required": ["capabilities"],
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "description": "Ordered list of capabilities this agent implements. The task broker routes work to this agent when a workflow action names one of these capabilities.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/capability"
+          }
+        },
+        "runtime": {
+          "$ref": "#/$defs/runtime"
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "description": "A single named capability provided by this agent. Maps to CapabilityDef in AgentRegistryService.",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique routing key for this capability within the agent. Matched by the task broker when dispatching ActionIR.capability. Format: lowercase letters, digits, and underscores; 1–64 characters (matches ExecuteCapabilityRequest.capability_name).",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable explanation of what this capability does. Shown in the agent registry UI and generated documentation."
+        },
+        "input_schema": {
+          "$ref": "#/$defs/jsonSchemaObject",
+          "description": "JSON Schema (draft-07 subset) describing the valid input_payload structure. The task broker validates dispatch payloads against this schema at runtime."
+        },
+        "output_schema": {
+          "$ref": "#/$defs/jsonSchemaObject",
+          "description": "JSON Schema (draft-07 subset) describing the result payload emitted in COMPLETED TaskEvent.payload."
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "description": "Maximum wall-clock seconds this capability may run before the task broker marks the task FAILED. Must be a positive integer.",
+          "minimum": 1
+        },
+        "max_retries": {
+          "type": "integer",
+          "description": "Maximum times the task broker will re-queue a failed task before marking it permanently FAILED. Zero means no retries.",
+          "minimum": 0
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Container runtime configuration for deploying this agent. Used by the Zynax control plane to schedule and run the gRPC server.",
+      "required": ["image"],
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Fully qualified container image reference including tag or digest. Example: 'ghcr.io/zynax-io/code-review-agent:v1.2.3'.",
+          "minLength": 1
+        },
+        "env": {
+          "type": "object",
+          "description": "Environment variables injected into the container at runtime. Sensitive values should reference Kubernetes Secrets via the CLI, not be inlined here.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        },
+        "replicas": {
+          "type": "integer",
+          "description": "Number of agent instances to run. Defaults to 1. The task broker distributes load across all healthy replicas.",
+          "minimum": 1,
+          "default": 1
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "description": "CPU and memory resource requests and limits for the agent container. Follows Kubernetes resource quantity syntax.",
+      "additionalProperties": false,
+      "properties": {
+        "requests": {
+          "$ref": "#/$defs/resourceQuantities"
+        },
+        "limits": {
+          "$ref": "#/$defs/resourceQuantities"
+        }
+      }
+    },
+    "resourceQuantities": {
+      "type": "object",
+      "description": "CPU and memory resource quantities. CPU in millicores (e.g. '100m', '0.5') or cores ('1'). Memory in bytes with SI/binary suffixes (e.g. '128Mi', '1Gi', '512M').",
+      "additionalProperties": false,
+      "properties": {
+        "cpu": {
+          "type": "string",
+          "description": "CPU quantity. Examples: '100m' (100 millicores), '0.5' (half a core), '2' (two cores).",
+          "minLength": 1
+        },
+        "memory": {
+          "type": "string",
+          "description": "Memory quantity. Examples: '128Mi', '1Gi', '512M', '2G'.",
+          "minLength": 1
+        }
+      }
+    },
+    "jsonSchemaObject": {
+      "type": "object",
+      "description": "A JSON Schema object (draft-07 subset). Must declare 'type: object' at the top level.",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "object"
+        },
+        "description": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonSchemaField"
+          }
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "additionalProperties": {
+          "type": "boolean"
+        }
+      }
+    },
+    "jsonSchemaField": {
+      "type": "object",
+      "description": "A single field definition within a JSON Schema properties map.",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean", "array", "object", "null"]
+        },
+        "description": {
+          "type": "string"
+        },
+        "default": {},
+        "enum": {
+          "type": "array"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "items": {
+          "type": "object"
+        },
+        "properties": {
+          "type": "object"
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
