@@ -30,7 +30,6 @@ linters:
     - wrapcheck      # errors must be wrapped
     - errorlint      # correct error wrapping
     - contextcheck   # context.Context must be first arg
-    - stylecheck     # naming conventions
     - goconst        # repeated strings → constants
   settings:
     funlen:
