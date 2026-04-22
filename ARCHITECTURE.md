@@ -6,6 +6,19 @@
 
 ---
 
+## Milestone Status
+
+| Milestone | Status | What was built |
+|-----------|--------|---------------|
+| M1 — Contracts Foundation | **Complete** (v0.1.0) | 8 proto contracts, AsyncAPI spec (13 channels), JSON schemas, Go + Python stubs, 140+ BDD scenarios, 5 CI gates |
+| M2 — Workflow IR | **Next** | WorkflowIR structured fields, WorkflowCompilerService skeleton |
+| M3 — Temporal Execution | Planned | Temporal-backed EngineAdapterService |
+| M4 — YAML System + CLI | Planned | `zynaxctl`, YAML validation pipeline |
+
+See `ROADMAP.md` for the full milestone timeline.
+
+---
+
 ## 1. Core Philosophy
 
 ### The Control Plane Analogy
@@ -87,40 +100,55 @@ The IR is the "LLVM of workflows". It normalises semantics that differ
 across engines: loops, conditional transitions, timeout handling,
 human-in-the-loop signals, event subscriptions.
 
-### IR Schema (conceptual)
+### IR Proto Schema
 
-```go
-// services/workflow-compiler/internal/domain/ir.go
+The M1 `WorkflowIR` message in `protos/zynax/v1/workflow_compiler.proto` is an
+intentional envelope: it carries an opaque `bytes ir_payload` field alongside
+metadata. This lets the compiler contract exist and be tested before the structured
+IR fields are designed in M2.
 
-type WorkflowIR struct {
-    ID           string
-    Version      string
-    InitialState string
-    States       map[string]StateIR
-    EventSchema  map[string]EventSchemaIR
+**M1 (complete):** `WorkflowIR` is an envelope with `workflow_id`, `version`,
+`target_engine`, and `bytes ir_payload` (opaque blob, not yet structured).
+
+**M2 (next):** The proto gains structured fields. The conceptual target:
+
+```protobuf
+// protos/zynax/v1/workflow_compiler.proto (M2 additions)
+message WorkflowIR {
+    string workflow_id   = 1;
+    string version       = 2;
+    string target_engine = 3;
+    bytes  ir_payload    = 4;  // kept for backward compat; engines can use either
+
+    // M2 structured fields:
+    string           initial_state = 5;
+    repeated StateIR states        = 6;
 }
 
-type StateIR struct {
-    Name        string
-    Type        StateType  // ACTIVE | TERMINAL | HUMAN_IN_THE_LOOP | WAITING
-    Actions     []ActionIR
-    Transitions []TransitionIR
-    Timeout     *time.Duration
+message StateIR {
+    string              name        = 1;
+    StateType           type        = 2;  // ACTIVE | TERMINAL | WAITING
+    repeated ActionIR   actions     = 3;
+    repeated TransitionIR transitions = 4;
+    int32               timeout_seconds = 5;
 }
 
-type ActionIR struct {
-    Capability  string            // what capability to invoke
-    InputMap    map[string]string // maps workflow context → capability input
-    OutputMap   map[string]string // maps capability output → workflow context
-    Async       bool
+message ActionIR {
+    string            capability = 1;
+    map<string,string> input_map = 2;
+    map<string,string> output_map = 3;
+    bool              async      = 4;
 }
 
-type TransitionIR struct {
-    OnEvent string
-    Guard   *ExpressionIR // optional condition
-    Goto    string
+message TransitionIR {
+    string on_event  = 1;
+    string guard     = 2;  // CEL expression, empty = no guard
+    string goto_state = 3;
 }
 ```
+
+`ir_payload` is kept alongside the structured fields so existing consumers that
+already deserialise the blob are not broken (M1 backward-compat rule).
 
 ---
 
@@ -434,16 +462,48 @@ The proto contracts are the only visible interfaces.
 
 ---
 
-## 12. Milestones
+## 12. Contract Test Strategy
+
+Zynax validates every gRPC contract boundary with BDD tests before any service
+implementation exists. This is the M1 strategy and continues through all milestones.
+
+### How it works
+
+- Each proto service has a corresponding `protos/tests/<service>/` package with
+  godog step definitions and an in-process stub server (`testserver.NewBufconnServer`)
+- Feature files live in `protos/tests/features/` — written before implementation
+- CI runs all 140+ scenarios on every PR that touches `protos/`
+
+### GOWORK=off requirement
+
+`go.work` lists service modules (M2+) that do not exist on disk during M1. Running
+`go test ./...` in `protos/tests/` without disabling the workspace causes resolution
+errors for non-existent modules. Always use:
+
+```bash
+GOWORK=off go test ./... -v -timeout 60s
+```
+
+See ADR-017 and `protos/tests/AGENTS.md` for the full guide.
+
+### bufconn transport
+
+Tests use an in-memory `bufconn` listener — no network ports, no teardown races,
+parallel-safe. The `testserver` package provides a shared helper used by all eight
+service test suites.
+
+---
+
+## 13. Milestones
 
 See `ROADMAP.md` for the full timeline. Architecture aligns with:
 
-| Milestone | Architecture Component |
-|-----------|----------------------|
-| M1 — Contracts | protos/ + spec/asyncapi/ |
-| M2 — Workflow IR | services/workflow-compiler/ |
-| M3 — Engine Adapters | services/engine-adapter/ + Temporal first |
-| M4 — YAML System | spec/schemas/ + compiler → IR |
-| M5 — Adapter Layer | agents/adapters/ (http, llm, git) |
-| M6 — Runtime + CLI | `zynax apply` + local runner |
-| M7 — Observability | OTel traces across all layers |
+| Milestone | Status | Architecture Component |
+|-----------|--------|----------------------|
+| M1 — Contracts | **Complete** | `protos/` + `spec/asyncapi/` + BDD harness |
+| M2 — Workflow IR | Next | `services/workflow-compiler/` skeleton |
+| M3 — Engine Adapters | Planned | `services/engine-adapter/` + Temporal |
+| M4 — YAML System | Planned | `spec/schemas/` + compiler → IR pipeline |
+| M5 — Adapter Layer | Planned | `agents/adapters/` (http, llm, git) |
+| M6 — Runtime + CLI | Planned | `zynaxctl apply` + local runner |
+| M7 — Observability | Planned | OTel traces across all layers |
