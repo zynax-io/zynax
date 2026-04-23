@@ -30,6 +30,7 @@ validators (#85), IR serialization (#86), gRPC API layer (#87).
 | `protos/` | Proto naming, backward-compatibility rules |
 | `spec/` | YAML manifest schemas |
 | `infra/` | Docker, env var conventions |
+| `docs/architecture/` | Architecture reviews, competitive analysis, ADR index |
 
 ## AI attribution
 
