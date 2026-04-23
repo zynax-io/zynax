@@ -33,7 +33,15 @@ validators (#85), IR serialization (#86), gRPC API layer (#87).
 
 ## AI attribution
 
-- Use `Assisted-by: Claude/claude-sonnet-4-6` in commit footers.
+Every commit **must** carry both trailers or the DCO check fails:
+
+```
+Signed-off-by: Your Name <your@email.com>
+Assisted-by: Claude/claude-sonnet-4-6
+```
+
+- `Signed-off-by` — required by the DCO gate on every commit, human or AI-assisted.
+- `Assisted-by` — records AI involvement; use the exact model ID from the session.
 - **Never** use `Co-Authored-By:` for AI — reserved for humans certifying DCO.
 - **Never** add `🤖 Generated with [Claude Code]` lines to commit messages.
 - See `docs/ai-assistant-setup.md` and `CONTRIBUTING.md §AI Contribution`.
@@ -109,6 +117,7 @@ Things that have gone wrong in this repo — avoid these:
 | Mocking the database in integration tests | Use `testcontainers-go` for real DB (ADR-016) |
 | Adding complexity beyond the issue scope | Implement exactly what the issue asks; open a follow-up for anything extra |
 | Using `Co-Authored-By:` for AI | Use `Assisted-by: Claude/<model>` — DCO is human-only |
+| Omitting `Signed-off-by:` from a commit | Every commit needs `Signed-off-by: Name <email>` or the DCO gate fails — include it even on AI-assisted commits |
 | PR title prefix `spec:` / `proto:` / `adr:` | Use `docs:` for spec/ADR changes, `feat:`/`chore:` for proto changes |
 | Running `go test` in `protos/tests/` without `GOWORK=off` | Always prefix: `GOWORK=off go test ./...` (ADR-017) |
 | Running `go test` in `services/<svc>/` without `GOWORK=off` | Same rule — applies to ALL go commands in any service directory |
