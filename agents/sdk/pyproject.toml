@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+[project]
+name = "zynax-sdk"
+version = "0.1.0"
+description = "Zynax Python SDK — framework-agnostic agent runtime adapter"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+
+dependencies = [
+    "grpcio>=1.64.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "structlog>=24.2.0",
+    "prometheus-client>=0.20.0",
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+    "opentelemetry-instrumentation-grpc>=0.46b0",
+]
+
+[project.optional-dependencies]
+langgraph = ["langgraph>=0.1.0", "langchain-openai>=0.1.0"]
+autogen   = ["pyautogen>=0.2.0"]
+crewai    = ["crewai>=0.28.0"]
+all       = ["zynax-sdk[langgraph,autogen,crewai]"]
+
+[tool.pytest.ini_options]
+testpaths   = ["tests"]
+addopts     = "-v --tb=short"
+
+[dependency-groups]
+dev = [
+    "grpcio-tools>=1.64.0",
+    "pytest>=8.2.0",
+    "pytest-bdd>=7.2.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+]
