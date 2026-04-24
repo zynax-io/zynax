@@ -353,6 +353,30 @@ jobs:
           done
           $failed && exit 1 || echo "✅ Go service tests passed"
 
+      - name: Go service coverage gate (≥90%)
+        if: steps.go-detect.outputs.has_services != '0'
+        run: |
+          failed=false
+          for svc in ${{ env.SERVICE_LIST }}; do
+            if [ -f "services/${svc}/coverage.out" ]; then
+              total=$(GOWORK=off go tool cover -func="services/${svc}/coverage.out" \
+                      | grep "^total:" | awk '{print $3}' | tr -d '%')
+              if [ -z "$total" ]; then
+                echo "  ⚠ no coverage total for services/${svc} — skipping"
+                continue
+              fi
+              GOWORK=off go tool cover -func="services/${svc}/coverage.out" | grep "^total:" \
+                | awk -v svc="${svc}" '{printf "── coverage: services/%s  %s\n", svc, $3}'
+              if awk "BEGIN{exit !(${total} < 90)}"; then
+                echo "  ❌ ${total}% < 90% — coverage gate failed for services/${svc}"
+                failed=true
+              else
+                echo "  ✅ ${total}% ≥ 90% for services/${svc}"
+              fi
+            fi
+          done
+          $failed && exit 1 || true
+
       - name: Godog BDD contract tests (selective by changed proto)
         if: steps.go-detect.outputs.has_bdd_impl != '0'
         run: |

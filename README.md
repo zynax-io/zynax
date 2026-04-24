@@ -116,19 +116,21 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
 ```bash
 git clone https://github.com/zynax-io/zynax.git
 cd zynax
-
-# Build the dev tools image (Go + Python + all tooling)
-make build-tools
-
-# Start the full local stack
-make dev-up
-
-# Apply a workflow
-zynax apply spec/workflows/examples/code-review.yaml
-
-# Check status
-zynax get workflows -n engineering
+make bootstrap   # one-time: build the zynax-tools Docker image
+make dev-up      # start the full local stack
 ```
+
+### Key make commands
+
+| Command | What it does |
+|---------|-------------|
+| `make test` | Full test suite — spec validation + Go unit tests + BDD contracts + Python tests |
+| `make test-unit-go` | Go unit tests with coverage report for all services |
+| `make test-bdd` | Godog BDD contract tests for all `protos/tests/` packages |
+| `make lint` | Proto + Go + Python lint |
+| `make validate-spec` | Validate all YAML manifests against JSON schemas |
+| `make generate-protos` | Regenerate Go + Python stubs from `.proto` files |
+| `make build-tools` | Build the `zynax-tools:local` Docker image (run once after clone) |
 
 ---
 
