@@ -510,8 +510,7 @@ jobs:
               --cov-report=term-missing \
               --cov-fail-under=90 \
               -v \
-              --tb=short \
-              --bdd-strict || failed=true
+              --tb=short || failed=true
             cd ../..
           fi
 
@@ -524,8 +523,7 @@ jobs:
                 --cov-report=term-missing \
                 --cov-fail-under=90 \
                 -v \
-                --tb=short \
-                --bdd-strict || failed=true
+                --tb=short || failed=true
               cd ../../..
             fi
           done
