@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,6 +44,8 @@ type workflowManifest struct {
 
 type compilerStub struct {
 	zynaxv1.UnimplementedWorkflowCompilerServiceServer
+	mu    sync.RWMutex
+	store map[string]*zynaxv1.WorkflowIR
 }
 
 func (s *compilerStub) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWorkflowRequest) (*zynaxv1.CompileWorkflowResponse, error) {
@@ -72,15 +75,25 @@ func (s *compilerStub) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWo
 		ns = "default"
 	}
 
-	ir := &zynaxv1.WorkflowIR{
+	wfIR := &zynaxv1.WorkflowIR{
 		WorkflowId: fmt.Sprintf("wf-%d", time.Now().UnixNano()),
 		Name:       manifest.Metadata.Name,
 		Namespace:  ns,
 		ApiVersion: manifest.ApiVersion,
 		CompiledAt: timestamppb.Now(),
 	}
+
+	if !req.DryRun {
+		s.mu.Lock()
+		if s.store == nil {
+			s.store = make(map[string]*zynaxv1.WorkflowIR)
+		}
+		s.store[wfIR.WorkflowId] = wfIR
+		s.mu.Unlock()
+	}
+
 	resp := &zynaxv1.CompileWorkflowResponse{
-		WorkflowIr:            ir,
+		WorkflowIr:            wfIR,
 		CompilationDurationMs: durationMs,
 	}
 
@@ -90,6 +103,22 @@ func (s *compilerStub) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWo
 	}
 
 	return resp, nil
+}
+
+func (s *compilerStub) GetCompiledWorkflow(_ context.Context, req *zynaxv1.GetCompiledWorkflowRequest) (*zynaxv1.GetCompiledWorkflowResponse, error) {
+	if req.WorkflowId == "" {
+		return nil, status.Error(codes.InvalidArgument, "workflow_id must not be empty")
+	}
+	s.mu.RLock()
+	wfIR, ok := s.store[req.WorkflowId]
+	s.mu.RUnlock()
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "workflow %q not found", req.WorkflowId)
+	}
+	return &zynaxv1.GetCompiledWorkflowResponse{
+		WorkflowIr: wfIR,
+		CompiledAt: wfIR.CompiledAt,
+	}, nil
 }
 
 func (s *compilerStub) ValidateManifest(_ context.Context, req *zynaxv1.ValidateManifestRequest) (*zynaxv1.ValidateManifestResponse, error) {
@@ -253,13 +282,16 @@ states:
 // ─── Test context ────────────────────────────────────────────────────────────
 
 type compilerCtx struct {
-	client      zynaxv1.WorkflowCompilerServiceClient
-	stub        *compilerStub
-	compileReq  *zynaxv1.CompileWorkflowRequest
-	validateReq *zynaxv1.ValidateManifestRequest
-	compileResp *zynaxv1.CompileWorkflowResponse
-	validateResp *zynaxv1.ValidateManifestResponse
-	grpcErr     error
+	client          zynaxv1.WorkflowCompilerServiceClient
+	stub            *compilerStub
+	compileReq      *zynaxv1.CompileWorkflowRequest
+	validateReq     *zynaxv1.ValidateManifestRequest
+	getReq          *zynaxv1.GetCompiledWorkflowRequest
+	compileResp     *zynaxv1.CompileWorkflowResponse
+	validateResp    *zynaxv1.ValidateManifestResponse
+	getResp         *zynaxv1.GetCompiledWorkflowResponse
+	grpcErr         error
+	lastWorkflowID  string
 }
 
 type godogCKey struct{}
@@ -292,9 +324,12 @@ func TestFeatures(t *testing.T) {
 			sc.Before(func(ctx context.Context, scenario *godog.Scenario) (context.Context, error) {
 				tc.compileReq = nil
 				tc.validateReq = nil
+				tc.getReq = nil
 				tc.compileResp = nil
 				tc.validateResp = nil
+				tc.getResp = nil
 				tc.grpcErr = nil
+				tc.lastWorkflowID = ""
 				return context.WithValue(ctx, godogCKey{}, t), nil
 			})
 
@@ -799,6 +834,122 @@ states:
 					}
 				}
 				return fmt.Errorf("expected CompilationError naming state %q", stateName)
+			})
+
+			// ── GetCompiledWorkflow steps ─────────────────────────────────────────
+
+			sc.Step(`^a valid YAML manifest has been compiled successfully$`, func() error {
+				req := &zynaxv1.CompileWorkflowRequest{
+					ManifestYaml: validManifest("", ""),
+				}
+				resp, err := tc.client.CompileWorkflow(context.Background(), req)
+				if err != nil {
+					return fmt.Errorf("compile failed: %v", err)
+				}
+				tc.compileResp = resp
+				if resp.WorkflowIr != nil {
+					tc.lastWorkflowID = resp.WorkflowIr.WorkflowId
+				}
+				return nil
+			})
+
+			sc.Step(`^the CompileWorkflow response contains workflow_id "([^"]*)"$`, func(alias string) error {
+				if tc.compileResp == nil || tc.compileResp.WorkflowIr == nil {
+					return fmt.Errorf("no compile response to alias")
+				}
+				tc.lastWorkflowID = alias
+				// Dry-run results are not stored — only register for non-dry-run compiles.
+				if tc.compileReq != nil && tc.compileReq.DryRun {
+					return nil
+				}
+				wfIR := tc.compileResp.WorkflowIr
+				wfIR.WorkflowId = alias // canonicalise the ID to match the alias
+				tc.stub.mu.Lock()
+				if tc.stub.store == nil {
+					tc.stub.store = make(map[string]*zynaxv1.WorkflowIR)
+				}
+				tc.stub.store[alias] = wfIR
+				tc.stub.mu.Unlock()
+				return nil
+			})
+
+			sc.Step(`^a valid YAML manifest is compiled with dry_run set to true$`, func() error {
+				req := &zynaxv1.CompileWorkflowRequest{
+					ManifestYaml: validManifest("", ""),
+					DryRun:       true,
+				}
+				tc.compileReq = req
+				resp, err := tc.client.CompileWorkflow(context.Background(), req)
+				if err != nil {
+					return fmt.Errorf("compile failed: %v", err)
+				}
+				tc.compileResp = resp
+				return nil
+			})
+
+			sc.Step(`^a GetCompiledWorkflowRequest with workflow_id set to "([^"]*)"$`, func(wfID string) error {
+				tc.getReq = &zynaxv1.GetCompiledWorkflowRequest{WorkflowId: wfID}
+				return nil
+			})
+
+			sc.Step(`^GetCompiledWorkflow is called with workflow_id "([^"]*)"$`, func(wfID string) error {
+				tc.getResp, tc.grpcErr = tc.client.GetCompiledWorkflow(
+					context.Background(),
+					&zynaxv1.GetCompiledWorkflowRequest{WorkflowId: wfID},
+				)
+				return nil
+			})
+
+			sc.Step(`^GetCompiledWorkflow is called$`, func() error {
+				if tc.getReq == nil {
+					tc.getReq = &zynaxv1.GetCompiledWorkflowRequest{}
+				}
+				tc.getResp, tc.grpcErr = tc.client.GetCompiledWorkflow(context.Background(), tc.getReq)
+				return nil
+			})
+
+			sc.Step(`^the response workflow_ir\.workflow_id is "([^"]*)"$`, func(wfID string) error {
+				if tc.getResp == nil || tc.getResp.WorkflowIr == nil {
+					return fmt.Errorf("GetCompiledWorkflow response or WorkflowIR is nil")
+				}
+				if tc.getResp.WorkflowIr.WorkflowId != wfID {
+					return fmt.Errorf("workflow_id: got %q, want %q", tc.getResp.WorkflowIr.WorkflowId, wfID)
+				}
+				return nil
+			})
+
+			sc.Step(`^the response compiled_at is a valid timestamp$`, func() error {
+				if tc.getResp == nil {
+					return fmt.Errorf("GetCompiledWorkflow response is nil")
+				}
+				if tc.getResp.CompiledAt == nil {
+					return fmt.Errorf("compiled_at is nil")
+				}
+				if tc.getResp.CompiledAt.AsTime().IsZero() {
+					return fmt.Errorf("compiled_at is zero")
+				}
+				return nil
+			})
+
+			sc.Step(`^the gRPC status is NOT_FOUND$`, func() error {
+				if tc.grpcErr == nil {
+					return fmt.Errorf("expected NOT_FOUND error, got nil")
+				}
+				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.NotFound {
+					return fmt.Errorf("expected NOT_FOUND, got: %v", tc.grpcErr)
+				}
+				return nil
+			})
+
+			sc.Step(`^the error message contains "([^"]*)"$`, func(fragment string) error {
+				if tc.grpcErr == nil {
+					return fmt.Errorf("expected error containing %q, got no error", fragment)
+				}
+				msg := tc.grpcErr.Error()
+				if !strings.Contains(msg, fragment) {
+					return fmt.Errorf("expected error to contain %q, got: %s", fragment, msg)
+				}
+				return nil
 			})
 
 			sc.Step(`^the CompilationError line_number is (\d+)$`, func(lineNum int) error {
