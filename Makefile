@@ -76,18 +76,24 @@ lint-fix: build-tools ## Auto-fix Python agent lint errors
 		$(TOOLS_RUN) sh -c "cd agents/examples/$$a && uv run ruff check --fix src/ tests/ && uv run ruff format src/ tests/" || true; done
 
 # ── Tests ──────────────────────────────────────────────────────────────────
-.PHONY: test test-unit test-unit-go test-unit-svc test-unit-agents test-unit-agent test-integration
-test: test-unit ## Run all unit tests
+.PHONY: test test-unit test-unit-go test-unit-svc test-unit-agents test-unit-agent test-bdd test-integration
+test: validate-spec test-unit test-bdd ## Run full test suite (spec + Go + Python + BDD contracts)
 test-unit: test-unit-go test-unit-agents ## All unit tests (Go + Python)
 
-test-unit-go: build-tools ## Go unit tests for all services
+test-unit-go: build-tools ## Go unit tests + coverage report for all services
 	@for svc in $(GO_SERVICES); do \
-		echo "🧪 $$svc"; \
-		$(TOOLS_RUN) sh -c "cd services/$$svc && go test ./... -v -race -timeout 60s"; \
+		if [ -f "services/$$svc/go.mod" ]; then \
+			echo "🧪 $$svc"; \
+			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test ./... -v -race -timeout 60s -count=1 -coverprofile=coverage.out -covermode=atomic && echo '── coverage:' && GOWORK=off go tool cover -func=coverage.out | grep '^total:'" || exit 1; \
+		fi; \
 	done && echo "✅ Go tests passed"
 
-test-unit-svc: build-tools ## Go tests for one service: make test-unit-svc SVC=agent-registry
-	$(TOOLS_RUN) sh -c "cd services/$(SVC) && go test ./... -v -race -timeout 60s"
+test-unit-svc: build-tools ## Go tests for one service: make test-unit-svc SVC=workflow-compiler
+	$(TOOLS_RUN) sh -c "cd services/$(SVC) && GOWORK=off go test ./... -v -race -timeout 60s"
+
+test-bdd: build-tools ## Godog BDD contract tests for all protos/tests/ packages
+	$(TOOLS_RUN) sh -c "cd protos/tests && GOWORK=off go test ./... -timeout 120s"
+	@echo "✅ BDD contract tests passed"
 
 test-unit-agents: build-tools ## pytest-bdd for SDK + all Python agents
 	$(TOOLS_RUN) sh -c "cd agents/sdk && uv run pytest tests/ --cov=src --cov-fail-under=90 -v"
