@@ -138,6 +138,26 @@ See `CONTRIBUTING.md §11` for the complete AI contribution policy.
 
 ---
 
+## Proto Stub Regeneration
+
+Generated stubs in `protos/generated/` are committed to the repository and kept
+fresh by two complementary CI gates:
+
+| Gate | Where | When it fires |
+|------|-------|---------------|
+| Pre-merge freshness | `ci.yml` lint job | Every PR — fails if stubs are out of sync with `.proto` changes |
+| Post-merge auto-regen | `proto-generate.yml` | After merge to `main` when `.proto` or `buf` config changes |
+
+**For contributors:** run `make generate-protos` and commit the output before
+opening a PR that modifies any `.proto` file. The pre-merge gate will fail
+the PR if you forget. The post-merge workflow auto-corrects on `main` if a
+commit slips through, but the PR gate is the primary enforcement point.
+
+**For AI tools:** never edit files in `protos/generated/` directly. Run
+`make generate-protos` (inside Docker) and commit the regenerated output.
+
+---
+
 ## What AI Tools Must Not Do
 
 These constraints from `AGENTS.md §12` apply to AI-generated output as strictly

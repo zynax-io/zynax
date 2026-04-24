@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — Post-merge Proto Stub Auto-regeneration
+#
+# Fires on every push to main that modifies .proto files or buf config.
+# Runs buf generate, then commits and pushes the updated stubs back to main
+# using [skip ci] so the commit does not trigger another CI run.
+#
+# Relationship to the pre-merge freshness gate in ci.yml:
+#   Pre-merge  — ci.yml "Generate stubs and check for drift" fails the PR if
+#                stubs are not committed alongside the proto change.
+#   Post-merge — this workflow regenerates stubs automatically after merge,
+#                closing the gap when a PR author forgets to run make generate-protos.
+#
+# The two together: stubs verified before merge AND auto-corrected after merge.
+
+name: Proto Stub Auto-regeneration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "protos/zynax/**/*.proto"
+      - "protos/buf.yaml"
+      - "protos/buf.gen.yaml"
+
+permissions:
+  contents: write
+
+env:
+  BUF_VERSION: "1.47.2"
+
+jobs:
+  regenerate-stubs:
+    name: regenerate-stubs
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          # Use GITHUB_TOKEN so the push back to main is authenticated.
+          # Branch protection must allow github-actions[bot] pushes, or use
+          # a PAT stored in secrets.BOT_GITHUB_TOKEN instead.
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: Install buf
+        run: |
+          curl -fsSL \
+            "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64" \
+            -o /usr/local/bin/buf
+          chmod +x /usr/local/bin/buf
+          buf --version
+
+      - name: Regenerate Go and Python stubs
+        working-directory: protos
+        run: |
+          buf generate --template buf.gen.yaml
+          echo "✅ buf generate complete"
+
+      - name: Commit regenerated stubs if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- protos/generated/; then
+            echo "ℹ️  Stubs already up to date — no commit needed."
+            exit 0
+          fi
+
+          git diff --stat -- protos/generated/
+          git add protos/generated/
+
+          git commit -m "chore(protos): regenerate Go and Python stubs [skip ci]
+
+Triggered automatically by proto change on main (${GITHUB_SHA:0:7}).
+Assisted-by: github-actions[bot]"
+
+          git push
+          echo "✅ Regenerated stubs committed and pushed to main."

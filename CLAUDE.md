@@ -54,6 +54,8 @@ make bootstrap       # one-time setup (builds zynax-tools Docker image)
 make lint            # proto + Go + Python lint
 make test            # all unit tests
 make generate-protos # regenerate Go + Python stubs (commit the output)
+                     # Note: stubs auto-regenerate on main via proto-generate.yml
+                     # when .proto or buf config files change (post-merge gate).
 make validate-spec   # AsyncAPI + capability schema validation
 ```
 
