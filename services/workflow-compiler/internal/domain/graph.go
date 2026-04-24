@@ -6,6 +6,8 @@ import "fmt"
 // Nodes are States; edges are the Transitions embedded in each State,
 // keyed by EventType.
 type WorkflowGraph struct {
+	Name         string
+	Namespace    string
 	InitialState string
 	States       map[string]*State
 }
@@ -83,6 +85,8 @@ func Build(m *Manifest) (*WorkflowGraph, ParseErrors) {
 	}
 
 	return &WorkflowGraph{
+		Name:         m.Name,
+		Namespace:    m.Namespace,
 		InitialState: m.InitialState,
 		States:       m.States,
 	}, nil
