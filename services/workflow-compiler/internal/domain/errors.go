@@ -20,7 +20,7 @@ const (
 	ErrorCodeUnknownStateReference CompilationErrorCode = 6
 	ErrorCodeDuplicateStateName    CompilationErrorCode = 7
 	ErrorCodeMissingRequiredField  CompilationErrorCode = 8
-	ErrorCodeInvalidFieldValue CompilationErrorCode = 9
+	ErrorCodeInvalidFieldValue     CompilationErrorCode = 9
 	// ErrorCodeCircularTransition is a domain-only code with no proto equivalent yet.
 	// The api layer maps it to COMPILATION_ERROR_CODE_INVALID_FIELD_VALUE until the
 	// proto enum is extended in a future milestone.

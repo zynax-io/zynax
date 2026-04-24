@@ -172,9 +172,9 @@ func TestCircularTransitionDetector(t *testing.T) {
 		{
 			name: "hitl in cycle — not trapped",
 			g: graphWith("a", map[string]*domain.State{
-				"a":    normalState("a", tr("submit", "review")),
+				"a":      normalState("a", tr("submit", "review")),
 				"review": hitlState("review", tr("approved", "done"), tr("rejected", "a")),
-				"done": terminalState(),
+				"done":   terminalState(),
 			}),
 		},
 		{

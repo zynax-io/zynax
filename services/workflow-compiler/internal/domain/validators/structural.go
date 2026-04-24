@@ -12,6 +12,7 @@ import (
 // so callers that construct graphs by other means can still apply it.
 type TerminalStateValidator struct{}
 
+// Validate implements Validator.
 func (TerminalStateValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
 	for _, s := range g.States {
 		if s.Type == domain.StateTypeTerminal {
@@ -28,6 +29,7 @@ func (TerminalStateValidator) Validate(g *domain.WorkflowGraph) []domain.ParseEr
 // It performs a BFS from InitialState following all outbound transitions.
 type OrphanStateValidator struct{}
 
+// Validate implements Validator.
 func (OrphanStateValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
 	reachable := reachableFrom(g, g.InitialState)
 	var errs []domain.ParseError
@@ -51,6 +53,7 @@ func (OrphanStateValidator) Validate(g *domain.WorkflowGraph) []domain.ParseErro
 // which can reach terminal are accepted.
 type CircularTransitionDetector struct{}
 
+// Validate implements Validator.
 func (CircularTransitionDetector) Validate(g *domain.WorkflowGraph) []domain.ParseError { //nolint:funlen // DFS with cycle reporting requires tracking stack and visited sets in one pass
 	productive := productiveStates(g)
 

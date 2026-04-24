@@ -25,25 +25,26 @@ type CapabilityRefValidator struct{}
 
 var reservedPrefixes = []string{"zynax_", "system_", "internal_"}
 
+// Validate implements Validator.
 func (CapabilityRefValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
 	var errs []domain.ParseError
 	for stateID, state := range g.States {
 		for i, action := range state.Actions {
-			cap := action.Capability
-			if !capabilityNameRe.MatchString(cap) {
+			capName := action.Capability
+			if !capabilityNameRe.MatchString(capName) {
 				errs = append(errs, domain.ParseError{
 					Code:      domain.ErrorCodeInvalidFieldValue,
-					Message:   fmt.Sprintf("state %q action[%d]: capability %q must be snake_case (e.g. summarize, send_email)", stateID, i, cap),
+					Message:   fmt.Sprintf("state %q action[%d]: capability %q must be snake_case (e.g. summarize, send_email)", stateID, i, capName),
 					Line:      state.Line,
 					StateName: stateID,
 				})
 				continue
 			}
 			for _, prefix := range reservedPrefixes {
-				if len(cap) >= len(prefix) && cap[:len(prefix)] == prefix {
+				if len(capName) >= len(prefix) && capName[:len(prefix)] == prefix {
 					errs = append(errs, domain.ParseError{
 						Code:      domain.ErrorCodeInvalidFieldValue,
-						Message:   fmt.Sprintf("state %q action[%d]: capability %q uses reserved prefix %q", stateID, i, cap, prefix),
+						Message:   fmt.Sprintf("state %q action[%d]: capability %q uses reserved prefix %q", stateID, i, capName, prefix),
 						Line:      state.Line,
 						StateName: stateID,
 					})
@@ -59,6 +60,7 @@ func (CapabilityRefValidator) Validate(g *domain.WorkflowGraph) []domain.ParseEr
 // dot-separated naming convention (e.g. "review.approved", "push").
 type EventNameValidator struct{}
 
+// Validate implements Validator.
 func (EventNameValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
 	var errs []domain.ParseError
 	for stateID, state := range g.States {
@@ -80,6 +82,7 @@ func (EventNameValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError 
 // lowercase alphanumeric and hyphens, no leading/trailing hyphen, ≤63 chars.
 type NamespaceValidator struct{}
 
+// Validate implements Validator.
 func (NamespaceValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
 	ns := g.Namespace
 	if ns == "" {
@@ -106,18 +109,18 @@ func (NamespaceValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError 
 // but the compiler must reject structurally ambiguous definitions).
 type DuplicateTransitionValidator struct{}
 
+// Validate implements Validator.
 func (DuplicateTransitionValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
 	var errs []domain.ParseError
 	for stateID, state := range g.States {
-		seen := make(map[string]int, len(state.Transitions))
+		seen := make(map[string]struct{}, len(state.Transitions))
 		for _, t := range state.Transitions {
 			if t.Guard != "" {
 				// Guarded transitions may share an event_type; the guard
 				// disambiguates them at runtime.
 				continue
 			}
-			if prev, ok := seen[t.EventType]; ok {
-				_ = prev
+			if _, ok := seen[t.EventType]; ok {
 				errs = append(errs, domain.ParseError{
 					Code:      domain.ErrorCodeInvalidFieldValue,
 					Message:   fmt.Sprintf("state %q has duplicate unguarded transition for event_type %q", stateID, t.EventType),
@@ -125,7 +128,7 @@ func (DuplicateTransitionValidator) Validate(g *domain.WorkflowGraph) []domain.P
 					StateName: stateID,
 				})
 			} else {
-				seen[t.EventType] = 1
+				seen[t.EventType] = struct{}{}
 			}
 		}
 	}
