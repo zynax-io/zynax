@@ -167,13 +167,26 @@ jobs:
         if: steps.gen-detect.outputs.has_gen == '1'
         working-directory: protos
         run: |
+          # First pass: detect committed stubs drift
           buf generate --template buf.gen.yaml
           if ! git diff --quiet -- generated/; then
-            echo "❌ Generated stubs are out of date. Run 'make generate-protos' and commit."
+            echo "❌ Generated stubs are out of date."
+            echo "   Run 'make generate-protos' locally and commit the result."
             git diff --stat -- generated/
             exit 1
           fi
-          echo "✅ Generated stubs are up to date"
+          echo "✅ Generated stubs are up to date (first pass)"
+
+          # Second pass: determinism check — buf generate must produce identical
+          # output on repeat runs (no timestamps, no random ordering).
+          buf generate --template buf.gen.yaml
+          if ! git diff --quiet -- generated/; then
+            echo "❌ buf generate is not deterministic — second run produced a diff."
+            echo "   This is a bug in the buf plugin or buf.gen.yaml configuration."
+            git diff --stat -- generated/
+            exit 1
+          fi
+          echo "✅ buf generate is deterministic (second pass identical)"
 
       # ── Spec: AsyncAPI + JSON Schema validation ──────────────────────────
       - name: Detect spec files
