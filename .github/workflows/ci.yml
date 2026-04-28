@@ -45,7 +45,7 @@ jobs:
     name: dco
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
@@ -85,7 +85,7 @@ jobs:
     name: lint
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       # ── Security: AI context file scan ──────────────────────────────────
       - name: Detect AI context file changes
@@ -199,7 +199,7 @@ jobs:
             echo "ℹ️  spec/asyncapi/zynax-events.yaml not found — spec validation skipped."
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: steps.spec-detect.outputs.has_spec == '1'
         with:
           node-version: "20"
@@ -226,7 +226,7 @@ jobs:
           count=$(find services/ -name "*.go" 2>/dev/null | wc -l)
           echo "has_go=$count" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         if: steps.go-detect.outputs.has_go != '0'
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -259,7 +259,7 @@ jobs:
           count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
           echo "has_py=$count" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         if: steps.py-detect.outputs.has_py != '0'
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -304,7 +304,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       # ── BDD contract spec: scenario count summary ────────────────────────
       - name: Report BDD contract scenario counts
@@ -329,7 +329,7 @@ jobs:
           echo "has_services=$svc_count" >> "$GITHUB_OUTPUT"
           echo "has_bdd_impl=$bdd_count" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         if: >-
           steps.go-detect.outputs.has_services != '0' ||
           steps.go-detect.outputs.has_bdd_impl != '0'
@@ -454,7 +454,7 @@ jobs:
       # ── BDD results: post PR comment ──────────────────────────────────────
       - name: Post BDD contract test report on PR
         if: always() && github.event_name == 'pull_request' && steps.go-detect.outputs.has_bdd_impl != '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -525,7 +525,7 @@ jobs:
           count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
           echo "has_py=$count" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         if: steps.py-detect.outputs.has_py != '0'
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -576,7 +576,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [test-unit]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Detect integration tests
         id: int-detect
@@ -584,7 +584,7 @@ jobs:
           count=$(find . -path "*/tests/integration/*.go" 2>/dev/null | wc -l)
           echo "has_integration=$count" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         if: steps.int-detect.outputs.has_integration != '0'
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -616,7 +616,7 @@ jobs:
     name: security
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       # ── Go: govulncheck ───────────────────────────────────────────────────
       - name: Detect Go services
@@ -625,7 +625,7 @@ jobs:
           count=$(find services/ -name "go.mod" 2>/dev/null | wc -l)
           echo "has_go=$count" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         if: steps.go-detect.outputs.has_go != '0'
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -652,7 +652,7 @@ jobs:
           count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
           echo "has_py=$count" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         if: steps.py-detect.outputs.has_py != '0'
         with:
           python-version: ${{ env.PYTHON_VERSION }}
