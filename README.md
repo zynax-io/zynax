@@ -128,6 +128,8 @@ make dev-up      # start the full local stack
 | `make test-unit-go` | Go unit tests with coverage report for all services |
 | `make test-bdd` | Godog BDD contract tests for all `protos/tests/` packages |
 | `make lint` | Proto + Go + Python lint |
+| `make audit` | Dependency vulnerability audit — govulncheck (Go) + pip-audit (Python); exits 1 on any finding |
+| `make security` | Full security scan — adds bandit SAST to the audit checks |
 | `make validate-spec` | Validate all YAML manifests against JSON schemas |
 | `make generate-protos` | Regenerate Go + Python stubs from `.proto` files |
 | `make build-tools` | Build the `zynax-tools:local` Docker image (run once after clone) |

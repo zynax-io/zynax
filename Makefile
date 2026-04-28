@@ -120,8 +120,8 @@ lint-protos: build-tools ## buf lint + format check on all proto files
 	@echo "✅ Proto lint passed"
 
 # ── Security ───────────────────────────────────────────────────────────────
-.PHONY: security security-go security-agents
-security: security-go security-agents ## All security scans
+.PHONY: security security-go security-agents audit
+security: security-go security-agents ## Full security scan (govulncheck + bandit + pip-audit)
 
 security-go: build-tools ## govulncheck on all Go services
 	@for svc in $(GO_SERVICES); do $(TOOLS_RUN) sh -c "cd services/$$svc && govulncheck ./..."; done
@@ -129,6 +129,22 @@ security-go: build-tools ## govulncheck on all Go services
 security-agents: build-tools ## bandit + pip-audit on all agents
 	@for a in $(AGENTS); do [ -f "agents/examples/$$a/pyproject.toml" ] && \
 		$(TOOLS_RUN) sh -c "cd agents/examples/$$a && uv run bandit -r src/ -ll && uv run pip-audit" || true; done
+
+audit: build-tools ## Dependency vulnerability audit (govulncheck + pip-audit); exits 1 on any finding
+	@failed=false; \
+	for svc in $(GO_SERVICES); do \
+		if [ -f "services/$$svc/go.mod" ]; then \
+			echo "🔍 govulncheck: $$svc"; \
+			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off govulncheck ./..." || failed=true; \
+		fi; \
+	done; \
+	for a in $(AGENTS); do \
+		if [ -f "agents/examples/$$a/pyproject.toml" ]; then \
+			echo "🔍 pip-audit: $$a"; \
+			$(TOOLS_RUN) sh -c "cd agents/examples/$$a && uv run pip-audit" || failed=true; \
+		fi; \
+	done; \
+	$$failed && exit 1 || echo "✅ Audit passed — no known vulnerabilities"
 
 # ── Build images ───────────────────────────────────────────────────────────
 .PHONY: build build-svc build-agent
