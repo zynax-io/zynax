@@ -249,3 +249,37 @@ Feature: Workflow Compilation
     And no workflow execution is started
     And agent-registry is NOT queried for capability validation
 ```
+
+---
+
+## Running Tests
+
+```bash
+# All unit tests for this service (always use GOWORK=off — ADR-017)
+cd services/workflow-compiler
+GOWORK=off go test ./... -race -timeout 60s
+
+# With coverage
+GOWORK=off go test ./... -coverprofile=coverage.out -covermode=atomic
+GOWORK=off go tool cover -func=coverage.out | grep total:
+
+# BDD contract tests (in protos/tests/ — separate module)
+cd ../../protos/tests
+GOWORK=off go test ./workflow_compiler_service/... -v -timeout 60s
+
+# Via Makefile (runs inside Docker — no local Go needed)
+make test-unit-svc SVC=workflow-compiler
+make test-bdd
+```
+
+---
+
+## Common AI Mistakes
+
+| Mistake | Why it fails | Correct approach |
+|---------|-------------|-----------------|
+| `go test` without `GOWORK=off` | Workspace resolves missing modules → unrelated error | `GOWORK=off go test ./...` — every time (ADR-017) |
+| Calling `ParseManifest` with YAML that uses `transitions:` / `event_type:` / `target_state:` | The parser expects `on:` / `event:` / `goto:` — wrong keys silently produce zero transitions | Check the `yamlTransition` struct field tags in `domain/parser.go` |
+| Returning a raw `error` from `CompileWorkflow` instead of a gRPC status | Client receives `Unknown` status — no actionable error code | Map domain errors to `status.Errorf(codes.InvalidArgument, …)` |
+| Adding business logic to `internal/api/server.go` | `api/` is a translation layer only; logic in the wrong layer bypasses validators | Put new logic in `internal/domain/`; the server just calls domain functions |
+| Writing `ToIR` output that is non-deterministic (e.g. unsorted states) | Flaky tests; same input produces different proto byte sequences | Sort map keys before iterating — see `sort.Strings(ids)` in `ir/ir.go` |

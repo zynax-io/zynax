@@ -413,6 +413,38 @@ golangci-lint run ./services/<service-name>/...
 Coverage requirement: ≥ 90% on `internal/domain/` (pure logic, no I/O to mock).
 Integration tests hitting real databases use `testcontainers-go`.
 
+**Always use `GOWORK=off`** — the workspace root lists modules not yet on disk:
+
+```bash
+cd services/<service-name>
+GOWORK=off go test ./... -race -timeout 60s
+GOWORK=off go test ./internal/domain/... -v -coverprofile=coverage.out
+```
+
+**Governing ADRs:**
+
+| ADR | Governs |
+|-----|---------|
+| [ADR-001](../docs/adr/ADR-001-grpc-inter-service-protocol.md) | gRPC as the only inter-service protocol |
+| [ADR-008](../docs/adr/ADR-008-no-shared-databases.md) | Each service owns its own schema; no shared tables |
+| [ADR-009](../docs/adr/ADR-009-language-strategy.md) | Go for all platform services |
+| [ADR-016](../docs/adr/ADR-016-layered-testing-strategy.md) | Testing pyramid: BDD at boundaries, unit in domain |
+| [ADR-017](../docs/adr/ADR-017-contract-test-isolation.md) | GOWORK=off for all `go test` inside service directories |
+
+---
+
+## Common AI Mistakes
+
+| Mistake | Why it fails | Correct approach |
+|---------|-------------|-----------------|
+| `go test ./...` without `GOWORK=off` | `go.work` resolves non-existent modules and breaks | `GOWORK=off go test ./...` — every time, no exceptions (ADR-017) |
+| Importing `internal/` from another service | Go toolchain blocks cross-module `internal/` imports | Use gRPC stubs; never share internal packages across service boundaries |
+| Putting business logic in `api/` | Violates layer separation; `api/` is a translation layer only | Move logic to `internal/domain/`; `api/` only marshals/unmarshals and calls domain |
+| Calling external packages in `internal/domain/` | Domain must be pure Go with zero I/O | Define an interface in domain; implement it in `internal/infrastructure/` |
+| Writing `go test` integration tests that reach a real DB without `testcontainers` | Flaky in CI; hard to reproduce locally | Use `testcontainers-go` to spin up real dependencies per test run (ADR-016) |
+| Returning a raw `error` from a gRPC handler instead of `status.Errorf` | Client receives `Unknown` status — not actionable | Always `return nil, status.Errorf(codes.InvalidArgument, "…")` |
+| Adding a new Makefile target that directly calls `go` or `python` commands | Breaks Docker-only workflow; contributors without the tool will fail | Wrap in `$(TOOLS_RUN) sh -c "…"` so it runs inside the zynax-tools Docker image |
+
 ---
 
 ## Health Probes
