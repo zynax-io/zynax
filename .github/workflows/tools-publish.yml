@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — Tools Image Publisher
+#
+# Builds zynax-tools and pushes to GHCR whenever Dockerfile.tools changes
+# on main. The resulting image (ghcr.io/zynax-io/zynax-tools:main) can be
+# pulled locally so developers skip the multi-minute local build:
+#
+#   docker pull ghcr.io/zynax-io/zynax-tools:main
+#   docker tag  ghcr.io/zynax-io/zynax-tools:main zynax-tools:local
+#
+# Image is also tagged with the short SHA for reproducible references.
+
+name: Publish Tools Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/docker/Dockerfile.tools"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/zynax-io/zynax-tools
+
+jobs:
+  publish:
+    name: publish-tools
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          echo "sha7=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push zynax-tools
+        run: |
+          docker build \
+            -f infra/docker/Dockerfile.tools \
+            -t "${{ env.IMAGE }}:main" \
+            -t "${{ env.IMAGE }}:${{ steps.meta.outputs.sha7 }}" \
+            .
+          docker push "${{ env.IMAGE }}:main"
+          docker push "${{ env.IMAGE }}:${{ steps.meta.outputs.sha7 }}"
+          echo "✅ Pushed ${{ env.IMAGE }}:main and :${{ steps.meta.outputs.sha7 }}"
