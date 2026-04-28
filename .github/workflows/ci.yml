@@ -99,9 +99,10 @@ jobs:
       - name: Install gitleaks
         if: steps.ai-detect.outputs.has_changes != '0'
         run: |
-          curl -sSfL \
+          curl -fsSL \
             "https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz" \
-            | tar -xz -C /usr/local/bin gitleaks
+            -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
 
       - name: Scan AI context files for secrets and PII
         if: steps.ai-detect.outputs.has_changes != '0'
@@ -235,8 +236,15 @@ jobs:
       - name: Install golangci-lint
         if: steps.go-detect.outputs.has_go != '0'
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-            | sh -s -- -b "$(go env GOPATH)/bin" "${{ env.GOLANGCI_VERSION }}"
+          VERSION="${{ env.GOLANGCI_VERSION }}"
+          VERSION_BARE="${VERSION#v}"
+          curl -fsSL \
+            "https://github.com/golangci/golangci-lint/releases/download/${VERSION}/golangci-lint-${VERSION_BARE}-linux-amd64.tar.gz" \
+            -o /tmp/golangci-lint.tar.gz
+          tar -xzf /tmp/golangci-lint.tar.gz \
+            --strip-components=1 \
+            -C /usr/local/bin \
+            "golangci-lint-${VERSION_BARE}-linux-amd64/golangci-lint"
 
       - name: golangci-lint (all Go services)
         if: steps.go-detect.outputs.has_go != '0'
@@ -264,9 +272,9 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install uv
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         if: steps.py-detect.outputs.has_py != '0'
-        run: pip install uv
 
       - name: ruff + mypy (SDK + all Python agents)
         if: steps.py-detect.outputs.has_py != '0'
@@ -530,9 +538,9 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install uv
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         if: steps.py-detect.outputs.has_py != '0'
-        run: pip install uv
 
       - name: pytest-bdd (SDK + all Python agents)
         if: steps.py-detect.outputs.has_py != '0'
@@ -657,9 +665,9 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install uv
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         if: steps.py-detect.outputs.has_py != '0'
-        run: pip install uv
 
       - name: bandit + pip-audit (SDK + all Python agents)
         if: steps.py-detect.outputs.has_py != '0'
