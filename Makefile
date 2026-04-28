@@ -176,7 +176,7 @@ validate-capability-schemas: ## Validate capability declarations in spec/ agains
 	docker run --rm \
 		-v "$(PWD)":/workspace \
 		-w /workspace \
-		python:3.12-slim sh -c " \
+		python:3.12-alpine sh -c " \
 			pip install --quiet jsonschema pyyaml && \
 			python tools/validate_capabilities.py spec/schemas/capability.schema.json spec/workflows/examples/ \
 		"
@@ -186,7 +186,7 @@ validate-workflow-schema: ## Validate Workflow manifests in spec/workflows/examp
 	docker run --rm \
 		-v "$(PWD)":/workspace \
 		-w /workspace \
-		python:3.12-slim sh -c " \
+		python:3.12-alpine sh -c " \
 			pip install --quiet jsonschema pyyaml && \
 			python tools/validate_workflows.py spec/schemas/workflow.schema.json spec/workflows/examples/ \
 		"
@@ -196,7 +196,7 @@ validate-agent-def-schema: ## Validate AgentDef manifests in spec/workflows/exam
 	docker run --rm \
 		-v "$(PWD)":/workspace \
 		-w /workspace \
-		python:3.12-slim sh -c " \
+		python:3.12-alpine sh -c " \
 			pip install --quiet jsonschema pyyaml && \
 			python tools/validate_agent_defs.py spec/schemas/agent-def.schema.json spec/workflows/examples/ \
 		"
@@ -206,7 +206,7 @@ validate-policy-schema: ## Validate Policy manifests in spec/workflows/examples/
 	docker run --rm \
 		-v "$(PWD)":/workspace \
 		-w /workspace \
-		python:3.12-slim sh -c " \
+		python:3.12-alpine sh -c " \
 			pip install --quiet jsonschema pyyaml && \
 			python tools/validate_policies.py spec/schemas/policy.schema.json spec/workflows/examples/ \
 		"
