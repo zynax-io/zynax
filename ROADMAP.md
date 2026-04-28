@@ -74,21 +74,21 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 2 — Workflow IR
+## Milestone 2 — Workflow IR ✅ Complete (v0.1.0)
 
 **Goal:** YAML manifests compile to a canonical, engine-agnostic Intermediate Representation.
 
-> Label: `milestone: M2`
+> See [Epic #101](https://github.com/zynax-io/zynax/issues/101) for the full issue list.
 
-- [ ] JSON Schema for all manifest kinds: `Workflow`, `AgentDef`, `Policy`
-- [ ] `workflow-compiler` service: Go implementation
-- [ ] YAML → IR compilation: states, transitions, actions, triggers
-- [ ] Schema validation: invalid YAML rejected with clear error messages and line numbers
-- [ ] Semantic validation: no orphan states, terminal state required, valid capability refs
-- [ ] IR serialisation (protobuf) for transmission to engine adapters
-- [ ] `make validate-spec` and `make dry-run` targets
-- [ ] BDD scenarios for all compiler error cases
-- [ ] Reference workflow YAML examples: `code-review.yaml`, `ci-pipeline.yaml`, `research-task.yaml`
+- [x] JSON Schema for all manifest kinds: `Workflow`, `AgentDef`, `Policy`
+- [x] `workflow-compiler` service: Go implementation
+- [x] YAML → IR compilation: states, transitions, actions, triggers
+- [x] Schema validation: invalid YAML rejected with clear error messages and line numbers
+- [x] Semantic validation: no orphan states, terminal state required, valid capability refs
+- [x] IR serialisation (protobuf) for transmission to engine adapters
+- [x] `make validate-spec` and `make dry-run` targets
+- [x] BDD scenarios for all compiler error cases
+- [x] Reference workflow YAML examples: `code-review.yaml`, `ci-pipeline.yaml`, `research-task.yaml`
 
 ---
 
