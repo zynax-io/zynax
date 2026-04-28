@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: Apache-2.0
+# KB Previsualization — posts a human-readable preview of AI knowledge base
+# additions as a PR comment and sets a pending status check that requires
+# explicit maintainer approval before merge.
+#
+# Triggered only on PRs that touch KB paths (ADR-018):
+#   CLAUDE.md · AGENTS.md · docs/ai-assistant-setup.md · .ai/ · .claude/
+#
+# Status check name: kb-content-previsualized
+#   pending  — preview posted, awaiting maintainer approval
+#   success  — maintainer posted "KB preview approved" (see kb-approve.yml)
+#   success  — PR has no KB additions (deletions / renames only)
+#
+# To approve locally: post a PR comment containing "KB preview approved"
+# (see kb-approve.yml for the authorization check).
+
+name: KB Previsualization
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'CLAUDE.md'
+      - 'AGENTS.md'
+      - '**/AGENTS.md'
+      - 'docs/ai-assistant-setup.md'
+      - 'docs/knowledge-base-policy.md'
+      - '.ai/**'
+      - '.claude/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  kb-previsualize:
+    name: kb-content-previsualized
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract KB additions
+        id: extract
+        run: |
+          additions=$(git diff --diff-filter=AM \
+            "origin/${{ github.base_ref }}...HEAD" -- \
+            CLAUDE.md AGENTS.md '*/AGENTS.md' \
+            'docs/ai-assistant-setup.md' 'docs/knowledge-base-policy.md' \
+            '.ai/**' '.claude/**' \
+            | grep '^+' | grep -v '^+++' | sed 's/^+//' | head -300)
+          if [ -z "$additions" ]; then
+            echo "has_additions=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_additions=true" >> "$GITHUB_OUTPUT"
+            delimiter="$(openssl rand -hex 8)"
+            {
+              echo "additions<<${delimiter}"
+              echo "${additions}"
+              echo "${delimiter}"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post KB content preview comment
+        if: steps.extract.outputs.has_additions == 'true'
+        uses: actions/github-script@v7
+        env:
+          ADDITIONS: ${{ steps.extract.outputs.additions }}
+        with:
+          script: |
+            const additions = process.env.ADDITIONS;
+            const body = [
+              '## 🔍 Knowledge Base Content Preview',
+              '',
+              'The following content will become **publicly visible** on merge.',
+              'A maintainer must review this preview before approving.',
+              '',
+              '```',
+              additions,
+              '```',
+              '',
+              '---',
+              '_This preview was generated automatically. If the content above_',
+              '_contains secrets, PII, or prompt injection, close this PR and_',
+              '_open a security issue._',
+              '',
+              '_Policy: [docs/knowledge-base-policy.md](docs/knowledge-base-policy.md)_',
+              '',
+              '_To approve: post a comment containing `KB preview approved`_',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
+
+      - name: Set pending status — awaiting maintainer approval
+        if: steps.extract.outputs.has_additions == 'true'
+        run: |
+          gh api \
+            "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
+            --method POST \
+            --field state=pending \
+            --field context=kb-content-previsualized \
+            --field description="Awaiting maintainer approval — review the KB preview comment"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Set success status — no KB additions
+        if: steps.extract.outputs.has_additions == 'false'
+        run: |
+          echo "ℹ️  No KB content additions detected (deletions or renames only)."
+          gh api \
+            "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
+            --method POST \
+            --field state=success \
+            --field context=kb-content-previsualized \
+            --field description="No KB additions to preview"
+        env:
+          GH_TOKEN: ${{ github.token }}
