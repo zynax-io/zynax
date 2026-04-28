@@ -661,16 +661,27 @@ jobs:
         if: steps.py-detect.outputs.has_py != '0'
         run: pip install uv
 
-      - name: bandit + pip-audit (all Python agents)
+      - name: bandit + pip-audit (SDK + all Python agents)
         if: steps.py-detect.outputs.has_py != '0'
         run: |
           failed=false
+
+          if [ -f agents/sdk/pyproject.toml ]; then
+            echo "── bandit: agents/sdk"
+            cd agents/sdk
+            uv run bandit -r src/ -ll -f json -o bandit-report.json || failed=true
+            uv run bandit -r src/ -ll || true
+            echo "── pip-audit: agents/sdk"
+            uv run pip-audit || failed=true
+            cd ../..
+          fi
+
           for agent in ${{ env.AGENT_LIST }}; do
             if [ -f "agents/examples/${agent}/pyproject.toml" ]; then
               echo "── bandit: agents/examples/${agent}"
               cd "agents/examples/${agent}"
               uv run bandit -r src/ -ll -f json -o bandit-report.json || failed=true
-              uv run bandit -r src/ -ll || true  # human-readable repeat
+              uv run bandit -r src/ -ll || true
               echo "── pip-audit: agents/examples/${agent}"
               uv run pip-audit || failed=true
               cd ../../..
