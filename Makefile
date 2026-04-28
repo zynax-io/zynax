@@ -139,7 +139,8 @@ security: security-go security-agents ## Full security scan (govulncheck + bandi
 security-go: build-tools ## govulncheck on all Go services
 	@for svc in $(GO_SERVICES); do $(TOOLS_RUN) sh -c "cd services/$$svc && govulncheck ./..."; done
 
-security-agents: build-tools ## bandit + pip-audit on all agents
+security-agents: build-tools ## bandit + pip-audit on SDK + all agents
+	@$(TOOLS_RUN) sh -c "cd agents/sdk && uv run bandit -r src/ -ll && uv run pip-audit"
 	@for a in $(AGENTS); do [ -f "agents/examples/$$a/pyproject.toml" ] && \
 		$(TOOLS_RUN) sh -c "cd agents/examples/$$a && uv run bandit -r src/ -ll && uv run pip-audit" || true; done
 
