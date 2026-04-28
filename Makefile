@@ -104,10 +104,23 @@ test-unit-agents: build-tools ## pytest-bdd for SDK + all Python agents
 test-unit-agent: build-tools ## pytest for one agent: make test-unit-agent AGENT=summarizer
 	$(TOOLS_RUN) sh -c "cd agents/examples/$(AGENT) && uv run pytest tests/ -v"
 
-test-integration: check-docker ## Integration tests against real backing services
+test-integration: check-docker ## Integration tests against NATS JetStream and Redis backing services
+	@echo "Starting testing backing services..."
+	$(COMPOSE) --profile testing up -d
+	@echo "Waiting for services to be healthy (up to 60s)..."
+	@timeout 60 sh -c \
+		'until docker compose -f infra/docker/docker-compose.yml ps --format json 2>/dev/null \
+		  | python3 -c "import sys,json; data=sys.stdin.read(); rows=json.loads(data) if data.strip().startswith(\"[\") else [json.loads(l) for l in data.strip().splitlines() if l]; exit(0 if all(r.get(\"Health\")==\"healthy\" for r in rows if r.get(\"Health\")) and len(rows)>0 else 1)" \
+		  2>/dev/null; do sleep 2; done' || true
 	@for svc in $(GO_SERVICES); do \
-		$(COMPOSE_TOOLS) run --rm test-runner sh -c "cd services/$$svc && go test ./tests/integration/... -v -timeout 120s"; \
+		if [ -f "services/$$svc/tests/integration" ] || find "services/$$svc" -name "*integration*" -name "*.go" 2>/dev/null | grep -q .; then \
+			echo "Integration tests: $$svc"; \
+			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test ./tests/integration/... -v -timeout 120s" || exit 1; \
+		fi; \
 	done
+	@echo "Stopping testing backing services..."
+	$(COMPOSE) --profile testing down --remove-orphans
+	@echo "Integration tests passed"
 
 # ── Proto generation + lint ────────────────────────────────────────────────
 .PHONY: generate-protos lint-protos

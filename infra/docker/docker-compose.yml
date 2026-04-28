@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — service compose file
+#
+# Profiles:
+#   testing  — backing stores only (NATS JetStream + Redis); used by make test-integration
+#   dev      — (future) full local stack
+#
+# Usage:
+#   make test-integration                           # starts testing profile, runs tests, stops
+#   docker compose --profile testing up -d          # manual start
+#   docker compose --profile testing down           # manual stop
+
+services:
+  nats:
+    profiles: [testing]
+    image: nats:2.10-alpine
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["--jetstream", "--store_dir=/data", "--http_port=8222"]
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  redis:
+    profiles: [testing]
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+
+volumes:
+  nats-data:
