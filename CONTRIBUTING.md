@@ -776,6 +776,34 @@ If you are using Claude Code (the Anthropic CLI) to contribute:
 - Review every file changed before pushing. Pay particular attention to comments and
   docstrings — Claude tends to be more verbose than this project's standards require.
 
+### AI Knowledge Base Authorization Policy
+
+The files that AI assistants auto-load (`CLAUDE.md`, all `AGENTS.md` files,
+`docs/ai-assistant-setup.md`, and the future `.ai/` and `.claude/` directories)
+are **restricted paths** governed by ADR-018.
+
+**Why this matters:** these files are published to a public repository. Merged
+content cannot be reliably unpublished. Content that looks like documentation
+can act as a prompt injection payload that silently shifts AI assistant behavior
+for every contributor who clones the repo.
+
+**Rules for KB path changes:**
+
+1. **Maintainer approval required** — `@zynax-io/maintainers` must review and
+   approve all changes to KB paths. Branch protection enforces this via
+   CODEOWNERS. You cannot self-approve a KB change.
+2. **Secret and PII scan must pass** — the `gitleaks-ai-context` CI gate scans
+   KB file content on every PR. Red gate = no merge.
+3. **No prompt-injection payloads** — KB content must be neutral engineering
+   documentation. Avoid instruction-like phrasing ("always respond with…",
+   "ignore previous instructions"). Reviewers check for this explicitly.
+4. **Content must match reviewed source material** — KB entries should be
+   derived from merged code, ADRs, or documented decisions. Do not add
+   speculative or aspirational content.
+
+See [docs/adr/ADR-018-ai-kb-authorization-model.md](docs/adr/ADR-018-ai-kb-authorization-model.md)
+for the full rationale and threat model.
+
 ---
 
 ## 12. Adding a New Service

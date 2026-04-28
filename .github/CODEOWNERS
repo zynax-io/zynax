@@ -7,6 +7,17 @@
 /spec/                          @zynax-io/maintainers
 /.github/                       @zynax-io/maintainers
 /SECURITY.md                    @zynax-io/maintainers
+
+# AI knowledge base paths — ADR-018
+# These files are auto-loaded by AI assistants (Claude Code, Copilot, custom
+# agents) and published to a public repo. Changes require maintainer approval.
+# See docs/adr/ADR-018-ai-kb-authorization-model.md
+/CLAUDE.md                      @zynax-io/maintainers
+/AGENTS.md                      @zynax-io/maintainers
+**/AGENTS.md                    @zynax-io/maintainers
+/docs/ai-assistant-setup.md     @zynax-io/maintainers
+/.ai/                           @zynax-io/maintainers
+/.claude/                       @zynax-io/maintainers
 /services/agent-registry/       @zynax-io/maintainers
 /services/task-broker/          @zynax-io/maintainers
 /services/memory-service/       @zynax-io/maintainers
