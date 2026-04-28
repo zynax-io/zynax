@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# CI-only ephemeral overlay for integration tests.
+#
+# No persistent volumes — all data is discarded after the compose down.
+# Combine with docker-compose.yml:
+#
+#   docker compose \
+#     -f infra/docker/docker-compose.yml \
+#     -f infra/docker/docker-compose.test.yml \
+#     --profile testing up -d
+
+services:
+  nats:
+    volumes: []
+
+  redis:
+    volumes: []
