@@ -141,25 +141,41 @@ make dev-up      # start the full local stack
 | Milestone | Status | Version | Docs |
 |-----------|--------|---------|------|
 | **M1 — Contracts Foundation** | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
-| M2 — Workflow IR | Planned | v0.1.0 | — |
+| **M2 — Workflow IR** | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
 | M3 — Temporal Execution | Planned | v0.2.0 | — |
 | M4 — YAML System + CLI | Planned | v0.3.0 | — |
 
-M1 is the contracts-only foundation: 8 gRPC services, AsyncAPI spec, generated Go + Python stubs,
-140+ BDD contract test scenarios, and 5 CI gates. No service implementation yet — M2 onwards.
+**M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
+AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract
+test scenarios across all services, and 5 CI gates (proto-breaking, stubs-freshness,
+layer-boundaries, conventional-commit, PR-size).
+
+**M2** delivered the Workflow IR compiler — the first running service in the platform:
+YAML parser + WorkflowGraph builder, structural and semantic validators (no orphan states,
+terminal state required, valid capability refs), WorkflowGraph → WorkflowIR serialisation
+(protobuf), gRPC API layer (`CompileWorkflow` / `ValidateManifest` / `GetCompiledWorkflow`),
+JSON Schemas for `Workflow`, `AgentDef`, and `Policy` manifest kinds, `make validate-spec`
+target, and reference workflow YAML examples. Coverage gate ≥ 90% on all domain packages.
 
 ---
 
 ## Repository Structure
 
 ```
-spec/                Workflow YAML manifests and schemas
-services/            Go platform services (8 services — M2+)
-agents/              Python execution adapters + optional SDK
+spec/                Workflow YAML manifests and JSON schemas (Workflow, AgentDef, Policy)
+services/            Go platform services
+  workflow-compiler/ YAML → WorkflowIR compiler (M2 — complete)
+  agent-registry/    Capability catalogue service (M3+)
+  task-broker/       Capability routing service (M3+)
+  memory-service/    KV + vector context store (M3+)
+  event-bus/         NATS JetStream async pub/sub (M3+)
+  engine-adapter/    Pluggable execution engine bridge (M3+)
+  api-gateway/       Public HTTP API surface (M4+)
+agents/              Python execution adapters + zynax-sdk
 protos/              gRPC contracts (Go + Python stubs generated)
 protos/tests/        BDD contract test suites (godog)
 infra/               Docker-first dev environment + Helm charts
-docs/adr/            Architecture Decision Records (ADR-001 – ADR-016)
+docs/adr/            Architecture Decision Records (ADR-001 – ADR-018)
 docs/milestones/     Per-milestone engineering reviews and release notes
 ```
 
