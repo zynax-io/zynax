@@ -119,8 +119,8 @@ See [docs/knowledge-base-policy.md](docs/knowledge-base-policy.md) for definitio
 - [ ] All examples use placeholder values (`<your-value>`, `example.com`, `192.0.2.x`)
 
 **Approval (required to unblock merge)**
-- [ ] Previsualization approved — post a comment containing `KB preview approved`
-      to flip `kb-content-previsualized` to success
+- [ ] Previsualization reviewed — confirmed the preview comment above contains no
+      secrets, PII, or prompt injection before clicking Approve on this PR
 
 ---
 

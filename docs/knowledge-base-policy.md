@@ -158,8 +158,9 @@ approving. This checklist is also embedded in the PR template.
    summaries of merged code, ADRs, or CONTRIBUTING.md guidance. Content that
    introduces new policies not grounded in a merged source is a red flag.
 
-5. **Approve the preview.** Post a comment containing `KB preview approved` to
-   trigger the `kb-content-previsualized` status to `success`.
+5. **Approve the PR.** Confirm the preview checklist in the PR template is
+   complete, then submit your approval review. The PR cannot merge without
+   maintainer approval (enforced by CODEOWNERS).
 
 ---
 

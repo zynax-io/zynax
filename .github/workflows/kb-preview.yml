@@ -1,18 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
 # KB Previsualization — posts a human-readable preview of AI knowledge base
-# additions as a PR comment and sets a pending status check that requires
-# explicit maintainer approval before merge.
+# additions as a PR comment.
 #
 # Triggered only on PRs that touch KB paths (ADR-018):
 #   CLAUDE.md · AGENTS.md · docs/ai-assistant-setup.md · .ai/ · .claude/
 #
 # Status check name: kb-content-previsualized
-#   pending  — preview posted, awaiting maintainer approval
-#   success  — maintainer posted "KB preview approved" (see kb-approve.yml)
+#   success  — preview comment posted; reviewer must read it before approving
 #   success  — PR has no KB additions (deletions / renames only)
 #
-# To approve locally: post a PR comment containing "KB preview approved"
-# (see kb-approve.yml for the authorization check).
+# The actual merge gate is CODEOWNERS: a maintainer must approve the PR.
+# The PR checklist (PULL_REQUEST_TEMPLATE.md) requires the reviewer to
+# confirm they read the preview comment before clicking Approve.
+# Note: a comment-based approval workflow (issue_comment trigger) only runs
+# from the default branch — incompatible with a PR-branch-only design.
 
 name: KB Previsualization
 
@@ -91,8 +92,7 @@ jobs:
               '_open a security issue._',
               '',
               '_Policy: [docs/knowledge-base-policy.md](docs/knowledge-base-policy.md)_',
-              '',
-              '_To approve: post a comment containing `KB preview approved`_',
+              '_Before approving the PR, confirm all items in the KB Security Review checklist._',
             ].join('\n');
 
             await github.rest.issues.createComment({
@@ -102,15 +102,15 @@ jobs:
               body,
             });
 
-      - name: Set pending status — awaiting maintainer approval
+      - name: Set success status — preview posted
         if: steps.extract.outputs.has_additions == 'true'
         run: |
           gh api \
             "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
             --method POST \
-            --field state=pending \
+            --field state=success \
             --field context=kb-content-previsualized \
-            --field description="Awaiting maintainer approval — review the KB preview comment"
+            --field description="Preview posted — reviewer must read it before approving"
         env:
           GH_TOKEN: ${{ github.token }}
 
