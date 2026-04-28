@@ -71,10 +71,7 @@ jobs:
           git diff --stat -- protos/generated/
           git add protos/generated/
 
-          git commit -m "chore(protos): regenerate Go and Python stubs [skip ci]
-
-Triggered automatically by proto change on main (${GITHUB_SHA:0:7}).
-Assisted-by: github-actions[bot]"
+          git commit -m "$(printf 'chore(protos): regenerate Go and Python stubs [skip ci]\n\nTriggered automatically by proto change on main (%s).\nAssisted-by: github-actions[bot]' "${GITHUB_SHA:0:7}")"
 
           git push
           echo "✅ Regenerated stubs committed and pushed to main."
