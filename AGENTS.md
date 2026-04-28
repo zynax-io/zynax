@@ -467,5 +467,26 @@ Breaking any of them is a hard blocker at code review.
 
 ---
 
+## Common AI Mistakes
+
+Mistakes observed in AI-assisted contributions to this repo. Consult before writing any code.
+
+| Mistake | Why it fails | Correct approach |
+|---------|-------------|-----------------|
+| Using `spec:`, `proto:`, `adr:`, `service:`, `make:`, `security:` as PR/commit type prefix | CI `conventional-commit` check rejects anything outside `feat fix refactor docs test ci chore` | Use `docs:` for specs/ADRs, `feat:`/`chore:` for proto, `chore:` for Makefile |
+| Running `go test ./...` inside `services/*/` or `protos/tests/` without `GOWORK=off` | `go.work` lists modules that don't exist yet; resolution fails with an unrelated error | Always: `GOWORK=off go test ./...` (ADR-017) |
+| Importing a domain type from one service into another | Breaks service isolation; two services cannot share an `internal/` package | Cross-service data flows through gRPC — define the message in proto, never share Go types |
+| Editing `protos/generated/` by hand | Generated files are overwritten by `make generate-protos`; edits are silently lost | Edit `.proto` source files, then run `make generate-protos` and commit the output |
+| Writing Python code inside `services/` | Platform services are Go only (ADR-009) | Python lives exclusively in `agents/`; use gRPC stubs to call services |
+| Adding `Co-Authored-By: Claude …` to commits | DCO bot treats it as a human certifying the Developer Certificate of Origin — AI cannot do this | Use `Assisted-by: Claude/claude-sonnet-4-6` (no angle brackets, no @) |
+| Omitting `Signed-off-by:` from a commit | DCO gate blocks merge | Every commit needs `Signed-off-by: Oscar Gómez Manresa <ogomezmanresa@gmail.com>` |
+| Adding a new gRPC method without a `.feature` file first | CI `bdd-first` gate enforces the feature-before-code contract (ADR-016) | Write and commit the `.feature` file, get it CI-green, then implement |
+| Adding `panic` in production code paths | A single unrecovered panic kills the entire service process | Return a gRPC status error; let the framework handle transport-level failures |
+| Hardcoding engine names (`"temporal"`, `"langgraph"`) in business logic | Breaks the pluggable engine contract (ADR-015) | Route through an engine interface; the string lives only in config |
+| Disabling TLS verification (`InsecureSkipVerify: true`) | Silently exposes all traffic to MITM attacks | TLS must be on by default; use test-only `credentials/insecure` only in bufconn tests |
+| Calling a platform service via HTTP instead of gRPC | Bypasses the contract layer; no protobuf type safety | Generate gRPC stubs with `make generate-protos`, import and use the Go client |
+
+---
+
 *Zynax — The control plane for AI-driven systems*
 *Apache 2.0 · CNCF Sandbox Candidate*

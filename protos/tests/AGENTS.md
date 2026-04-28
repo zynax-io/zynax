@@ -323,3 +323,17 @@ from the current `.proto` files:
 ```
 replace github.com/zynax-io/zynax/protos/generated/go => ../generated/go
 ```
+
+---
+
+## Common AI Mistakes
+
+| Mistake | Why it fails | Correct approach |
+|---------|-------------|-----------------|
+| `go test ./...` without `GOWORK=off` | Workspace resolves missing service modules → confusing resolution error unrelated to the test | `GOWORK=off go test ./...` — every invocation in this directory (ADR-017) |
+| Writing step definitions before the `.feature` file is committed | Violates BDD-first contract; CI checks feature-before-code ordering | Commit the `.feature` file alone first, get it CI-green, then add step definitions |
+| Registering the service-under-test as a real remote gRPC server | Introduces network, port, and lifecycle dependencies that make tests flaky | Use `bufconn` in-memory transport; the stub runs in the same process as the test |
+| Putting step state in package-level variables | Causes test pollution across scenarios; state leaks between runs | Keep all state in the per-suite context struct; re-initialise in `sc.Before` |
+| Implementing real business logic inside the in-process stub | Stub should only verify the contract shape, not reproduce the service | Return fixed or schema-valid responses; test the contract, not the implementation |
+| Importing the real service's `internal/` packages into the test stub | Creates a coupling that makes the contract test indistinguishable from a unit test | The stub is a hand-written fake that satisfies the proto interface — no service imports |
+| Running `go mod tidy` from the repo root with workspace active | Workspace-aware tidy modifies `go.work.sum`, not the test module's `go.sum` | `cd protos/tests && GOWORK=off go mod tidy` |

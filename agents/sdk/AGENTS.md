@@ -283,3 +283,32 @@ autogen   = ["pyautogen>=0.2.0"]
 crewai    = ["crewai>=0.28.0"]
 all       = ["zynax-sdk[langgraph,autogen,crewai]"]
 ```
+
+---
+
+## When NOT to Use the SDK
+
+The SDK owns the asyncio event loop and starts a long-running gRPC server. It is the
+wrong tool in several common situations:
+
+| Situation | Why the SDK doesn't fit | What to use instead |
+|-----------|------------------------|---------------------|
+| One-off script that submits a workflow or queries the registry | SDK starts a server and blocks; you just need a client call | Raw generated stubs + `asyncio.run()` |
+| Wrapping an existing Django / FastAPI / Flask app | SDK owns the event loop; your framework also owns the event loop — conflict | Run the SDK agent in a separate process; communicate via queue or gRPC |
+| Pure library (no running server, just shared logic) | SDK registers an agent and exposes gRPC endpoints — meaningless for a library | Do not use the SDK; expose plain Python functions |
+| Go, TypeScript, Java, or Rust agent | No SDK edition exists or is planned for other languages | Use the generated gRPC stubs for that language directly |
+| Calling Zynax services FROM your code (client role) | SDK is server-side only — it receives tasks, it does not submit them | Import raw stubs from `protos/generated/python/` |
+| Testing in isolation without a live gRPC connection | SDK requires a live connection on startup | Use `unittest.mock` or `FakeAgentContext` from `agents/sdk/tests/` |
+
+---
+
+## Common AI Mistakes
+
+| Mistake | Why it fails | Correct approach |
+|---------|-------------|-----------------|
+| Adding a `pip install zynax-sdk` step | The SDK is a local module, not a published package | `uv add zynax-sdk` with the local path in `pyproject.toml` — see examples in `agents/examples/` |
+| Instantiating `AgentServer` inside a request handler | `AgentServer` is a long-running process — one per container | Instantiate once at module level; let the SDK manage its lifecycle |
+| Calling `context.memory_client` or `context.registry_client` directly | Platform clients are injected by the runtime, not constructed manually | Accept them via `AgentRuntime.execute(task, context)` — the SDK injects them |
+| Hardcoding the LLM model name inside `AgentRuntime.execute` | Breaks when the model is deprecated or rotated | Read from env var: `os.environ["ZYNAX_LLM_MODEL"]` |
+| Using `print()` instead of `structlog` | No structured fields; logs unreadable in Grafana / Loki | `log = structlog.get_logger(); log.info("event", key=value)` |
+| Catching bare `except:` | Silently swallows grpc errors, cancellation signals, and OOMKilled | Catch specific exception types; always re-raise `BaseException` subclasses |
