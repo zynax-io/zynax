@@ -802,7 +802,10 @@ for every contributor who clones the repo.
    speculative or aspirational content.
 
 See [docs/adr/ADR-018-ai-kb-authorization-model.md](docs/adr/ADR-018-ai-kb-authorization-model.md)
-for the full rationale and threat model.
+for the full rationale and threat model. See
+[docs/knowledge-base-policy.md](docs/knowledge-base-policy.md) for the
+content sanitization rules, scanner reference, and step-by-step reviewer
+verification process.
 
 ---
 
