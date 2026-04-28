@@ -25,11 +25,6 @@ dependencies = [
     "opentelemetry-instrumentation-grpc>=0.46b0",
 ]
 
-[project.optional-dependencies]
-langgraph = ["langgraph>=0.1.0", "langchain-openai>=0.1.0"]
-autogen   = ["pyautogen>=0.2.0"]
-crewai    = ["crewai>=0.28.0"]
-all       = ["zynax-sdk[langgraph,autogen,crewai]"]
 
 [tool.pytest.ini_options]
 testpaths   = ["tests"]
