@@ -1,42 +1,21 @@
 # protos/tests/ — AGENTS.md
 
-> This directory contains the BDD contract tests for all eight gRPC service
-> boundaries. Tests are written with [godog](https://github.com/cucumber/godog)
-> and exercise in-process gRPC stubs over a `bufconn` in-memory transport.
+> BDD contract tests for all eight gRPC service boundaries.
+> Written with [godog](https://github.com/cucumber/godog) using in-process
+> `bufconn` transport — no network, no Docker, <100ms total.
 >
-> See `protos/AGENTS.md §7` for the contract testing mandate and `CLAUDE.md §testing`
-> for the CI enforcement rules. The architectural decision is in ADR-016 and
-> ADR-017. Tactical decisions (test split pattern, bufconn rationale, GOWORK=off)
-> are in `docs/decisions/`.
+> Full authoring guide (bufconn pattern, adding steps, two-file split):
+> `docs/patterns/bdd-contract-testing.md`.
+> Governing ADRs: ADR-016 (layered testing), ADR-017 (GOWORK=off).
 
 ---
 
-## GOWORK=off — Required for Every go test Invocation
+## GOWORK=off — Always Required
 
-**Always prefix `go test` commands in this directory with `GOWORK=off`.**
+**Every `go test` invocation in this directory must be prefixed with `GOWORK=off`.**
 
-```bash
-cd protos/tests
-GOWORK=off go test ./... -v -timeout 60s
-```
-
-**Why this is required:**
-
-The repository root `go.work` workspace lists seven service modules (e.g.
-`services/workflow-compiler`, `services/engine-adapter`) that will be created in
-M2–M4. During M1 (contracts-only) none of those directories exist on disk. When
-the Go workspace is active, the toolchain tries to resolve every module listed in
-`go.work` — even those not imported by any test — and fails:
-
-```
-go: cannot load module providing package github.com/zynax-io/zynax/services/...:
-    directory does not exist
-```
-
-`GOWORK=off` disables workspace resolution for that single command. It is the
-standard Go mechanism and is stable across Go versions. The fix is covered in
-ADR-017. Omitting the flag causes a misleading resolution error unrelated to the
-test code.
+The repo root `go.work` lists service modules not yet on disk. Without `GOWORK=off`,
+the toolchain fails with a confusing module-resolution error unrelated to the test code.
 
 ---
 
@@ -44,11 +23,8 @@ test code.
 
 ```
 protos/tests/
-├── go.mod                         ← module github.com/zynax-io/zynax/protos/tests
-├── go.sum
-├── testserver/
-│   └── server.go                  ← shared bufconn helper (used by all packages)
-├── features/                      ← shared Gherkin feature files (read by godog at runtime)
+├── testserver/server.go            ← shared bufconn helper (used by all packages)
+├── features/                       ← Gherkin feature files (one per service)
 │   ├── agent_service.feature
 │   ├── agent_registry_service.feature
 │   ├── cloudevents_envelope.feature
@@ -57,283 +33,46 @@ protos/tests/
 │   ├── memory_service.feature
 │   ├── task_broker_service.feature
 │   └── workflow_compiler_service.feature
-├── agent_service/
-│   └── steps_test.go              ← single-file suite
-├── agent_registry_service/
-│   └── steps_test.go
-├── cloudevents_envelope/
-│   └── steps_test.go
+├── agent_service/steps_test.go
+├── agent_registry_service/steps_test.go
+├── cloudevents_envelope/steps_test.go
 ├── engine_adapter_service/
-│   ├── lifecycle_steps_test.go    ← two-file split (see below)
+│   ├── lifecycle_steps_test.go     ← two-file split
 │   └── signals_steps_test.go
-├── event_bus_service/
-│   └── steps_test.go
-├── memory_service/
-│   └── steps_test.go
-├── task_broker_service/
-│   └── steps_test.go
-└── workflow_compiler_service/
-    └── steps_test.go
+├── event_bus_service/steps_test.go
+├── memory_service/steps_test.go
+├── task_broker_service/steps_test.go
+└── workflow_compiler_service/steps_test.go
 ```
-
----
-
-## bufconn — In-Process gRPC (No Network Required)
-
-All tests use `testserver.NewBufconnServer` to create an in-process gRPC server
-on an in-memory `bufconn` listener. No ports are bound, no network calls are made.
-
-```go
-// testserver/server.go (shared helper)
-func NewBufconnServer(t *testing.T) (*grpc.Server, func(context.Context, string) (net.Conn, error)) {
-    lis := bufconn.Listen(1 << 20)
-    srv := grpc.NewServer()
-    t.Cleanup(func() { srv.GracefulStop(); lis.Close() })
-    go func() { _ = srv.Serve(lis) }()
-    dialer := func(ctx context.Context, _ string) (net.Conn, error) {
-        return lis.DialContext(ctx)
-    }
-    return srv, dialer
-}
-```
-
-Usage in a test file:
-
-```go
-func TestMain(m *testing.M) {
-    // godog TestMain — feature file path is relative to the module root
-    os.Exit(m.Run())
-}
-
-func InitializeScenario(ctx *godog.ScenarioContext) {
-    suite := &agentSuite{}
-    ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
-        t := &testing.T{}
-        srv, dialer := testserver.NewBufconnServer(t)
-        pb.RegisterAgentServiceServer(srv, &agentStub{})
-        conn, _ := grpc.NewClient("passthrough:///bufconn",
-            grpc.WithContextDialer(dialer),
-            grpc.WithTransportCredentials(insecure.NewCredentials()))
-        suite.client = pb.NewAgentServiceClient(conn)
-        return ctx, nil
-    })
-    ctx.Step(`^...`, suite.someStep)
-}
-```
-
-**Why bufconn instead of a real network server:**
-- No port allocation conflicts in parallel CI runs
-- No OS teardown races — `GracefulStop` is synchronous
-- Tests run at memory speed, not network speed
-- No firewall or container networking required
 
 ---
 
 ## Running Tests
 
-### All contract tests
-
 ```bash
+# All contract tests
 cd protos/tests
-GOWORK=off go test ./... -v -timeout 60s
-```
+GOWORK=off go test ./... -v -timeout 120s
 
-### One service package
+# One service package
+GOWORK=off go test ./agent_registry_service/... -v -timeout 60s
 
-```bash
-cd protos/tests
-GOWORK=off go test ./agent_service/... -v -timeout 60s
-```
+# With race detector
+GOWORK=off go test -race ./... -timeout 120s
 
-### A specific godog tag
-
-Godog tags map to the `@tag` annotations on Gherkin scenarios. Pass them via
-`go test -run` (matches the Go test function name) or via godog's `Tags` option
-in the suite initializer:
-
-```bash
-# Run only scenarios tagged @lifecycle
-cd protos/tests
-GOWORK=off go test ./engine_adapter_service/... -v -run TestLifecycle -timeout 60s
-```
-
-The suite struct controls which tags are active. In a test file:
-
-```go
-func TestLifecycle(t *testing.T) {
-    suite := godog.TestSuite{
-        Name:                "engine_adapter_lifecycle",
-        ScenarioInitializer: InitializeLifecycleScenario,
-        Options: &godog.Options{
-            Format:   "pretty",
-            Paths:    []string{"../features/engine_adapter_service.feature"},
-            Tags:     "@lifecycle",
-            TestingT: t,
-        },
-    }
-    if suite.Run() != 0 {
-        t.Fatal("non-zero exit status")
-    }
-}
-```
-
-### Race detector
-
-```bash
-cd protos/tests
-GOWORK=off go test -race ./... -timeout 60s
+# Via Makefile (inside Docker)
+make test-bdd
 ```
 
 ---
 
-## Adding a Test Step to an Existing Service
+## AI Anti-patterns
 
-1. Open the relevant `*_steps_test.go` file — it is in `package <service>_test`.
-2. Add a step function matching the Gherkin step text:
-   ```go
-   func (s *mySuite) theResponseContainsField(field string) error {
-       if s.lastResponse == nil {
-           return fmt.Errorf("no response recorded")
-       }
-       // ... assertion
-       return nil
-   }
-   ```
-3. Register the step in `InitializeScenario`:
-   ```go
-   ctx.Step(`^the response contains field "([^"]*)"$`, suite.theResponseContainsField)
-   ```
-4. Add a Gherkin scenario to the corresponding `.feature` file in `features/`.
-5. Run `GOWORK=off go test ./...<service>/... -v` to verify.
-
-All files in a package directory share the same `package <service>_test` declaration
-— they see each other's types directly.
-
----
-
-## Adding a New Service Test Suite
-
-Follow this sequence:
-
-1. Create the directory `protos/tests/<service_name>/`.
-
-2. Create `steps_test.go` with this structure:
-
-   ```go
-   // SPDX-License-Identifier: Apache-2.0
-   package <service_name>_test
-
-   import (
-       "context"
-       "os"
-       "testing"
-
-       "github.com/cucumber/godog"
-       pb "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
-       "github.com/zynax-io/zynax/protos/tests/testserver"
-       "google.golang.org/grpc"
-       "google.golang.org/grpc/credentials/insecure"
-   )
-
-   type <service>Suite struct {
-       client pb.<ServiceName>Client
-   }
-
-   type <service>Stub struct {
-       pb.Unimplemented<ServiceName>Server
-   }
-
-   func TestMain(m *testing.M) {
-       os.Exit(m.Run())
-   }
-
-   func Test<ServiceName>(t *testing.T) {
-       suite := godog.TestSuite{
-           Name:                "<service_name>",
-           ScenarioInitializer: InitializeScenario,
-           Options: &godog.Options{
-               Format:   "pretty",
-               Paths:    []string{"../features/<service_name>.feature"},
-               TestingT: t,
-           },
-       }
-       if suite.Run() != 0 {
-           t.Fatal("non-zero exit status")
-       }
-   }
-
-   func InitializeScenario(ctx *godog.ScenarioContext) {
-       suite := &<service>Suite{}
-       ctx.Before(func(goCtx context.Context, sc *godog.Scenario) (context.Context, error) {
-           t := &testing.T{}
-           srv, dialer := testserver.NewBufconnServer(t)
-           pb.Register<ServiceName>Server(srv, &<service>Stub{})
-           conn, _ := grpc.NewClient("passthrough:///bufconn",
-               grpc.WithContextDialer(dialer),
-               grpc.WithTransportCredentials(insecure.NewCredentials()))
-           suite.client = pb.New<ServiceName>Client(conn)
-           return goCtx, nil
-       })
-       // Register step definitions here
-   }
-   ```
-
-3. Create `features/<service_name>.feature` with at least one scenario.
-
-4. The package is picked up automatically by `GOWORK=off go test ./...` — no
-   registration required.
-
----
-
-## Two-File Split Pattern
-
-Large service test suites can be split across multiple `_test.go` files within
-the same package. `engine_adapter_service` uses this:
-
-```
-engine_adapter_service/
-├── lifecycle_steps_test.go   — workflow lifecycle RPCs (Start, Cancel, Complete, Fail)
-└── signals_steps_test.go     — WatchWorkflow signal delivery
-```
-
-Both files declare `package engine_adapter_service_test` and share the same
-`engineSuite` struct type and `engineStub` server type. Each file owns a
-separate `TestXxx` function with its own godog `TestSuite` and tag filter.
-
-Use this pattern when a single feature file has more than ~150 lines of step
-definitions, or when two groups of scenarios have entirely separate setup/state.
-
----
-
-## go.mod Dependencies
-
-The test module depends on:
-
-| Package | Purpose |
-|---------|---------|
-| `github.com/cucumber/godog` | BDD test runner |
-| `github.com/zynax-io/zynax/protos/generated/go` | Generated gRPC stubs (replace directive → `../generated/go`) |
-| `google.golang.org/grpc` | gRPC runtime + `bufconn` + `credentials/insecure` |
-| `google.golang.org/protobuf` | Proto message types and `timestamppb` |
-
-The `replace` directive in `go.mod` points the generated stubs to the local
-`protos/generated/go/` directory so tests always use the stubs that were compiled
-from the current `.proto` files:
-
-```
-replace github.com/zynax-io/zynax/protos/generated/go => ../generated/go
-```
-
----
-
-## Common AI Mistakes
-
-| Mistake | Why it fails | Correct approach |
-|---------|-------------|-----------------|
-| `go test ./...` without `GOWORK=off` | Workspace resolves missing service modules → confusing resolution error unrelated to the test | `GOWORK=off go test ./...` — every invocation in this directory (ADR-017) |
-| Writing step definitions before the `.feature` file is committed | Violates BDD-first contract; CI checks feature-before-code ordering | Commit the `.feature` file alone first, get it CI-green, then add step definitions |
-| Registering the service-under-test as a real remote gRPC server | Introduces network, port, and lifecycle dependencies that make tests flaky | Use `bufconn` in-memory transport; the stub runs in the same process as the test |
-| Putting step state in package-level variables | Causes test pollution across scenarios; state leaks between runs | Keep all state in the per-suite context struct; re-initialise in `sc.Before` |
-| Implementing real business logic inside the in-process stub | Stub should only verify the contract shape, not reproduce the service | Return fixed or schema-valid responses; test the contract, not the implementation |
-| Importing the real service's `internal/` packages into the test stub | Creates a coupling that makes the contract test indistinguishable from a unit test | The stub is a hand-written fake that satisfies the proto interface — no service imports |
-| Running `go mod tidy` from the repo root with workspace active | Workspace-aware tidy modifies `go.work.sum`, not the test module's `go.sum` | `cd protos/tests && GOWORK=off go mod tidy` |
+| Mistake | Correct approach |
+|---------|-----------------|
+| `go test ./...` without `GOWORK=off` | `GOWORK=off go test ./...` — every invocation (ADR-017) |
+| Step definitions before `.feature` file committed | Commit `.feature` first, CI-green, then add steps |
+| State in package-level variables | Keep state in the per-suite context struct; re-init in `ctx.Before` |
+| Real business logic in the in-process stub | Return fixed or schema-valid responses only |
+| Importing the real service's `internal/` into the test stub | The stub is a hand-written fake — no service imports |
+| `go mod tidy` from repo root with workspace active | `cd protos/tests && GOWORK=off go mod tidy` |

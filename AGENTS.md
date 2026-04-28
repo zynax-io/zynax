@@ -1,24 +1,17 @@
-# Zynax Platform — Engineering Contract
+# Zynax — Engineering Constitution
 
-> **Authoritative engineering contract for contributors and AI assistants.**
-> Read entirely before writing a single line of code.
-> Every decision here is backed by an ADR. When in doubt, check `docs/adr/`.
+> Authoritative contract for contributors and AI assistants.
+> Read entirely before writing any code. Every rule here is backed by an ADR.
 >
-> This file is read automatically by AI coding assistants (Claude Code, Cursor,
-> Copilot, Gemini Code Assist, and others). It is equally authoritative for
-> human contributors. There is one standard, not two.
+> **Architecture reference:** Keep this file as a constitution — immutable principles
+> only. Detailed patterns live in `docs/patterns/`. Current state in `state/`.
 
 ---
 
-## 0. What Is Zynax?
+## What Is Zynax?
 
 > **Zynax is a declarative, cloud-native, engine-agnostic control plane
 > for AI agent workflows.**
-
-It is NOT:
-- An LLM framework (it does not call LLMs)
-- A workflow engine (it does not execute workflows)
-- A DevOps tool (it does not replace CI/CD)
 
 It IS:
 - The **Kubernetes of AI workflows** — a control plane that abstracts execution
@@ -26,467 +19,173 @@ It IS:
 - An **engine-agnostic adapter** — Temporal, LangGraph, Argo are plugins
 - A **capability router** — agents are capabilities, not identities
 
-The core insight:
-> Kubernetes won by abstracting containers.
-> Zynax wins by abstracting intelligence workflows.
+It is NOT an LLM framework, a workflow engine, or a DevOps tool.
 
 ---
 
-## 1. The Three-Layer Separation (Non-Negotiable)
-
-Every decision in this codebase must respect this separation:
+## The Three-Layer Separation (Non-Negotiable)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  LAYER 1 — INTENT                                       │
-│  YAML manifests (Kubernetes-style)                      │
-│  What should happen. Declarative. Versionable.          │
-│                                                         │
-│  workflows/ · policies/ · agent-defs/ · routing-rules/  │
+│  YAML manifests · Declarative · Versionable             │
+│  spec/workflows/ · spec/schemas/                        │
 ├─────────────────────────────────────────────────────────┤
 │  LAYER 2 — COMMUNICATION                                │
-│  Contracts: gRPC (sync) + AsyncAPI/NATS (async)         │
-│  How things talk. Typed. Multi-language.                │
-│                                                         │
-│  protos/zynax/v1/ · spec/asyncapi/                       │
+│  gRPC (sync) + AsyncAPI/NATS (async) · Typed contracts  │
+│  protos/zynax/v1/ · spec/asyncapi/                      │
 ├─────────────────────────────────────────────────────────┤
 │  LAYER 3 — EXECUTION                                    │
-│  Workflow Engine Plugins (Temporal / LangGraph / Argo)  │
-│  How it runs. Pluggable. Swappable.                     │
-│                                                         │
+│  Workflow Engine Plugins · Pluggable · Swappable        │
 │  services/engine-adapter/ · agents/adapters/            │
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Violations of this separation are hard blockers at code review.**
-
-- Layer 1 (YAML) must never import from Layer 3.
-- Layer 2 (contracts) must never contain business logic.
-- Layer 3 (execution) must never be a hard dependency — always behind an interface.
+**Layer violations are hard blockers at code review:**
+- Layer 1 (YAML) never imports from Layer 3.
+- Layer 2 (contracts) never contains business logic.
+- Layer 3 (execution) is always behind an interface — never a hard dependency.
 
 ---
 
-## 2. Full Architecture
+## Architecture
 
 ```
-     ┌──────────────────────────────────────────────┐
-     │        YAML Manifests (Intent)               │
-     │  kind: Workflow · AgentDef · Policy · Route   │
-     └──────────────────┬───────────────────────────┘
-                        │ zynax apply
-     ┌──────────────────▼───────────────────────────┐
-     │         API Gateway (Go)                     │
-     │  REST + gRPC-gateway · auth · rate limit     │
-     └──────────────────┬───────────────────────────┘
-                        │
-     ┌──────────────────▼───────────────────────────┐
-     │      Workflow Compiler (Go)                  │
-     │  YAML → Canonical IR (Intermediate Rep.)     │
-     │  Validates · Normalises · Routes to engine   │
-     └─────┬──────────────────────┬────────────────┘
-           │                      │
-     ┌─────▼──────┐        ┌──────▼──────────────────┐
-     │  Agent     │        │  Engine Adapter (Go)    │
-     │  Registry  │        │  Temporal / LangGraph /  │
-     │  (Go)      │        │  Argo — pluggable        │
-     └─────┬──────┘        └──────────────────────────┘
-           │
-     ┌─────▼──────────────────────────────────────────┐
-     │              Task Broker (Go)                   │
-     │  Capability routing · assignment · retry        │
-     └─────┬──────────────────────────────────────────┘
-           │ capability dispatch
-     ┌─────▼──────────────────────────────────────────┐
-     │         Execution Adapters Layer                │
-     │  LLM · HTTP API · Git · CI/CD · LangGraph agent │
-     │  No SDK required — wrap anything                │
-     └─────────────────────────────────────────────────┘
-           │
-     ┌─────▼──────────────────────────────────────────┐
-     │   Event Bus — NATS JetStream (Go)               │
-     │   AsyncAPI spec · all events flow here          │
-     └─────────────────────────────────────────────────┘
-           │
-     ┌─────▼──────────────────────────────────────────┐
-     │   Memory Service (Go)                           │
-     │   KV + Vector · shared context across workflow  │
-     └─────────────────────────────────────────────────┘
+     YAML Manifests (Intent)
+              ↓ zynax apply
+       API Gateway (Go)          ← auth · rate limit · REST-to-gRPC
+              ↓
+     Workflow Compiler (Go)      ← YAML → Canonical IR
+              ↓
+      Engine Adapter (Go)        ← IR → Temporal / LangGraph / Argo
+              ↓
+        Task Broker (Go)         ← Capability routing · retry
+              ↓
+    Execution Adapters Layer     ← LLM · HTTP · Git · CI · LangGraph
+              ↓
+     Event Bus — NATS (Go)       ← All async events (AsyncAPI spec)
+              ↓
+     Memory Service (Go)         ← KV + Vector context
 ```
 
 ---
 
-## 3. Development Model — Docker-First
+## Development Model
 
-> **Nothing runs on the host machine except Docker Desktop.**
+Everything runs inside Docker. **Prerequisites: Docker Desktop only.**
 
 ```bash
-make build-tools      # Build dev image (Go 1.22 + Python 3.12 + buf + all tools)
-make dev-up           # Full platform stack
-make lint             # Lint everything inside Docker
-make test-unit        # All tests inside Docker
-make generate-protos  # Go + Python stubs from .proto
+make bootstrap        # one-time setup
+make lint             # proto + Go + Python lint
+make test             # all tests (spec + unit + BDD)
+make generate-protos  # regenerate Go + Python stubs
+make validate-spec    # validate all YAML manifests
+make security         # govulncheck + bandit + pip-audit
 ```
 
 ---
 
-## 4. The Four Non-Negotiable Mandates
+## Four Non-Negotiable Mandates
 
-### 4.1 Amazon API Mandate
-All services expose capabilities ONLY via versioned gRPC. No shared databases.
-No cross-service imports. Contracts are proto files — reviewed like production code.
+**1 — API Mandate:** All services expose capabilities only via versioned gRPC.
+No shared databases. No cross-service imports. Proto files are reviewed like production code.
 
-### 4.2 Twelve-Factor
-Config via env vars. Stateless processes. Logs to stdout. Port binding.
+**2 — Twelve-Factor:** Config via env vars. Stateless processes. Logs to stdout. Port binding.
 Backing services as attached resources.
 
-### 4.3 Clean Code
-- Go: functions ≤ 30 lines. No `panic` in production. All errors wrapped.
-- Python (agents/adapters): functions ≤ 20 lines. No `print()`. Types 100%.
-- Both: no magic numbers. No dead code. Comments explain WHY.
+**3 — Clean Code:** Go functions ≤ 30 lines. Python functions ≤ 20 lines.
+No magic numbers. No dead code. No `panic` in production. All errors wrapped.
 
-### 4.4 Layered Testing Strategy
-
-Four testing tiers — use the right one for the right scope (ADR-016).
-
-| Tier | Volume | What goes here |
-|------|--------|---------------|
-| BDD | 10–15% | Agent capability contracts, inter-service gRPC, E2E workflows |
-| Unit / property-based | ≥ 40% | Domain logic, routing, state transitions, message handling |
-| Contract | CI gate | Proto breaking-change detection, YAML manifest schema |
-| Simulation | As needed | Fault injection, retry storms, topology changes |
-
-**BDD-first at system boundaries:** `.feature` file committed before any
-boundary implementation. Gherkin for Go (godog) and Python (pytest-bdd).
-
-**TDD for domain logic:** Red → green → refactor. No `.feature` file required.
-
-**Property-based tests for invariants:** `hypothesis` (Python), `rapid` (Go).
+**4 — Layered Testing:** BDD at system boundaries (`.feature` file before any implementation).
+Unit/property tests for domain logic (≥ 90% coverage). `buf breaking` as CI gate.
+See ADR-016.
 
 ---
 
-## 5. Repository Layout
+## Definition of Done
 
-```
-zynax/
-├── AGENTS.md                      ← You are here
-├── ARCHITECTURE.md                ← Deep dive: layers, IR, adapters
-├── go.work                        ← Go workspace (all platform services)
-├── Makefile                       ← ALL commands go through here
-│
-├── spec/                          ← Declarative intent layer
-│   ├── AGENTS.md                  ← YAML schema rules
-│   ├── schemas/                   ← JSON Schema for YAML manifests
-│   │   ├── workflow.schema.json
-│   │   ├── agent-def.schema.json
-│   │   └── policy.schema.json
-│   └── workflows/examples/        ← Reference YAML manifests
-│       ├── code-review.yaml
-│       ├── ci-pipeline.yaml
-│       └── research-task.yaml
-│
-├── services/                      ← Go platform services
-│   ├── AGENTS.md
-│   ├── agent-registry/            ← Agent identity + capability registry
-│   ├── task-broker/               ← Capability routing + task dispatch
-│   ├── memory-service/            ← Shared KV + vector memory
-│   ├── event-bus/                 ← NATS + AsyncAPI event backbone
-│   ├── api-gateway/               ← REST + YAML apply endpoint
-│   ├── workflow-compiler/         ← YAML → IR compiler
-│   └── engine-adapter/            ← Temporal/LangGraph/Argo adapter
-│
-├── agents/                        ← Python pluggable agent layer
-│   ├── AGENTS.md
-│   ├── sdk/                       ← zynax-sdk (optional, no SDK required)
-│   └── adapters/                  ← Execution adapters (no SDK required)
-│       ├── AGENTS.md
-│       ├── http/                  ← Wrap any HTTP API as an agent
-│       ├── llm/                   ← Wrap Bedrock, Ollama, OpenAI
-│       ├── git/                   ← GitHub/GitLab event-driven adapter
-│       └── langgraph/             ← LangGraph workflow adapter
-│
-├── protos/zynax/v1/                ← gRPC contracts
-├── infra/docker/                  ← Docker-first dev environment
-├── docs/adr/                      ← ADR-001 through ADR-015
-└── tools/                         ← golangci-lint, ruff, mypy configs
-```
+A feature is DONE when **all** are true:
 
----
-
-## 6. The Workflow Model
-
-Zynax workflows are **event-driven state machines**, not DAGs.
-This is a deliberate choice (see ADR-014).
-
-```yaml
-# spec/workflows/examples/code-review.yaml
-kind: Workflow
-apiVersion: zynax.io/v1
-
-metadata:
-  name: code-review-workflow
-  namespace: engineering
-
-spec:
-  initial_state: review
-
-  states:
-    review:
-      actions:
-        - capability: request_review
-          timeout: 24h
-      on:
-        - event: review.approved
-          goto: merge
-        - event: review.changes_requested
-          goto: fix
-        - event: review.timeout
-          goto: escalate
-
-    fix:
-      actions:
-        - capability: summarize_feedback
-      on:
-        - event: push
-          goto: review
-
-    merge:
-      actions:
-        - capability: merge_pr
-      on:
-        - event: merge.success
-          goto: done
-        - event: merge.conflict
-          goto: fix
-
-    escalate:
-      actions:
-        - capability: notify_human
-      type: human_in_the_loop
-
-    done:
-      type: terminal
-```
-
-Key properties supported by state machine model:
-- ✅ Loops (`fix → review → fix`)
-- ✅ Async events (`review.approved`, `push`)
-- ✅ Human-in-the-loop (`escalate` state)
-- ✅ Long-running (days, not seconds)
-- ✅ Timeout handling
-
----
-
-## 7. The Capability Model
-
-Everything executable in Zynax is a **capability**, not a named agent.
-
-```
-summarize          request_review      run_tests
-open_mr            review_code         merge_pr
-notify_human       search_web          execute_sql
-```
-
-Capabilities are:
-- Declared in `AgentDef` YAML manifests.
-- Registered in `agent-registry`.
-- Routed by `task-broker` based on capability match.
-- Executed by whatever adapter/agent has registered that capability.
-
-**The workflow YAML never names an agent directly. It names a capability.**
-This decouples intent from implementation — you can swap the executor
-without changing the workflow definition.
-
----
-
-## 8. Adapter-First Integration (No SDK Required)
-
-Agents do NOT need the Zynax SDK. Any system can become a capability
-by deploying an adapter. See `agents/adapters/AGENTS.md`.
-
-```
-HTTP API   →  http-adapter        →  capability: call_api
-Bedrock    →  llm-adapter         →  capability: summarize
-GitHub     →  git-adapter         →  capability: open_mr, request_review
-LangGraph  →  langgraph-adapter   →  capability: research_topic
-CI system  →  ci-adapter          →  capability: run_tests
-```
-
-Adapters implement the gRPC `AgentService` contract. That is the ONLY
-requirement. No language. No framework. No SDK.
-
-### How to Connect — by Role and Language
-
-The right integration path depends on what role your code plays and what language
-it is in. Three paths exist and they are all equal from the platform's perspective:
-
-| Your situation | Path | Where to start |
-|---------------|------|---------------|
-| Wrapping an existing system in any language | Adapter | `agents/adapters/AGENTS.md` |
-| Building a new Python agent | Python SDK | `agents/sdk/AGENTS.md` |
-| Connecting from Go, TypeScript, Java, Rust, or any other language | Raw proto stubs | `protos/AGENTS.md §8` |
-
-The proto files in `protos/zynax/v1/` are the universal boundary. Any language
-that can speak gRPC can call any Zynax service or implement any capability. See
-`ARCHITECTURE.md §11` for the full interoperability picture and `protos/AGENTS.md §8`
-for language-specific consuming instructions.
-
----
-
-## 9. Platform Services — Go Standards
-
-See `services/AGENTS.md` for full patterns.
-
-### Key layer rule (enforced by import analysis in CI)
-```
-api → domain ← infrastructure
-       ↑
-  domain: ZERO imports from api or infrastructure
-```
-
-### Key Go patterns
-```go
-// Errors: always wrap with context
-return nil, fmt.Errorf("find agent %s: %w", id, domain.ErrAgentNotFound)
-
-// Error mapping: ONLY in api layer
-case errors.Is(err, domain.ErrAgentNotFound):
-    return status.Errorf(codes.NotFound, err.Error())
-
-// Context: first arg on every I/O function
-func (r *repo) FindByID(ctx context.Context, id AgentID) (*Agent, error)
-
-// Logging: slog, structured, contextual
-slog.InfoContext(ctx, "workflow compiled",
-    "workflow_id", id, "target_engine", engine, "states", len(states))
-
-// Config: envconfig, fail fast on startup
-func Load() (*Config, error) { envconfig.Process("ZYNAX_<SVC>", &cfg) }
-```
-
----
-
-## 10. Agent/Adapter Layer — Python Standards
-
-See `agents/AGENTS.md` for full patterns.
-
-Two ways to add execution capability:
-
-**A — Adapter (preferred, no SDK):**
-```python
-# Implement one gRPC method: ExecuteCapability(request) → stream of events
-# Declare capabilities in an AgentDef YAML
-# Deploy as a container — done
-```
-
-**B — SDK Agent (full control):**
-```python
-# Implement AgentRuntime Protocol: execute(task, context) → AsyncIterator[TaskEvent]
-# Pluggable runtime: LangGraph, AutoGen, Direct, Custom
-# AgentContext injected — never constructed
-```
-
----
-
-## 11. Definition of Done
-
-A feature is DONE when **ALL** are true:
-
-- [ ] System-boundary features: `.feature` file committed before implementation
-- [ ] Domain logic: unit tests or property tests (≥ 90% coverage)
-- [ ] All tests pass (`make test-unit`)
-- [ ] Go: `golangci-lint` clean. Python: `ruff` + `mypy --strict` clean.
-- [ ] `make security` clean
-- [ ] Health probes correct
+- [ ] System-boundary changes: `.feature` file committed before implementation
+- [ ] Domain logic: unit or property tests (≥ 90% coverage on `internal/domain/`)
+- [ ] `make test` green · `make lint` clean · `make security` clean
+- [ ] Health probes implemented
 - [ ] Structured logs + metrics + traces for new behaviour
 - [ ] YAML schema updated if new manifest kind added
 - [ ] Proto change: backward-compatible OR new version + migration guide
-- [ ] ADR created if architectural decision was made
+- [ ] ADR created for any architectural decision
 - [ ] Required approvals obtained (see `GOVERNANCE.md §2`)
 
 ---
 
-## 12. Hard Constraints — Contributors and AI Assistants
+## Hard Constraints
 
-These rules apply equally to every contributor — human or AI.
-Breaking any of them is a hard blocker at code review.
-
-**Both layers:**
-- Never install tools on host — everything in Docker
-- Never commit secrets, tokens, or credentials
-- System-boundary features require a `.feature` file before implementation (BDD-first)
-- Domain logic requires unit or property tests — `.feature` files are optional here
-- Never share a database between services
-- Never couple Layer 1 (YAML) to Layer 3 (engines)
-- Never make changes outside the stated scope of an issue or task
-
-**Commit hygiene (human and AI contributors):**
-- Subject line ≤ 72 characters, imperative mood, no period at end
-- No `@mentions` anywhere in commit messages — issue references go in footer only (`Closes #123`)
+**Commit hygiene:**
+- Subject ≤ 72 characters, imperative mood, no period
+- No `@mentions` in commit messages — issue refs in footer only (`Closes #123`)
 - No emojis in commit messages
-- Never merge `main` into a feature branch — always rebase (`git rebase origin/main`)
-- Use `--force-with-lease` when pushing after a rebase, never bare `--force`
-- `Assisted-by: ToolName/model-id` for AI attribution — never `Co-Authored-By:` for AI tools
+- Always rebase (`git rebase origin/main`), never merge main into feature branches
+- `Assisted-by: Claude/claude-sonnet-4-6` for AI — never `Co-Authored-By:` for AI
+- Every commit needs `Signed-off-by: Oscar Gómez Manresa <ogomezmanresa@gmail.com>`
 
-**PR title (enforced by CI — `conventional-commit` check):**
-- Format: `<type>: <subject>` — total length ≤ 72 characters including the prefix
-- `type` MUST be exactly one of: `feat` `fix` `refactor` `docs` `test` `ci` `chore`
-- **Any other prefix is rejected by CI.** Common mistakes to avoid:
-  - ✗ `spec:` → use `docs:` (spec changes are documentation)
-  - ✗ `proto:` → use `feat:` (new RPC) or `chore:` (stub regen) or `fix:`
-  - ✗ `service:` → use `feat:` (new service) or `fix:` or `refactor:`
-  - ✗ `make:` → use `chore:` (Makefile/tooling changes)
-  - ✗ `adr:` → use `docs:` (ADR files are documentation)
-- The subject is the part after `type: ` — with a 6-character prefix (`feat: `) you
-  have **66 characters** for the subject; longer prefixes leave even less room
-- Long service names eat budget fast — count before you title:
-  `feat: define AgentRegistryService proto` = 42 chars ✓
-  `feat: define AgentRegistryService proto — registration and capability discovery` = 80 chars ✗
-- The PR title becomes the squash commit subject on merge — apply the same
-  72-character discipline as you would for any commit subject line
-- Scope is optional and costs characters: `fix(ci):` = 8 chars vs `fix:` = 5 chars
+**PR title (CI-enforced `conventional-commit` check):**
+- Format: `<type>: <subject>` · total ≤ 72 characters
+- Valid types: `feat` `fix` `refactor` `docs` `test` `ci` `chore`
+- Rejected: `spec:` `proto:` `adr:` `service:` `make:` `security:`
+- Use `docs:` for spec/ADR changes · `chore:` for Makefile/tooling
 
 **Go services:**
-- Never `panic` in production code paths
-- Never discard errors (`_ = f()`) — wrap all errors with `fmt.Errorf("context: %w", err)`
+- Never `panic` in production · never discard errors (`_ = f()`)
 - Never import from another service's `internal/`
 - Never hardcode engine names — always behind an interface
-- Never expose credentials, tokens, or auth URLs in logs or structured output
-- Never disable TLS verification — it must be on by default
-- Never use shell execution (`exec.Command`) for git, kubectl, helm — use Go libraries
+- Never disable TLS verification
 - Close HTTP response bodies, file handles, and archive readers via `defer`
-- Delete temporary files on all code paths — success and error alike
-- Machine-readable output → `stdout`; human-readable status messages → `stderr`
+- `GOWORK=off` for all `go test` and `go` commands inside service directories
 
 **Python agents/adapters:**
 - Never call platform services via HTTP — only gRPC stubs
 - Never instantiate platform clients in Runtime — use `context.*`
 - Never require SDK adoption — adapters work without it
 - Never hardcode LLM model names — env var always
-- Never expose credentials or auth tokens in logs
-- Close all I/O resources (HTTP clients, file handles, streams) in `finally` blocks or via context managers
+- Close all I/O resources in `finally` blocks or context managers
 
 ---
 
-## Common AI Mistakes
+## AI Anti-patterns
 
-Mistakes observed in AI-assisted contributions to this repo. Consult before writing any code.
+Observed mistakes in AI-assisted contributions — check before writing code.
 
-| Mistake | Why it fails | Correct approach |
-|---------|-------------|-----------------|
-| Using `spec:`, `proto:`, `adr:`, `service:`, `make:`, `security:` as PR/commit type prefix | CI `conventional-commit` check rejects anything outside `feat fix refactor docs test ci chore` | Use `docs:` for specs/ADRs, `feat:`/`chore:` for proto, `chore:` for Makefile |
-| Running `go test ./...` inside `services/*/` or `protos/tests/` without `GOWORK=off` | `go.work` lists modules that don't exist yet; resolution fails with an unrelated error | Always: `GOWORK=off go test ./...` (ADR-017) |
-| Importing a domain type from one service into another | Breaks service isolation; two services cannot share an `internal/` package | Cross-service data flows through gRPC — define the message in proto, never share Go types |
-| Editing `protos/generated/` by hand | Generated files are overwritten by `make generate-protos`; edits are silently lost | Edit `.proto` source files, then run `make generate-protos` and commit the output |
-| Writing Python code inside `services/` | Platform services are Go only (ADR-009) | Python lives exclusively in `agents/`; use gRPC stubs to call services |
-| Adding `Co-Authored-By: Claude …` to commits | DCO bot treats it as a human certifying the Developer Certificate of Origin — AI cannot do this | Use `Assisted-by: Claude/claude-sonnet-4-6` (no angle brackets, no @) |
-| Omitting `Signed-off-by:` from a commit | DCO gate blocks merge | Every commit needs `Signed-off-by: Oscar Gómez Manresa <ogomezmanresa@gmail.com>` |
-| Adding a new gRPC method without a `.feature` file first | CI `bdd-first` gate enforces the feature-before-code contract (ADR-016) | Write and commit the `.feature` file, get it CI-green, then implement |
-| Adding `panic` in production code paths | A single unrecovered panic kills the entire service process | Return a gRPC status error; let the framework handle transport-level failures |
-| Hardcoding engine names (`"temporal"`, `"langgraph"`) in business logic | Breaks the pluggable engine contract (ADR-015) | Route through an engine interface; the string lives only in config |
-| Disabling TLS verification (`InsecureSkipVerify: true`) | Silently exposes all traffic to MITM attacks | TLS must be on by default; use test-only `credentials/insecure` only in bufconn tests |
-| Calling a platform service via HTTP instead of gRPC | Bypasses the contract layer; no protobuf type safety | Generate gRPC stubs with `make generate-protos`, import and use the Go client |
+| Anti-pattern | Correct approach |
+|--------------|-----------------|
+| `spec:` / `proto:` / `adr:` / `service:` / `make:` as PR type | Use `docs:` for specs/ADRs, `feat:` or `chore:` for proto, `chore:` for Makefile |
+| `go test ./...` without `GOWORK=off` in any service or `protos/tests/` | `GOWORK=off go test ./...` — every invocation, no exceptions (ADR-017) |
+| Importing a domain type from one service into another | Cross-service data flows through gRPC only — define the message in proto |
+| Editing `protos/generated/` by hand | Edit `.proto` sources, then `make generate-protos` |
+| Python code inside `services/` | Python lives only in `agents/` (ADR-009) |
+| `Co-Authored-By: Claude …` in commits | Use `Assisted-by: Claude/claude-sonnet-4-6` |
+| Omitting `Signed-off-by:` | DCO gate blocks merge |
+| New gRPC method without a `.feature` file first | Write and commit `.feature` first (ADR-016) |
+| `panic` in production code paths | Return a gRPC status error |
+| Hardcoding engine names in business logic | Route through an engine interface (ADR-015) |
+| `InsecureSkipVerify: true` in production | TLS on by default; use bufconn in tests only |
+| Calling a platform service via HTTP instead of gRPC | Generate stubs with `make generate-protos` |
+| Multi-line commit message with zero-indented lines in `run: \|` YAML | Use `printf` with `\n` escape sequences instead |
 
 ---
 
-*Zynax — The control plane for AI-driven systems*
-*Apache 2.0 · CNCF Sandbox Candidate*
+## Knowledge Base Index
+
+| What you need | Where to look |
+|--------------|---------------|
+| Go service templates (bootstrap, domain, repo, API, Dockerfile) | `docs/patterns/go-service-patterns.md` |
+| Python agent options A–D, config, testing, BDD template | `docs/patterns/python-agent-guide.md` |
+| Multi-language proto consuming guide | `docs/patterns/proto-interop.md` |
+| BDD contract testing (bufconn, godog, two-file split) | `docs/patterns/bdd-contract-testing.md` |
+| Helm chart templates (Deployment, HPA, NetworkPolicy, PDB) | `docs/patterns/helm-charts.md` |
+| Architecture Decision Records | `docs/adr/INDEX.md` |
+| Current milestone and active PRs | `state/current-milestone.md` |
+| Per-layer rules | `services/AGENTS.md` · `agents/AGENTS.md` · `protos/AGENTS.md` · `spec/AGENTS.md` · `infra/AGENTS.md` |
+
+---
+
+*Zynax — The control plane for AI-driven systems · Apache 2.0 · CNCF Sandbox Candidate*
