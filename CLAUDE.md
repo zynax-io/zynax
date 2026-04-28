@@ -9,16 +9,17 @@ any layer.
 | Milestone | Status | Version | Review |
 |-----------|--------|---------|--------|
 | M1 — Contracts Foundation | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
-| M2 — Workflow IR | **In progress** | v0.1.0 | Epic #101 |
+| M2 — Workflow IR | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
 | M3 — Temporal Execution | Not started | v0.2.0 | — |
 | M4 — YAML System + CLI | Not started | v0.3.0 | — |
 
 M1 delivered: 8 gRPC contracts, AsyncAPI spec, JSON schemas, Go + Python generated stubs,
 140+ BDD scenarios across all services, 5 CI gates. All work tracked in Epic #1 (closed).
 
-M2 progress: workflow-compiler bootstrap (#82), domain types + YAML parser (#83 part 1),
-WorkflowGraph builder (#83 part 2). Remaining: structural validators (#84), semantic
-validators (#85), IR serialization (#86), gRPC API layer (#87).
+M2 delivered: YAML parser + WorkflowGraph builder (#83), structural validators (#84),
+semantic validators (#85), WorkflowGraph → WorkflowIR serialization (#86), gRPC API
+layer with CompileWorkflow / ValidateManifest / GetCompiledWorkflow (#87), BDD contract
+steps (#154), coverage gate ≥90% + make test pipeline (#155, #142).
 
 ## Key pointers
 
@@ -38,15 +39,57 @@ validators (#85), IR serialization (#86), gRPC API layer (#87).
 Every commit **must** carry both trailers or the DCO check fails:
 
 ```
-Signed-off-by: Your Name <your@email.com>
+Signed-off-by: Oscar Gómez Manresa <ogomezmanresa@gmail.com>
 Assisted-by: Claude/claude-sonnet-4-6
 ```
 
-- `Signed-off-by` — required by the DCO gate on every commit, human or AI-assisted.
+- `Signed-off-by` — the **human author's** DCO certification. AI cannot certify DCO.
 - `Assisted-by` — records AI involvement; use the exact model ID from the session.
 - **Never** use `Co-Authored-By:` for AI — reserved for humans certifying DCO.
 - **Never** add `🤖 Generated with [Claude Code]` lines to commit messages.
 - See `docs/ai-assistant-setup.md` and `CONTRIBUTING.md §AI Contribution`.
+
+## Conventional commit scope rules
+
+PR titles and commit subjects must use a valid type. Scope is optional but recommended.
+
+| Type | When to use |
+|------|-------------|
+| `feat` | New capability visible to users or callers |
+| `fix` | Bug fix |
+| `docs` | `AGENTS.md`, `README`, ADR, or any documentation-only change |
+| `ci` | GitHub Actions workflows, Makefile CI targets |
+| `chore` | Dependency updates, tooling, housekeeping |
+| `refactor` | Code restructuring with no behaviour change |
+| `test` | Test-only changes |
+
+| Scope | Maps to |
+|-------|---------|
+| `(workflow-compiler)` | `services/workflow-compiler/` |
+| `(agent-registry)` | `services/agent-registry/` and other named services |
+| `(protos)` | `protos/` — proto or generated stub changes |
+| `(spec)` | `spec/` — YAML schemas or example manifests |
+| `(infra)` | `infra/`, Docker, Helm |
+| `(agents)` | `agents/` — Python adapters or SDK |
+| `(ci)` | Omit scope when type is already `ci` |
+| `(docs)` | Omit scope when type is already `docs` |
+
+Rejected prefixes (CI will fail): `spec:`, `proto:`, `adr:`, `service:`, `security:`, `make:`.
+
+## PR size quick-reference
+
+| Lines changed | Status |
+|--------------|--------|
+| ≤ 200 | Ideal |
+| 201–400 | Acceptable — no explanation needed |
+| 401–900 | Justify in PR description why it cannot be split |
+| > 900 | **Blocked** — decompose before opening PR |
+
+Exclusions from the count: generated stubs (`*.pb.go`, `*_pb2.py`), lock files,
+CI workflow files (`.github/workflows/`), schema fixtures.
+
+Split strategy: one commit per logical change; one PR per issue or tightly related
+issue group. Never squash unrelated work.
 
 ## Development workflow
 
