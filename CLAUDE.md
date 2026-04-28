@@ -33,6 +33,8 @@ steps (#154), coverage gate ≥90% + make test pipeline (#155, #142).
 | `infra/` | Docker, env var conventions |
 | `docs/adr/INDEX.md` | Searchable ADR register — check here before proposing a design change |
 | `docs/architecture/` | Architecture reviews, competitive analysis |
+| `docs/patterns/` | Code templates: Go service, Python agent, proto interop, BDD, Helm |
+| `state/current-milestone.md` | Active milestone, open PRs, known blockers |
 
 ## AI attribution
 

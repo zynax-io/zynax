@@ -1,10 +1,8 @@
-# spec/ — AGENTS.md
+# spec/ — Engineering Contract
 
-> The `spec/` directory contains the **declarative intent layer** of Zynax.
-> This is Layer 1 of the three-layer model. See `ARCHITECTURE.md §2`.
->
-> Everything in this directory is YAML. There is no Go or Python here.
-> YAML in `spec/` is never imported by code — it is compiled by the Workflow Compiler.
+> The `spec/` directory is **Layer 1 — Intent** of the three-layer model.
+> Everything here is YAML. No Go or Python. YAML in `spec/` is never imported
+> by code — it is compiled by the Workflow Compiler.
 
 ---
 
@@ -12,12 +10,14 @@
 
 ```
 spec/
-├── schemas/                  ← JSON Schema definitions for all manifest kinds
-│   ├── workflow.schema.json  ← Validates Workflow manifests
-│   ├── agent-def.schema.json ← Validates AgentDef manifests
-│   ├── policy.schema.json    ← Validates Policy manifests
-│   └── routing-rule.schema.json
-└── workflows/examples/       ← Reference YAML manifests
+├── schemas/                      ← JSON Schema for all manifest kinds
+│   ├── workflow.schema.json
+│   ├── agent-def.schema.json
+│   ├── policy.schema.json
+│   └── capability.schema.json
+├── asyncapi/
+│   └── zynax-events.yaml         ← All 11 async event channels
+└── workflows/examples/           ← Reference YAML manifests
     ├── code-review.yaml
     ├── ci-pipeline.yaml
     └── research-task.yaml
@@ -25,230 +25,43 @@ spec/
 
 ---
 
-## Manifest Kinds
-
-### Workflow
-Defines an event-driven state machine. The primary user-facing primitive.
-
-```yaml
-kind: Workflow
-apiVersion: zynax.io/v1
-
-metadata:
-  name: code-review-workflow
-  namespace: engineering
-  labels:
-    team: platform
-    tier: production
-
-spec:
-  # The state the workflow enters when submitted
-  initial_state: review
-
-  # Optional: events that trigger this workflow automatically
-  triggers:
-    - event: github.pull_request.opened
-      filter:
-        repo: "zynax/zynax"
-
-  states:
-    review:
-      # Actions are capability invocations — never agent names
-      actions:
-        - capability: request_review
-          input:
-            pr_url: "{{ .event.pr_url }}"
-          timeout: 24h
-      on:
-        - event: review.approved
-          goto: merge
-        - event: review.changes_requested
-          goto: fix
-        - event: review.timeout
-          goto: escalate
-          guard: "{{ .attempts }} < 3"
-
-    fix:
-      actions:
-        - capability: summarize_feedback
-          input:
-            feedback: "{{ .event.comments }}"
-      on:
-        - event: push
-          goto: review
-
-    merge:
-      actions:
-        - capability: merge_pr
-      on:
-        - event: merge.success
-          goto: done
-        - event: merge.conflict
-          goto: fix
-
-    escalate:
-      type: human_in_the_loop      # Pauses until a human signals continuation
-      actions:
-        - capability: notify_human
-          input:
-            message: "Review timeout — needs human intervention"
-
-    done:
-      type: terminal
-```
-
-### AgentDef
-Declares a capability provider — an agent or adapter.
-Does NOT describe how the capability runs — only what it can do.
-
-```yaml
-kind: AgentDef
-apiVersion: zynax.io/v1
-
-metadata:
-  name: summarizer-agent
-  namespace: engineering
-
-spec:
-  # The gRPC endpoint this agent/adapter listens on
-  endpoint: "summarizer-agent:50060"
-
-  # Declared capabilities — these are registered in agent-registry
-  capabilities:
-    - name: summarize
-      description: "Summarise one or more documents into a concise paragraph."
-      input_schema:
-        type: object
-        properties:
-          documents:
-            type: array
-            items:
-              type: string
-        required: [documents]
-      output_schema:
-        type: object
-        properties:
-          summary:
-            type: string
-
-    - name: extract_keywords
-      description: "Extract key topics from a document."
-      input_schema:
-        type: object
-        properties:
-          document: { type: string }
-        required: [document]
-      output_schema:
-        type: object
-        properties:
-          keywords:
-            type: array
-            items: { type: string }
-
-  # Optional: runtime hints for the scheduler
-  resources:
-    replicas: 2
-    cpu: "500m"
-    memory: "512Mi"
-```
-
-### Policy
-Routing and scheduling policies for capability dispatch.
-
-```yaml
-kind: Policy
-apiVersion: zynax.io/v1
-
-metadata:
-  name: summarize-routing-policy
-
-spec:
-  capability: summarize
-
-  # Strategy: round_robin | least_loaded | affinity | priority
-  strategy: affinity
-
-  # Prefer the agent that last handled a task from the same workflow
-  affinity:
-    prefer_same_workflow: true
-
-  # Fallback if preferred agent is unavailable
-  fallback: round_robin
-
-  # SLA
-  timeout: 30s
-  max_retries: 3
-  retry_backoff: exponential
-```
-
----
-
 ## YAML Authoring Rules
 
-1. **Always include `kind` and `apiVersion`** — required for schema validation.
-2. **Always include `metadata.name` and `metadata.namespace`** — namespaces are mandatory.
-3. **Capabilities are lowercase, hyphenated** — `request_review`, not `RequestReview`.
+1. Always include `kind` and `apiVersion` — required for schema validation.
+2. Always include `metadata.name` and `metadata.namespace`.
+3. Capabilities are `snake_case` — `request_review`, not `RequestReview`.
 4. **Never reference agent names** — only capability names. Routing is the platform's job.
-5. **State names are lowercase, descriptive** — `review`, `fix`, `merge`, not `s1`, `s2`.
-6. **Use `{{ .event.field }}` for input templates** — Jinja2-style, evaluated by compiler.
-7. **Terminal states must be declared** — at least one state of `type: terminal` required.
-8. **Validate locally before applying** — `make validate-spec` runs JSON Schema validation.
+5. State names are lowercase, descriptive — `review`, `fix`, not `s1`, `s2`.
+6. Use `{{ .event.field }}` for input templates (Jinja2-style, evaluated by compiler).
+7. At least one state must have `type: terminal`.
+8. Validate locally before applying: `make validate-spec`.
 
 ---
 
-## Event Type Versioning
+## AsyncAPI Event Versioning
 
-All async events are declared in `spec/asyncapi/zynax-events.yaml`.
-Follow these rules when adding or changing event types.
-
-### Channel naming
-
-Channels follow `<domain>.<resource>.<action>` (e.g. `zynax.workflow.started`).
-Channel names are **stable addresses** — they do not carry version numbers by default.
-
-### Non-breaking changes (safe, no rename)
-
+### Non-breaking changes (safe)
 Adding optional fields to the CloudEvent `data` payload is non-breaking.
-Consumers MUST ignore unknown fields (standard CloudEvents contract).
+Consumers MUST ignore unknown fields.
 
-### Breaking changes (field removal, rename, type change, semantic change)
+### Breaking changes (field removal, rename, type change)
+1. Create a new channel with `.v2` suffix: `zynax.workflow.started.v2`
+2. Mark the old channel deprecated in the AsyncAPI spec (`x-zynax-deprecated: true`)
+3. Publish to both channels for one full milestone (deprecation period)
+4. Remove the old channel at the start of the next milestone
 
-1. Create a **new channel** with a `.v2` suffix: `zynax.workflow.started.v2`
-2. Mark the old channel deprecated in the AsyncAPI spec:
-   ```yaml
-   zynax.workflow.started:
-     x-zynax-deprecated: true
-     x-zynax-removal-milestone: M4
-   ```
-3. Publish to **both** channels for exactly one full milestone (the deprecation period).
-4. Remove the old channel at the start of the milestone after the deprecation period.
-
-### Schema version extension attribute
-
-Every CloudEvent published by Zynax MUST include the `zynaxschemarev` extension
-attribute so consumers can detect schema drift without inspecting channel names:
-
-```
-zynaxschemarev: "workflow/started@v1"
-```
-
-Format: `<domain>/<resource>/<action>@v<N>` — increment `N` on every breaking change.
-
-All channels in this file are currently at `v1`.
+Every CloudEvent MUST include the `zynaxschemarev` extension:
+`zynaxschemarev: "workflow/started@v1"` — increment `N` on every breaking change.
 
 ---
 
-## Validation
+## Validation Commands
 
 ```bash
-# Validate all manifests in spec/ against their JSON Schemas
-make validate-spec
-
-# Validate a single file
-make validate-spec FILE=spec/workflows/examples/code-review.yaml
-
-# Dry-run a workflow (compile to WorkflowIR without executing)
-make dry-run WORKFLOW=spec/workflows/examples/code-review.yaml
+make validate-spec             # validate all specs (AsyncAPI + all schemas)
+make validate-asyncapi         # validate AsyncAPI spec only
+make validate-workflow-schema  # validate Workflow manifests only
+make dry-run FILE=spec/workflows/examples/code-review.yaml
 ```
 
 CI blocks merge if any `.yaml` in `spec/` fails schema validation.
