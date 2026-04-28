@@ -213,9 +213,10 @@ validate-policy-schema: ## Validate Policy manifests in spec/workflows/examples/
 	@echo "✅ Policy schemas valid"
 
 validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)
+	# renovate: datasource=docker depName=asyncapi/cli
 	docker run --rm \
 		-v "$(PWD)/spec":/spec \
-		asyncapi/cli:latest \
+		asyncapi/cli:6.0.0 \
 		validate /spec/asyncapi/zynax-events.yaml
 	@echo "✅ AsyncAPI spec valid"
 
