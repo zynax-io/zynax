@@ -18,6 +18,7 @@
 /docs/ai-assistant-setup.md     @zynax-io/maintainers
 /.ai/                           @zynax-io/maintainers
 /.claude/                       @zynax-io/maintainers
+/docs/knowledge-base-policy.md  @zynax-io/maintainers
 /services/agent-registry/       @zynax-io/maintainers
 /services/task-broker/          @zynax-io/maintainers
 /services/memory-service/       @zynax-io/maintainers

@@ -206,3 +206,13 @@ validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI 
 dry-run: build-tools ## Dry-run a workflow: make dry-run FILE=spec/workflows/examples/code-review.yaml
 	@test -n "$(FILE)" || (echo "Usage: make dry-run FILE=<path>" && exit 1)
 	$(TOOLS_RUN) sh -c "keel apply --dry-run $(FILE)"
+
+# ── AI knowledge base ──────────────────────────────────────────────────────────
+.PHONY: preview-kb-changes
+preview-kb-changes: ## Preview KB additions before pushing (local dry-run, mirrors CI kb-preview.yml)
+	@git diff --diff-filter=AM HEAD -- \
+		CLAUDE.md AGENTS.md '*/AGENTS.md' \
+		'docs/ai-assistant-setup.md' 'docs/knowledge-base-policy.md' \
+		'.ai/**' '.claude/**' \
+		| grep '^+' | grep -v '^+++' | sed 's/^+//' \
+	  && echo "── review the output above against docs/knowledge-base-policy.md before pushing"

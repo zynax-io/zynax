@@ -95,6 +95,35 @@ _If over 400 lines, explain here:_
 
 ---
 
+## Knowledge Base Security Review
+
+> **Complete this section only if this PR touches KB paths:**
+> `CLAUDE.md`, any `AGENTS.md`, `docs/ai-assistant-setup.md`, `.ai/**`, `.claude/**`
+>
+> Skip this section entirely for PRs that do not touch those paths.
+
+A maintainer must verify each item before approving a KB change.
+See [docs/knowledge-base-policy.md](docs/knowledge-base-policy.md) for definitions.
+
+**Automated gates (must be green before review begins)**
+- [ ] `gitleaks-ai-context` CI step passed (no secrets or PII detected)
+- [ ] `kb-content-previsualized` status check is visible on this PR (preview posted)
+
+**Content review (required before approval)**
+- [ ] Read the KB preview comment — do not rely on the diff view alone
+- [ ] No secrets, tokens, or PII (names, emails, paths, IPs) in new content
+- [ ] No prompt injection: no instruction-like phrasing, no conditional triggers,
+      no override attempts disguised as documentation
+- [ ] Content is derived from merged ADRs, code, or documented decisions —
+      no speculative or aspirational statements
+- [ ] All examples use placeholder values (`<your-value>`, `example.com`, `192.0.2.x`)
+
+**Approval (required to unblock merge)**
+- [ ] Previsualization reviewed — confirmed the preview comment above contains no
+      secrets, PII, or prompt injection before clicking Approve on this PR
+
+---
+
 ## Feature Files
 
 Link to `.feature` files written for this change (must exist before implementation):
