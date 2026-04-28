@@ -18,7 +18,7 @@
 #   protoc-gen-go       v1.36.5
 #   protoc-gen-go-grpc  v1.5.1
 #   govulncheck         latest stable from golang.org/x/vuln
-#   mockery             v2.43.0
+#   mockery             v2.53.6
 #   migrate             v4.17.1
 #   grpc-health-probe   v0.4.26
 #   uv                  0.5.10
@@ -49,7 +49,7 @@ RUN go install github.com/cucumber/godog/cmd/godog@v0.14.1
 
 # mockery — Go interface mock generator
 # renovate: datasource=github-releases depName=vektra/mockery
-RUN go install github.com/vektra/mockery/v2@v2.43.0
+RUN go install github.com/vektra/mockery/v2@v2.53.6
 
 # migrate — DB schema migrations (postgres driver)
 # renovate: datasource=github-releases depName=golang-migrate/migrate
