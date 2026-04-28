@@ -1,10 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """BDD step definitions for agent_service.feature."""
 import json
-import time
 
 import grpc
-import pytest
 from pytest_bdd import scenarios, given, when, then, parsers
 
 import sys, os
@@ -96,12 +94,13 @@ def _req_for_cap(cap, ctx):
     ctx.req = _make_req(capability_name=cap)
 
 
-@given(parsers.parse('an ExecuteCapabilityRequest with capability_name set to "{val}"'))
+# Use re parser so empty strings are matched (parsers.parse skips empty {val})
+@given(parsers.re(r'an ExecuteCapabilityRequest with capability_name set to "(?P<val>[^"]*)"'))
 def _req_empty_cap(val, ctx):
     ctx.req = _make_req(capability_name=val)
 
 
-@given(parsers.parse('an ExecuteCapabilityRequest with task_id set to "{val}"'))
+@given(parsers.re(r'an ExecuteCapabilityRequest with task_id set to "(?P<val>[^"]*)"'))
 def _req_empty_task_id(val, ctx):
     ctx.req = _make_req(task_id=val)
 
@@ -111,7 +110,7 @@ def _req_bad_payload(val, ctx):
     ctx.req = _make_req(input_payload=val.encode())
 
 
-@given(parsers.parse('a GetCapabilitySchemaRequest with capability_name set to "{val}"'))
+@given(parsers.re(r'a GetCapabilitySchemaRequest with capability_name set to "(?P<val>[^"]*)"'))
 def _schema_req_empty(val, ctx):
     ctx.schema_cap = val
 
@@ -164,7 +163,15 @@ def _at_least_one_progress(etype, ctx):
         f"No {etype} event in {[e.event_type for e in ctx.events]}"
 
 
-@then(parsers.parse("the final TaskEvent has event_type {etype}"))
+# Must be defined BEFORE the generic {etype} step — first match wins in pytest-bdd
+@then("the final TaskEvent has event_type COMPLETED or FAILED")
+def _final_is_terminal(ctx):
+    assert ctx.events
+    terminal = {agent_pb2.TASK_EVENT_TYPE_COMPLETED, agent_pb2.TASK_EVENT_TYPE_FAILED}
+    assert ctx.events[-1].event_type in terminal
+
+
+@then(parsers.re(r"the final TaskEvent has event_type (?P<etype>COMPLETED|FAILED|PROGRESS)"))
 def _final_event_type(etype, ctx):
     code = getattr(agent_pb2, f"TASK_EVENT_TYPE_{etype}")
     assert ctx.events, "No events received"
@@ -249,13 +256,6 @@ def _no_event_after_first_failed(ctx):
 @then("no TaskEvent is emitted")
 def _no_events(ctx):
     assert ctx.events == [], f"Expected no events, got {ctx.events}"
-
-
-@then("the final TaskEvent has event_type COMPLETED or FAILED")
-def _final_is_terminal(ctx):
-    assert ctx.events
-    terminal = {agent_pb2.TASK_EVENT_TYPE_COMPLETED, agent_pb2.TASK_EVENT_TYPE_FAILED}
-    assert ctx.events[-1].event_type in terminal
 
 
 # ── Then steps — gRPC status ──────────────────────────────────────────────────

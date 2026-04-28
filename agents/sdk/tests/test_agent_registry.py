@@ -121,7 +121,7 @@ def _list_agents_page1(ps, ctx):
     ctx.page_token = resp.next_page_token
 
 
-@given(parsers.parse('a RegisterAgentRequest with agent_id set to "{val}"'))
+@given(parsers.re(r'a RegisterAgentRequest with agent_id set to "(?P<val>[^"]*)"'))
 def _register_req_empty_agent_id(val, ctx):
     ctx.custom_register_req = agent_registry_pb2.RegisterAgentRequest(
         agent=agent_registry_pb2.AgentDef(
@@ -131,7 +131,7 @@ def _register_req_empty_agent_id(val, ctx):
     )
 
 
-@given(parsers.parse('a RegisterAgentRequest with endpoint set to "{val}"'))
+@given(parsers.re(r'a RegisterAgentRequest with endpoint set to "(?P<val>[^"]*)"'))
 def _register_req_empty_endpoint(val, ctx):
     ctx.custom_register_req = agent_registry_pb2.RegisterAgentRequest(
         agent=agent_registry_pb2.AgentDef(
@@ -174,12 +174,12 @@ def _register_req_bad_output_schema(val, ctx):
     )
 
 
-@given(parsers.parse('a FindByCapabilityRequest with capability_name set to "{val}"'))
+@given(parsers.re(r'a FindByCapabilityRequest with capability_name set to "(?P<val>[^"]*)"'))
 def _find_req_empty_cap(val, ctx):
     ctx.find_cap_name = val
 
 
-@given(parsers.parse('a GetAgentRequest with agent_id set to "{val}"'))
+@given(parsers.re(r'a GetAgentRequest with agent_id set to "(?P<val>[^"]*)"'))
 def _get_agent_req_empty(val, ctx):
     ctx.get_agent_id = val
 

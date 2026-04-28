@@ -51,11 +51,9 @@ def agent_registry_channel(agent_registry_impl):
 
 
 @pytest.fixture(autouse=True)
-def clear_registry(request, agent_registry_impl):
-    """Clear the in-memory registry before each test (skipped if fixture not used)."""
-    # Only clear if the test actually uses the registry channel
-    if "agent_registry_channel" in request.fixturenames:
-        agent_registry_impl.clear()
+def clear_registry(agent_registry_impl):
+    """Clear the in-memory registry before each test."""
+    agent_registry_impl.clear()
 
 
 @pytest.fixture
