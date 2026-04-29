@@ -29,7 +29,7 @@ services:
       retries: 10
 
   redis-test:
-    image: redis:7-alpine
+    image: redis:8-alpine
     networks: [test-net]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
