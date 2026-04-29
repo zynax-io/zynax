@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/prometheus/client_golang v1.19.0
+	github.com/prometheus/client_golang v1.23.2
 	github.com/zynax-io/zynax/protos/generated/go v0.0.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.51.0
 	google.golang.org/grpc v1.79.3
