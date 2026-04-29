@@ -1,0 +1,81 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "baseBranches": ["main"],
+  "labels": ["chore", "dependencies"],
+  "reviewers": ["ogomezmanresa"],
+  "prConcurrentLimit": 5,
+  "commitMessagePrefix": "",
+  "packageRules": [
+    {
+      "description": "Go services and proto modules — weekly PRs, automerge patch",
+      "groupName": "go-services",
+      "matchManagers": ["gomod"],
+      "matchFileNames": [
+        "services/**/go.mod",
+        "protos/**/go.mod"
+      ],
+      "schedule": ["every weekend"],
+      "commitMessageTopic": "{{depName}}",
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "deps",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["patch"]
+    },
+    {
+      "description": "Python agents and SDK — weekly PRs, automerge patch",
+      "groupName": "python-agents",
+      "matchManagers": ["pep621", "pip_requirements"],
+      "matchFileNames": [
+        "agents/**/pyproject.toml"
+      ],
+      "schedule": ["every weekend"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "deps",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["patch"]
+    },
+    {
+      "description": "Docker base images — monthly PRs, no automerge",
+      "groupName": "docker-images",
+      "matchManagers": ["dockerfile"],
+      "schedule": ["on the first day of the month"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "infra",
+      "automerge": false
+    },
+    {
+      "description": "GitHub Actions — monthly PRs, pin to digest (SHA), no automerge",
+      "groupName": "github-actions",
+      "matchManagers": ["github-actions"],
+      "schedule": ["on the first day of the month"],
+      "semanticCommitType": "ci",
+      "pinDigests": true,
+      "automerge": false
+    },
+    {
+      "description": "gRPC ecosystem — group minor+major Go gRPC updates together",
+      "groupName": "grpc-go",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": [
+        "google.golang.org/grpc",
+        "google.golang.org/protobuf",
+        "github.com/bufbuild/buf"
+      ],
+      "schedule": ["every weekend"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "deps",
+      "automerge": false
+    },
+    {
+      "description": "Ignore pre-release versions for buf and grpc-go",
+      "matchPackageNames": [
+        "github.com/bufbuild/buf",
+        "google.golang.org/grpc"
+      ],
+      "ignorePrerelease": true
+    }
+  ]
+}
