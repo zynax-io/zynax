@@ -147,253 +147,60 @@ previous), use `Stacked on #NNN` in the PR description.
 
 ## 7. Layered Testing Strategy
 
-Zynax uses a four-tier testing pyramid (ADR-016). Apply the right tier for the
-scope of the code you are writing — not every change needs a BDD scenario.
-
-### Which tier to use
+Zynax uses a four-tier testing pyramid (ADR-016).
 
 | Tier | When to use | Tools |
 |------|-------------|-------|
 | **BDD** | Agent contracts, inter-service gRPC, E2E workflows | pytest-bdd, godog |
-| **Unit / property-based** | Domain logic, routing, state transitions, message handling | pytest + hypothesis, testing + rapid |
+| **Unit / property-based** | Domain logic, routing, state transitions | pytest + hypothesis, testing + rapid |
 | **Contract** | Any proto or schema change | `buf breaking`, `make validate-spec` |
 | **Simulation** | Fault injection, retry storms, topology changes | testcontainers harness (coming) |
 
-### Tier 1: BDD — system boundaries only
-
-Use BDD when the behaviour you are defining is observable at a service boundary:
-a gRPC contract, a capability execution path, or a full workflow end-to-end.
-
-**Do NOT use BDD for** internal domain logic, scheduling algorithms, networking
-internals, or performance characteristics. Use unit or property-based tests instead.
-
-**BDD-first flow (required when BDD applies):**
-
-```
-1. Write .feature file  →  2. Commit it  →  3. Write step definitions  →  4. Write domain code  →  5. Pass
-```
-
-Commit the `.feature` file alone, before any implementation:
-
-```gherkin
-# services/agent-registry/tests/features/capability_discovery.feature
-Feature: Capability-based agent discovery
-  As a task-broker
-  I want to find agents by capability
-  So that I can route tasks without knowing agent identities
-
-  Scenario: Find agents that support a capability
-    Given two agents are registered with capability "summarize"
-    And one agent is registered with capability "search"
-    When I query for agents with capability "summarize"
-    Then I receive exactly two agents
-    And none of the agents have only "search" capability
-```
-
-```bash
-git commit -s -m "test(agent-registry): add BDD scenarios for capability discovery
-
-Defines expected behaviour for capability-based agent lookup.
-No implementation yet — scenarios will fail until domain code is added.
-
-Closes #123"
-```
-
-Only after the feature file is committed: write step definitions, then domain code.
-All scenarios must pass before the PR is opened.
-
-### Tier 2: Unit and property-based tests — domain logic
-
-Domain logic (routing algorithms, state transitions, message handlers) is tested
-with standard unit tests and property-based tests. No `.feature` file is required.
-
-Property tests express invariants that hold across the entire input space:
-
-```python
-# Python — hypothesis
-from hypothesis import given, strategies as st
-
-@given(st.lists(st.builds(Agent), min_size=1))
-def test_task_always_assigned(agents):
-    result = route_task(agents, task_id="t1")
-    assert result is not None
-```
-
-```go
-// Go — rapid
-func TestRoutingAlwaysAssigns(t *testing.T) {
-    rapid.Check(t, func(tc *rapid.T) {
-        agents := rapid.SliceOfN(genAgent(), 1, 10).Draw(tc, "agents").([]*Agent)
-        result, err := RouteTask(agents, "task-1")
-        require.NoError(t, err)
-        require.NotNil(t, result)
-    })
-}
-```
-
-### Tier 3: Contract tests — enforced by CI
-
-Every PR that touches `.proto` files must pass `buf breaking --against main`.
-Every PR that modifies YAML schemas must pass `make validate-spec`.
-These run automatically — no action needed beyond keeping them green.
-
-### Tier 4: Simulation tests — distributed faults
-
-For scenarios that require multiple agents, injected failures, or message
-drops, use the simulation harness in `tests/simulation/` (introduced in a
-follow-up PR). Write simulation tests for: retry storms, agent timeouts,
-topology changes, eventual consistency violations.
-
-### BDD as an AI prompting tool
-
-When using Claude or another AI assistant, write the `.feature` file first and
-ask the model to generate code that satisfies the scenarios. This forces precise
-behaviour definition before generation and dramatically improves output quality:
-
-```
-Feature: Task distribution
-
-  Scenario: Assign to least-loaded agent
-    Given 3 available agents with loads 2, 5, 1
-    When a task is submitted
-    Then it is assigned to the agent with load 1
-
-  Scenario: Reassign on agent failure
-    Given an agent is assigned a task
-    When the agent becomes unresponsive for 5 seconds
-    Then the task is reassigned to another agent
-```
-
-Then: "Generate production Go code that satisfies these scenarios, including tests."
+**BDD-first rule (required when BDD applies):** commit the `.feature` file before any
+implementation. BDD applies at service boundaries only — not internal domain logic.
+See [`docs/patterns/bdd-contract-testing.md`](docs/patterns/bdd-contract-testing.md).
 
 ---
 
 ## 8. Pull Request Process
 
-### Opening a PR
+1. **Open an issue first** for any non-trivial change. No PR without an issue.
+2. Fork, branch, implement — open PR against `main` using the PR template.
+3. Title must follow Conventional Commits (CI-enforced). Fill all template sections.
+4. Mark **Draft** if in progress; convert to **Ready** only when CI passes locally.
+5. Push fixup commits during review — do not force-push while reviewers are active.
+6. After all approvals: rebase onto `main`, squash, `git push --force-with-lease`.
 
-1. **Open an issue first** for any non-trivial change. Discuss before coding. Do not
-   open a PR for a feature or fix that has no associated issue.
-2. **Fork** the repository and push your branch.
-3. Open a PR against `main` using the PR template.
-4. The PR title must follow Conventional Commits (enforced by CI):
-   ```
-   feat(agent-registry): Add capability-based agent discovery
-   ```
-5. Fill in every section of the PR template. Empty sections block merge.
-6. Mark as **Draft** if the work is in progress or you want early feedback.
-7. Convert to **Ready for Review** only when all CI checks pass locally.
+**Merge requirements:**
+- [ ] All CI checks green (lint, test-unit, test-integration, security, dco)
+- [ ] No unresolved review comments · PR description complete · CHANGELOG updated
 
-### During Review and After Approval
-
-While the PR is open and under review:
-- Push **fixup commits** for each round of feedback — do not amend or rebase while
-  reviewers are actively reading the diff.
-- Do not force-push during review. Reviewers lose their place in the diff.
-
-After all approvals are given and blocking comments are resolved:
-1. Squash and rebase onto the latest `main`:
-   ```bash
-   git fetch origin
-   git rebase -i origin/main --autosquash
-   ```
-2. Push with `--force-with-lease` (never bare `--force`):
-   ```bash
-   git push --force-with-lease
-   ```
-3. The maintainer will squash-merge.
-
-### Review Requirements
-
-**Solo maintainer phase (current):** CI must pass. The maintainer may self-merge
-for non-breaking changes. Breaking changes and proto changes require a 5-day RFC
-comment period before merge. See `GOVERNANCE.md §2`.
-
-**Multi-maintainer phase (once ≥ 2 maintainers exist):**
-
-| Change type | Required approvals |
-|-------------|-------------------|
-| `docs` only | 1 maintainer or reviewer |
-| `test` only | 1 maintainer or reviewer |
-| `fix`, `refactor`, `ci`, `chore` | 1 maintainer |
-| `feat` | 1 maintainer (scales to 2 as team grows) |
-| Proto change | 1 maintainer + `PROTO REVIEWED` label |
-| Breaking change | 1 maintainer + RFC accepted |
-| Governance / AGENTS.md | 5-day comment period + maintainer approval |
-
-### Merge Requirements
-
-All of the following must be true before merge:
-- [ ] All CI checks green (lint, test-unit, test-integration, security)
-- [ ] DCO bot: all commits signed off
-- [ ] Required approvals obtained (see table above)
-- [ ] No unresolved review comments
-- [ ] PR description complete (no empty required sections)
-- [ ] CHANGELOG.md entry added (for user-visible changes)
-
-### Merge Strategy
-
-Zynax uses **squash-and-merge** for feature branches. The squash commit message is
-the PR title (which must be a valid Conventional Commit). Individual commits within
-the PR are for the reviewer's benefit; the main branch history shows one commit per
-PR.
-
-**Exception:** PR chains (stacked PRs) use **rebase-merge** to preserve the
-individual meaningful commits. State this in the PR description.
+**Merge strategy:** squash-and-merge for feature branches; rebase-merge for PR chains.
+Solo maintainer phase: CI must pass; maintainer may self-merge non-breaking changes.
+Breaking and proto changes require a 5-day RFC comment period (see `GOVERNANCE.md §2`).
 
 ---
 
 ## 9. Code Review Etiquette
 
-Good code review is a skill. These rules apply to both authors and reviewers.
+**Authors:** respond to all comments; push fixup commits during review (no amend);
+squash after approval; rebase `main` to keep branches current; no AI-generated replies.
 
-### For Authors
-
-- **Respond to all comments** — even if only `Done` or `Disagree, because...`
-- **Do not resolve other people's comments** — the commenter resolves their own.
-- **Push fixup commits** during review — do not amend or force-push while reviewers
-  are actively reading. Amending mid-review loses the diff context for the reviewer.
-  ```bash
-  git commit -s --fixup HEAD~1
-  ```
-- **Squash after approval**, not before. See §8 "During Review and After Approval".
-- **Keep PRs current** — rebase onto `main` if the branch becomes stale
-  (`git rebase origin/main`). Never merge `main` into your branch.
-- **Be receptive** — review comments improve the code; they are not criticism of you.
-- **Do not use AI tools to respond to maintainer comments** — engage directly and personally.
-
-### For Reviewers
-
-**Use explicit severity prefixes on every comment:**
+**Reviewers:** use explicit severity prefixes:
 
 | Prefix | Meaning | Blocks merge? |
 |--------|---------|--------------|
 | `BLOCKER:` | Must be fixed before merge | Yes |
-| `CONCERN:` | Architecturally significant, needs discussion | Usually yes |
-| `Nit:` | Style or preference, take it or leave it | No |
-| `Question:` | I want to understand, not requesting a change | No |
+| `CONCERN:` | Architecturally significant | Usually yes |
+| `Nit:` | Style or preference | No |
+| `Question:` | Understanding, not a change request | No |
 | `Suggestion:` | Could be better, author decides | No |
 
-**Good reviewer behaviour:**
-- Approve explicitly when satisfied. Do not leave PRs in limbo.
-- Distinguish blocking from non-blocking before submitting your review.
-- Explain the WHY of blockers, not just "change this".
-- Review within **2 business days** of being assigned.
-- If you cannot review in time, say so and suggest another reviewer.
-
-**What to check:**
-1. Does the PR description explain WHY, not just WHAT?
-2. Is the `.feature` file written before the implementation?
-3. Do the commit messages follow the conventions?
-4. Are the layer boundaries respected (domain → no imports from api/infra)?
-5. Is the PR size justified if over 400 lines?
-6. Are new behaviours observable (structured logs, metrics, traces)?
+Approve explicitly when satisfied. Review within 2 business days of assignment.
 
 ---
 
 ## 10. Issue Workflow
-
-### Issue Lifecycle
 
 ```
 [opened] → needs-triage → ready → in-progress → [PR merged] → closed
@@ -401,127 +208,32 @@ Good code review is a skill. These rules apply to both authors and reviewers.
                    needs-design → RFC → ready
 ```
 
-### Triage (maintainers)
+Maintainers triage within 3 business days: assign `type:`, `area:`, `priority:`,
+and `status:` labels. Comment `I'd like to work on this` to claim; wait for assignment.
 
-Maintainers triage new issues within **3 business days**. Triage means:
-- Add `type:` label
-- Add `area:` label
-- Add `priority:` label
-- Add `milestone:` if applicable
-- Remove `status: needs-triage`
-- Add `status: ready` or `status: needs-design`
-
-### Claiming an Issue
-
-1. Comment `I'd like to work on this` on the issue.
-2. A maintainer will assign it to you and add `status: in-progress`.
-3. Do not open a PR without being assigned — parallel work creates waste.
-4. If you cannot continue, comment and unassign yourself so others can pick it up.
-
-### Issue Quality Bar
-
-Issues are the permanent record of why changes were made. Write them for
-a reader who has no context — including yourself in 6 months.
-
-A good issue has:
-- **Problem statement** — what is broken or missing, with evidence
-- **Expected behaviour** — what should happen instead
-- **Acceptance criteria** — how will we know it is done? (Gherkin welcome)
-- **Context** — relevant ADRs, related issues, affected services
-
-### Epics
-
-Large features that span multiple PRs are tracked as **Epic issues**. An epic:
-- Has the `type: epic` label
-- Contains a task list of child issues: `- [ ] #201 feat: capability indexing`
-- Is the parent reference for all PRs in the chain
-- Is closed only when all child issues are closed
+**Epics** (`type: epic`): contain a task list of child issues; are the parent reference
+for all PRs in the chain; close only when all child issues close.
 
 ---
 
 ## 11. AI-Assisted Contributions
 
-Zynax welcomes contributions where AI tools (Claude, Copilot, GPT-4, etc.) assist
-with drafting code, documentation, or tests. AI assistance is a productivity tool,
-not a shortcut past quality standards.
+Zynax welcomes AI-assisted contributions. Quality standards are identical to
+hand-written work — AI assistance is a productivity tool, not an exception.
 
-### Rules for AI-Assisted Work
+1. **Human author fully responsible** — review AI output with the same rigour as your own.
+2. **Declare AI assistance** — add the `ai-assisted` PR label.
+3. **Use `Assisted-by:` trailer** — never `Co-Authored-By:` for AI (DCO is human-only):
+   `Assisted-by: Claude/claude-sonnet-4-6`
+4. **Same standards apply** — lint, BDD, layer boundaries, no AI exceptions.
+5. **Trim verbosity** — remove AI over-commenting and padding before committing.
+6. **No AI-generated secrets, credentials, or PII.**
+7. **AI agents need a human sponsor** — the human is the PR author of record.
+8. **No AI responses in discussions** — communicate directly with maintainers.
 
-1. **The human author is fully responsible** for every line in the PR, regardless
-   of how it was generated. Review AI output with the same rigor as your own.
-
-2. **Declare AI assistance** — add the `ai-assisted` label to the PR and include
-   the tool and model in the PR description:
-   ```
-   AI assistance: Claude Code / claude-sonnet-4-6 (code generation, documentation drafts)
-   ```
-
-3. **Attribution via `Assisted-by:` trailer** — use the git trailer for AI attribution.
-   `Co-Authored-By:` and `Signed-off-by:` are reserved for humans only; adding an AI
-   tool there misrepresents the DCO, which only a human can certify.
-   ```
-   git commit -s -m "feat: my change" --trailer "Assisted-by: Claude Code/claude-sonnet-4-6"
-   ```
-   Or add it manually to the commit message footer:
-   ```
-   Assisted-by: Claude Code/claude-sonnet-4-6
-   ```
-
-4. **AI-generated code is held to the same standards** as human-written code.
-   `mypy --strict`, `golangci-lint`, BDD scenarios, layer boundaries — no exceptions.
-
-5. **Trim AI verbosity** — AI tools often over-comment, over-document, and pad
-   descriptions. Remove all of it before committing. Commit messages, comments,
-   and PR descriptions must meet the same conciseness standard as hand-written text.
-
-6. **No AI-generated secrets, credentials, or personally identifiable data**
-   — AI models can hallucinate plausible-looking but incorrect or sensitive values.
-
-7. **AI agents acting as contributors** must have a human sponsor who is accountable
-   for the work. The human sponsor is the PR author of record. See `GOVERNANCE.md §8`.
-
-8. **Human engagement in discussions** — do not use AI tools to generate responses
-   to maintainer feedback or in issue/PR threads. Communicate directly and personally.
-
-### For Claude Code Users
-
-If you are using Claude Code (the Anthropic CLI) to contribute:
-- Remove any `Co-Authored-By: Claude ...` lines Claude Code appends automatically —
-  they violate the DCO convention. Use `Assisted-by:` instead (see rule 3 above).
-- Add the `ai-assisted` label to your PR.
-- Review every file changed before pushing. Pay particular attention to comments and
-  docstrings — Claude tends to be more verbose than this project's standards require.
-
-### AI Knowledge Base Authorization Policy
-
-The files that AI assistants auto-load (`CLAUDE.md`, all `AGENTS.md` files,
-`docs/ai-assistant-setup.md`, and the future `.ai/` and `.claude/` directories)
-are **restricted paths** governed by ADR-018.
-
-**Why this matters:** these files are published to a public repository. Merged
-content cannot be reliably unpublished. Content that looks like documentation
-can act as a prompt injection payload that silently shifts AI assistant behavior
-for every contributor who clones the repo.
-
-**Rules for KB path changes:**
-
-1. **Maintainer approval required** — `@zynax-io/maintainers` must review and
-   approve all changes to KB paths. Branch protection enforces this via
-   CODEOWNERS. You cannot self-approve a KB change.
-2. **Secret and PII scan must pass** — the `gitleaks-ai-context` CI gate scans
-   KB file content on every PR. Red gate = no merge.
-3. **No prompt-injection payloads** — KB content must be neutral engineering
-   documentation. Avoid instruction-like phrasing ("always respond with…",
-   "ignore previous instructions"). Reviewers check for this explicitly.
-4. **Content must match reviewed source material** — KB entries should be
-   derived from merged code, ADRs, or documented decisions. Do not add
-   speculative or aspirational content.
-
-See [docs/adr/ADR-018-ai-kb-authorization-model.md](docs/adr/ADR-018-ai-kb-authorization-model.md)
-for the full rationale and threat model. See
-[docs/knowledge-base-policy.md](docs/knowledge-base-policy.md) for the
-content sanitization rules, scanner reference, and step-by-step reviewer
-verification process.
+KB files (`CLAUDE.md`, all `AGENTS.md`, `docs/ai-assistant-setup.md`) are restricted
+paths governed by ADR-018: maintainer approval required, `gitleaks-ai-context` CI gate
+enforced. See [ADR-018](docs/adr/ADR-018-ai-kb-authorization-model.md) for the full policy.
 
 ---
 
