@@ -1,6 +1,6 @@
 # services/workflow-compiler — AGENTS.md
 
-> Go 1.22+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
+> Go 1.25+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
 > **Status: M2 Complete.** The only fully implemented platform service.
 
 ---
