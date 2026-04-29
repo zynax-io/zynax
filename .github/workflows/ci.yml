@@ -61,6 +61,11 @@ jobs:
 
           MISSING=""
           for sha in $(git log "${BASE}..${HEAD}" --format="%H"); do
+            author_email=$(git log -1 --format="%ae" "$sha")
+            if echo "$author_email" | grep -qE "\[bot\]"; then
+              echo "  ⏭ Skipping bot commit: ${sha:0:12} (author: $author_email)"
+              continue
+            fi
             body=$(git log -1 --format="%B" "$sha")
             if ! echo "$body" | grep -qE "^Signed-off-by: .+ <.+>$"; then
               subject=$(git log -1 --format="%s" "$sha")
