@@ -33,7 +33,9 @@ steps (#154), coverage gate ≥90% + make test pipeline (#155, #142).
 | `infra/` | Docker, env var conventions |
 | `docs/adr/INDEX.md` | Searchable ADR register — check here before proposing a design change |
 | `docs/architecture/` | Architecture reviews, competitive analysis |
-| `docs/patterns/` | Code templates: Go service, Python agent, proto interop, BDD, Helm |
+| `docs/patterns/` | Code templates: Go service, Python agent, proto interop, BDD, Helm, SPDD guide |
+| `docs/patterns/spdd-guide.md` | Full SPDD workflow — REASONS Canvas, 6 steps, worked examples |
+| `docs/spdd/` | REASONS Canvas artifacts — one `canvas.md` per `feat:` issue |
 | `state/current-milestone.md` | Active milestone, open PRs, known blockers |
 
 ## AI attribution
@@ -174,6 +176,9 @@ Things that have gone wrong in this repo — avoid these:
 | Using `govulncheck@latest` with Go 1.22 | Pin to `GOVULNCHECK_VERSION` env var — @latest requires Go ≥ 1.25 |
 | `golang:1.22-alpine` COPY paths using `/root/go/bin/` | Use `/go/bin/` — GOPATH on Alpine is `/go`, not `/root/go` |
 | Importing domain types across services | Cross-service communication is gRPC only, never shared types |
+| Opening a `feat:` PR without a REASONS Canvas | Create `docs/spdd/<issue>-<slug>/canvas.md` before any code (ADR-019, Epic #205) |
+| Putting Tier 2 context in a Canvas (internal IPs, hostnames, credentials) | Canvas is public — sensitive context goes in `canvas.private.md` (gitignored) |
+| Updating code for a requirements change without updating the Canvas | Fix the Canvas first (prompt-first rule) — otherwise Canvas diverges from intent |
 
 ## Decision-Making Guide
 

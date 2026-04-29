@@ -77,7 +77,7 @@ jobs:
 
             // Exclude generated stubs, lock files, binary fixtures, changelogs,
             // CI workflow files, and documentation-only paths (AGENTS.md, docs/, state/).
-            const skipPattern = /\.(pb\.go|pb\.py|sum|lock|png|jpg|gif|svg)$|\/generated\/|CHANGELOG\.md$|^\.github\/workflows\/|AGENTS\.md$|^docs\/|^state\//;
+            const skipPattern = /\.(pb\.go|pb\.py|sum|lock|png|jpg|gif|svg)$|\/generated\/|CHANGELOG\.md$|^\.github\/workflows\/|AGENTS\.md$|^docs\/|^state\/|^\.claude\//;
             const lines = files
               .filter(f => !skipPattern.test(f.filename))
               .reduce((total, f) => total + f.additions + f.deletions, 0);
