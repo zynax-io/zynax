@@ -109,6 +109,45 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
 
 ---
 
+## Dependency Map by Layer
+
+```
+Layer 1 — Spec / YAML (intent)
+    spec/workflows/      workflow.yaml, agent-def.yaml, policy.yaml
+    spec/schemas/        JSON Schema validators
+         │
+         │  validated manifests (files only — never imported by services)
+         ▼
+Layer 2 — WorkflowIR / Compiler (canonical representation)
+    services/workflow-compiler/   YAML → WorkflowIR (protobuf struct)
+         │
+         │  gRPC: CompileWorkflow / ValidateManifest / GetCompiledWorkflow
+         ▼
+Layer 3 — Platform Services (Go, gRPC-only cross-service)
+    services/agent-registry/   capability catalogue
+    services/task-broker/      capability routing + dispatch
+    services/engine-adapter/   IR → Temporal / LangGraph / Argo
+    services/memory-service/   KV + vector context store
+    services/event-bus/        NATS JetStream async pub/sub
+         │
+         │  gRPC: AgentService contract (protos/zynax/v1/agent.proto)
+         ▼
+Layer 4 — Agents / SDK (Python execution adapters)
+    agents/sdk/          zynax-sdk — gRPC stub wrapper + base adapter
+    agents/examples/     reference agent implementations
+```
+
+| Layer | Package | Owns | Communicates via |
+|-------|---------|------|-----------------|
+| 1 — Spec | `spec/` | YAML manifests, JSON schemas | Filesystem — read at compile time |
+| 2 — Compiler | `services/workflow-compiler/` | WorkflowIR (protobuf) | gRPC API to callers |
+| 3 — Services | `services/*/` | Domain logic, state | gRPC between services; NATS events |
+| 4 — Agents | `agents/` | Python adapters | gRPC stubs from `protos/generated/` |
+
+Layer 1 YAML is never imported by Go services. Cross-service reads always go through gRPC — no shared packages, no shared databases.
+
+---
+
 ## Quickstart
 
 **Prerequisites:** Docker Desktop. Nothing else.
