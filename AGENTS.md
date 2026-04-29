@@ -85,7 +85,7 @@ make security         # govulncheck + bandit + pip-audit
 
 ---
 
-## Four Non-Negotiable Mandates
+## Five Non-Negotiable Mandates
 
 **1 — API Mandate:** All services expose capabilities only via versioned gRPC.
 No shared databases. No cross-service imports. Proto files are reviewed like production code.
@@ -99,6 +99,11 @@ No magic numbers. No dead code. No `panic` in production. All errors wrapped.
 **4 — Layered Testing:** BDD at system boundaries (`.feature` file before any implementation).
 Unit/property tests for domain logic (≥ 90% coverage). `buf breaking` as CI gate.
 See ADR-016.
+
+**5 — SPDD (feat: PRs only):** Every `feat:` PR requires a REASONS Canvas at
+`docs/spdd/<issue>-<slug>/canvas.md` committed before any implementation code.
+Fix the prompt first — logic corrections update the Canvas, then patch code.
+Canvas content is Tier 1 (public-safe) only. See ADR-019 and `docs/patterns/spdd-guide.md`.
 
 ---
 
@@ -115,6 +120,7 @@ A feature is DONE when **all** are true:
 - [ ] Proto change: backward-compatible OR new version + migration guide
 - [ ] ADR created for any architectural decision
 - [ ] Required approvals obtained (see `GOVERNANCE.md §2`)
+- [ ] For `feat:` PRs: REASONS Canvas at `docs/spdd/<issue>-<slug>/canvas.md` (Tier 1 only, run `/spdd-security-review` before committing)
 
 ---
 
@@ -149,6 +155,14 @@ A feature is DONE when **all** are true:
 - Never hardcode LLM model names — env var always
 - Close all I/O resources in `finally` blocks or context managers
 
+**SPDD — prompt governance (feat: PRs, ADR-019):**
+- Canvas before code: write `docs/spdd/<issue>-<slug>/canvas.md` before any implementation
+- Logic correction flow: requirements change → update Canvas → regenerate/patch code
+- Refactoring flow: improve code → run `/spdd-sync <canvas-path>` to sync Canvas back
+- Tier 1 only in Canvas: public-safe abstractions — no internal hostnames, IPs, credentials
+- Tier 2 context (sensitive) → `canvas.private.md` (gitignored, never committed)
+- Run `/spdd-security-review <canvas-path>` before committing a Canvas
+
 ---
 
 ## AI Anti-patterns
@@ -170,6 +184,9 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | `InsecureSkipVerify: true` in production | TLS on by default; use bufconn in tests only |
 | Calling a platform service via HTTP instead of gRPC | Generate stubs with `make generate-protos` |
 | Multi-line commit message with zero-indented lines in `run: \|` YAML | Use `printf` with `\n` escape sequences instead |
+| Opening a `feat:` PR without a REASONS Canvas | Create `docs/spdd/<issue>-<slug>/canvas.md` before writing any code (ADR-019) |
+| Patching AI-generated code for a logic change without updating Canvas | Update Canvas first (prompt-first rule), then patch — or the Canvas drifts from intent |
+| Putting internal hostnames, IPs, or credentials in a Canvas | Canvas is public — Tier 2 context goes in `canvas.private.md` (gitignored) |
 
 ---
 
@@ -184,6 +201,8 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Helm chart templates (Deployment, HPA, NetworkPolicy, PDB) | `docs/patterns/helm-charts.md` |
 | Architecture Decision Records | `docs/adr/INDEX.md` |
 | Current milestone and active PRs | `state/current-milestone.md` |
+| SPDD workflow guide and REASONS Canvas methodology | `docs/patterns/spdd-guide.md` |
+| REASONS Canvas artifacts (one per `feat:` issue) | `docs/spdd/` |
 | Per-layer rules | `services/AGENTS.md` · `agents/AGENTS.md` · `protos/AGENTS.md` · `spec/AGENTS.md` · `infra/AGENTS.md` |
 
 ---
