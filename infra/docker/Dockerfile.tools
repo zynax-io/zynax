@@ -24,7 +24,7 @@
 #   uv                  0.5.10
 
 # ── Stage 1: Go binaries ────────────────────────────────────────────────────
-FROM golang:1.25-alpine AS go-tools
+FROM golang:1.26-alpine AS go-tools
 
 RUN apk add --no-cache git curl
 
@@ -72,7 +72,7 @@ RUN curl -fsSL \
     && chmod +x /usr/local/bin/buf
 
 # ── Stage 2: Final image (python:3.12-alpine) ───────────────────────────────
-FROM python:3.12-alpine AS tools
+FROM python:3.14-alpine AS tools
 
 # Minimal Alpine system deps only — no build toolchain in the final image
 RUN apk add --no-cache git curl ca-certificates libstdc++ libgcc
@@ -91,8 +91,8 @@ COPY --from=go-tools /go/bin/migrate             /usr/local/bin/
 
 # ── uv — Python package manager ──────────────────────────────────────────
 # renovate: datasource=github-releases depName=astral-sh/uv
-COPY --from=ghcr.io/astral-sh/uv:0.5.10 /uv  /usr/local/bin/uv
-COPY --from=ghcr.io/astral-sh/uv:0.5.10 /uvx /usr/local/bin/uvx
+COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv  /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uvx /usr/local/bin/uvx
 
 # ── Python dev tools ──────────────────────────────────────────────────────
 # Installed as uv tools (isolated envs) except pytest plugins which share
