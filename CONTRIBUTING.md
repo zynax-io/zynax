@@ -6,27 +6,7 @@ Thank you for your interest in contributing. Zynax is built by its community and
 to the standards of the best-in-class CNCF projects. This guide is the single source
 of truth for how work flows from idea to merged code.
 
-**Read this document completely before opening your first PR.** Every rule here has
-a reason, and knowing the reason makes it easier to apply in edge cases.
-
----
-
-## Table of Contents
-
-1. [Before You Start](#1-before-you-start)
-2. [Community & Communication](#2-community--communication)
-3. [Development Environment](#3-development-environment)
-4. [Engineering Standards](#4-engineering-standards)
-5. [Git Workflow & Commit Hygiene](#5-git-workflow--commit-hygiene)
-6. [PR Size & Decomposition](#6-pr-size--decomposition)
-7. [Layered Testing Strategy](#7-layered-testing-strategy)
-8. [Pull Request Process](#8-pull-request-process)
-9. [Code Review Etiquette](#9-code-review-etiquette)
-10. [Issue Workflow](#10-issue-workflow)
-11. [AI-Assisted Contributions](#11-ai-assisted-contributions)
-12. [Adding a New Service](#12-adding-a-new-service)
-13. [Changing Proto Contracts](#13-changing-proto-contracts)
-14. [First Contribution](#14-first-contribution)
+Read this document before opening your first PR.
 
 ---
 
@@ -106,326 +86,62 @@ make lint-proto        # Proto-only: buf lint + buf breaking
 
 ## 4. Engineering Standards
 
-These are enforced in CI. PRs fail if any check is red.
-
-### Both Go and Python
-
-- Functions ≤ 30 lines (Go) / ≤ 20 lines (Python). One responsibility.
-- No magic numbers — use named constants.
-- No dead code. If it is not tested, it does not exist.
-- Comments explain **WHY**, never WHAT. The code explains what.
-- No secrets in code, configs, or committed files.
-
-### Go services
-
-- `golangci-lint` must pass with zero suppressions (or justified suppressions).
-- `domain/` layer: zero imports from `api/` or `infrastructure/`.
-- All errors wrapped: `fmt.Errorf("context: %w", err)`.
-- No `panic` in production code paths.
-- Structured logging via `slog` with context propagation.
-- Never expose credentials, tokens, or auth URLs in logs or output.
-- Sanitize file paths to prevent traversal attacks before any I/O.
-- TLS verification must remain enabled by default — never disable it for convenience.
-- Avoid shell execution (`exec.Command`) for git, kubectl, helm, or similar operations; use Go libraries instead.
-- Close HTTP response bodies, file handles, and archive readers via `defer` on every code path.
-- Delete temporary files on all code paths — success and error alike.
-- Machine-readable output (tables, YAML, JSON) → `stdout`; human-readable status messages → `stderr`.
-
-### Python agents/adapters
-
-- `mypy --strict` must pass. No untyped `Any` without justification.
-- `ruff` must pass with zero suppressions.
-- No `print()` — use `structlog` for all logging.
-- No bare `except:` — catch specific exception types.
-- `domain/` coverage ≥ 90%.
-
-See `AGENTS.md §4` and `services/AGENTS.md` for complete standards.
+See [`AGENTS.md §Hard Constraints`](AGENTS.md#hard-constraints) and the per-layer
+files `services/AGENTS.md`, `agents/AGENTS.md`, and `protos/AGENTS.md`.
+CI enforces all standards — PRs fail if any check is red.
 
 ---
 
 ## 5. Git Workflow & Commit Hygiene
 
-> The git log is public documentation. A clean history is a gift to every future
-> contributor. A messy history is technical debt that compounds over years.
+> Full reference: [`docs/git-workflow.md`](docs/git-workflow.md)
 
-See [`docs/git-workflow.md`](docs/git-workflow.md) for the full reference. The rules
-that matter most are here.
+**Branch naming:** `<type>/issue-<number>-<short-kebab-description>`
+Valid types: `feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `chore`.
+Feature branches must not live longer than 7 days without merging or going Draft.
 
-### Branch Strategy
-
-Zynax uses **trunk-based development**: short-lived feature branches off `main`.
+**Commit format** ([Conventional Commits](https://conventionalcommits.org) — CI-enforced):
 
 ```
-main
- ├── feat/ISSUE-123-capability-based-discovery    ← your branch
- ├── fix/ISSUE-456-retry-storm-on-unavailability
- ├── docs/ISSUE-789-update-adapter-guide
- └── release/v0.2.0                               ← release cut by maintainer
-```
+<type>(<scope>): <short description, imperative, total header ≤ 72 chars>
 
-**Branch naming:**
-```
-<type>/ISSUE-<number>-<short-kebab-description>
-```
-- `type` must be one of: `feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `chore`
-- `ISSUE-<number>` links to the GitHub issue (required for `feat` and `fix`)
-- `short-kebab-description` ≤ 5 words, lowercase
-
-**Branch lifetime:** Feature branches must not live longer than **7 days** without
-merging or converting to a Draft PR. Stale branches are deleted after 30 days.
-
-### Commit Atomicity — The Core Rule
-
-> One commit = one logical change that leaves the codebase in a working state.
-
-**Good:** Each commit compiles, passes tests, and makes one coherent change.
-**Bad:** "WIP", "fix", "more changes", "address review comments" (as final commits).
-
-Before opening a PR, clean your history with interactive rebase:
-```bash
-git rebase -i main    # Squash WIP commits, write proper messages
-```
-
-The PR reviewer sees your cleaned commit history, not your working state.
-
-### Commit Message Format
-
-[Conventional Commits](https://conventionalcommits.org) — enforced by `commitlint`:
-
-```
-<type>(<scope>): <short description in imperative mood>
-<blank line>
-<body: WHY this change is needed. What problem it solves. What was considered.>
-<blank line>
-<footer: Closes #123, BREAKING CHANGE, Signed-off-by, Assisted-by>
-```
-
-**Subject line rules:**
-- Full header (`type(scope): description`) ≤ 72 characters
-- Imperative mood — "Add support for X", not "Added" or "Adding"
-- Capitalized first word after the colon
-- No period at the end
-- No `@mentions` anywhere in the commit message — GitHub references belong in the footer only (`Closes #123`)
-- No emojis
-
-**Types:** `feat`, `fix`, `docs`, `test`, `chore`, `refactor`, `perf`, `ci`, `build`
-
-**Scopes:** `agent-registry`, `task-broker`, `memory-service`, `api-gateway`,
-`event-bus`, `workflow-compiler`, `engine-adapter`, `protos`, `agents`, `infra`,
-`ci`, `docs`, `spec`
-
-**Good commit messages:**
-```
-feat(agent-registry): Add capability-based agent discovery
-
-Agents currently register by name. The task-broker cannot route to the
-best available agent for a given capability. This adds capability indexing
-to the registry so task-broker can query "who can handle summarize?" rather
-than needing to know agent names.
+<body: WHY this change is needed>
 
 Closes #123
-Signed-off-by: Jane Doe <jane@example.com>
+Signed-off-by: Your Name <your@email.com>
+Assisted-by: Claude/claude-sonnet-4-6    ← AI-assisted only
 ```
 
-```
-fix(task-broker): Prevent retry storm when all agents unavailable
+Rules: imperative mood · no period · no `@mentions` in subject · no emojis ·
+clean history before opening PR (`git rebase -i main`).
 
-When no agents can handle a capability, task-broker was retrying
-immediately on each assignment attempt, causing CPU spikes. Now uses
-exponential backoff (1s, 2s, 4s, max 30s) with jitter.
+**Keeping branches current:** always rebase, never merge main into your branch.
+Push after rebase with `--force-with-lease`, never bare `--force`.
 
-Closes #456
-Signed-off-by: Jane Doe <jane@example.com>
-```
+**GPG signing (required):** set `git config commit.gpgsign true`. Branch protection
+rejects unsigned commits.
 
-**Bad commit messages:**
-```
-fix bug                      ← no scope, no description, no context
-WIP task broker changes      ← WIP commits must not reach the PR
-address review comments.     ← period at end; does not describe what changed
-fixed the @jane issue        ← @mentions not allowed in commit message
-✨ add new feature           ← no emojis
-```
-
-**Breaking changes** — append `!` and add footer:
-```
-feat(protos)!: Rename AgentConfig to AgentSpec
-
-BREAKING CHANGE: All consumers of zynax.v1.AgentConfig must update field
-references to AgentSpec. No field renaming — only the message name changes.
-Migration: docs/migrations/v0.2-to-v0.3.md
-
-Closes #789
-Signed-off-by: Jane Doe <jane@example.com>
-```
-
-### Keeping Branches Current
-
-**Never merge `main` into your feature branch.** Always rebase:
-
-```bash
-git fetch origin
-git rebase origin/main
-```
-
-Merging `main` into a feature branch pollutes the commit history with merge commits
-and makes the eventual squash harder to reason about. Rebase keeps your branch
-linearly on top of the latest main.
-
-When you need to push after a rebase, use `--force-with-lease`, never bare `--force`:
-
-```bash
-git push --force-with-lease
-```
-
-`--force-with-lease` refuses the push if someone else has pushed to the same branch
-since your last fetch, protecting against accidentally overwriting another person's work.
-`--force` has no such protection.
-
-### During Review
-
-While a PR is under review:
-- **Push fixup commits** for each round of feedback — do not amend or force-push.
-  ```bash
-  git commit -s --fixup HEAD~1
-  ```
-- **Squash after approval**, not before. Interactive rebase once all reviewers
-  have approved and there are no open blocking comments:
-  ```bash
-  git rebase -i origin/main --autosquash
-  git push --force-with-lease
-  ```
-- **Do not resolve other people's review comments** — the commenter resolves their own.
-
-### GPG Commit Signing (Required)
-
-Every commit must be GPG-signed. This is enforced by GitHub branch protection.
-
-```bash
-# Generate a key (if you don't have one)
-gpg --full-generate-key
-
-# Get your key ID
-gpg --list-secret-keys --keyid-format=long
-
-# Tell git to use it
-git config --global user.signingkey <YOUR_KEY_ID>
-git config --global commit.gpgsign true
-
-# Sign commits automatically from now on (no -S flag needed)
-git commit -m "feat: ..."
-```
-
-Add your public key to your GitHub account:
-**GitHub → Settings → SSH and GPG keys → New GPG key**
-
-```bash
-# Export your public key
-gpg --armor --export <YOUR_KEY_ID>
-```
-
-Unsigned commits will be **rejected at push time** by branch protection.
-The `Verified` badge on GitHub confirms the commit is signed.
-
-### DCO Sign-Off (Required)
-
-Every commit must also include:
-```
-Signed-off-by: Your Full Name <your@email.com>
-```
-
-Add automatically with `git commit -s`. The DCO bot blocks merges without it.
-Note: `commit.gpgsign true` handles signing; `-s` handles the DCO footer.
-Both are required. They serve different purposes:
-- **GPG signature** — cryptographically proves the commit came from you
-- **DCO sign-off** — legally certifies you have the right to contribute
-
-This certifies you have the right to submit the contribution under the project's
-Apache 2.0 license (see [developercertificate.org](https://developercertificate.org)).
+**DCO sign-off (required):** add with `git commit -s`. DCO bot blocks merge without it.
+GPG proves identity; DCO certifies you have the right to contribute (Apache 2.0).
 
 ---
 
 ## 6. PR Size & Decomposition
 
-> A PR is a unit of review. Reviewers must hold it in their head entirely.
-> The larger the PR, the lower the review quality — every study confirms this.
+| Lines changed | Status |
+|--------------|--------|
+| ≤ 200 | Ideal |
+| 201–400 | Acceptable |
+| 401–900 | Justify in PR description why it cannot be split |
+| > 900 | **Blocked** — decompose before requesting review |
 
-### The Principle Behind the Size Rule
+**Exclusions from count:** generated code (`*.pb.go`, `*_pb2.py`), lock files,
+schema fixtures, CI workflow files (`.github/workflows/`).
 
-> Every merged PR must leave the codebase in a working state **and** deliver
-> observable functional value — something that can be run, tested, or demonstrated.
-
-A 50-line PR that adds a struct with no wiring, no test, and no behaviour is
-worse than a 600-line PR that delivers a complete, testable capability end-to-end.
-Size is a proxy for reviewability, not a goal in itself.
-
-Split your work to maximise *functional value per PR*, not to minimise line count.
-
-### Size Targets
-
-| Lines changed | Status | Condition |
-|--------------|--------|-----------|
-| ≤ 200 | Ideal | Always preferred when the PR delivers complete value at this size |
-| 201–400 | Acceptable | Explain in PR description why the extra lines are necessary |
-| 401–900 | Justified extension | The only justification: splitting would produce a PR with no functional value. State this explicitly. |
-| > 900 | Blocked | Decompose before requesting review. If genuinely impossible, get maintainer approval before starting. |
-
-**Exclusions from line count:** generated code (`*.pb.go`, `*_pb2.py`), lock files,
-schema fixtures, migration files.
-
-### The Functional Value Test
-
-Before opening a PR, ask: "If this PR were the only one that merged today,
-would a user or the test suite be able to observe something new?"
-
-- A new gRPC method with a BDD scenario that passes ✅ — observable
-- A new domain struct with no service or test wiring ❌ — not yet observable
-- A refactor that keeps all existing tests passing ✅ — observable (no regression)
-- Proto definition with no generated code ❌ — nothing works yet
-
-### How to Decompose
-
-Large features ship as a **PR chain** — a sequence of small, mergeable PRs:
-
-```
-Issue #123: Add capability-based agent discovery
-  │
-  ├── PR #201  feat(protos): add capability fields to AgentSpec         [~80 lines]
-  ├── PR #202  feat(agent-registry): index capabilities on registration  [~150 lines]
-  ├── PR #203  feat(agent-registry): add capability query RPC            [~120 lines]
-  ├── PR #204  feat(task-broker): route tasks by capability              [~200 lines]
-  └── PR #205  test: BDD scenarios for end-to-end capability routing     [~180 lines]
-```
-
-Each PR:
-- Merges cleanly to `main` on its own
-- Leaves the codebase in a working state
-- Has a test (even if minimal) that proves it works
-- References the parent issue
-
-### Stacked PRs
-
-For a PR chain where each PR depends on the previous one, open them as stacked
-(base each on the previous branch, not on `main`). When the foundation PR merges,
-rebase the next one onto `main`.
-
-```bash
-git checkout -b feat/ISSUE-123-protos           # PR #201
-# ... work ...
-git checkout -b feat/ISSUE-123-registry         # PR #202, based on previous
-git checkout feat/ISSUE-123-registry
-git rebase feat/ISSUE-123-protos
-```
-
-Use the `Stacked on #201` line in the PR description to make the chain visible.
-
-### When You Cannot Split
-
-Sometimes a change is genuinely indivisible (e.g., an atomic schema migration +
-the code that uses it). In that case:
-1. Explain in the PR description why it cannot be split.
-2. Add the label `split-not-possible` with a justification comment.
-3. A maintainer must approve the exception before review begins.
+Large features ship as a **PR chain** — a sequence of small, mergeable PRs where
+each one compiles, passes tests, and delivers observable value. Reference the
+parent issue from every PR in the chain. For stacked PRs (each based on the
+previous), use `Stacked on #NNN` in the PR description.
 
 ---
 
