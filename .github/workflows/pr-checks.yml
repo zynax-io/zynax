@@ -245,3 +245,95 @@ jobs:
           fi
 
           echo "✅ Layer boundaries respected"
+
+# ── SPDD Canvas Freshness (feat: PRs only) ────────────────────────────────────
+# For every PR whose title starts with feat:, verifies that a REASONS Canvas
+# was committed as part of this PR (or already exists in docs/spdd/).
+# Rules (ADR-019):
+#   - feat: PRs must include at least one docs/spdd/**/canvas.md in the diff
+#     OR have an existing canvas.md anywhere under docs/spdd/.
+#   - Any canvas touched by this PR is validated with tools/validate_canvas.py.
+#   - Draft status emits a warning but does not fail (Aligned is enforced by
+#     /spdd-generate at code-generation time, not at PR open time).
+  canvas-freshness:
+    name: SPDD Canvas freshness (feat only)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: "Check Canvas present for feat: PRs"
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # Only enforce for feat: PRs
+          if ! echo "$PR_TITLE" | grep -qE '^feat(\([^)]+\))?:'; then
+            echo "ℹ️  Not a feat: PR — Canvas check skipped."
+            exit 0
+          fi
+
+          echo "feat: PR detected — checking for REASONS Canvas (ADR-019)..."
+
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          # Canvas files added or modified in this PR
+          canvas_in_pr=$(git diff --name-only "${BASE}..${HEAD}" -- 'docs/spdd/**/canvas.md' 'docs/spdd/*/canvas.md' | grep "canvas\.md" || true)
+
+          # Any canvas that already exists under docs/spdd/
+          canvas_existing=$(find docs/spdd -name "canvas.md" 2>/dev/null | head -1 || true)
+
+          if [ -z "$canvas_in_pr" ] && [ -z "$canvas_existing" ]; then
+            echo ""
+            echo "❌ No REASONS Canvas found for this feat: PR."
+            echo ""
+            echo "Every feat: PR requires a Canvas committed before implementation."
+            echo "Steps:"
+            echo "  1. Run /spdd-analysis <issue> to research the feature"
+            echo "  2. Run /spdd-reasons-canvas <issue> to generate the Canvas"
+            echo "  3. Run /spdd-security-review docs/spdd/<issue>-<slug>/canvas.md"
+            echo "  4. Commit docs/spdd/<issue>-<slug>/canvas.md before implementation"
+            echo ""
+            echo "See docs/patterns/spdd-guide.md and ADR-019."
+            exit 1
+          fi
+
+          if [ -n "$canvas_in_pr" ]; then
+            echo "Canvas file(s) in this PR:"
+            echo "$canvas_in_pr"
+          else
+            echo "Existing canvas(es) in docs/spdd/:"
+            find docs/spdd -name "canvas.md"
+          fi
+
+      - name: Set up Python for canvas validation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate touched canvases
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if ! echo "$PR_TITLE" | grep -qE '^feat(\([^)]+\))?:'; then
+            exit 0
+          fi
+
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          # Validate canvases touched in this PR; fall back to all canvases
+          canvas_in_pr=$(git diff --name-only "${BASE}..${HEAD}" -- 'docs/spdd/**/canvas.md' 'docs/spdd/*/canvas.md' | grep "canvas\.md" || true)
+
+          if [ -n "$canvas_in_pr" ]; then
+            failed=0
+            for canvas in $canvas_in_pr; do
+              dir=$(dirname "$canvas")
+              echo "Validating $canvas ..."
+              python tools/validate_canvas.py "$dir" || failed=1
+            done
+            exit $failed
+          else
+            echo "No canvas in this PR diff — running validate-canvas on all existing canvases..."
+            python tools/validate_canvas.py docs/spdd/
