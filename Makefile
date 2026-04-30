@@ -182,9 +182,18 @@ clean-tools: ## Remove tools image
 clean-all: clean dev-down clean-tools ## ⚠ Remove everything
 
 # ── Spec validation ───────────────────────────────────────────────────────────
-.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema dry-run
+.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-canvas dry-run
 
 validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema validate-policy-schema ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def + policy manifests)
+
+validate-canvas: ## Validate REASONS Canvas files under docs/spdd/ (SPDD — ADR-019)
+	docker run --rm \
+		-v "$(PWD)":/workspace \
+		-w /workspace \
+		python:3.12-alpine sh -c " \
+			python tools/validate_canvas.py docs/spdd/ \
+		"
+	@echo "✅ Canvas validation passed"
 
 validate-capability-schemas: ## Validate capability declarations in spec/ against capability.schema.json
 	docker run --rm \
