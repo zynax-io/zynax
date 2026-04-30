@@ -37,6 +37,19 @@ Closes #
 
 ---
 
+## SPDD Canvas (feat: PRs only)
+
+> Skip this entire section for `fix:`, `refactor:`, `docs:`, `ci:`, `chore:` PRs.
+> For `feat:` PRs, a Canvas must be committed **before** any implementation code.
+> See `docs/patterns/spdd-guide.md` and ADR-019.
+
+- Canvas: `docs/spdd/<issue>-<slug>/canvas.md`
+- [ ] Canvas status is `Aligned` (human-reviewed, not Draft)
+- [ ] `/spdd-security-review` passed — result noted in Canvas Safeguards section
+- [ ] Canvas commit precedes all implementation commits in this branch
+
+---
+
 ## PR Size Self-Check
 
 Lines changed (excluding generated code, lock files, fixtures): ___
