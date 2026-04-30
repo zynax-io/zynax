@@ -141,8 +141,16 @@ jobs:
           changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/**/*.proto' | wc -l)
           echo "proto_changed=$changed" >> "$GITHUB_OUTPUT"
 
-      - name: Install buf
+      - name: Cache buf
+        id: buf-cache
         if: steps.proto-detect.outputs.proto_changed != '0'
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: /usr/local/bin/buf
+          key: buf-1.47.2-linux-x86_64
+
+      - name: Install buf
+        if: steps.proto-detect.outputs.proto_changed != '0' && steps.buf-cache.outputs.cache-hit != 'true'
         run: |
           curl -fsSL \
             "https://github.com/bufbuild/buf/releases/download/v1.47.2/buf-Linux-x86_64" \
