@@ -7,6 +7,16 @@
 #
 # Required check names: dco · lint-proto · lint-go · lint-python · test-unit · test-integration · security
 #
+# Job graph (all gates after dco):
+#   dco → changes → lint-proto ─╮
+#                ├─ lint-go   ──┴──→ test-unit
+#                │            └──→ test-integration   (parallel)
+#                └─ lint-python
+#   dco → security   (independent)
+#
+# Path-based skipping: lint lanes are skipped when no relevant files changed.
+# On push to main all lanes always run (no PR base to diff against).
+#
 # Design: Docker-free in CI (install tools natively for speed and cache
 # reuse). All commands mirror the Makefile targets so local and CI output
 # is identical. When adding a new service or agent update the SERVICE_LIST
@@ -82,14 +92,67 @@ jobs:
           fi
           echo "✅ All commits carry Signed-off-by"
 
+# ── Change Detection ──────────────────────────────────────────────────────────
+# Detects which path groups changed so downstream lint lanes can be skipped
+# when irrelevant. Outputs: proto / go / python (string "true"/"false").
+# On push to main all outputs are "true" — no reliable base SHA to diff.
+  changes:
+    name: changes
+    runs-on: ubuntu-24.04
+    needs: [dco]
+    outputs:
+      proto:  ${{ steps.detect.outputs.proto }}
+      go:     ${{ steps.detect.outputs.go }}
+      python: ${{ steps.detect.outputs.python }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed path groups
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "proto=true"  >> "$GITHUB_OUTPUT"
+            echo "go=true"     >> "$GITHUB_OUTPUT"
+            echo "python=true" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Push to main — all lint lanes enabled."
+            exit 0
+          fi
+
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          FILES=$(git diff --name-only "${BASE}...${HEAD}" 2>/dev/null || echo "")
+
+          proto=false go=false python=false
+
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            if echo "$f" | grep -qE '^(protos/|spec/|CLAUDE\.md|AGENTS\.md|.*/AGENTS\.md|docs/ai-assistant-setup\.md|\.ai/|\.claude/)'; then
+              proto=true
+            fi
+            if echo "$f" | grep -qE '^(services/|protos/)'; then
+              go=true
+            fi
+            if echo "$f" | grep -qE '^agents/'; then
+              python=true
+            fi
+          done <<< "$FILES"
+
+          echo "proto=$proto"  >> "$GITHUB_OUTPUT"
+          echo "go=$go"        >> "$GITHUB_OUTPUT"
+          echo "python=$python" >> "$GITHUB_OUTPUT"
+          echo "── Changed path groups: lint-proto=$proto  lint-go=$go  lint-python=$python"
+
 # ── Lint: Proto, AI context scan, and spec validation ────────────────────────
 # Runs: gitleaks (AI KB files), buf lint/format, stubs freshness,
 #       AsyncAPI spec, JSON schema validation.
-# Parallel with lint-go and lint-python — all three need dco to pass first.
+# Skipped on PRs that touch neither protos/, spec/, nor AI context files.
   lint-proto:
     name: lint-proto
     runs-on: ubuntu-24.04
-    needs: [dco]
+    needs: [changes]
+    if: needs.changes.outputs.proto == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -244,11 +307,12 @@ jobs:
 
 # ── Lint: Go services ─────────────────────────────────────────────────────────
 # Runs: golangci-lint on all Go platform services.
-# Parallel with lint-proto and lint-python. Unblocks test-unit immediately.
+# Skipped on PRs that touch neither services/ nor protos/.
   lint-go:
     name: lint-go
     runs-on: ubuntu-24.04
-    needs: [dco]
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -302,11 +366,12 @@ jobs:
 
 # ── Lint: Python agents and SDK ───────────────────────────────────────────────
 # Runs: ruff + mypy on SDK + all Python agents.
-# Parallel with lint-proto and lint-go. Does not block test-unit (Go-only gate).
+# Skipped on PRs that do not touch agents/.
   lint-python:
     name: lint-python
     runs-on: ubuntu-24.04
-    needs: [dco]
+    needs: [changes]
+    if: needs.changes.outputs.python == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -358,7 +423,7 @@ jobs:
   test-unit:
     name: test-unit
     runs-on: ubuntu-24.04
-    needs: [lint-go, lint-proto]
+    needs: [lint-go, lint-proto, lint-python]
     permissions:
       contents: read
       pull-requests: write
@@ -636,7 +701,7 @@ jobs:
   test-integration:
     name: test-integration
     runs-on: ubuntu-24.04
-    needs: [lint-go, lint-proto]
+    needs: [lint-go, lint-proto, lint-python]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
