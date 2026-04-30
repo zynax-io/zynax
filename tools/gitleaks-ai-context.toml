@@ -42,10 +42,12 @@ regex       = '''(10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[0
 tags        = ["infrastructure", "ip"]
 
 [allowlist]
-# These paths are Docker Alpine container paths documented as known pitfalls — not local machine paths
-regexes     = ['''\/go\/bin\/|\/usr\/local\/go|golang:[0-9\.]+-alpine|/root/go/bin/''']
-# RFC 5737 documentation addresses are safe
-regexes     = ['''192\.0\.2\.|198\.51\.100\.|203\.0\.113\.''']
+regexes     = [
+  # Docker Alpine container paths documented as known pitfalls — not local machine paths
+  '''\/go\/bin\/|\/usr\/local\/go|golang:[0-9\.]+-alpine|/root/go/bin/''',
+  # RFC 5737 documentation addresses are safe
+  '''192\.0\.2\.|198\.51\.100\.|203\.0\.113\.''',
+]
 paths       = [
   # Never scan generated files or vendored dependencies
   '''generated/''',

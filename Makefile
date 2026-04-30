@@ -133,8 +133,11 @@ lint-protos: build-tools ## buf lint + format check on all proto files
 	@echo "✅ Proto lint passed"
 
 # ── Security ───────────────────────────────────────────────────────────────
-.PHONY: security security-go security-agents audit
+.PHONY: security security-go security-agents audit gitleaks
 security: security-go security-agents ## Full security scan (govulncheck + bandit + pip-audit)
+
+gitleaks: ## Scan local repo for secrets (requires gitleaks installed: brew install gitleaks)
+	gitleaks detect --source . --config tools/gitleaks-ai-context.toml --verbose
 
 security-go: build-tools ## govulncheck on all Go services
 	@for svc in $(GO_SERVICES); do $(TOOLS_RUN) sh -c "cd services/$$svc && govulncheck ./..."; done

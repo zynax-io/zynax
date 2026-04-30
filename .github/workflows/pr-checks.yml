@@ -10,12 +10,15 @@
 #   proto-breaking       → buf breaking change detection against base branch
 #   proto-stubs-fresh    → detects stale generated stubs (issue #12 tracks gen)
 #   layer-boundaries     → detects cross-layer imports (ADR-001 §separation)
+#   gitleaks-scan        → scans full PR commit range for secrets (all paths)
 
 name: PR Checks
 
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
+  push:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -345,3 +348,57 @@ jobs:
           else
             echo "No canvas in this PR diff — running validate-canvas on all existing canvases..."
             python tools/validate_canvas.py docs/spdd/
+
+# ── Secret Scan (gitleaks) ────────────────────────────────────────────────────
+# Scans every commit in the PR range — including commits that were later amended
+# or squashed — so secrets deleted before merge are still caught.
+# Uses the same gitleaks-ai-context.toml config used by the main CI lint-proto
+# job, extended with all paths (not just KB files).
+  gitleaks-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Cache gitleaks
+        id: gitleaks-cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: /usr/local/bin/gitleaks
+          key: gitleaks-8.21.2-linux-x64
+
+      - name: Install gitleaks
+        if: steps.gitleaks-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz" \
+            -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+
+      - name: Scan PR commit range for secrets
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            LOG_OPTS="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            LOG_OPTS="HEAD~1..HEAD"
+          fi
+          echo "── gitleaks scanning commit range: ${LOG_OPTS}"
+          gitleaks detect \
+            --source . \
+            --log-opts "${LOG_OPTS}" \
+            --config tools/gitleaks-ai-context.toml \
+            --report-format json \
+            --report-path /tmp/gitleaks-report.json \
+            --verbose 2>&1 || {
+            echo ""
+            echo "❌ Secrets detected in PR commit range:"
+            cat /tmp/gitleaks-report.json
+            echo ""
+            echo "Even if you deleted the secret in a later commit, it is still"
+            echo "in git history and must be removed with git filter-repo."
+            echo "See docs/knowledge-base-policy.md for guidance."
+            exit 1
+          }
+          echo "✅ No secrets found in PR commit range"
