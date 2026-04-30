@@ -2,7 +2,7 @@
 
 # Zynax — Architecture Review & Competitive Analysis
 **Document type:** Architecture Review · Strategic Positioning  
-**Date:** 2026-04-23 · **Author:** Engineering  
+**Date:** 2026-04-23 · **Updated:** 2026-04-30 (Kestra AI added) · **Author:** Engineering  
 **Status:** Accepted — guides M2 through M8 roadmap decisions  
 **Related issues:** #165 (this review), epic #101 (M2), epic #157 (security)
 
@@ -46,6 +46,7 @@ Organizations building AI systems today face a forced choice:
 | Use **Argo Workflows** | Kubernetes-native batch jobs, not suited for long-running AI interactions |
 | Use **Prefect / Flyte** | Strong for data pipelines, no multi-agent coordination |
 | Use **Conductor** | LLM tasks emerging but single-runtime, no formal IR |
+| Use **Kestra** | AI agents as tasks inside its own engine; no engine portability, no capability registry |
 | Use **Serverless Workflow** | Excellent generic DSL but zero AI-native semantics (agents, capabilities, memory) |
 
 Every option requires either accepting engine lock-in or accepting the absence
@@ -104,9 +105,98 @@ workflows.
 | **Flyte** | ML pipeline orchestrator | Data lineage, caching, type safety, reproducibility | Kubernetes-only, ML/data focus, not AI agents |
 | **Prefect** | Data workflow | Python ergonomics, hybrid execution | No multi-agent, no capability registry |
 | **Conductor** | Microservice orchestrator | LLM task types emerging, event-driven | Single runtime, no formal IR, no engine portability |
+| **Kestra** | General-purpose orchestrator + AI tasks | 1300+ plugins, embedded editor, AI agent tasks | Single engine, agents are embedded tasks not external services, no capability registry |
 | **Zynax** | AI workflow control plane | Three-layer IR, engine portability, AI-native | Pre-release, no production adapter yet (M3 pending) |
 
-### 2.2 Serverless Workflow — detailed assessment
+### 2.2 Kestra — detailed assessment
+
+Kestra (v1.0, September 2025) is an open-source, general-purpose orchestration
+platform that added AI Agent tasks as a first-class feature. With 1,300+ plugins,
+an embedded UI editor, and Git/Terraform integration, it targets both data engineers
+and platform teams. Kestra AI Agents are LLM-driven tasks within Kestra's own
+execution engine, not a separate control plane.
+
+**What it does:**
+
+An AI Agent task in Kestra launches an autonomous LLM process inside a flow
+(Kestra's term for a workflow). The agent is given:
+- A system message + prompt (guides LLM reasoning)
+- Memory (KV Store or Redis, persists context across runs)
+- Tools (web search via Tavily/Google, code execution, dynamic Kestra task
+  invocation, MCP client, file system via Docker bind-mounts)
+
+Supported LLM providers: OpenAI, Anthropic Claude, Google Gemini, Mistral,
+Amazon Bedrock, Azure OpenAI, DeepSeek, Ollama.
+
+**Architecture model:**
+
+```
+Kestra Engine (single runtime)
+  └─ Flow (YAML)
+      ├─ Task: fetch data (plugin)
+      ├─ Task: AI Agent ────────► LLM (OpenAI/Anthropic/...)
+      │         ├─ memory: Redis   ◄─── KV store
+      │         └─ tools:
+      │              ├─ web search (Tavily)
+      │              ├─ execute Kestra task (dynamic)
+      │              └─ run code (Judge0)
+      └─ Task: store results (plugin)
+```
+
+Agents are tasks. The flow engine is Kestra. There is one runtime.
+
+**Where Kestra stops:**
+
+| Limitation | Consequence |
+|------------|-------------|
+| Single execution engine (Kestra's own) | No engine portability; migrating off Kestra requires rewriting all flows |
+| Agents are embedded tasks, not external services | Agents cannot be deployed independently; capability reuse across flows requires copy-paste |
+| No capability registry | Routing is static (task definition); no dynamic discovery of what agents can do |
+| No formal IR | YAML is interpreted at runtime; no compile-time validation of state machine topology |
+| Memory is LLM context only | No vector store, no workflow-scoped shared namespace, no isolation guarantees |
+| Tools are hardcoded plugin types | Adding a new tool requires a Kestra plugin (JVM/Go); no gRPC adapter pattern |
+| No CloudEvents-native event model | Events are Kestra-internal; integrating with CNCF tooling requires adapters |
+
+**Relationship to Zynax:** Partial overlap, mostly complementary. Kestra's 1300+
+plugins are a significant integration catalogue — wrapping Kestra task execution
+as a Zynax adapter (a Kestra-backed capability provider) would give Zynax access
+to that catalogue without building native integrations. Kestra could be a Zynax
+Layer 3 execution backend for task-heavy workflows.
+
+**Differentiation from Kestra AI:**
+
+| Dimension | Kestra | Zynax |
+|-----------|--------|-------|
+| Engine model | Single proprietary engine | Any engine (Temporal, LangGraph, Argo, Kestra) |
+| Agent model | LLM task inside a flow | External service implementing gRPC contract |
+| Capability routing | Static — task definition names the plugin | Dynamic — broker discovers capable agents at runtime |
+| Memory | LLM conversation context (KV/Redis) | Full workflow-scoped KV + vector platform |
+| YAML compilation | Runtime interpretation | Compile to formal IR; errors caught before deployment |
+| Multi-agent | Agents share memory in same flow | Agents are independent services; capability routing is the coordination primitive |
+| Language | Agents are Kestra plugins (JVM/Go) | Agents are any language implementing AgentService gRPC |
+| Target persona | Platform engineer adding AI tasks to existing orchestration | Platform team building AI-native distributed systems |
+
+**Key differentiating message vs Kestra:**
+
+> "Kestra adds AI tasks to general-purpose orchestration. Zynax is purpose-built
+> infrastructure for AI-native systems where agents are independent services,
+> execution engines are pluggable, and workflows are compiled — not interpreted."
+
+**Synergies to exploit:**
+
+1. **Kestra as a Zynax capability adapter**: wrap Kestra task execution behind
+   the `AgentService` gRPC contract. Instantly exposes 1300+ Kestra plugins as
+   Zynax capabilities without building native integrations.
+2. **Kestra plugin library as a compatibility signal**: document which Kestra
+   plugins have Zynax-native equivalents and which are best delegated to a
+   Kestra adapter. Reduces migration friction for Kestra users.
+3. **Kestra as a Zynax Layer 3 engine**: for task-heavy, data-pipeline-oriented
+   workflows, a KestiraEngine adapter would let users mix Temporal (long-running
+   AI interactions) and Kestra (data integration tasks) within the same IR.
+
+---
+
+### 2.3 Serverless Workflow — detailed assessment
 
 Serverless Workflow (SW) deserves special attention because it is the closest
 in intent and the strongest candidate for strategic alignment.
@@ -143,28 +233,29 @@ standardization layer (DSL governance, multi-vendor buy-in). Zynax is
 the abstraction layer above engines (IR, capability routing, AI semantics).
 They solve different problems and can be combined.
 
-### 2.3 Full feature benchmark
+### 2.4 Full feature benchmark
 
 The following matrix scores eight tools across fifteen capabilities that
 matter specifically for AI workflow orchestration at scale.
 
-| Feature | SW | Temporal | Argo | LangGraph | Flyte | Prefect | Conductor | **Zynax** |
-|---------|:--:|:--------:|:----:|:---------:|:-----:|:-------:|:---------:|:---------:|
-| Declarative YAML/DSL | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ |
-| AI / LLM native | ❌ | ❌ | ❌ | ✅✅ | ❌ | ❌ | ✅ | **✅✅✅** |
-| Human-in-the-loop (semantic state) | ⚠️ | ✅ | ⚠️ | ✅✅ | ⚠️ | ⚠️ | ✅ | **✅✅✅** |
-| Event-driven execution | ✅✅ | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | ✅✅ | **✅✅✅** |
-| Multi-agent coordination | ❌ | ⚠️ | ❌ | ✅✅ | ❌ | ❌ | ✅ | **✅✅✅** |
-| Pluggable execution engines | ⚠️ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | **✅✅✅** |
-| gRPC-native contracts | ✅ | ✅✅ | ⚠️ | ❌ | ❌ | ❌ | ✅ | **✅✅✅** |
-| CloudEvents native | ✅✅ | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ | ✅ | ✅✅ |
-| CNCF-aligned | ✅ Sandbox | ❌ | ✅ Incubating | ❌ | ✅ Incubating | ❌ | ⚠️ | 🎯 M8 |
-| Language-agnostic agents | ✅ | ⚠️ | ✅ | ❌ | ✅ | ✅ | ✅ | **✅✅✅** |
-| Formal IR / compilation step | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ⚠️ | **✅✅✅** |
-| Capability / skill registry | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | **✅✅✅** |
-| Memory / persistent context | ❌ | ✅✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅✅ |
-| Open source + permissive licence | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Compile-time error detection | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅✅✅** |
+| Feature | SW | Temporal | Argo | LangGraph | Flyte | Prefect | Conductor | **Kestra** | **Zynax** |
+|---------|:--:|:--------:|:----:|:---------:|:-----:|:-------:|:---------:|:----------:|:---------:|
+| Declarative YAML/DSL | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| AI / LLM native | ❌ | ❌ | ❌ | ✅✅ | ❌ | ❌ | ✅ | ✅✅ | **✅✅✅** |
+| Human-in-the-loop (semantic state) | ⚠️ | ✅ | ⚠️ | ✅✅ | ⚠️ | ⚠️ | ✅ | ✅ | **✅✅✅** |
+| Event-driven execution | ✅✅ | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | ✅✅ | ✅ | **✅✅✅** |
+| Multi-agent coordination | ❌ | ⚠️ | ❌ | ✅✅ | ❌ | ❌ | ✅ | ✅ | **✅✅✅** |
+| Pluggable execution engines | ⚠️ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | **✅✅✅** |
+| gRPC-native contracts | ✅ | ✅✅ | ⚠️ | ❌ | ❌ | ❌ | ✅ | ❌ | **✅✅✅** |
+| CloudEvents native | ✅✅ | ⚠️ | ⚠️ | ⚠️ | ❌ | ⚠️ | ✅ | ⚠️ | ✅✅ |
+| CNCF-aligned | ✅ Sandbox | ❌ | ✅ Incubating | ❌ | ✅ Incubating | ❌ | ⚠️ | ❌ | 🎯 M8 |
+| Language-agnostic agents | ✅ | ⚠️ | ✅ | ❌ | ✅ | ✅ | ✅ | ⚠️ | **✅✅✅** |
+| Formal IR / compilation step | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ⚠️ | ❌ | **✅✅✅** |
+| Capability / skill registry | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | **✅✅✅** |
+| Memory / persistent context | ❌ | ✅✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ |
+| Open source + permissive licence | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Compile-time error detection | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅✅✅** |
+| Plugin / integration catalogue | ❌ | ❌ | ⚠️ | ⚠️ | ✅ | ✅ | ✅ | **✅✅✅** | ⚠️ via adapters |
 
 **Key:** ✅✅✅ best-in-class / native · ✅✅ strong · ✅ supported ·
 ⚠️ partial / workaround · ❌ absent · 🎯 planned
@@ -214,6 +305,7 @@ and LangGraph offer them only as runtime conventions.
 | LangGraph | "LangGraph is an excellent Zynax engine for Python-native agents; the control plane is language-agnostic" |
 | Argo Workflows | "Argo excels at batch DAGs on Kubernetes; Zynax handles long-running AI interactions above any runtime" |
 | Conductor | "Both target AI services; Zynax differentiates on engine portability, formal IR, and open governance" |
+| Kestra | "Kestra adds AI tasks to general-purpose orchestration. Zynax is purpose-built infrastructure where agents are external services, engines are pluggable, and workflows are compiled — not interpreted" |
 
 ### 3.3 Target buyer
 
@@ -711,5 +803,8 @@ at the time of this document for reference:
 - [Argo Workflows Documentation](https://argo-workflows.readthedocs.io/)
 - [Flyte Documentation](https://flyte.org/)
 - [Conductor OSS](https://www.conductor-oss.org/)
+- [Kestra Documentation](https://kestra.io/docs)
+- [Kestra AI Agents — Introducing AI Agents blog post](https://kestra.io/blogs/introducing-ai-agents)
 - [CloudEvents Specification](https://cloudevents.io/)
 - [CNCF Sandbox Criteria](https://github.com/cncf/toc/blob/main/process/sandbox.md)
+- [Zynax Execution Architecture](execution-architecture.md)
