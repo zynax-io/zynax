@@ -203,6 +203,8 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Current milestone and active PRs | `state/current-milestone.md` |
 | SPDD workflow guide and REASONS Canvas methodology | `docs/patterns/spdd-guide.md` |
 | REASONS Canvas artifacts (one per `feat:` issue) | `docs/spdd/` |
+| Execution architecture — engine dispatch, event routing, memory, M3 sequence | `docs/architecture/execution-architecture.md` |
+| Competitive analysis and Kestra/Temporal/LangGraph positioning | `docs/architecture/competitive-analysis-2026.md` |
 | Dependency version policy, security scanning, upgrade cadence | `docs/engineering/dependency-strategy.md` |
 | Renovate bot CI failure fix procedure (go.sum, go directive) | `docs/engineering/renovate-fix-sop.md` |
 | Per-layer rules | `services/AGENTS.md` · `agents/AGENTS.md` · `protos/AGENTS.md` · `spec/AGENTS.md` · `infra/AGENTS.md` |
