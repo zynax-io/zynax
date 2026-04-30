@@ -5,7 +5,7 @@
 # status checks configured on `main`. Never rename a job without updating
 # the branch protection rules first (Settings → Branches → main).
 #
-# Required check names: dco · lint · test-unit · test-integration · security
+# Required check names: dco · lint-proto · lint-go · lint-python · test-unit · test-integration · security
 #
 # Design: Docker-free in CI (install tools natively for speed and cache
 # reuse). All commands mirror the Makefile targets so local and CI output
@@ -82,12 +82,12 @@ jobs:
           fi
           echo "✅ All commits carry Signed-off-by"
 
-# ── Lint ─────────────────────────────────────────────────────────────────────
-# Runs: buf lint (proto syntax + style), golangci-lint (Go services),
-#       ruff + mypy (Python agents and SDK).
-# Go and Python steps are skipped automatically when no code exists yet.
-  lint:
-    name: lint
+# ── Lint: Proto, AI context scan, and spec validation ────────────────────────
+# Runs: gitleaks (AI KB files), buf lint/format, stubs freshness,
+#       AsyncAPI spec, JSON schema validation.
+# Parallel with lint-go and lint-python — all three need dco to pass first.
+  lint-proto:
+    name: lint-proto
     runs-on: ubuntu-24.04
     needs: [dco]
     steps:
@@ -242,7 +242,16 @@ jobs:
         if: steps.spec-detect.outputs.has_spec == '1'
         run: python3 tools/validate_json_schemas.py spec/schemas/
 
-      # ── Go: golangci-lint ────────────────────────────────────────────────
+# ── Lint: Go services ─────────────────────────────────────────────────────────
+# Runs: golangci-lint on all Go platform services.
+# Parallel with lint-proto and lint-python. Unblocks test-unit immediately.
+  lint-go:
+    name: lint-go
+    runs-on: ubuntu-24.04
+    needs: [dco]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
       - name: Detect Go services
         id: go-detect
         run: |
@@ -291,7 +300,16 @@ jobs:
           done
           $failed && exit 1 || echo "✅ Go lint passed"
 
-      # ── Python: ruff + mypy ──────────────────────────────────────────────
+# ── Lint: Python agents and SDK ───────────────────────────────────────────────
+# Runs: ruff + mypy on SDK + all Python agents.
+# Parallel with lint-proto and lint-go. Does not block test-unit (Go-only gate).
+  lint-python:
+    name: lint-python
+    runs-on: ubuntu-24.04
+    needs: [dco]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
       - name: Detect Python agents
         id: py-detect
         run: |
@@ -340,7 +358,7 @@ jobs:
   test-unit:
     name: test-unit
     runs-on: ubuntu-24.04
-    needs: [lint]
+    needs: [lint-go, lint-proto]
     permissions:
       contents: read
       pull-requests: write
