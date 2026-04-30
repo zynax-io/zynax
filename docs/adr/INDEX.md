@@ -29,6 +29,7 @@ a PR against `docs/adr/`.
 | [ADR-016](ADR-016-layered-testing-strategy.md) | Layered testing strategy | Accepted | 2026-04-21 | Test placement, BDD scope, coverage gates |
 | [ADR-017](ADR-017-contract-test-isolation.md) | Contract test isolation — GOWORK=off | Accepted | 2026-04-21 | `protos/tests/`, `services/*/` — all `go test` invocations |
 | [ADR-018](ADR-018-ai-kb-authorization-model.md) | AI knowledge base authorization model | Accepted | 2026-04-24 | `CLAUDE.md`, `AGENTS.md`, `.ai/`, `.claude/` — KB paths |
+| [ADR-019](ADR-019-spdd-prompt-governance.md) | Structured Prompt-Driven Development (SPDD) | Accepted | 2026-04-30 | `feat:` PRs — Canvas before code, `docs/spdd/`, slash commands |
 
 ---
 
