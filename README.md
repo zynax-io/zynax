@@ -7,6 +7,7 @@
 **The declarative control plane for AI agent workflows**
 
 [![CI](https://github.com/zynax-io/zynax/actions/workflows/ci.yml/badge.svg)](https://github.com/zynax-io/zynax/actions/workflows/ci.yml)
+[![AI Context Budget](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml/badge.svg)](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![CNCF Sandbox Candidate](https://img.shields.io/badge/CNCF-Sandbox_Candidate-026be0.svg)](https://cncf.io)
 [![Go 1.22+](https://img.shields.io/badge/go-1.22+-00add8.svg)](https://go.dev)
@@ -195,6 +196,22 @@ terminal state required, valid capability refs), WorkflowGraph → WorkflowIR se
 (protobuf), gRPC API layer (`CompileWorkflow` / `ValidateManifest` / `GetCompiledWorkflow`),
 JSON Schemas for `Workflow`, `AgentDef`, and `Policy` manifest kinds, `make validate-spec`
 target, and reference workflow YAML examples. Coverage gate ≥ 90% on all domain packages.
+
+---
+
+## AI Context Architecture
+
+AI assistants working in this repo load context in layers. Smaller budgets = higher signal density.
+
+| File | Role | Limit |
+|------|------|-------|
+| `CLAUDE.md` | Session bootstrap — milestone status, dev workflow, anti-patterns | 200 lines |
+| `AGENTS.md` (root) | Engineering constitution — immutable principles, hard constraints | 300 lines |
+| `docs/ai-assistant-setup.md` | Onboarding guide for AI contributors | 150 lines |
+| `services/*/AGENTS.md` | Per-service rules (layout, tests, service-specific mistakes) | 150 lines each |
+| `agents/*/AGENTS.md` | Per-adapter rules (Python patterns, gRPC stub usage) | 150 lines each |
+
+Total budget: **2000 lines** across all files. The [AI Context Budget](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml) workflow reports current totals on every relevant PR (advisory, non-blocking). Counted by [tools/count-ai-context.sh](tools/count-ai-context.sh).
 
 ---
 

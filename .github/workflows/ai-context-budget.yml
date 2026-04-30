@@ -1,0 +1,39 @@
+name: AI Context Budget
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'CLAUDE.md'
+      - '**/AGENTS.md'
+      - 'docs/ai-assistant-setup.md'
+  pull_request:
+    paths:
+      - 'CLAUDE.md'
+      - '**/AGENTS.md'
+      - 'docs/ai-assistant-setup.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  count:
+    name: Count AI context lines
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Count AI context lines
+        id: count
+        run: |
+          chmod +x tools/count-ai-context.sh
+          OUTPUT=$(sh tools/count-ai-context.sh)
+          echo "$OUTPUT"
+          {
+            echo "## AI Context Budget"
+            echo ""
+            echo "$OUTPUT"
+          } >> "$GITHUB_STEP_SUMMARY"
+        # Advisory only — never fail CI
+        continue-on-error: false
