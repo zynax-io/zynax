@@ -207,6 +207,62 @@ Before committing a KB change, apply these steps in order:
 
 ---
 
+## Private Context Vault
+
+When a REASONS Canvas requires Tier 2 context to be useful — real hostnames,
+internal service names, security-sensitive design — that context lives in a
+**private companion file** alongside the public Canvas. It is never committed.
+
+### File layout
+
+```
+docs/spdd/<issue>-<slug>/
+  canvas.md               ← Tier 1, committed, public
+  canvas.private.md       ← Tier 2, gitignored, NEVER committed
+```
+
+The gitignore rule `docs/spdd/**/canvas.private.md` is enforced in `.gitignore`
+and verified by `tools/validate_canvas.py` (which fails if `canvas.private.md`
+is found alongside a committed Canvas).
+
+### Creating a private companion
+
+1. Copy `docs/spdd/PRIVATE_CANVAS_TEMPLATE.md` to
+   `docs/spdd/<issue>-<slug>/canvas.private.md`.
+2. Fill in the Tier 2 sections: deployment targets, internal service names,
+   security-sensitive notes, customer constraints.
+3. Verify it is gitignored: `git status` must not show the file.
+4. Note in the public Canvas that a private companion exists:
+   ```markdown
+   > **Private companion:** Tier 2 deployment context exists in
+   > `canvas.private.md` (gitignored). See `docs/knowledge-base-policy.md
+   > §"Private Context Vault"`.
+   ```
+
+### Sharing private context with collaborators
+
+The private file must never travel over unencrypted channels. Three sanctioned
+options (in preference order):
+
+| Option | How |
+|--------|-----|
+| **A — Private repo** | Push to `zynax-io/zynax-private-context` under the same `docs/spdd/` path |
+| **B — Encrypted file** | Encrypt with `age` or `gpg` using the recipient's public key |
+| **C — Session paste** | Paste relevant sections as Tier 3 ephemeral context at session start |
+
+### Injecting private context into an AI session
+
+```bash
+# At the start of a Claude Code session, paste relevant sections:
+cat docs/spdd/<issue>-<slug>/canvas.private.md
+# Copy the relevant sections and provide them in the session prompt.
+```
+
+Private context stays Tier 3 (ephemeral) within the session. The AI assistant
+must never write Tier 2 content back to any committed file.
+
+---
+
 ## Reviewer Verification Process
 
 When reviewing a PR that touches KB paths, verify each of the following before
