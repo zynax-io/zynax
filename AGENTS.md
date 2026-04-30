@@ -207,6 +207,7 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Competitive analysis and Kestra/Temporal/LangGraph positioning | `docs/architecture/competitive-analysis-2026.md` |
 | Dependency version policy, security scanning, upgrade cadence | `docs/engineering/dependency-strategy.md` |
 | Renovate bot CI failure fix procedure (go.sum, go directive) | `docs/engineering/renovate-fix-sop.md` |
+| AI context line counts and budget thresholds (advisory, non-blocking) | `tools/count-ai-context.sh` |
 | Per-layer rules | `services/AGENTS.md` · `agents/AGENTS.md` · `protos/AGENTS.md` · `spec/AGENTS.md` · `infra/AGENTS.md` |
 
 ---
