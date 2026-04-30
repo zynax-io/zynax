@@ -2,7 +2,7 @@
 
 # AI Knowledge Base — Content Sanitization Policy
 
-**Version:** 1.0  **Date:** 2026-04-24
+**Version:** 2.0  **Date:** 2026-04-30
 **Governed by:** ADR-018 (AI KB Authorization Model)
 **Enforced by:** `gitleaks-ai-context` CI gate · CODEOWNERS (`@zynax-io/maintainers`)
 
@@ -13,6 +13,81 @@ This policy defines what content is permitted in AI knowledge base files
 - Contributors use when writing or editing KB entries
 - Reviewers use when evaluating KB PRs
 - CI scanner rules (`tools/gitleaks-ai-context.toml`) are derived from
+
+---
+
+## Context Trust Levels
+
+Every piece of context that informs an AI assistant — or gets committed to the
+repo — falls into one of three tiers. The tier determines where the context may
+live, who can see it, and what happens to it after the session ends.
+
+| Tier | Name | Storage | Persisted? | Publicly visible? |
+|------|------|---------|-----------|------------------|
+| 1 | **Public** | `docs/spdd/canvas.md`, `AGENTS.md`, `CLAUDE.md`, ADRs | ✅ Committed | ✅ Yes |
+| 2 | **Private** | `canvas.private.md` (gitignored, local only) | ✅ Local disk | ❌ No |
+| 3 | **Ephemeral** | Session only — never written to disk | ❌ Discarded | ❌ No |
+
+### Tier 1 — Public Context
+
+Safe to commit. May appear in `docs/spdd/canvas.md`, `AGENTS.md`, `CLAUDE.md`,
+ADRs, and any other public repository file.
+
+| Type | Examples | Safe? |
+|------|---------|-------|
+| Architecture principles | Three-layer separation, gRPC mandate | ✅ Always |
+| Coding standards | Go functions ≤ 30 lines, `GOWORK=off` | ✅ Always |
+| Naming conventions | `snake_case` capabilities, `zynax.v1.*` topics | ✅ Always |
+| Testing standards | BDD before implementation, ≥ 90% coverage | ✅ Always |
+| Public API contracts | Proto field names, gRPC service names | ✅ Always |
+| ADR rationale | Why we chose NATS over Kafka | ✅ If ADR is merged |
+| Generic workflows | `make bootstrap → lint → test → PR` | ✅ Always |
+| Abstracted diagrams | Layer diagrams without IP or hostname | ✅ Always |
+| Error messages and fixes | Verbatim CI errors and their resolutions | ✅ No internal details |
+
+**Rule: store intent, not environment. Store abstractions, not secrets. Store architecture, not operations.**
+
+### Tier 2 — Private Context
+
+Sensitive but legitimate. Never committed to the public repo. Stored in a local
+companion file (`canvas.private.md` — gitignored) alongside the public Canvas.
+See [#216](https://github.com/zynax-io/zynax/issues/216) for the full
+private-vault convention.
+
+| Type | Examples | Risk if leaked |
+|------|---------|---------------|
+| Real deployment targets | Production cluster names, namespace paths | Infrastructure disclosure |
+| Internal service names | Internal API names not in public contracts | Reconnaissance |
+| Customer-specific constraints | Tenant isolation requirements | Customer confidentiality |
+| Security-sensitive design | Threat model specifics, pen-test findings | Attacker-observable |
+| Personal context | Engineer names linked to sensitive work | PII |
+
+**Rule: if disclosing it in a public GitHub PR would require a security incident report, it is Tier 2.**
+
+### Tier 3 — Ephemeral Context
+
+Session-only. Never written to disk in any form — not to memory files, Canvas
+files, or commit messages. Exists only within a single AI session.
+
+| Type | Examples | Rule |
+|------|---------|------|
+| Live debugging output | Stack traces from a running production process | Use → discard |
+| Real-time observability | Metric values from a live dashboard | Use → discard |
+| Sensitive user-provided context | Passwords or tokens typed into chat | Never persist |
+| Investigation scratch notes | Hypotheses that turned out to be wrong | Discard, don't commit |
+
+**Rule: if you would not want it in a commit message, keep it ephemeral.**
+
+### Boundary cases
+
+When context sits on the boundary between tiers, apply the **lower trust tier**:
+
+- A real hostname also referenced in a public ADR → still Tier 2 (the ADR
+  reference is fine; the operational hostname in a Canvas is not)
+- An architecture decision that names an internal team → abstract the team
+  reference, keep the decision
+- A production error message containing a real hostname → sanitize the
+  hostname, keep the error text
 
 ---
 
@@ -197,8 +272,15 @@ This policy applies to all content in:
 - `/CLAUDE.md`
 - `/AGENTS.md` and all `**/AGENTS.md` files
 - `/docs/ai-assistant-setup.md`
+- `/docs/knowledge-base-policy.md` (this file)
+- `/docs/patterns/spdd-guide.md` (SPDD methodology — loaded by AI assistants)
+- `/docs/spdd/**/canvas.md` (REASONS Canvas artifacts — public Tier 1 context)
 - `/.ai/**` (future — Epic #148)
 - `/.claude/**` (future — Epic #148)
+
+**Explicitly excluded from this policy** (never committed, governed by Tier 2 rules):
+
+- `/docs/spdd/**/canvas.private.md` — must be listed in `.gitignore`
 
 It does not apply to regular source code, tests, or other documentation files
 unless those files are explicitly added to the KB paths list in CODEOWNERS.
