@@ -10,7 +10,7 @@ any layer.
 |-----------|--------|---------|--------|
 | M1 — Contracts Foundation | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
 | M2 — Workflow IR | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
-| M3 — Temporal Execution | Not started | v0.2.0 | — |
+| M3 — Temporal Execution | **Next** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) |
 | M4 — YAML System + CLI | Not started | v0.3.0 | — |
 
 M1 delivered: 8 gRPC contracts, AsyncAPI spec, JSON schemas, Go + Python generated stubs,
@@ -145,17 +145,40 @@ These three rules must never be broken regardless of milestone:
 3. **Contracts before implementations.** `.proto` files and `.feature` files are
    committed and CI-green before any service implementation begins (ADR-016).
 
+## SPDD — feat: PR Workflow
+
+Every `feat:` PR **requires a REASONS Canvas committed before any implementation code.**
+This is enforced by ADR-019 and `/spdd-generate` will refuse to run from an unaligned Canvas.
+
+**Prompt-first rule:** requirements change → update Canvas → then patch code. Never the reverse.
+
+```
+/spdd-analysis <issue>          → research: codebase scan, ADRs, risk table, Tier 2 flags
+/spdd-story <issue>             → decompose into INVEST stories (maps to Canvas O section)
+/spdd-reasons-canvas <issue>    → generate docs/spdd/<issue>-<slug>/canvas.md (status: Draft)
+/spdd-security-review <canvas>  → Tier 2 scan, injection check — must PASS before commit
+[human reviews and sets status: Aligned]
+/spdd-generate <canvas>         → implement one Operations step; stop; wait for review
+/spdd-prompt-update <canvas>    → requirements changed: update Canvas first, resets to Draft
+/spdd-sync <canvas>             → after a refactor: sync Canvas to implementation reality
+/spdd-api-test <canvas>         → generate BDD .feature file for a new gRPC boundary
+```
+
+Canvas is **Tier 1 only** (public-safe). Move sensitive context to `canvas.private.md` (gitignored).
+**Scope:** `feat:` PRs only — `fix:`, `refactor:`, `docs:`, `ci:`, `chore:` are exempt.
+Full guide: `docs/patterns/spdd-guide.md` · Template: `docs/spdd/CANVAS_TEMPLATE.md`
+
 ## Per-Milestone Scope
 
 | Milestone | In scope | Out of scope / defer |
 |-----------|----------|----------------------|
 | **M1** (Complete) | Proto contracts, AsyncAPI spec, generated stubs, BDD scenarios, CI gates | Service implementations, DB schemas, runtime |
-| **M2** (next) | WorkflowIR structured fields in `workflow_compiler.proto`, `WorkflowCompilerService` skeleton (in-memory), JSON Schema for WorkflowIR | Temporal integration, persistence, CLI |
-| **M3** | Temporal-backed `EngineAdapterService` implementation | Other engine adapters, K8s deployment |
+| **M2** (Complete) | WorkflowIR structured fields in `workflow_compiler.proto`, `WorkflowCompilerService` skeleton (in-memory), JSON Schema for WorkflowIR | Temporal integration, persistence, CLI |
+| **M3** (Next) | Temporal-backed `EngineAdapterService` implementation — gated by SPDD Canvas #214 | Other engine adapters, K8s deployment |
 | **M4+** | CLI, YAML validation, observability, production hardening | — |
 
-For M2: touch `protos/zynax/v1/workflow_compiler.proto` and `services/workflow-compiler/`.
-Do not touch `services/engine-adapter/` or any Temporal code — that is M3.
+For M3: touch `services/engine-adapter/`. Start with the SPDD Canvas at
+`docs/spdd/214-temporal-execution/canvas.md` — no code before Canvas is Aligned.
 
 ## Common AI Anti-Patterns
 
@@ -176,9 +199,7 @@ Things that have gone wrong in this repo — avoid these:
 | Using `govulncheck@latest` with Go 1.22 | Pin to `GOVULNCHECK_VERSION` env var — @latest requires Go ≥ 1.25 |
 | `golang:1.22-alpine` COPY paths using `/root/go/bin/` | Use `/go/bin/` — GOPATH on Alpine is `/go`, not `/root/go` |
 | Importing domain types across services | Cross-service communication is gRPC only, never shared types |
-| Opening a `feat:` PR without a REASONS Canvas | Create `docs/spdd/<issue>-<slug>/canvas.md` before any code (ADR-019, Epic #205) |
-| Putting Tier 2 context in a Canvas (internal IPs, hostnames, credentials) | Canvas is public — sensitive context goes in `canvas.private.md` (gitignored) |
-| Updating code for a requirements change without updating the Canvas | Fix the Canvas first (prompt-first rule) — otherwise Canvas diverges from intent |
+| Any SPDD violation (`feat:` PR without Canvas, Tier 2 in Canvas, code before Canvas update) | See SPDD section above — ADR-019, `docs/patterns/spdd-guide.md` |
 
 ## Decision-Making Guide
 
