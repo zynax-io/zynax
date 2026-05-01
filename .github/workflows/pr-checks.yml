@@ -391,6 +391,7 @@ jobs:
           else
             echo "No canvas in this PR diff — running validate-canvas on all existing canvases..."
             python tools/validate_canvas.py docs/spdd/
+          fi
 
 # ── Secret Scan (gitleaks) ────────────────────────────────────────────────────
 # Scans every commit in the PR range — including commits that were later amended

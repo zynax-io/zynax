@@ -43,9 +43,11 @@ jobs:
         id: meta
         run: |
           proto_changed=$(git diff --name-only HEAD~1..HEAD -- 'protos/zynax/v1/*.proto' | wc -l)
-          echo "proto_changed=$proto_changed" >> "$GITHUB_OUTPUT"
-          echo "sha7=${GITHUB_SHA:0:7}"       >> "$GITHUB_OUTPUT"
-          echo "date=$(date -u +%Y%m%d)"      >> "$GITHUB_OUTPUT"
+          {
+            echo "proto_changed=$proto_changed"
+            echo "sha7=${GITHUB_SHA:0:7}"
+            echo "date=$(date -u +%Y%m%d)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: No proto changes — skip publication
         if: steps.meta.outputs.proto_changed == '0'
