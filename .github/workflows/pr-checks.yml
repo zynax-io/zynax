@@ -5,12 +5,19 @@
 # design and correctness rather than process compliance.
 #
 # Coverage:
+#   actionlint           → GitHub Actions workflow YAML and expression linting
 #   conventional-commit  → PR title follows Conventional Commits format
 #   pr-size              → auto-labels size/S · size/M · size/L · size/XL
 #   proto-breaking       → buf breaking change detection against base branch
 #   proto-stubs-fresh    → detects stale generated stubs (issue #12 tracks gen)
 #   layer-boundaries     → detects cross-layer imports (ADR-001 §separation)
 #   gitleaks-scan        → scans full PR commit range for secrets (all paths)
+#
+# Required status checks (branch protection):
+#   GitHub Actions workflow lint · Conventional Commit title · PR size label
+#   Secret scan (gitleaks)
+# All jobs with if: github.event_name == 'pull_request' are skipped on push
+# to main (only gitleaks-scan fires on push).
 
 name: PR Checks
 
@@ -28,12 +35,47 @@ permissions:
   contents: read
   pull-requests: write
 
+# ── GitHub Actions Workflow Lint ──────────────────────────────────────────────
+# actionlint catches expression-context mismatches (e.g. using pull_request
+# context variables in a job that also fires on push), invalid step outputs,
+# and schema errors — before they reach main.
+#   actionlint docs: https://github.com/rhysd/actionlint
+jobs:
+  actionlint:
+    name: GitHub Actions workflow lint
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Cache actionlint
+        id: actionlint-cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: /usr/local/bin/actionlint
+          key: actionlint-1.7.7-linux-amd64
+
+      - name: Install actionlint
+        if: steps.actionlint-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL \
+            "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" \
+            -o /tmp/actionlint.tar.gz
+          tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin actionlint
+
+      - name: Lint all workflow files
+        run: |
+          # Wrap shellcheck to suppress info/style — only warning+error matter
+          printf '#!/bin/sh\nexec shellcheck --severity=warning "$@"\n' > /tmp/sc-wrap
+          chmod +x /tmp/sc-wrap
+          actionlint -color -shellcheck /tmp/sc-wrap
+
 # ── Conventional Commit Title ─────────────────────────────────────────────────
 # The PR title becomes the squash commit subject on merge. It must follow the
 # Conventional Commits spec so changelog generation and semantic versioning work.
-jobs:
   conventional-commit:
     name: Conventional Commit title
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6
@@ -60,6 +102,7 @@ jobs:
 # >800 lines fails the check — the PR must be decomposed before review.
   pr-size:
     name: PR size label
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -132,6 +175,7 @@ jobs:
 # signatures. New fields and enums are always safe; removals and renames fail.
   proto-breaking:
     name: Proto backward compatibility
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -178,6 +222,7 @@ jobs:
 # Issue #12 tracks implementing `make generate-protos` in buf.gen.yaml.
   proto-stubs-fresh:
     name: Proto generated stubs freshness
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -215,6 +260,7 @@ jobs:
 #   protos/  must NOT import service business logic
   layer-boundaries:
     name: Layer boundary enforcement
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -268,6 +314,7 @@ jobs:
 #     /spdd-generate at code-generation time, not at PR open time).
   canvas-freshness:
     name: SPDD Canvas freshness (feat only)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -348,6 +395,7 @@ jobs:
           else
             echo "No canvas in this PR diff — running validate-canvas on all existing canvases..."
             python tools/validate_canvas.py docs/spdd/
+          fi
 
 # ── Secret Scan (gitleaks) ────────────────────────────────────────────────────
 # Scans every commit in the PR range — including commits that were later amended

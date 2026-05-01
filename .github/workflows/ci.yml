@@ -113,9 +113,11 @@ jobs:
         id: detect
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "proto=true"  >> "$GITHUB_OUTPUT"
-            echo "go=true"     >> "$GITHUB_OUTPUT"
-            echo "python=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "proto=true"
+              echo "go=true"
+              echo "python=true"
+            } >> "$GITHUB_OUTPUT"
             echo "ℹ️  Push to main — all lint lanes enabled."
             exit 0
           fi
@@ -139,9 +141,11 @@ jobs:
             fi
           done <<< "$FILES"
 
-          echo "proto=$proto"  >> "$GITHUB_OUTPUT"
-          echo "go=$go"        >> "$GITHUB_OUTPUT"
-          echo "python=$python" >> "$GITHUB_OUTPUT"
+          {
+            echo "proto=$proto"
+            echo "go=$go"
+            echo "python=$python"
+          } >> "$GITHUB_OUTPUT"
           echo "── Changed path groups: lint-proto=$proto  lint-go=$go  lint-python=$python"
 
 # ── Lint: Proto, AI context scan, and spec validation ────────────────────────
