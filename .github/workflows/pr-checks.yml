@@ -34,6 +34,7 @@ permissions:
 jobs:
   conventional-commit:
     name: Conventional Commit title
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6
@@ -60,6 +61,7 @@ jobs:
 # >800 lines fails the check — the PR must be decomposed before review.
   pr-size:
     name: PR size label
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -132,6 +134,7 @@ jobs:
 # signatures. New fields and enums are always safe; removals and renames fail.
   proto-breaking:
     name: Proto backward compatibility
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -178,6 +181,7 @@ jobs:
 # Issue #12 tracks implementing `make generate-protos` in buf.gen.yaml.
   proto-stubs-fresh:
     name: Proto generated stubs freshness
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -215,6 +219,7 @@ jobs:
 #   protos/  must NOT import service business logic
   layer-boundaries:
     name: Layer boundary enforcement
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -268,6 +273,7 @@ jobs:
 #     /spdd-generate at code-generation time, not at PR open time).
   canvas-freshness:
     name: SPDD Canvas freshness (feat only)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
