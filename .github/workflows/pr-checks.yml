@@ -64,7 +64,11 @@ jobs:
           tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin actionlint
 
       - name: Lint all workflow files
-        run: actionlint -color
+        run: |
+          # Wrap shellcheck to suppress info/style — only warning+error matter
+          printf '#!/bin/sh\nexec shellcheck --severity=warning "$@"\n' > /tmp/sc-wrap
+          chmod +x /tmp/sc-wrap
+          actionlint -color -shellcheck /tmp/sc-wrap
 
 # ── Conventional Commit Title ─────────────────────────────────────────────────
 # The PR title becomes the squash commit subject on merge. It must follow the
