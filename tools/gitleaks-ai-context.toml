@@ -41,6 +41,20 @@ description = "Private IP address range — infrastructure detail"
 regex       = '''(10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3}|192\.168\.[0-9]{1,3}\.[0-9]{1,3})'''
 tags        = ["infrastructure", "ip"]
 
+[[rules]]
+id          = "prompt-injection"
+description = "Prompt injection payload — text instructing an AI to override governance rules"
+regex       = '''(?i)(ignore\s+(previous|prior|all)\s+(instructions?|prompts?|rules?)|forget\s+(everything|all\s+previous|all\s+prior)\s*(instructions?|context)?|you\s+are\s+now\s+(a|an)\s+[a-z][a-z]+|you\s+(have\s+)?no\s+(restrictions?|ethical\s+guidelines?|safety\s+rules?)|disregard\s+(all\s+)?(previous|system)\s+(instructions?|rules?))'''
+tags        = ["injection", "security"]
+[rules.allowlist]
+# Skip files that intentionally document injection patterns as examples or rules
+paths       = [
+  '''tools/gitleaks-ai-context\.toml''',
+  '''docs/knowledge-base-policy\.md''',
+  '''\.claude/commands/''',
+  '''\.claude/settings''',
+]
+
 [allowlist]
 regexes     = [
   # Docker Alpine container paths documented as known pitfalls — not local machine paths
