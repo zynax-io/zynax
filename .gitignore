@@ -17,6 +17,8 @@ dist/
 .pytest_cache/
 coverage.xml
 coverage-html/
+.coverage
+uv.lock
 
 # Secrets
 .env.local
