@@ -425,10 +425,15 @@ jobs:
 # ── Unit Tests ────────────────────────────────────────────────────────────────
 # Runs: Go unit tests + godog BDD contract tests (when step defs exist),
 #       pytest-bdd with ≥90% coverage (Python), proto contract spec report.
+#
+# `if: always()` is required: lint-proto and lint-python are skipped on Go-only
+# PRs (path-based), which would cascade and skip test-unit too. `always()` breaks
+# the cascade; the `!contains` guards ensure we still gate on actual failures.
   test-unit:
     name: test-unit
     runs-on: ubuntu-24.04
     needs: [lint-go, lint-proto, lint-python]
+    if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     permissions:
       contents: read
       pull-requests: write
@@ -474,8 +479,12 @@ jobs:
             if [ -f "services/${svc}/go.mod" ]; then
               echo "── test: services/${svc}"
               cd "services/${svc}"
+              # Run all tests; coverage profile is scoped to internal/domain/ only.
+              # Business-logic purity (the 90% gate target) lives there; infrastructure
+              # and transport layers are excluded from the gate.
               GOWORK=off go test ./... -v -race -timeout 60s \
                 -count=1 \
+                -coverpkg=./internal/domain/... \
                 -coverprofile=coverage.out \
                 -covermode=atomic || failed=true
               cd ../..
@@ -483,7 +492,7 @@ jobs:
           done
           $failed && exit 1 || echo "✅ Go service tests passed"
 
-      - name: Go service coverage gate (≥90%)
+      - name: Go service coverage gate (≥90% on internal/domain)
         if: steps.go-detect.outputs.has_services != '0'
         run: |
           failed=false
@@ -496,12 +505,12 @@ jobs:
                 continue
               fi
               GOWORK=off go tool cover -func="services/${svc}/coverage.out" | grep "^total:" \
-                | awk -v svc="${svc}" '{printf "── coverage: services/%s  %s\n", svc, $3}'
+                | awk -v svc="${svc}" '{printf "── domain coverage: services/%s  %s\n", svc, $3}'
               if awk "BEGIN{exit !(${total} < 90)}"; then
-                echo "  ❌ ${total}% < 90% — coverage gate failed for services/${svc}"
+                echo "  ❌ ${total}% < 90% — domain coverage gate failed for services/${svc}"
                 failed=true
               else
-                echo "  ✅ ${total}% ≥ 90% for services/${svc}"
+                echo "  ✅ ${total}% ≥ 90% domain coverage for services/${svc}"
               fi
             fi
           done
@@ -703,10 +712,14 @@ jobs:
 # Runs against real backing services (not mocked). Currently a no-op skeleton;
 # real tests will be added when services ship. The job always passes so branch
 # protection stays green. Remove the skip condition once tests exist.
+#
+# `if: always()` mirrors test-unit — prevents the cascade-skip when lint-proto
+# and lint-python are skipped on Go-only PRs (same reasoning as above).
   test-integration:
     name: test-integration
     runs-on: ubuntu-24.04
     needs: [lint-go, lint-proto, lint-python]
+    if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -728,7 +741,7 @@ jobs:
             if [ -d "services/${svc}/tests/integration" ]; then
               echo "── integration: services/${svc}"
               cd "services/${svc}"
-              go test ./tests/integration/... -v -timeout 120s
+              GOWORK=off go test ./tests/integration/... -v -timeout 120s
               cd ../..
             fi
           done
