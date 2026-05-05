@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+
+// Package domain contains the core port definitions and value types for the
+// engine-adapter service. It has zero imports from api or infrastructure layers.
 package domain
 
 import "time"
@@ -8,6 +11,8 @@ import "time"
 // Ordinals are permanent — never reorder (matches engine_adapter.proto).
 type WorkflowStatus int32
 
+// Workflow status constants mirror engine_adapter.proto WorkflowStatus ordinals.
+// Ordinals are permanent — never reorder or reassign (ADR-001 §backward-compat).
 const (
 	WorkflowStatusUnspecified WorkflowStatus = 0
 	WorkflowStatusPending     WorkflowStatus = 1

@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+
+// Package domain contains the core port definitions and value types for the
+// engine-adapter service. It has zero imports from api or infrastructure layers.
 package domain
 
 import "errors"
