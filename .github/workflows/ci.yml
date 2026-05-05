@@ -479,32 +479,41 @@ jobs:
             if [ -f "services/${svc}/go.mod" ]; then
               echo "── test: services/${svc}"
               cd "services/${svc}"
-              # Run all tests; coverage profile is scoped to internal/domain/ only.
-              # Business-logic purity (the 90% gate target) lives there; infrastructure
-              # and transport layers are excluded from the gate.
-              GOWORK=off go test ./... -v -race -timeout 60s \
-                -count=1 \
-                -coverpkg=./internal/domain/... \
-                -coverprofile=coverage.out \
-                -covermode=atomic || failed=true
+              GOWORK=off go test ./... -v -race -timeout 60s -count=1 || failed=true
               cd ../..
             fi
           done
           $failed && exit 1 || echo "✅ Go service tests passed"
+
+      - name: Go domain coverage measurement
+        if: steps.go-detect.outputs.has_services != '0'
+        run: |
+          # Run tests scoped to internal/domain/ only to produce a clean coverage
+          # profile for the gate. Running ./... with -coverpkg produces merged profiles
+          # that Go's cover tool cannot summarise with a total: line in all Go versions.
+          for svc in ${{ env.SERVICE_LIST }}; do
+            if [ -f "services/${svc}/go.mod" ] && [ -d "services/${svc}/internal/domain" ]; then
+              cd "services/${svc}"
+              GOWORK=off go test ./internal/domain/... \
+                -coverprofile=domain-coverage.out \
+                -covermode=atomic 2>/dev/null || true
+              cd ../..
+            fi
+          done
 
       - name: Go service coverage gate (≥90% on internal/domain)
         if: steps.go-detect.outputs.has_services != '0'
         run: |
           failed=false
           for svc in ${{ env.SERVICE_LIST }}; do
-            if [ -f "services/${svc}/coverage.out" ]; then
-              total=$(GOWORK=off go tool cover -func="services/${svc}/coverage.out" \
+            if [ -f "services/${svc}/domain-coverage.out" ]; then
+              total=$(GOWORK=off go tool cover -func="services/${svc}/domain-coverage.out" \
                       | grep "^total:" | awk '{print $3}' | tr -d '%')
               if [ -z "$total" ]; then
                 echo "  ⚠ no coverage total for services/${svc} — skipping"
                 continue
               fi
-              GOWORK=off go tool cover -func="services/${svc}/coverage.out" | grep "^total:" \
+              GOWORK=off go tool cover -func="services/${svc}/domain-coverage.out" | grep "^total:" \
                 | awk -v svc="${svc}" '{printf "── domain coverage: services/%s  %s\n", svc, $3}'
               if awk "BEGIN{exit !(${total} < 90)}"; then
                 echo "  ❌ ${total}% < 90% — domain coverage gate failed for services/${svc}"
