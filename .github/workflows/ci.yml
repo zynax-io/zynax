@@ -45,6 +45,7 @@ env:
   GOVULNCHECK_VERSION: "v1.1.4"
   SERVICE_LIST: "agent-registry task-broker memory-service event-bus api-gateway workflow-compiler engine-adapter"
   AGENT_LIST: "summarizer researcher calculator"
+  TRIVY_VERSION: "0.61.0"
 
 # ── DCO ─────────────────────────────────────────────────────────────────────
 # Every commit in a PR must carry a Signed-off-by trailer (Developer
@@ -835,10 +836,70 @@ jobs:
           done
           $failed && exit 1 || echo "✅ Security scans passed"
 
+      # ── Trivy: dependency CVEs + Dockerfile misconfigs ───────────────────
+      - name: Compute trivy DB cache key
+        id: date
+        run: echo "week=$(date -u +%Y-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache trivy binary
+        id: trivy-bin-cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: /usr/local/bin/trivy
+          key: trivy-${{ env.TRIVY_VERSION }}-linux-x64
+
+      - name: Install trivy
+        if: steps.trivy-bin-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL \
+            "https://github.com/aquasecurity/trivy/releases/download/v${{ env.TRIVY_VERSION }}/trivy_${{ env.TRIVY_VERSION }}_Linux-64bit.tar.gz" \
+            -o /tmp/trivy.tar.gz
+          tar -xzf /tmp/trivy.tar.gz -C /usr/local/bin trivy
+
+      - name: Cache trivy vulnerability DB
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ env.TRIVY_VERSION }}-${{ steps.date.outputs.week }}
+          restore-keys: trivy-db-${{ env.TRIVY_VERSION }}-
+
+      - name: trivy filesystem scan (go.mod + pyproject.toml CVEs)
+        run: |
+          trivy fs \
+            --exit-code 1 \
+            --severity HIGH,CRITICAL \
+            --ignorefile .trivyignore \
+            --scanners vuln \
+            --skip-dirs .git \
+            . 2>&1 || {
+            echo ""
+            echo "❌ HIGH/CRITICAL CVE found in a dependency manifest."
+            echo "Upgrade the package or add a documented exception to .trivyignore."
+            exit 1
+          }
+
+      - name: trivy Dockerfile misconfiguration scan
+        run: |
+          dockerfiles=$(find infra/ -name "Dockerfile*" 2>/dev/null | wc -l)
+          if [ "$dockerfiles" -gt 0 ]; then
+            trivy config \
+              --exit-code 1 \
+              --severity HIGH,CRITICAL \
+              --ignorefile .trivyignore \
+              infra/ 2>&1 || {
+              echo ""
+              echo "❌ HIGH/CRITICAL Dockerfile misconfiguration found."
+              echo "Fix the issue or add a documented exception to .trivyignore."
+              exit 1
+            }
+          else
+            echo "ℹ️  No Dockerfiles found in infra/ — config scan skipped."
+          fi
+
       - name: No security targets yet
         if: >-
           steps.go-detect.outputs.has_go == '0' &&
           steps.py-detect.outputs.has_py == '0'
         run: |
-          echo "ℹ️  No Go or Python code found — security job passes as no-op."
-          echo "   govulncheck and bandit will activate when services are added."
+          echo "ℹ️  No Go or Python source found — govulncheck and bandit skipped."
+          echo "   trivy dependency and config scans above always run."
