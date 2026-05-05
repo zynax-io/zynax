@@ -26,6 +26,7 @@ type stubEngine struct {
 	submitErr error
 	statusRun domain.WorkflowRunSummary
 	statusErr error
+	cancelErr error
 }
 
 func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _ string) (string, error) {
@@ -34,6 +35,10 @@ func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _ string) (stri
 
 func (s *stubEngine) GetWorkflowStatus(_ context.Context, _ string) (domain.WorkflowRunSummary, error) {
 	return s.statusRun, s.statusErr
+}
+
+func (s *stubEngine) CancelWorkflow(_ context.Context, _ string) error {
+	return s.cancelErr
 }
 
 // stubRegistry is a test double for RegistryPort.

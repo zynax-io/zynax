@@ -87,3 +87,11 @@ func (s *ApplyService) GetWorkflowStatus(ctx context.Context, runID string) (Wor
 	}
 	return run, nil
 }
+
+// CancelWorkflow requests cancellation of a running workflow.
+func (s *ApplyService) CancelWorkflow(ctx context.Context, runID string) error {
+	if err := s.engine.CancelWorkflow(ctx, runID); err != nil {
+		return fmt.Errorf("api-gateway: %w", err)
+	}
+	return nil
+}

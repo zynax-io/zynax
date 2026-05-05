@@ -98,6 +98,15 @@ func (c *GatewayClients) GetWorkflowStatus(ctx context.Context, runID string) (d
 	}, nil
 }
 
+// CancelWorkflow implements domain.EnginePort.
+func (c *GatewayClients) CancelWorkflow(ctx context.Context, runID string) error {
+	_, err := c.engine.CancelWorkflow(ctx, &zynaxv1.CancelWorkflowRequest{RunId: runID})
+	if err != nil {
+		return mapEngineGRPCError(err)
+	}
+	return nil
+}
+
 // RegisterAgent implements domain.RegistryPort.
 // The raw YAML is parsed here in the infrastructure layer; the domain never
 // sees proto types or YAML-parsed structs (ADR-011, ADR-001).

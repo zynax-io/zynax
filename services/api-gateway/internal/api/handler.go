@@ -31,6 +31,7 @@ func NewHandler(svc *domain.ApplyService) *Handler {
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/apply", h.handleApply)
 	mux.HandleFunc("GET /api/v1/workflows/{id}", h.handleGetWorkflow)
+	mux.HandleFunc("DELETE /api/v1/workflows/{id}", h.handleDeleteWorkflow)
 }
 
 func (h *Handler) handleApply(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +115,23 @@ func (h *Handler) handleGetWorkflow(w http.ResponseWriter, r *http.Request) {
 			Status:       run.Status,
 			CurrentState: run.CurrentState,
 		})
+	}
+}
+
+func (h *Handler) handleDeleteWorkflow(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "run_id is required", "INVALID_ARGUMENT")
+		return
+	}
+	err := h.svc.CancelWorkflow(r.Context(), id)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		writeError(w, http.StatusNotFound, "workflow run not found", "NOT_FOUND")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal error", "INTERNAL")
+	default:
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 

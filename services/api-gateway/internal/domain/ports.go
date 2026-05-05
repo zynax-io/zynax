@@ -40,6 +40,7 @@ type CompilerPort interface {
 type EnginePort interface {
 	SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint string) (string, error)
 	GetWorkflowStatus(ctx context.Context, runID string) (WorkflowRunSummary, error)
+	CancelWorkflow(ctx context.Context, runID string) error
 }
 
 // AgentRegistration is the domain view of a successful RegisterAgent response.
