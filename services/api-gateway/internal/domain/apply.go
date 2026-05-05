@@ -62,7 +62,7 @@ func (s *ApplyService) ApplyWorkflow(ctx context.Context, req ApplyRequest) (App
 func (s *ApplyService) submit(ctx context.Context, compiled CompileResult, engineHint string) (ApplyResult, error) {
 	runID, err := s.engine.SubmitWorkflow(ctx, compiled.IRBytes, engineHint)
 	if err != nil {
-		return ApplyResult{}, err
+		return ApplyResult{}, fmt.Errorf("api-gateway: %w", err)
 	}
 	return ApplyResult{RunID: runID, Warnings: compiled.Warnings}, nil
 }

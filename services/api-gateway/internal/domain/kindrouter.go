@@ -12,6 +12,7 @@ import (
 // Kind represents the manifest resource type read from the YAML kind: field.
 type Kind string
 
+// Allowlisted manifest kinds. Unknown values are rejected at the gateway.
 const (
 	KindWorkflow Kind = "Workflow"
 	KindAgentDef Kind = "AgentDef"
