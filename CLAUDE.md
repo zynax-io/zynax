@@ -21,14 +21,13 @@ semantic validators (#85), WorkflowGraph → WorkflowIR serialization (#86), gRP
 layer with CompileWorkflow / ValidateManifest / GetCompiledWorkflow (#87), BDD contract
 steps (#154), coverage gate ≥90% + make test pipeline (#155, #142).
 
-M3 delivered: `WorkflowEngine` Go interface + `TemporalEngine` implementation, `IRInterpreterWorkflow`
-state machine (Temporal workflow), `DispatchCapabilityActivity` routing to TaskBrokerService,
-CEL guard evaluation, CloudEvents lifecycle publishing, all 5 `EngineAdapterService` gRPC methods
-wired end-to-end. See [Epic #214](https://github.com/zynax-io/zynax/issues/214), step issues #301–#305.
+M3 delivered: `WorkflowEngine` interface + `TemporalEngine`, `IRInterpreterWorkflow` state machine,
+`DispatchCapabilityActivity`, CEL guards, CloudEvents, all 5 `EngineAdapterService` gRPC methods.
+Step issues #301–#305. [Epic #214](https://github.com/zynax-io/zynax/issues/214).
 
-M4 in progress: api-gateway HTTP REST (`/api/v1/apply`, `/api/v1/workflows/{id}`), `kind: AgentDef`
-routing (#316), `zynax` CLI apply/get/delete/status (#317), logs streaming (#318), Docker Compose
-runner (#319), GitOps watch (#320). See [Epic #314](https://github.com/zynax-io/zynax/issues/314).
+M4 in progress: api-gateway REST (`/api/v1/apply`, `/api/v1/workflows/{id}`) (#315–#316 done),
+`zynax` CLI (#317, PR open), logs/#318, Docker Compose/#319, GitOps/#320.
+[Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md).
 
 ## Key pointers
 
@@ -77,33 +76,15 @@ PR titles and commit subjects must use a valid type. Scope is optional but recom
 | `refactor` | Code restructuring with no behaviour change |
 | `test` | Test-only changes |
 
-| Scope | Maps to |
-|-------|---------|
-| `(workflow-compiler)` | `services/workflow-compiler/` |
-| `(agent-registry)` | `services/agent-registry/` and other named services |
-| `(protos)` | `protos/` — proto or generated stub changes |
-| `(spec)` | `spec/` — YAML schemas or example manifests |
-| `(infra)` | `infra/`, Docker, Helm |
-| `(agents)` | `agents/` — Python adapters or SDK |
-| `(ci)` | Omit scope when type is already `ci` |
-| `(docs)` | Omit scope when type is already `docs` |
+Scope matches the directory: `(workflow-compiler)`, `(engine-adapter)`, `(api-gateway)`, `(protos)`, `(spec)`, `(infra)`, `(agents)`. Omit scope when type is already `ci` or `docs`.
 
 Rejected prefixes (CI will fail): `spec:`, `proto:`, `adr:`, `service:`, `security:`, `make:`.
 
-## PR size quick-reference
+## PR size
 
-| Lines changed | Status |
-|--------------|--------|
-| ≤ 200 | Ideal |
-| 201–400 | Acceptable — no explanation needed |
-| 401–900 | Justify in PR description why it cannot be split |
-| > 900 | **Blocked** — decompose before opening PR |
-
-Exclusions from the count: generated stubs (`*.pb.go`, `*_pb2.py`), lock files,
-CI workflow files (`.github/workflows/`), schema fixtures.
-
-Split strategy: one commit per logical change; one PR per issue or tightly related
-issue group. Never squash unrelated work.
+≤ 200 lines ideal · 201–400 acceptable · 401–900 justify in description · > 900 **blocked**.
+Exclusions: generated stubs (`*.pb.go`, `*_pb2.py`), lock files, `.github/workflows/`, schema fixtures.
+One commit per logical change · one PR per issue · never squash unrelated work.
 
 ## Development workflow
 
@@ -119,30 +100,16 @@ make validate-spec   # AsyncAPI + capability schema validation
 
 All commands run inside Docker — only prerequisite is Docker Desktop.
 
-## Testing approach (M1 contracts layer)
+## Testing
 
-BDD `.feature` files are committed before any boundary implementation (ADR-016).
-Go BDD tests live in `protos/tests/<service>/` and use [godog](https://github.com/cucumber/godog).
-
-**Critical:** run contract tests with `GOWORK=off` — the `go.work` workspace lists
-service modules not yet created (M2+), which break `go test` without this flag:
+**GOWORK=off is required for every `go` command inside `services/*/`, `cmd/zynax/`, and `protos/tests/`.** The workspace root `go.work` lists modules that break the toolchain without this flag (ADR-017).
 
 ```bash
-cd protos/tests/<service>
-GOWORK=off go test ./... -v -timeout 60s
+cd protos/tests/<service>    # or any service dir
+GOWORK=off go test ./... -race -timeout 60s
 ```
 
-CI enforces this in `.github/workflows/ci.yml` `test-unit` job (Godog BDD step).
-
-**Also applies to service modules.** Running `go test ./...` inside `services/<svc>/`
-also picks up the workspace root's `go.work`. Use `GOWORK=off` for all `go` commands
-run from within any service directory — not just `protos/tests/`.
-
-Testing tiers per ADR-016:
-- BDD (10–15%): system boundaries, gRPC contracts — `protos/tests/`
-- Unit/property (≥40%): domain logic — per-service `_test.go`
-- Contract (CI gate): `buf breaking` on every proto PR
-- Simulation (M3+): fault injection, retry storms
+Tiers (ADR-016): BDD at gRPC boundaries (`protos/tests/`), unit ≥ 90% on `internal/domain/`, `buf breaking` as CI gate. BDD `.feature` file committed before any implementation.
 
 ## Architecture Invariants
 

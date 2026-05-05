@@ -12,25 +12,9 @@
 
 ## How Zynax Uses `AGENTS.md`
 
-Zynax provides `AGENTS.md` files at the root and in each major directory:
+Zynax provides `AGENTS.md` files at the root and in each major directory (`services/`, `agents/`, `protos/`, `spec/`, `infra/`, and per-service). These files are **engineering documentation** — architecture, standards, and constraints — written for humans first, read by AI tools automatically.
 
-```
-zynax/
-  AGENTS.md                    ← root engineering contract
-  services/AGENTS.md           ← Go service patterns
-  services/<service>/AGENTS.md ← per-service rules
-  agents/AGENTS.md             ← Python adapter patterns
-  protos/AGENTS.md             ← proto contract rules
-  spec/AGENTS.md               ← YAML schema rules
-  infra/AGENTS.md              ← infrastructure rules
-```
-
-These files are **engineering documentation** — they describe the architecture,
-standards, and constraints of the project. They are written for human contributors
-first and happen to also be read by AI coding assistants as configuration.
-
-`AGENTS.md` is an emerging cross-tool standard. All major AI coding tools
-read these files automatically when present.
+`AGENTS.md` is an emerging cross-tool standard supported by all major AI coding assistants.
 
 ---
 
@@ -91,23 +75,6 @@ Enable it under: Settings → GitHub Copilot → Use AGENTS.md for context.
 If your tool supports a custom instructions file, point it to `AGENTS.md`
 at the root and the relevant layer `AGENTS.md` for the directory you are
 working in.
-
----
-
-## What the `AGENTS.md` Files Cover
-
-Reading these files before working in a section of the codebase will save
-you significant rework. Key things they document:
-
-| File | What it covers |
-|------|---------------|
-| `AGENTS.md` | Three-layer architecture, workflow model, capability model, hard constraints |
-| `services/AGENTS.md` | Go service structure, domain/api/infra layers, error handling patterns |
-| `services/<svc>/AGENTS.md` | Domain model, RPC methods, specific rules for that service |
-| `agents/AGENTS.md` | Python adapter pattern, gRPC stub usage, runtime protocol |
-| `protos/AGENTS.md` | Proto naming conventions, backward-compatibility rules |
-| `spec/AGENTS.md` | YAML manifest schemas, validation rules |
-| `infra/AGENTS.md` | Docker, Helm, environment variable conventions |
 
 ---
 
