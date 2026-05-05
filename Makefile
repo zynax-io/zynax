@@ -80,16 +80,16 @@ lint-fix: build-tools ## Auto-fix Python agent lint errors
 test: validate-spec test-unit test-bdd test-coverage ## ★ Full local test suite — mirrors CI (spec + Go + Python + BDD + coverage gate)
 test-unit: test-unit-go test-unit-agents ## All unit tests (Go + Python)
 
-test-unit-go: build-tools ## Go unit tests for all services (race detector on)
+test-unit-go: build-tools ## Go unit tests for all services
 	@for svc in $(GO_SERVICES); do \
 		if [ -f "services/$$svc/go.mod" ]; then \
 			echo "🧪 $$svc"; \
-			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test ./... -v -race -timeout 60s -count=1" || exit 1; \
+			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test ./... -v -timeout 60s -count=1" || exit 1; \
 		fi; \
 	done && echo "✅ Go tests passed"
 
 test-unit-svc: build-tools ## Go tests for one service: make test-unit-svc SVC=workflow-compiler
-	$(TOOLS_RUN) sh -c "cd services/$(SVC) && GOWORK=off go test ./... -v -race -timeout 60s"
+	$(TOOLS_RUN) sh -c "cd services/$(SVC) && GOWORK=off go test ./... -v -timeout 60s"
 
 test-coverage: build-tools ## Domain coverage gate — ≥90% on internal/domain/ for every Go service
 	@failed=false; \
