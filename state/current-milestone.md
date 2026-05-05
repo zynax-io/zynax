@@ -12,23 +12,24 @@
 |-----------|--------|---------|
 | M1 — Contracts Foundation | ✅ Complete | v0.1.0 |
 | M2 — Workflow IR | ✅ Complete | v0.1.0 |
-| **M3 — Temporal Execution** | **Next** | v0.2.0 |
-| M4 — YAML System + CLI | Planned | v0.3.0 |
+| M3 — Temporal Execution | ✅ Complete | v0.2.0 |
+| **M4 — YAML System + CLI** | **In Progress** | v0.3.0 |
 
 ---
 
-## M3 — What's Needed
+## M4 — What's Needed
 
-Goal: WorkflowIR executes on Temporal. Engine abstraction proven end-to-end.
+Goal: `zynax apply workflow.yaml` compiles, submits, and returns a `run_id`. Users can
+manage workflow runs from the terminal via the `zynax` CLI.
 
-- [ ] `engine-adapter` service: Go implementation of `WorkflowEngine` interface
-- [ ] `TemporalEngine` adapter: Submit, Signal, Query, Cancel, Watch
-- [ ] Generic Temporal "state machine worker" that interprets IR at runtime
-- [ ] `DispatchCapabilityActivity`: Temporal Activity that calls task-broker
-- [ ] End-to-end test: YAML → IR → Temporal → capability dispatch → result
+- [ ] `api-gateway` service: Go implementation — `/api/v1/apply` + `/api/v1/workflows/{id}` (#315)
+- [ ] `api-gateway` `kind: AgentDef` routing via `AgentRegistryService` (#316)
+- [ ] `zynax` CLI: `apply`, `get`, `delete`, `status` commands (#317)
+- [ ] `zynax logs`: streaming `WatchWorkflow` events (#318)
+- [ ] Local Docker Compose runner — `make run-local` (#319)
+- [ ] `zynax gitops watch <dir>` sub-command (#320)
 
-See [ROADMAP.md §M3](../ROADMAP.md) for the full checklist.
-See [Epic #101](https://github.com/zynax-io/zynax/issues/101) for the M2 closure context.
+See [ROADMAP.md §M4](../ROADMAP.md) and [Canvas #314](../docs/spdd/314-yaml-system-cli/canvas.md).
 
 ---
 
@@ -36,18 +37,17 @@ See [Epic #101](https://github.com/zynax-io/zynax/issues/101) for the M2 closure
 
 | PR | Title | Status |
 |----|-------|--------|
-| #201 | ci: fix proto-generate.yml YAML syntax error | Awaiting merge |
-| #202 | docs: update README and ROADMAP to reflect M1 and M2 completion | Awaiting merge |
+| #321 | docs: add M4 YAML System + CLI REASONS Canvas (#314) | Awaiting merge |
 
 ---
 
 ## Known Blockers
 
-None at this time. M3 planning has not started.
+None. M4 implementation begins with issue #315.
 
 ---
 
 ## Recently Closed
 
-- M2 (Workflow IR) — all 13 issues merged; see Epic #101
-- CI Infrastructure Epic #14 — all 8 ACs done; see issues #185–#188
+- M3 (Temporal Execution) — engine-adapter fully implemented; smoke tests pass
+- See Epic #214 and Canvas `docs/spdd/214-temporal-execution/canvas.md` (status: Implemented)
