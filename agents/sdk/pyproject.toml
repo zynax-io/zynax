@@ -26,6 +26,24 @@ dependencies = [
 ]
 
 
+[tool.mypy]
+python_version = "3.12"
+strict         = true
+# Resolve imports from the src/ layout without requiring package installation.
+mypy_path      = "src"
+
+# Third-party packages declared as dependencies that ship without PEP 561
+# inline types or a companion -stubs package. Add entries here as real imports
+# are introduced — never suppress with inline  # type: ignore[import].
+[[tool.mypy.overrides]]
+module = [
+    "grpc",
+    "grpc.*",
+    "opentelemetry.*",
+    "prometheus_client",
+]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths   = ["tests"]
 addopts     = "-v --tb=short"
