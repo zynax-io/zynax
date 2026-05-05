@@ -75,7 +75,7 @@ func TestHandler_Apply_ValidWorkflow_Returns202(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusAccepted {
 		t.Errorf("status: got %d, want 202", resp.StatusCode)
@@ -97,7 +97,7 @@ func TestHandler_Apply_DryRun_Returns200_NoRunID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status: got %d, want 200", resp.StatusCode)
@@ -124,7 +124,7 @@ func TestHandler_Apply_CompilationError_Returns422(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Errorf("status: got %d, want 422", resp.StatusCode)
@@ -144,7 +144,7 @@ func TestHandler_Apply_UnknownKind_Returns400(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("status: got %d, want 400", resp.StatusCode)
@@ -163,7 +163,7 @@ func TestHandler_Apply_MissingKind_Returns400(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("status: got %d, want 400", resp.StatusCode)
@@ -181,7 +181,7 @@ func TestHandler_Apply_EngineUnavailable_Returns503(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("status: got %d, want 503", resp.StatusCode)
@@ -201,7 +201,7 @@ func TestHandler_Apply_BodyTooLarge_Returns413(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusRequestEntityTooLarge {
 		t.Errorf("status: got %d, want 413", resp.StatusCode)
@@ -222,7 +222,7 @@ func TestHandler_GetWorkflow_Returns200(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status: got %d, want 200", resp.StatusCode)
@@ -244,7 +244,7 @@ func TestHandler_GetWorkflow_NotFound_Returns404(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("status: got %d, want 404", resp.StatusCode)
