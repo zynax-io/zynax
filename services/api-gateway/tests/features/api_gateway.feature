@@ -92,3 +92,17 @@ Feature: API Gateway
     Given the engine adapter does not know about run_id "ghost-run"
     When GET /api/v1/workflows/ghost-run is called
     Then the HTTP status is 404
+
+  # ── POST /api/v1/apply — AgentDef kind (M4 step 2, issue #316) ──────────
+
+  Scenario: POST /api/v1/apply with valid AgentDef YAML returns 201 with agent_id
+    Given an AgentRegistryService that accepts the registration
+    When POST /api/v1/apply is called with a valid kind: AgentDef YAML body
+    Then the HTTP status is 201
+    And the response contains a non-empty agent_id
+
+  Scenario: POST /api/v1/apply with duplicate AgentDef returns 409
+    Given an AgentRegistryService that returns ALREADY_EXISTS
+    When POST /api/v1/apply is called with a valid kind: AgentDef YAML body
+    Then the HTTP status is 409
+    And the response code is "ALREADY_EXISTS"
