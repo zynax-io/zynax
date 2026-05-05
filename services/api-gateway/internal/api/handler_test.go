@@ -41,10 +41,23 @@ func (s *stubEngine) GetWorkflowStatus(_ context.Context, _ string) (domain.Work
 	return s.statusRun, s.statusErr
 }
 
+type stubRegistry struct {
+	reg domain.AgentRegistration
+	err error
+}
+
+func (s *stubRegistry) RegisterAgent(_ context.Context, _ []byte, _ string) (domain.AgentRegistration, error) {
+	return s.reg, s.err
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────
 
 func newServer(c domain.CompilerPort, e domain.EnginePort) *httptest.Server {
-	svc := domain.NewApplyService(c, e)
+	return newServerWithRegistry(c, e, &stubRegistry{})
+}
+
+func newServerWithRegistry(c domain.CompilerPort, e domain.EnginePort, r domain.RegistryPort) *httptest.Server {
+	svc := domain.NewApplyService(c, e, r)
 	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -248,5 +261,55 @@ func TestHandler_GetWorkflow_NotFound_Returns404(t *testing.T) {
 
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("status: got %d, want 404", resp.StatusCode)
+	}
+}
+
+// ── POST /api/v1/apply (kind: AgentDef) ──────────────────────────────────
+
+const agentDefYAML = "kind: AgentDef\napiVersion: zynax.io/v1alpha1\nmetadata:\n  name: test-agent\n"
+
+func TestHandler_Apply_ValidAgentDef_Returns201(t *testing.T) {
+	srv := newServerWithRegistry(
+		&stubCompiler{},
+		&stubEngine{},
+		&stubRegistry{reg: domain.AgentRegistration{AgentID: "agent-001"}},
+	)
+	defer srv.Close()
+
+	resp, err := http.Post(srv.URL+"/api/v1/apply", "application/yaml", bytes.NewBufferString(agentDefYAML))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("status: got %d, want 201", resp.StatusCode)
+	}
+	body := decodeBody(t, resp)
+	if body["agent_id"] != "agent-001" {
+		t.Errorf("agent_id: got %v, want agent-001", body["agent_id"])
+	}
+}
+
+func TestHandler_Apply_DuplicateAgentDef_Returns409(t *testing.T) {
+	srv := newServerWithRegistry(
+		&stubCompiler{},
+		&stubEngine{},
+		&stubRegistry{err: domain.ErrAgentAlreadyExists},
+	)
+	defer srv.Close()
+
+	resp, err := http.Post(srv.URL+"/api/v1/apply", "application/yaml", bytes.NewBufferString(agentDefYAML))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusConflict {
+		t.Errorf("status: got %d, want 409", resp.StatusCode)
+	}
+	body := decodeBody(t, resp)
+	if body["code"] != "ALREADY_EXISTS" {
+		t.Errorf("code: got %v, want ALREADY_EXISTS", body["code"])
 	}
 }

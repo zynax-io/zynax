@@ -36,10 +36,21 @@ func (s *stubEngine) GetWorkflowStatus(_ context.Context, _ string) (domain.Work
 	return s.statusRun, s.statusErr
 }
 
+// stubRegistry is a test double for RegistryPort.
+type stubRegistry struct {
+	reg domain.AgentRegistration
+	err error
+}
+
+func (s *stubRegistry) RegisterAgent(_ context.Context, _ []byte, _ string) (domain.AgentRegistration, error) {
+	return s.reg, s.err
+}
+
 func TestApplyService_ApplyWorkflow_Success(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir"), Warnings: []string{"w1"}}},
 		&stubEngine{submitID: "run-001"},
+		&stubRegistry{},
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
 		ManifestYAML: []byte("kind: Workflow"),
@@ -61,6 +72,7 @@ func TestApplyService_ApplyWorkflow_CompilationErrors(t *testing.T) {
 			Errors: []domain.CompileError{{Code: "YAML_PARSE_ERROR", Message: "bad yaml", Line: 3}},
 		}},
 		&stubEngine{},
+		&stubRegistry{},
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
 		ManifestYAML: []byte("bad yaml"),
@@ -83,6 +95,7 @@ func TestApplyService_ApplyWorkflow_DryRun_NoSubmit(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir"), Warnings: []string{"w"}}},
 		engine,
+		&stubRegistry{},
 	)
 	engine.submitErr = nil // reset — test checks RunID is empty, not that submit errors
 
@@ -103,6 +116,7 @@ func TestApplyService_ApplyWorkflow_CompilerError_Propagates(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{err: domain.ErrEngineUnavailable},
 		&stubEngine{},
+		&stubRegistry{},
 	)
 	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: []byte("y")})
 	if !errors.Is(err, domain.ErrEngineUnavailable) {
@@ -114,6 +128,7 @@ func TestApplyService_ApplyWorkflow_EngineUnavailable(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
 		&stubEngine{submitErr: domain.ErrEngineUnavailable},
+		&stubRegistry{},
 	)
 	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: []byte("y")})
 	if !errors.Is(err, domain.ErrEngineUnavailable) {
@@ -125,7 +140,7 @@ func TestApplyService_GetWorkflowStatus_Success(t *testing.T) {
 	want := domain.WorkflowRunSummary{
 		RunID: "r1", WorkflowID: "w1", Status: "RUNNING", CurrentState: "review",
 	}
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusRun: want})
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusRun: want}, &stubRegistry{})
 	got, err := svc.GetWorkflowStatus(context.Background(), "r1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -136,9 +151,40 @@ func TestApplyService_GetWorkflowStatus_Success(t *testing.T) {
 }
 
 func TestApplyService_GetWorkflowStatus_NotFound(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusErr: domain.ErrNotFound})
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusErr: domain.ErrNotFound}, &stubRegistry{})
 	_, err := svc.GetWorkflowStatus(context.Background(), "unknown")
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
+	}
+}
+
+func TestApplyService_ApplyAgentDef_Success(t *testing.T) {
+	svc := domain.NewApplyService(
+		&stubCompiler{},
+		&stubEngine{},
+		&stubRegistry{reg: domain.AgentRegistration{AgentID: "agent-001"}},
+	)
+	result, err := svc.ApplyAgentDef(context.Background(), domain.ApplyRequest{
+		ManifestYAML: []byte("kind: AgentDef\n"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.AgentID != "agent-001" {
+		t.Errorf("agent_id: got %q, want agent-001", result.AgentID)
+	}
+}
+
+func TestApplyService_ApplyAgentDef_AlreadyExists(t *testing.T) {
+	svc := domain.NewApplyService(
+		&stubCompiler{},
+		&stubEngine{},
+		&stubRegistry{err: domain.ErrAgentAlreadyExists},
+	)
+	_, err := svc.ApplyAgentDef(context.Background(), domain.ApplyRequest{
+		ManifestYAML: []byte("kind: AgentDef\n"),
+	})
+	if !errors.Is(err, domain.ErrAgentAlreadyExists) {
+		t.Errorf("expected ErrAgentAlreadyExists, got %v", err)
 	}
 }

@@ -26,6 +26,7 @@ type config struct {
 	HTTPPort     int    `envconfig:"HTTP_PORT" default:"8080"`
 	CompilerAddr string `envconfig:"COMPILER_ADDR" default:"localhost:50051"`
 	EngineAddr   string `envconfig:"ENGINE_ADDR" default:"localhost:50055"`
+	RegistryAddr string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
 	LogLevel     string `envconfig:"LOG_LEVEL" default:"info"`
 }
 
@@ -46,13 +47,13 @@ func main() {
 
 // run contains the service lifecycle. Deferred cleanups execute before returning.
 func run(cfg config) error {
-	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr)
+	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr)
 	if err != nil {
 		return fmt.Errorf("gateway clients: %w", err)
 	}
 	defer cleanup()
 
-	svc := domain.NewApplyService(clients, clients)
+	svc := domain.NewApplyService(clients, clients, clients)
 	handler := api.NewHandler(svc)
 
 	mux := http.NewServeMux()

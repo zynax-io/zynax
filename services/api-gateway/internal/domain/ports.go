@@ -41,3 +41,13 @@ type EnginePort interface {
 	SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint string) (string, error)
 	GetWorkflowStatus(ctx context.Context, runID string) (WorkflowRunSummary, error)
 }
+
+// AgentRegistration is the domain view of a successful RegisterAgent response.
+type AgentRegistration struct {
+	AgentID string
+}
+
+// RegistryPort is the gateway's outbound dependency on AgentRegistryService.
+type RegistryPort interface {
+	RegisterAgent(ctx context.Context, manifestYAML []byte, namespace string) (AgentRegistration, error)
+}
