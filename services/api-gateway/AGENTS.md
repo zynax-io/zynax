@@ -1,46 +1,62 @@
 # services/api-gateway — AGENTS.md
 
-> Go 1.22+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M4+ (not yet implemented).** No BDD contract tests yet.
+> Go 1.25+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
+> **Status: M4 in progress** — HTTP REST layer implemented; auth/rate-limit deferred to M5.
 
 ---
 
 ## Purpose
 
 The API Gateway is the **single external entry point** to the Zynax platform.
-It translates HTTP REST requests from external clients into gRPC calls to internal
-services via `grpc-gateway`.
+It accepts HTTP requests, routes by manifest `kind`, and delegates to internal domain services.
 
-- Exposes a versioned REST API (`/api/v1/`).
-- Authenticates and authorizes external callers (API keys + JWT).
-- Rate limits per client using token bucket algorithm.
-- Transcodes REST ↔ gRPC via `grpc-gateway` annotations.
-- Validates and sanitizes all external inputs before forwarding.
-- Returns consistent error responses — never leaks internal gRPC details.
+- `POST /api/v1/apply` — compile + submit a `Workflow`, or register an `AgentDef`
+- `GET /api/v1/workflows/{id}` — fetch workflow run status
+- `DELETE /api/v1/workflows/{id}` — cancel a running workflow
+- `?dry_run=true` — validate without submitting; returns compile errors
 
-Does NOT: implement business logic · store data · call backing services directly except via gRPC.
+Does NOT: implement business logic · store data · call backing services except via port interfaces.
 
 ---
 
-## Internal Layout
+## Actual Layout
 
 ```
 services/api-gateway/
-├── cmd/api-gateway/main.go
+├── cmd/api-gateway/main.go          ← wiring only
 ├── internal/
-│   ├── api/
-│   │   ├── gateway.go          ← grpc-gateway mux registration
-│   │   ├── auth.go             ← JWT + API key middleware
-│   │   └── ratelimit.go        ← token bucket per client
 │   ├── domain/
-│   │   └── (minimal — gateway has no domain logic)
+│   │   ├── ports.go                 ← CompilerPort, EnginePort, RegistryPort interfaces
+│   │   ├── apply.go                 ← ApplyService (kind-routing, dry-run, cancel)
+│   │   ├── kindrouter.go            ← extracts kind/apiVersion from raw YAML bytes
+│   │   └── errors.go                ← ErrNotFound, ErrEngineUnavailable, ErrAgentAlreadyExists
+│   ├── api/
+│   │   └── handler.go               ← HTTP mux, request/response JSON, error mapping
 │   └── infrastructure/
-│       └── clients.go          ← gRPC clients for internal services
+│       └── clients.go               ← GatewayClients: all three ports via gRPC
+├── tests/features/api_gateway.feature
 ├── go.mod
-└── Dockerfile
+└── go.sum
 ```
 
-Config env prefix: `ZYNAX_GW_` · HTTP port: 8080 · gRPC port: 50057
+Config env prefix: `ZYNAX_GW_` · HTTP port: 8080
+
+---
+
+## Port Interfaces (domain/ports.go)
+
+```go
+// CompilerPort → WorkflowCompilerService gRPC
+CompileWorkflow(ctx, manifestYAML []byte, namespace string, dryRun bool) (CompileResult, error)
+
+// EnginePort → EngineAdapterService gRPC
+SubmitWorkflow(ctx, irBytes []byte, engineHint string) (runID string, error)
+GetWorkflowStatus(ctx, runID string) (WorkflowRunSummary, error)
+CancelWorkflow(ctx, runID string) error
+
+// RegistryPort → AgentRegistryService gRPC
+RegisterAgent(ctx, manifestYAML []byte, namespace string) (AgentRegistration, error)
+```
 
 ---
 
@@ -50,3 +66,5 @@ Config env prefix: `ZYNAX_GW_` · HTTP port: 8080 · gRPC port: 50057
 cd services/api-gateway
 GOWORK=off go test ./... -race -timeout 60s
 ```
+
+Coverage requirement: ≥ 90% on `internal/domain/`.

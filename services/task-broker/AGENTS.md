@@ -1,7 +1,7 @@
 # services/task-broker — AGENTS.md
 
 > Go 1.22+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M3+ (not yet implemented).** BDD contract tests exist in `protos/tests/`.
+> **Status: M4+ (not yet implemented).** BDD contract tests exist in `protos/tests/`. gRPC contract called by engine-adapter `DispatchCapabilityActivity` in M3.
 
 ---
 

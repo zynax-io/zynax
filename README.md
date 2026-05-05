@@ -182,8 +182,8 @@ make dev-up      # start the full local stack
 |-----------|--------|---------|------|
 | **M1 — Contracts Foundation** | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
 | **M2 — Workflow IR** | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
-| M3 — Temporal Execution | Planned | v0.2.0 | — |
-| M4 — YAML System + CLI | Planned | v0.3.0 | — |
+| **M3 — Temporal Execution** | **Complete** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) |
+| **M4 — YAML System + CLI** | **In Progress** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) |
 
 **M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
 AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract
@@ -196,6 +196,20 @@ terminal state required, valid capability refs), WorkflowGraph → WorkflowIR se
 (protobuf), gRPC API layer (`CompileWorkflow` / `ValidateManifest` / `GetCompiledWorkflow`),
 JSON Schemas for `Workflow`, `AgentDef`, and `Policy` manifest kinds, `make validate-spec`
 target, and reference workflow YAML examples. Coverage gate ≥ 90% on all domain packages.
+
+**M3** delivered the Temporal execution engine — the first live runtime: `WorkflowEngine`
+Go interface decoupling the gRPC layer from any engine backend, `TemporalEngine` wrapping
+the Temporal Go SDK, `IRInterpreterWorkflow` state machine interpreter driving
+`DispatchCapabilityActivity` → `TaskBrokerService` gRPC, CEL guard evaluation, CloudEvents
+lifecycle publishing (`zynax.workflow.state.entered/exited/completed/failed`), and all 5
+`EngineAdapterService` gRPC methods (`Submit`, `Signal`, `Cancel`, `GetWorkflowStatus`,
+`WatchWorkflow`) wired end-to-end.
+
+**M4 (in progress)** is delivering the YAML system and CLI: api-gateway HTTP REST layer
+(`POST /api/v1/apply`, `GET /api/v1/workflows/{id}`, `DELETE /api/v1/workflows/{id}`),
+`kind: AgentDef` routing via `AgentRegistryService`, the `zynax` CLI (`apply`, `get`,
+`delete`, `status`), local Docker Compose runner, and GitOps integration.
+Canvas: `docs/spdd/314-yaml-system-cli/canvas.md`.
 
 ---
 
@@ -221,18 +235,20 @@ Total budget: **2000 lines** across all files. The [AI Context Budget](https://g
 spec/                Workflow YAML manifests and JSON schemas (Workflow, AgentDef, Policy)
 services/            Go platform services
   workflow-compiler/ YAML → WorkflowIR compiler (M2 — complete)
-  agent-registry/    Capability catalogue service (M3+)
-  task-broker/       Capability routing service (M3+)
-  memory-service/    KV + vector context store (M3+)
-  event-bus/         NATS JetStream async pub/sub (M3+)
-  engine-adapter/    Pluggable execution engine bridge (M3+)
-  api-gateway/       Public HTTP API surface (M4+)
+  engine-adapter/    Temporal execution engine bridge (M3 — complete)
+  api-gateway/       HTTP REST entry point: /api/v1/apply + /api/v1/workflows (M4 — in progress)
+  agent-registry/    Capability catalogue service (M4+)
+  task-broker/       Capability routing service (M4+)
+  memory-service/    KV + vector context store (M4+)
+  event-bus/         NATS JetStream async pub/sub (M4+)
+cmd/zynax/           zynax CLI — apply, get, delete, status (M4 — in progress)
 agents/              Python execution adapters + zynax-sdk
 protos/              gRPC contracts (Go + Python stubs generated)
 protos/tests/        BDD contract test suites (godog)
 infra/               Docker-first dev environment + Helm charts
-docs/adr/            Architecture Decision Records (ADR-001 – ADR-018)
+docs/adr/            Architecture Decision Records (ADR-001 – ADR-019)
 docs/milestones/     Per-milestone engineering reviews and release notes
+docs/spdd/           REASONS Canvas artifacts — one canvas.md per feat: issue
 ```
 
 ---
