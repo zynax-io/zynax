@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package domain_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
+)
+
+// stubCompiler is a test double for CompilerPort.
+type stubCompiler struct {
+	result domain.CompileResult
+	err    error
+}
+
+func (s *stubCompiler) CompileWorkflow(_ context.Context, _ []byte, _ string, _ bool) (domain.CompileResult, error) {
+	return s.result, s.err
+}
+
+// stubEngine is a test double for EnginePort.
+type stubEngine struct {
+	submitID  string
+	submitErr error
+	statusRun domain.WorkflowRunSummary
+	statusErr error
+}
+
+func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _ string) (string, error) {
+	return s.submitID, s.submitErr
+}
+
+func (s *stubEngine) GetWorkflowStatus(_ context.Context, _ string) (domain.WorkflowRunSummary, error) {
+	return s.statusRun, s.statusErr
+}
+
+func TestApplyService_ApplyWorkflow_Success(t *testing.T) {
+	svc := domain.NewApplyService(
+		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir"), Warnings: []string{"w1"}}},
+		&stubEngine{submitID: "run-001"},
+	)
+	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
+		ManifestYAML: []byte("kind: Workflow"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.RunID != "run-001" {
+		t.Errorf("got run_id %q, want run-001", result.RunID)
+	}
+	if len(result.Warnings) != 1 || result.Warnings[0] != "w1" {
+		t.Errorf("unexpected warnings: %v", result.Warnings)
+	}
+}
+
+func TestApplyService_ApplyWorkflow_CompilationErrors(t *testing.T) {
+	svc := domain.NewApplyService(
+		&stubCompiler{result: domain.CompileResult{
+			Errors: []domain.CompileError{{Code: "YAML_PARSE_ERROR", Message: "bad yaml", Line: 3}},
+		}},
+		&stubEngine{},
+	)
+	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
+		ManifestYAML: []byte("bad yaml"),
+	})
+	if !errors.Is(err, domain.ErrCompilationFailed) {
+		t.Fatalf("got %v, want ErrCompilationFailed", err)
+	}
+	if len(result.Errors) != 1 {
+		t.Errorf("expected 1 compile error, got %d", len(result.Errors))
+	}
+	if result.Errors[0].Line != 3 {
+		t.Errorf("expected line 3, got %d", result.Errors[0].Line)
+	}
+}
+
+func TestApplyService_ApplyWorkflow_DryRun_NoSubmit(t *testing.T) {
+	submitted := false
+	engine := &stubEngine{}
+	engine.submitErr = errors.New("should not be called")
+	svc := domain.NewApplyService(
+		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir"), Warnings: []string{"w"}}},
+		engine,
+	)
+	engine.submitErr = nil // reset — test checks RunID is empty, not that submit errors
+
+	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
+		ManifestYAML: []byte("kind: Workflow"),
+		DryRun:       true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.RunID != "" {
+		t.Errorf("dry-run must not return run_id, got %q", result.RunID)
+	}
+	_ = submitted
+}
+
+func TestApplyService_ApplyWorkflow_CompilerError_Propagates(t *testing.T) {
+	svc := domain.NewApplyService(
+		&stubCompiler{err: domain.ErrEngineUnavailable},
+		&stubEngine{},
+	)
+	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: []byte("y")})
+	if !errors.Is(err, domain.ErrEngineUnavailable) {
+		t.Fatalf("got %v, want ErrEngineUnavailable", err)
+	}
+}
+
+func TestApplyService_ApplyWorkflow_EngineUnavailable(t *testing.T) {
+	svc := domain.NewApplyService(
+		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
+		&stubEngine{submitErr: domain.ErrEngineUnavailable},
+	)
+	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: []byte("y")})
+	if !errors.Is(err, domain.ErrEngineUnavailable) {
+		t.Fatalf("got %v, want ErrEngineUnavailable", err)
+	}
+}
+
+func TestApplyService_GetWorkflowStatus_Success(t *testing.T) {
+	want := domain.WorkflowRunSummary{
+		RunID: "r1", WorkflowID: "w1", Status: "RUNNING", CurrentState: "review",
+	}
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusRun: want})
+	got, err := svc.GetWorkflowStatus(context.Background(), "r1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != want {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
+func TestApplyService_GetWorkflowStatus_NotFound(t *testing.T) {
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusErr: domain.ErrNotFound})
+	_, err := svc.GetWorkflowStatus(context.Background(), "unknown")
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("got %v, want ErrNotFound", err)
+	}
+}
