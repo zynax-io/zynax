@@ -95,3 +95,12 @@ func (s *ApplyService) CancelWorkflow(ctx context.Context, runID string) error {
 	}
 	return nil
 }
+
+// WatchWorkflowLogs streams lifecycle events for runID, calling send for each event.
+// Returns when the stream closes, ctx is cancelled, or send returns an error.
+func (s *ApplyService) WatchWorkflowLogs(ctx context.Context, runID string, send func(WatchEvent) error) error {
+	if err := s.engine.WatchWorkflow(ctx, runID, send); err != nil {
+		return fmt.Errorf("api-gateway: %w", err)
+	}
+	return nil
+}

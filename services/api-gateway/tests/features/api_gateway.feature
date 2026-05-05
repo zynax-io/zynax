@@ -106,3 +106,18 @@ Feature: API Gateway
     When POST /api/v1/apply is called with a valid kind: AgentDef YAML body
     Then the HTTP status is 409
     And the response code is "ALREADY_EXISTS"
+
+  # ── GET /api/v1/workflows/{id}/logs (M4 step 4, issue #318) ─────────────
+
+  Scenario: GET /api/v1/workflows/{id}/logs streams SSE events and closes on terminal
+    Given a submitted workflow with run_id "log-run-001"
+    And the engine adapter streams a state-entered event and then a completed event
+    When GET /api/v1/workflows/log-run-001/logs is called
+    Then the HTTP status is 200
+    And the Content-Type is "text/event-stream"
+    And the response body contains 2 SSE data lines
+
+  Scenario: GET /api/v1/workflows/{id}/logs for unknown run_id returns 404
+    Given the engine adapter does not know about run_id "ghost-log-run"
+    When GET /api/v1/workflows/ghost-log-run/logs is called
+    Then the HTTP status is 404

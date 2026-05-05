@@ -6,6 +6,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +31,7 @@ func NewHandler(svc *domain.ApplyService) *Handler {
 // RegisterRoutes registers all HTTP routes on mux. Requires Go 1.22+ ServeMux.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/apply", h.handleApply)
+	mux.HandleFunc("GET /api/v1/workflows/{id}/logs", h.handleWorkflowLogs)
 	mux.HandleFunc("GET /api/v1/workflows/{id}", h.handleGetWorkflow)
 	mux.HandleFunc("DELETE /api/v1/workflows/{id}", h.handleDeleteWorkflow)
 }
@@ -118,6 +120,47 @@ func (h *Handler) handleGetWorkflow(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) handleWorkflowLogs(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "run_id is required", "INVALID_ARGUMENT")
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "streaming not supported", "INTERNAL")
+		return
+	}
+	started := false
+	err := h.svc.WatchWorkflowLogs(r.Context(), id, func(ev domain.WatchEvent) error {
+		if !started {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Header().Set("Connection", "keep-alive")
+			w.WriteHeader(http.StatusOK)
+			started = true
+		}
+		data, merr := json.Marshal(sseWatchEvent(ev))
+		if merr != nil {
+			return fmt.Errorf("api-gateway: marshal event: %w", merr)
+		}
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
+		flusher.Flush()
+		return nil
+	})
+	if started {
+		return
+	}
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		writeError(w, http.StatusNotFound, "workflow run not found", "NOT_FOUND")
+	case err != nil && !errors.Is(err, context.Canceled):
+		writeError(w, http.StatusInternalServerError, "internal error", "INTERNAL")
+	default:
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 func (h *Handler) handleDeleteWorkflow(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
@@ -171,6 +214,28 @@ type workflowStatusResp struct {
 	WorkflowID   string `json:"workflow_id"`
 	Status       string `json:"status"`
 	CurrentState string `json:"current_state"`
+}
+
+type watchEventResp struct {
+	RunID     string `json:"run_id"`
+	EventType string `json:"event_type"`
+	FromState string `json:"from_state,omitempty"`
+	ToState   string `json:"to_state,omitempty"`
+	Status    string `json:"status"`
+	Timestamp string `json:"timestamp,omitempty"`
+	Payload   string `json:"payload,omitempty"`
+}
+
+func sseWatchEvent(ev domain.WatchEvent) watchEventResp {
+	return watchEventResp{
+		RunID:     ev.RunID,
+		EventType: ev.EventType,
+		FromState: ev.FromState,
+		ToState:   ev.ToState,
+		Status:    ev.Status,
+		Timestamp: ev.Timestamp,
+		Payload:   ev.Payload,
+	}
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────

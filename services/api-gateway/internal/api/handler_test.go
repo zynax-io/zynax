@@ -3,6 +3,7 @@
 package api_test
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -27,11 +28,13 @@ func (s *stubCompiler) CompileWorkflow(_ context.Context, _ []byte, _ string, _ 
 }
 
 type stubEngine struct {
-	submitID  string
-	submitErr error
-	statusRun domain.WorkflowRunSummary
-	statusErr error
-	cancelErr error
+	submitID    string
+	submitErr   error
+	statusRun   domain.WorkflowRunSummary
+	statusErr   error
+	cancelErr   error
+	watchEvents []domain.WatchEvent
+	watchErr    error
 }
 
 func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _ string) (string, error) {
@@ -44,6 +47,18 @@ func (s *stubEngine) GetWorkflowStatus(_ context.Context, _ string) (domain.Work
 
 func (s *stubEngine) CancelWorkflow(_ context.Context, _ string) error {
 	return s.cancelErr
+}
+
+func (s *stubEngine) WatchWorkflow(_ context.Context, _ string, send func(domain.WatchEvent) error) error {
+	if s.watchErr != nil {
+		return s.watchErr
+	}
+	for _, ev := range s.watchEvents {
+		if err := send(ev); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type stubRegistry struct {
@@ -341,6 +356,64 @@ func TestHandler_DeleteWorkflow_NotFound_Returns404(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/workflows/run-missing", nil)
 	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("status: got %d, want 404", resp.StatusCode)
+	}
+}
+
+// ── GET /api/v1/workflows/{id}/logs ──────────────────────────────────────
+
+func TestHandler_WorkflowLogs_StreamsSSEEvents(t *testing.T) {
+	events := []domain.WatchEvent{
+		{RunID: "r1", EventType: "state.entered", ToState: "review", Status: "WORKFLOW_STATUS_RUNNING"},
+		{RunID: "r1", EventType: "workflow.completed", Status: "WORKFLOW_STATUS_COMPLETED"},
+	}
+	srv := newServer(&stubCompiler{}, &stubEngine{watchEvents: events})
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/api/v1/workflows/r1/logs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status: got %d, want 200", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
+		t.Errorf("Content-Type: got %q, want text/event-stream", ct)
+	}
+
+	var dataLines []string
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "data: ") {
+			dataLines = append(dataLines, strings.TrimPrefix(line, "data: "))
+		}
+	}
+	if len(dataLines) != 2 {
+		t.Fatalf("got %d data lines, want 2", len(dataLines))
+	}
+	var ev map[string]any
+	if err := json.Unmarshal([]byte(dataLines[1]), &ev); err != nil {
+		t.Fatalf("unmarshal last event: %v", err)
+	}
+	if ev["event_type"] != "workflow.completed" {
+		t.Errorf("last event_type: got %v, want workflow.completed", ev["event_type"])
+	}
+}
+
+func TestHandler_WorkflowLogs_NotFound_Returns404(t *testing.T) {
+	srv := newServer(&stubCompiler{}, &stubEngine{watchErr: domain.ErrNotFound})
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/api/v1/workflows/ghost/logs")
 	if err != nil {
 		t.Fatal(err)
 	}
