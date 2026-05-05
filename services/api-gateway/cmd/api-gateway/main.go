@@ -83,7 +83,10 @@ func serveUntilShutdown(srv *http.Server, port int) error {
 	slog.Info("shutting down")
 	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return srv.Shutdown(shutCtx)
+	if err := srv.Shutdown(shutCtx); err != nil {
+		return fmt.Errorf("api-gateway: shutdown: %w", err)
+	}
+	return nil
 }
 
 func registerProbes(mux *http.ServeMux) {
