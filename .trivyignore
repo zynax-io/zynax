@@ -1,0 +1,24 @@
+# Trivy CVE and misconfiguration exceptions
+#
+# Format (CVE):         CVE-YYYY-NNNNN
+# Format (misconfig):   DS001, AVD-DS-0001, etc.
+#
+# Every entry MUST include a comment explaining:
+#   - Why the finding is a false positive or accepted risk
+#   - The date it was added and who approved it
+#   - A re-evaluation date (max 6 months out)
+#
+# Process for adding an exception:
+#   1. Open a GitHub issue describing the CVE/misconfig and the justification
+#   2. Get maintainer approval (@zynax-io/maintainers)
+#   3. Add entry below with the issue URL in the comment
+#   4. Set a calendar reminder for the re-evaluation date
+#
+# ── Active exceptions ──────────────────────────────────────────────────────────
+#
+# DS002 – Dockerfile.tools runs as root (no USER instruction).
+#         This is a developer tooling image used only in CI and local dev,
+#         never deployed as a production container. Running as root is
+#         required for tool installation steps.
+#         Added: 2026-05-01  Re-evaluate: 2026-11-01
+DS002

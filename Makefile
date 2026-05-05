@@ -133,8 +133,13 @@ lint-protos: build-tools ## buf lint + format check on all proto files
 	@echo "✅ Proto lint passed"
 
 # ── Security ───────────────────────────────────────────────────────────────
-.PHONY: security security-go security-agents audit gitleaks
-security: security-go security-agents ## Full security scan (govulncheck + bandit + pip-audit)
+.PHONY: security security-go security-agents scan-image audit gitleaks
+security: security-go security-agents ## Full security scan (govulncheck + bandit + pip-audit + trivy)
+
+scan-image: ## Scan one service container image for CVEs: make scan-image SVC=agent-registry
+	docker build -t zynax/$(SVC):scan services/$(SVC)/
+	trivy image --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore zynax/$(SVC):scan
+	docker rmi zynax/$(SVC):scan
 
 gitleaks: ## Scan local repo for secrets (requires gitleaks installed: brew install gitleaks)
 	gitleaks detect --source . --config tools/gitleaks-ai-context.toml --verbose
