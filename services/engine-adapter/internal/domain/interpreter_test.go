@@ -231,6 +231,46 @@ func (c *captureExecutor) DispatchCapability(ctx context.Context, in ActivityInp
 
 // --- unit tests for pure helper functions ---
 
+func TestWorkflowStatus_IsTerminal(t *testing.T) {
+	cases := []struct {
+		s    WorkflowStatus
+		want bool
+	}{
+		{WorkflowStatusCompleted, true},
+		{WorkflowStatusFailed, true},
+		{WorkflowStatusCancelled, true},
+		{WorkflowStatusRunning, false},
+		{WorkflowStatusPending, false},
+		{WorkflowStatusUnspecified, false},
+	}
+	for _, tc := range cases {
+		if got := tc.s.IsTerminal(); got != tc.want {
+			t.Errorf("IsTerminal(%v) = %v; want %v", tc.s, got, tc.want)
+		}
+	}
+}
+
+func TestIRInterpreter_AsyncActionsSkipped(t *testing.T) {
+	exec := &stubExecutor{}
+	ir := buildIR("wf-async", "s1",
+		&zynaxv1.StateIR{
+			Id:   "s1",
+			Type: zynaxv1.StateType_STATE_TYPE_NORMAL,
+			Actions: []*zynaxv1.ActionIR{
+				{Capability: "fire-and-forget", Async: true},
+			},
+			Transitions: []*zynaxv1.TransitionIR{
+				{EventType: "", TargetState: "done"},
+			},
+		},
+		terminal("done"),
+	)
+	pub := &stubPublisher{}
+	if err := (&IRInterpreter{}).Run(context.Background(), ir, exec, pub); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestEvalGuard_Equality(t *testing.T) {
 	ctx := map[string]string{"status": "approved"}
 	if !evalGuard(`ctx.status == "approved"`, ctx) {
@@ -248,6 +288,27 @@ func TestEvalGuard_Inequality(t *testing.T) {
 	}
 	if evalGuard(`ctx.status != "pending"`, ctx) {
 		t.Error("expected guard to fail")
+	}
+}
+
+func TestResolveOperand_Literal(t *testing.T) {
+	ctx := map[string]string{}
+	if got := resolveOperand(`"hello"`, ctx); got != "hello" {
+		t.Errorf("resolveOperand literal = %q; want %q", got, "hello")
+	}
+}
+
+func TestResolveOperand_CtxKey(t *testing.T) {
+	ctx := map[string]string{"status": "ok"}
+	if got := resolveOperand("ctx.status", ctx); got != "ok" {
+		t.Errorf("resolveOperand ctx key = %q; want %q", got, "ok")
+	}
+}
+
+func TestEvalGuard_LiteralLhsEquality(t *testing.T) {
+	ctx := map[string]string{}
+	if !evalGuard(`"approved" == "approved"`, ctx) {
+		t.Error("literal == literal should pass")
 	}
 }
 

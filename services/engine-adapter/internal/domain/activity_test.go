@@ -189,3 +189,50 @@ func TestExtractResult_EmptyPayload(t *testing.T) {
 		t.Errorf("EventType = %q; want %q", result.EventType, "classify.completed")
 	}
 }
+
+func TestExtractResult_EmptyEventString(t *testing.T) {
+	result, err := extractResult([]byte(`{"_event":""}`), "classify")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.EventType != "classify.completed" {
+		t.Errorf("empty _event should fall back to default; got %q", result.EventType)
+	}
+}
+
+func TestExtractResult_InvalidJSON(t *testing.T) {
+	_, err := extractResult([]byte(`not-json`), "classify")
+	if err == nil {
+		t.Fatal("expected error for invalid JSON payload")
+	}
+}
+
+func TestHandleStatus_Cancelled(t *testing.T) {
+	task := &zynaxv1.WorkflowTask{Status: zynaxv1.TaskStatus_TASK_STATUS_CANCELLED}
+	_, done, err := handleStatus(task, "cap")
+	if !done {
+		t.Error("CANCELLED should be terminal (done=true)")
+	}
+	if err == nil || !strings.Contains(err.Error(), "cancelled") {
+		t.Errorf("expected cancelled error, got %v", err)
+	}
+}
+
+func TestPoll_GetTaskError(t *testing.T) {
+	broker := &stubBroker{
+		dispatchResp: &zynaxv1.DispatchTaskResponse{TaskId: "t6"},
+		taskErr:      errors.New("broker down"),
+	}
+	d := newDispatcher(broker)
+
+	_, err := d.DispatchCapabilityActivity(context.Background(), ActivityInput{
+		CapabilityName: "classify",
+		WorkflowID:     "wf-6",
+	})
+	if err == nil {
+		t.Fatal("expected error from GetTask failure")
+	}
+	if !strings.Contains(err.Error(), "broker down") {
+		t.Errorf("error %q should mention broker down", err.Error())
+	}
+}
