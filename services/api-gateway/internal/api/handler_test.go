@@ -31,6 +31,7 @@ type stubEngine struct {
 	submitErr error
 	statusRun domain.WorkflowRunSummary
 	statusErr error
+	cancelErr error
 }
 
 func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _ string) (string, error) {
@@ -39,6 +40,10 @@ func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _ string) (stri
 
 func (s *stubEngine) GetWorkflowStatus(_ context.Context, _ string) (domain.WorkflowRunSummary, error) {
 	return s.statusRun, s.statusErr
+}
+
+func (s *stubEngine) CancelWorkflow(_ context.Context, _ string) error {
+	return s.cancelErr
 }
 
 type stubRegistry struct {
@@ -311,5 +316,37 @@ func TestHandler_Apply_DuplicateAgentDef_Returns409(t *testing.T) {
 	body := decodeBody(t, resp)
 	if body["code"] != "ALREADY_EXISTS" {
 		t.Errorf("code: got %v, want ALREADY_EXISTS", body["code"])
+	}
+}
+
+func TestHandler_DeleteWorkflow_Returns204(t *testing.T) {
+	srv := newServer(&stubCompiler{}, &stubEngine{})
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/workflows/run-abc", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("status: got %d, want 204", resp.StatusCode)
+	}
+}
+
+func TestHandler_DeleteWorkflow_NotFound_Returns404(t *testing.T) {
+	srv := newServer(&stubCompiler{}, &stubEngine{cancelErr: domain.ErrNotFound})
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/workflows/run-missing", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("status: got %d, want 404", resp.StatusCode)
 	}
 }
