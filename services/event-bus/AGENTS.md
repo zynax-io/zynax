@@ -1,7 +1,7 @@
 # services/event-bus — AGENTS.md
 
 > Go 1.22+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M3+ (not yet implemented).** BDD contract tests exist in `protos/tests/`.
+> **Status: M5+ (not yet implemented).** BDD contract tests exist in `protos/tests/`. NATS JetStream backend; CloudEvents published by engine-adapter in M3 bypass this service stub for now.
 
 ---
 

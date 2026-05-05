@@ -208,6 +208,7 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Dependency version policy, security scanning, upgrade cadence | `docs/engineering/dependency-strategy.md` |
 | Renovate bot CI failure fix procedure (go.sum, go directive) | `docs/engineering/renovate-fix-sop.md` |
 | AI context line counts and budget thresholds (advisory, non-blocking) | `tools/count-ai-context.sh` |
+| `zynax` CLI (standalone Go module, M4) — apply/get/delete/status via api-gateway HTTP | `cmd/zynax/` |
 | Per-layer rules | `services/AGENTS.md` · `agents/AGENTS.md` · `protos/AGENTS.md` · `spec/AGENTS.md` · `infra/AGENTS.md` |
 
 ---

@@ -1,7 +1,7 @@
 # services/workflow-compiler — AGENTS.md
 
 > Go 1.25+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M2 Complete.** The only fully implemented platform service.
+> **Status: M2 Complete.** Fully implemented — one of two complete platform services (M3 adds engine-adapter).
 
 ---
 
@@ -25,8 +25,7 @@ services/workflow-compiler/
 ├── cmd/workflow-compiler/main.go
 ├── internal/
 │   ├── api/
-│   │   ├── handler.go          ← ApplyWorkflow, DryRun, GetWorkflow, DeleteWorkflow
-│   │   └── server.go
+│   │   └── handler.go          ← CompileWorkflow, ValidateManifest, GetCompiledWorkflow
 │   ├── domain/
 │   │   ├── ir.go               ← WorkflowIR, StateIR, ActionIR, TransitionIR
 │   │   ├── compiler.go         ← YAMLCompiler: YAML → IR

@@ -10,8 +10,8 @@ any layer.
 |-----------|--------|---------|--------|
 | M1 — Contracts Foundation | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
 | M2 — Workflow IR | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
-| M3 — Temporal Execution | **Next** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) |
-| M4 — YAML System + CLI | Not started | v0.3.0 | — |
+| M3 — Temporal Execution | **Complete** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) |
+| M4 — YAML System + CLI | **In Progress** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) |
 
 M1 delivered: 8 gRPC contracts, AsyncAPI spec, JSON schemas, Go + Python generated stubs,
 140+ BDD scenarios across all services, 5 CI gates. All work tracked in Epic #1 (closed).
@@ -21,12 +21,22 @@ semantic validators (#85), WorkflowGraph → WorkflowIR serialization (#86), gRP
 layer with CompileWorkflow / ValidateManifest / GetCompiledWorkflow (#87), BDD contract
 steps (#154), coverage gate ≥90% + make test pipeline (#155, #142).
 
+M3 delivered: `WorkflowEngine` Go interface + `TemporalEngine` implementation, `IRInterpreterWorkflow`
+state machine (Temporal workflow), `DispatchCapabilityActivity` routing to TaskBrokerService,
+CEL guard evaluation, CloudEvents lifecycle publishing, all 5 `EngineAdapterService` gRPC methods
+wired end-to-end. See [Epic #214](https://github.com/zynax-io/zynax/issues/214), step issues #301–#305.
+
+M4 in progress: api-gateway HTTP REST (`/api/v1/apply`, `/api/v1/workflows/{id}`), `kind: AgentDef`
+routing (#316), `zynax` CLI apply/get/delete/status (#317), logs streaming (#318), Docker Compose
+runner (#319), GitOps watch (#320). See [Epic #314](https://github.com/zynax-io/zynax/issues/314).
+
 ## Key pointers
 
 | Directory | AGENTS.md covers |
 |-----------|-----------------|
 | `/` | Three-layer architecture, workflow model, hard constraints |
 | `services/` | Go service structure, domain/api/infra separation |
+| `cmd/zynax/` | Standalone CLI module — not in go.work; HTTP REST to api-gateway only |
 | `agents/` | Python adapter pattern, gRPC stub usage |
 | `protos/` | Proto naming, backward-compatibility rules |
 | `spec/` | YAML manifest schemas |
@@ -174,11 +184,13 @@ Full guide: `docs/patterns/spdd-guide.md` · Template: `docs/spdd/CANVAS_TEMPLAT
 |-----------|----------|----------------------|
 | **M1** (Complete) | Proto contracts, AsyncAPI spec, generated stubs, BDD scenarios, CI gates | Service implementations, DB schemas, runtime |
 | **M2** (Complete) | WorkflowIR structured fields in `workflow_compiler.proto`, `WorkflowCompilerService` skeleton (in-memory), JSON Schema for WorkflowIR | Temporal integration, persistence, CLI |
-| **M3** (Next) | Temporal-backed `EngineAdapterService` implementation — gated by SPDD Canvas #214 | Other engine adapters, K8s deployment |
-| **M4+** | CLI, YAML validation, observability, production hardening | — |
+| **M3** (Complete) | Temporal-backed `EngineAdapterService` — `WorkflowEngine` interface, `IRInterpreterWorkflow`, `DispatchCapabilityActivity`, `TemporalEngine`, gRPC wiring | Other engine adapters, K8s deployment |
+| **M4** (In Progress) | api-gateway REST layer, `zynax` CLI, `kind: AgentDef` routing, Docker Compose runner, GitOps watch | Observability, production hardening |
+| **M5+** | Adapter library (http, llm, git, ci adapters), additional engine backends | — |
 
-For M3: touch `services/engine-adapter/`. Start with the SPDD Canvas at
-`docs/spdd/214-temporal-execution/canvas.md` — no code before Canvas is Aligned.
+For M4: Canvas at `docs/spdd/314-yaml-system-cli/canvas.md` (status: Aligned).
+Active issues: #315 (done), #316, #317 (done), #318, #319, #320.
+CLI validation tools migration: #331 epic, steps #332–#336.
 
 ## Common AI Anti-Patterns
 
