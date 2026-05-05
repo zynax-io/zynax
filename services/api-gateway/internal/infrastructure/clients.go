@@ -6,7 +6,10 @@ package infrastructure
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"time"
 
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
@@ -105,6 +108,38 @@ func (c *GatewayClients) CancelWorkflow(ctx context.Context, runID string) error
 		return mapEngineGRPCError(err)
 	}
 	return nil
+}
+
+// WatchWorkflow implements domain.EnginePort. It bridges the gRPC server-stream
+// to the callback pattern, keeping gRPC types out of the domain layer.
+func (c *GatewayClients) WatchWorkflow(ctx context.Context, runID string, send func(domain.WatchEvent) error) error {
+	stream, err := c.engine.WatchWorkflow(ctx, &zynaxv1.WatchWorkflowRequest{RunId: runID})
+	if err != nil {
+		return mapEngineGRPCError(err)
+	}
+	for {
+		ev, err := stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return mapEngineGRPCError(err)
+		}
+		we := domain.WatchEvent{
+			RunID:     ev.GetRunId(),
+			EventType: ev.GetEventType(),
+			FromState: ev.GetFromState(),
+			ToState:   ev.GetToState(),
+			Status:    ev.GetStatus().String(),
+			Payload:   string(ev.GetPayload()),
+		}
+		if ts := ev.GetTimestamp(); ts != nil {
+			we.Timestamp = ts.AsTime().Format(time.RFC3339)
+		}
+		if err := send(we); err != nil {
+			return err
+		}
+	}
 }
 
 // RegisterAgent implements domain.RegistryPort.

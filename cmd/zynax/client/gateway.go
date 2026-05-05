@@ -4,6 +4,7 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -177,6 +178,59 @@ func (g *Gateway) DeleteWorkflow(ctx context.Context, runID string) error {
 		raw, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("zynax: delete workflow: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
+}
+
+// LogEvent is a single workflow lifecycle event received from the SSE stream.
+type LogEvent struct {
+	RunID     string `json:"run_id"`
+	EventType string `json:"event_type"`
+	FromState string `json:"from_state,omitempty"`
+	ToState   string `json:"to_state,omitempty"`
+	Status    string `json:"status"`
+	Timestamp string `json:"timestamp,omitempty"`
+	Payload   string `json:"payload,omitempty"`
+}
+
+// WatchWorkflowLogs streams SSE events from GET /api/v1/workflows/{id}/logs,
+// calling send for each event. Returns when the stream closes or ctx is cancelled.
+func (g *Gateway) WatchWorkflowLogs(ctx context.Context, runID string, send func(LogEvent) error) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.base+"/api/v1/workflows/"+runID+"/logs", nil)
+	if err != nil {
+		return fmt.Errorf("zynax: build request: %w", err)
+	}
+	req.Header.Set("Accept", "text/event-stream")
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("zynax: watch workflow: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return ErrNotFound
+	}
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("zynax: watch workflow: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	}
+	return readSSEStream(resp.Body, send)
+}
+
+func readSSEStream(r io.Reader, send func(LogEvent) error) error {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		var ev LogEvent
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev); err != nil {
+			return fmt.Errorf("zynax: decode SSE event: %w", err)
+		}
+		if err := send(ev); err != nil {
+			return err
+		}
+	}
+	return scanner.Err()
 }
 
 func (g *Gateway) post(ctx context.Context, path string, q url.Values, body []byte) (*http.Response, error) {

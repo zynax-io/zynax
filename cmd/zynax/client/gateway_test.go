@@ -5,6 +5,7 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -149,6 +150,53 @@ func TestDeleteWorkflow_NotFound(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 	err := gw.DeleteWorkflow(context.Background(), "missing")
+	if err != client.ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestWatchWorkflowLogs_StreamsEvents(t *testing.T) {
+	gw := newGW(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/workflows/run-sse/logs" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		events := []map[string]any{
+			{"run_id": "run-sse", "event_type": "state.entered", "to_state": "review", "status": "WORKFLOW_STATUS_RUNNING"},
+			{"run_id": "run-sse", "event_type": "workflow.completed", "status": "WORKFLOW_STATUS_COMPLETED"},
+		}
+		for _, ev := range events {
+			b, _ := json.Marshal(ev)
+			fmt.Fprintf(w, "data: %s\n\n", b)
+		}
+	})
+
+	var got []client.LogEvent
+	err := gw.WatchWorkflowLogs(context.Background(), "run-sse", func(ev client.LogEvent) error {
+		got = append(got, ev)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d events, want 2", len(got))
+	}
+	if got[0].EventType != "state.entered" {
+		t.Errorf("event[0].EventType = %q; want state.entered", got[0].EventType)
+	}
+	if got[1].EventType != "workflow.completed" {
+		t.Errorf("event[1].EventType = %q; want workflow.completed", got[1].EventType)
+	}
+}
+
+func TestWatchWorkflowLogs_NotFound(t *testing.T) {
+	gw := newGW(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	err := gw.WatchWorkflowLogs(context.Background(), "ghost", func(_ client.LogEvent) error { return nil })
 	if err != client.ErrNotFound {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}

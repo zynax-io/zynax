@@ -22,11 +22,13 @@ func (s *stubCompiler) CompileWorkflow(_ context.Context, _ []byte, _ string, _ 
 
 // stubEngine is a test double for EnginePort.
 type stubEngine struct {
-	submitID  string
-	submitErr error
-	statusRun domain.WorkflowRunSummary
-	statusErr error
-	cancelErr error
+	submitID    string
+	submitErr   error
+	statusRun   domain.WorkflowRunSummary
+	statusErr   error
+	cancelErr   error
+	watchEvents []domain.WatchEvent
+	watchErr    error
 }
 
 func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _ string) (string, error) {
@@ -39,6 +41,18 @@ func (s *stubEngine) GetWorkflowStatus(_ context.Context, _ string) (domain.Work
 
 func (s *stubEngine) CancelWorkflow(_ context.Context, _ string) error {
 	return s.cancelErr
+}
+
+func (s *stubEngine) WatchWorkflow(_ context.Context, _ string, send func(domain.WatchEvent) error) error {
+	if s.watchErr != nil {
+		return s.watchErr
+	}
+	for _, ev := range s.watchEvents {
+		if err := send(ev); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // stubRegistry is a test double for RegistryPort.
@@ -191,5 +205,39 @@ func TestApplyService_ApplyAgentDef_AlreadyExists(t *testing.T) {
 	})
 	if !errors.Is(err, domain.ErrAgentAlreadyExists) {
 		t.Errorf("expected ErrAgentAlreadyExists, got %v", err)
+	}
+}
+
+func TestApplyService_WatchWorkflowLogs_DeliversEvents(t *testing.T) {
+	events := []domain.WatchEvent{
+		{RunID: "r1", EventType: "state.entered", ToState: "review", Status: "WORKFLOW_STATUS_RUNNING"},
+		{RunID: "r1", EventType: "workflow.completed", Status: "WORKFLOW_STATUS_COMPLETED"},
+	}
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{watchEvents: events}, &stubRegistry{})
+
+	var got []domain.WatchEvent
+	err := svc.WatchWorkflowLogs(context.Background(), "r1", func(ev domain.WatchEvent) error {
+		got = append(got, ev)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d events, want 2", len(got))
+	}
+	if got[0].EventType != "state.entered" {
+		t.Errorf("event[0]: got %q, want state.entered", got[0].EventType)
+	}
+	if got[1].EventType != "workflow.completed" {
+		t.Errorf("event[1]: got %q, want workflow.completed", got[1].EventType)
+	}
+}
+
+func TestApplyService_WatchWorkflowLogs_NotFound(t *testing.T) {
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{watchErr: domain.ErrNotFound}, &stubRegistry{})
+	err := svc.WatchWorkflowLogs(context.Background(), "ghost", func(_ domain.WatchEvent) error { return nil })
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("got %v, want ErrNotFound", err)
 	}
 }

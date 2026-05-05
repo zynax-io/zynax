@@ -31,6 +31,17 @@ type WorkflowRunSummary struct {
 	CurrentState string
 }
 
+// WatchEvent is a single lifecycle event emitted by a streaming WatchWorkflow call.
+type WatchEvent struct {
+	RunID     string
+	EventType string
+	FromState string
+	ToState   string
+	Status    string
+	Timestamp string // RFC3339; empty when the engine omits it
+	Payload   string // JSON string or empty
+}
+
 // CompilerPort is the gateway's outbound dependency on WorkflowCompilerService.
 type CompilerPort interface {
 	CompileWorkflow(ctx context.Context, manifestYAML []byte, namespace string, dryRun bool) (CompileResult, error)
@@ -41,6 +52,9 @@ type EnginePort interface {
 	SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint string) (string, error)
 	GetWorkflowStatus(ctx context.Context, runID string) (WorkflowRunSummary, error)
 	CancelWorkflow(ctx context.Context, runID string) error
+	// WatchWorkflow streams lifecycle events for runID, calling send for each.
+	// Returns when the stream closes, ctx is cancelled, or send returns an error.
+	WatchWorkflow(ctx context.Context, runID string, send func(WatchEvent) error) error
 }
 
 // AgentRegistration is the domain view of a successful RegisterAgent response.
