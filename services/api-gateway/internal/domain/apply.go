@@ -10,9 +10,10 @@ import (
 
 // Sentinel errors surfaced to the HTTP handler for status-code mapping.
 var (
-	ErrCompilationFailed = errors.New("api-gateway: compilation failed")
-	ErrEngineUnavailable = errors.New("api-gateway: engine unavailable")
-	ErrNotFound          = errors.New("api-gateway: not found")
+	ErrCompilationFailed  = errors.New("api-gateway: compilation failed")
+	ErrEngineUnavailable  = errors.New("api-gateway: engine unavailable")
+	ErrNotFound           = errors.New("api-gateway: not found")
+	ErrAgentAlreadyExists = errors.New("api-gateway: agent already registered")
 )
 
 // ApplyRequest carries the parameters for a manifest apply operation.
@@ -26,20 +27,21 @@ type ApplyRequest struct {
 // ApplyResult carries the outcome of an apply operation.
 type ApplyResult struct {
 	RunID    string
+	AgentID  string
 	Warnings []string
 	Errors   []CompileError
 }
 
 // ApplyService orchestrates manifest apply operations.
-// Step 1 handles kind: Workflow; step 2 extends it for kind: AgentDef.
 type ApplyService struct {
 	compiler CompilerPort
 	engine   EnginePort
+	registry RegistryPort
 }
 
 // NewApplyService constructs an ApplyService with the given ports.
-func NewApplyService(compiler CompilerPort, engine EnginePort) *ApplyService {
-	return &ApplyService{compiler: compiler, engine: engine}
+func NewApplyService(compiler CompilerPort, engine EnginePort, registry RegistryPort) *ApplyService {
+	return &ApplyService{compiler: compiler, engine: engine, registry: registry}
 }
 
 // ApplyWorkflow compiles a Workflow manifest and, unless dry_run, submits it
@@ -65,6 +67,16 @@ func (s *ApplyService) submit(ctx context.Context, compiled CompileResult, engin
 		return ApplyResult{}, fmt.Errorf("api-gateway: %w", err)
 	}
 	return ApplyResult{RunID: runID, Warnings: compiled.Warnings}, nil
+}
+
+// ApplyAgentDef registers an AgentDef manifest with the agent registry.
+// Returns ErrAgentAlreadyExists when the registry reports ALREADY_EXISTS.
+func (s *ApplyService) ApplyAgentDef(ctx context.Context, req ApplyRequest) (ApplyResult, error) {
+	reg, err := s.registry.RegisterAgent(ctx, req.ManifestYAML, req.Namespace)
+	if err != nil {
+		return ApplyResult{}, fmt.Errorf("api-gateway: %w", err)
+	}
+	return ApplyResult{AgentID: reg.AgentID}, nil
 }
 
 // GetWorkflowStatus returns the current status of a workflow run.

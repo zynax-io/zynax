@@ -50,6 +50,8 @@ func (h *Handler) handleApply(w http.ResponseWriter, r *http.Request) {
 	switch kind {
 	case domain.KindWorkflow:
 		h.applyWorkflow(w, r, body)
+	case domain.KindAgentDef:
+		h.applyAgentDef(w, r, body)
 	default:
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("kind %q: not yet supported", kind), "UNSUPPORTED_KIND")
 	}
@@ -74,6 +76,22 @@ func (h *Handler) applyWorkflow(w http.ResponseWriter, r *http.Request, body []b
 		writeJSON(w, http.StatusOK, dryRunResp{DryRun: true, Warnings: result.Warnings})
 	default:
 		writeJSON(w, http.StatusAccepted, applyResp{RunID: result.RunID, Warnings: result.Warnings})
+	}
+}
+
+func (h *Handler) applyAgentDef(w http.ResponseWriter, r *http.Request, body []byte) {
+	req := domain.ApplyRequest{
+		ManifestYAML: body,
+		Namespace:    r.URL.Query().Get("namespace"),
+	}
+	result, err := h.svc.ApplyAgentDef(r.Context(), req)
+	switch {
+	case errors.Is(err, domain.ErrAgentAlreadyExists):
+		writeError(w, http.StatusConflict, "agent already registered", "ALREADY_EXISTS")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal error", "INTERNAL")
+	default:
+		writeJSON(w, http.StatusCreated, agentDefResp{AgentID: result.AgentID})
 	}
 }
 
@@ -124,6 +142,10 @@ type compileErrItem struct {
 
 type compileErrsResp struct {
 	Errors []compileErrItem `json:"errors"`
+}
+
+type agentDefResp struct {
+	AgentID string `json:"agent_id"`
 }
 
 type workflowStatusResp struct {
