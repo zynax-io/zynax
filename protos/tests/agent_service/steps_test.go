@@ -86,11 +86,28 @@ func (s *agentStub) ExecuteCapability(req *zynaxv1.ExecuteCapabilityRequest, str
 	}
 }
 
+func (s *agentStub) GetCapabilitySchema(_ context.Context, req *zynaxv1.GetCapabilitySchemaRequest) (*zynaxv1.GetCapabilitySchemaResponse, error) {
+	if req.CapabilityName == "" {
+		return nil, status.Error(codes.InvalidArgument, "capability_name must not be empty")
+	}
+	if req.CapabilityName != "summarize" {
+		return nil, status.Errorf(codes.NotFound, "capability %q not found", req.CapabilityName)
+	}
+	return &zynaxv1.GetCapabilitySchemaResponse{
+		CapabilityName:   "summarize",
+		InputSchemaJson:  `{"type":"object","properties":{"documents":{"type":"array"}}}`,
+		OutputSchemaJson: `{"type":"object","properties":{"summary":{"type":"string"}}}`,
+		Description:      "Summarizes a list of documents",
+	}, nil
+}
+
 // ─── Test context ─────────────────────────────────────────────────────────────
 
 type testCtx struct {
 	client     zynaxv1.AgentServiceClient
 	req        *zynaxv1.ExecuteCapabilityRequest
+	schemaReq  *zynaxv1.GetCapabilitySchemaRequest
+	schemaResp *zynaxv1.GetCapabilitySchemaResponse
 	events     []*zynaxv1.TaskEvent
 	grpcErr    error
 	streamDone bool
@@ -105,6 +122,7 @@ func newTestCtx() *testCtx {
 			WorkflowId:     "wf-default",
 			InputPayload:   []byte(`{"documents": ["hello"]}`),
 		},
+		schemaReq: &zynaxv1.GetCapabilitySchemaRequest{},
 	}
 }
 
@@ -759,6 +777,74 @@ func TestFeatures(t *testing.T) {
 					if ev.EventType == zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
 						foundFailed = true
 					}
+				}
+				return ctx, nil
+			})
+
+			// ─── GetCapabilitySchema steps ────────────────────────────────────────
+
+			sc.Step(`^GetCapabilitySchema is called with capability_name "([^"]*)"$`, func(ctx context.Context, cap string) (context.Context, error) {
+				resp, err := tc.client.GetCapabilitySchema(ctx, &zynaxv1.GetCapabilitySchemaRequest{CapabilityName: cap})
+				tc.grpcErr = err
+				tc.schemaResp = resp
+				return ctx, nil
+			})
+
+			sc.Step(`^a GetCapabilitySchemaRequest with capability_name set to ""$`, func(ctx context.Context) (context.Context, error) {
+				tc.schemaReq = &zynaxv1.GetCapabilitySchemaRequest{CapabilityName: ""}
+				return ctx, nil
+			})
+
+			sc.Step(`^GetCapabilitySchema is called$`, func(ctx context.Context) (context.Context, error) {
+				resp, err := tc.client.GetCapabilitySchema(ctx, tc.schemaReq)
+				tc.grpcErr = err
+				tc.schemaResp = resp
+				return ctx, nil
+			})
+
+			sc.Step(`^the gRPC status is OK$`, func(ctx context.Context) (context.Context, error) {
+				if tc.grpcErr != nil {
+					return ctx, fmt.Errorf("expected OK but got error: %v", tc.grpcErr)
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^the response capability_name is "([^"]*)"$`, func(ctx context.Context, want string) (context.Context, error) {
+				if tc.schemaResp == nil {
+					return ctx, fmt.Errorf("no schema response")
+				}
+				if tc.schemaResp.GetCapabilityName() != want {
+					return ctx, fmt.Errorf("capability_name = %q; want %q", tc.schemaResp.GetCapabilityName(), want)
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^the response input_schema_json is valid JSON$`, func(ctx context.Context) (context.Context, error) {
+				if tc.schemaResp == nil {
+					return ctx, fmt.Errorf("no schema response")
+				}
+				if !json.Valid([]byte(tc.schemaResp.GetInputSchemaJson())) {
+					return ctx, fmt.Errorf("input_schema_json is not valid JSON: %q", tc.schemaResp.GetInputSchemaJson())
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^the response output_schema_json is valid JSON$`, func(ctx context.Context) (context.Context, error) {
+				if tc.schemaResp == nil {
+					return ctx, fmt.Errorf("no schema response")
+				}
+				if !json.Valid([]byte(tc.schemaResp.GetOutputSchemaJson())) {
+					return ctx, fmt.Errorf("output_schema_json is not valid JSON: %q", tc.schemaResp.GetOutputSchemaJson())
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^the response description is non-empty$`, func(ctx context.Context) (context.Context, error) {
+				if tc.schemaResp == nil {
+					return ctx, fmt.Errorf("no schema response")
+				}
+				if tc.schemaResp.GetDescription() == "" {
+					return ctx, fmt.Errorf("description is empty")
 				}
 				return ctx, nil
 			})
