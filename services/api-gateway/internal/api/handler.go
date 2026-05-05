@@ -142,9 +142,9 @@ func (h *Handler) handleWorkflowLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		data, merr := json.Marshal(sseWatchEvent(ev))
 		if merr != nil {
-			return merr
+			return fmt.Errorf("api-gateway: marshal event: %w", merr)
 		}
-		fmt.Fprintf(w, "data: %s\n\n", data)
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 		flusher.Flush()
 		return nil
 	})
