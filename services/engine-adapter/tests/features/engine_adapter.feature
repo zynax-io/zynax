@@ -26,7 +26,7 @@ Feature: Workflow Engine Adapter
     Then Query returns status CANCELLED
 
   Scenario: Engine is swappable without API changes
-    Given KEEL_ENGINE_ACTIVE_ENGINE=langgraph
+    Given ZYNAX_ENGINE_ACTIVE_ENGINE=langgraph
     When Submit is called with a WorkflowIR
     Then the LangGraph engine handles execution
     And the gRPC response format is identical to the Temporal response
