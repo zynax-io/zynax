@@ -59,7 +59,8 @@ Canvas generation in step 3 draws from it.
 
 ## Step 2 — `/spdd-story <issue>`
 
-Breaks the feature into 2–5 INVEST-compliant user stories:
+Breaks the feature into 2–5 INVEST-compliant user stories and creates one GitHub
+issue per story as a child of the parent epic:
 
 - **I**ndependent — deliverable separately
 - **N**egotiable — details are flexible
@@ -70,6 +71,11 @@ Breaks the feature into 2–5 INVEST-compliant user stories:
 
 Each story maps to one Operations step in the Canvas. The recommended implementation
 order from this command feeds directly into Canvas section O.
+
+**GitHub issue creation (default behaviour):** after displaying the stories,
+`/spdd-story` opens one `gh issue` per story. Title format:
+`feat(<scope>): <title> (#<parent>, step <N>)`. The Canvas O section must link
+to these issue numbers once they exist — update the canvas after running this command.
 
 ---
 

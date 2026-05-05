@@ -33,7 +33,7 @@ Flag anything that belongs in `canvas.private.md` instead of the public Canvas:
 | **Infrastructure** | Real hostnames, cluster/namespace names, internal TLDs (`.internal` `.local` `.corp`), private IPs (`10.x`, `172.16–31.x`, `192.168.x`), VPN/bastion references |
 | **Credentials** | API keys, passwords, tokens, secrets — even expired, placeholder-looking, or redacted |
 | **Deployment specifics** | Exact failover thresholds, WAF rules, rate-limit values, replica counts from a real environment |
-| **PII** | Full names linked to sensitive context, personal emails, corporate emails not in a public commit |
+| **PII** | Any email address literal (all email addresses are BLOCK — gitleaks will fail CI regardless of whether the address is already public; reference commit-hygiene rules by name, e.g. "per AGENTS.md §Hard Constraints", never inline the address) · Full names linked to sensitive context |
 | **Unpublished strategy** | Unannounced features, acquisition plans, private roadmap milestones, internal project codenames |
 | **Operational security** | Credential rotation schedules, access control details, incident details with attacker-observable data |
 
