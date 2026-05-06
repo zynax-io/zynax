@@ -11,13 +11,17 @@ import (
 	"strings"
 )
 
-// ValidationError is a single hard failure from Canvas validation.
+// ValidationError is a single hard failure from validation.
 type ValidationError struct {
 	File    string `json:"file"`
+	Path    string `json:"path,omitempty"` // JSON Pointer to the failing element (optional)
 	Message string `json:"message"`
 }
 
 func (e ValidationError) Error() string {
+	if e.Path != "" {
+		return fmt.Sprintf("%s: at %s: %s", e.File, e.Path, e.Message)
+	}
 	return fmt.Sprintf("%s: %s", e.File, e.Message)
 }
 
