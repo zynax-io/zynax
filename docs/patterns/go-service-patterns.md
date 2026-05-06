@@ -11,7 +11,7 @@
 ```go
 module github.com/zynax-io/zynax/services/<service-name>
 
-go 1.22
+go 1.26.2
 
 require (
     google.golang.org/grpc v1.63.0
@@ -328,3 +328,28 @@ slog.InfoContext(ctx, "workflow compiled",
     "states", len(states),
     "duration_ms", time.Since(start).Milliseconds())
 ```
+
+---
+
+## Proto Stub Regeneration
+
+All gRPC stubs live in `protos/generated/go/zynax/v1/`. They are committed to the
+repo and kept fresh by CI.
+
+**Canonical way (Docker, no local tools required):**
+
+```bash
+make generate-protos
+```
+
+**Using a locally installed `buf` (no Docker):**
+
+```bash
+make go-generate
+# equivalent to: cd protos/generated/go && GOWORK=off go generate ./...
+```
+
+The `//go:generate` directive lives in `protos/generated/go/zynax/v1/generate.go`
+and calls `buf generate --template buf.gen.yaml` from the `protos/` directory.
+After regenerating, commit the updated stubs — CI enforces freshness via the
+`proto-stubs-fresh` check.
