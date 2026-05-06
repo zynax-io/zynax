@@ -58,7 +58,7 @@ jobs:
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
           SHA_TAG="${IMAGE}:main-${{ github.sha }}"
 
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          if echo "${{ github.ref }}" | grep -q '^refs/tags/v'; then
             VERSION_TAG="${IMAGE}:${{ github.ref_name }}"
             echo "tags=${IMAGE}:latest,${VERSION_TAG},${SHA_TAG}" >> "$GITHUB_OUTPUT"
           else
