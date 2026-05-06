@@ -23,6 +23,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
+	"github.com/zynax-io/zynax/services/workflow-compiler/internal/api"
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/config"
 )
 
@@ -37,11 +39,12 @@ func main() {
 		Level: parseLogLevel(cfg.LogLevel),
 	})))
 
-	// gRPC server — WorkflowCompilerService registered in subsequent issues.
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	)
 	reflection.Register(grpcServer)
+
+	zynaxv1.RegisterWorkflowCompilerServiceServer(grpcServer, api.New())
 
 	healthSvc := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthSvc)

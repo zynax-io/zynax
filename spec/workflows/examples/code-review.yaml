@@ -40,7 +40,7 @@ spec:
         - event: review.approved
           goto: merge
 
-        - event: review.changes_requested
+        - event: review.needswork
           goto: fix
           # Store the feedback in workflow context for the fix state
           set:
@@ -104,7 +104,7 @@ spec:
         - event: human.approved
           goto: merge
         # Human requests more changes
-        - event: human.changes_requested
+        - event: human.needswork
           goto: fix
           set:
             context.latest_feedback: "{{ .event.feedback }}"
