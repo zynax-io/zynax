@@ -279,10 +279,16 @@ Port map while the stack is running:
 **Prerequisites:** Docker Desktop only (Go, Python, buf are not needed locally).
 
 ```bash
-make bootstrap   # one-time: build the zynax-tools Docker image
+# Prerequisites: Docker, Go 1.26+, pip install pre-commit
+make bootstrap   # one-time per clone: builds tools image + installs pre-commit hooks
 make lint        # proto + Go + Python lint
 make test        # full suite (unit + BDD + coverage gate)
 ```
+
+> **Pre-commit hooks** — `make bootstrap` wires `gofmt`, `golangci-lint`, `ruff`,
+> `mypy`, and `gitleaks` to run automatically on every `git commit`. You must run
+> `make bootstrap` once per clone to activate them.
+> See [CONTRIBUTING.md §Pre-commit hooks](CONTRIBUTING.md#pre-commit-hooks) for details.
 
 ### Key make commands
 

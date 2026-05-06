@@ -21,8 +21,13 @@ help:
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: bootstrap check-docker build-tools
-bootstrap: check-docker build-tools ## ★ Run once after clone
-	@echo "✅ Done. make dev-up → start stack, make lint → lint all"
+bootstrap: check-docker build-tools ## ★ Run once after clone — builds tools image and installs pre-commit hooks
+	@if command -v pre-commit >/dev/null 2>&1; then \
+	  pre-commit install && echo "✅ pre-commit hooks installed"; \
+	else \
+	  echo "⚠️  pre-commit not found — skipping hook install (pip install pre-commit)"; \
+	fi
+	@echo "✅ Done. make lint → lint all, make test → full test suite"
 
 check-docker:
 	@docker info >/dev/null 2>&1 || (echo "❌ Docker not running" && exit 1)

@@ -31,8 +31,8 @@ type stateSpec struct {
 }
 
 type workflowManifest struct {
-	ApiVersion string      `yaml:"apiVersion"`
-	Kind       string      `yaml:"kind"`
+	ApiVersion string `yaml:"apiVersion"`
+	Kind       string `yaml:"kind"`
 	Metadata   struct {
 		Name      string `yaml:"name"`
 		Namespace string `yaml:"namespace"`
@@ -135,8 +135,8 @@ func (s *compilerStub) ValidateManifest(_ context.Context, req *zynaxv1.Validate
 	}
 
 	return &zynaxv1.ValidateManifestResponse{
-		Valid:   len(errs) == 0,
-		Errors:  errs,
+		Valid:  len(errs) == 0,
+		Errors: errs,
 	}, nil
 }
 
@@ -282,16 +282,16 @@ states:
 // ─── Test context ────────────────────────────────────────────────────────────
 
 type compilerCtx struct {
-	client          zynaxv1.WorkflowCompilerServiceClient
-	stub            *compilerStub
-	compileReq      *zynaxv1.CompileWorkflowRequest
-	validateReq     *zynaxv1.ValidateManifestRequest
-	getReq          *zynaxv1.GetCompiledWorkflowRequest
-	compileResp     *zynaxv1.CompileWorkflowResponse
-	validateResp    *zynaxv1.ValidateManifestResponse
-	getResp         *zynaxv1.GetCompiledWorkflowResponse
-	grpcErr         error
-	lastWorkflowID  string
+	client         zynaxv1.WorkflowCompilerServiceClient
+	stub           *compilerStub
+	compileReq     *zynaxv1.CompileWorkflowRequest
+	validateReq    *zynaxv1.ValidateManifestRequest
+	getReq         *zynaxv1.GetCompiledWorkflowRequest
+	compileResp    *zynaxv1.CompileWorkflowResponse
+	validateResp   *zynaxv1.ValidateManifestResponse
+	getResp        *zynaxv1.GetCompiledWorkflowResponse
+	grpcErr        error
+	lastWorkflowID string
 }
 
 type godogCKey struct{}
@@ -757,13 +757,13 @@ states:
 			}
 
 			codeByName := map[string]zynaxv1.CompilationErrorCode{
-				"ORPHAN_STATE":          zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_ORPHAN_STATE,
-				"DUPLICATE_STATE_NAME":  zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_DUPLICATE_STATE_NAME,
-				"NO_TERMINAL_STATE":     zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_NO_TERMINAL_STATE,
-				"NO_INITIAL_STATE":      zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_NO_INITIAL_STATE,
+				"ORPHAN_STATE":            zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_ORPHAN_STATE,
+				"DUPLICATE_STATE_NAME":    zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_DUPLICATE_STATE_NAME,
+				"NO_TERMINAL_STATE":       zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_NO_TERMINAL_STATE,
+				"NO_INITIAL_STATE":        zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_NO_INITIAL_STATE,
 				"MULTIPLE_INITIAL_STATES": zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_MULTIPLE_INITIAL_STATES,
 				"UNKNOWN_STATE_REFERENCE": zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_UNKNOWN_STATE_REFERENCE,
-				"YAML_PARSE_ERROR":      zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_YAML_PARSE_ERROR,
+				"YAML_PARSE_ERROR":        zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_YAML_PARSE_ERROR,
 			}
 
 			sc.Step(`^the response contains a CompilationError with code (\w+)$`, func(codeName string) error {

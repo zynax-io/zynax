@@ -25,8 +25,8 @@ import (
 
 type brokerStub struct {
 	zynaxv1.UnimplementedTaskBrokerServiceServer
-	mu         sync.Mutex
-	tasks      map[string]*zynaxv1.WorkflowTask
+	mu    sync.Mutex
+	tasks map[string]*zynaxv1.WorkflowTask
 	// capabilities[cap] = agentID
 	capabilities map[string]string
 	// lastDispatchAgent records which agent a task was dispatched to

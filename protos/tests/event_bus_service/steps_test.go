@@ -207,16 +207,16 @@ func (s *busStub) Unsubscribe(_ context.Context, req *zynaxv1.UnsubscribeRequest
 // ─── Test context ─────────────────────────────────────────────────────────────
 
 type busCtx struct {
-	client       zynaxv1.EventBusServiceClient
-	stub         *busStub
-	publishResp  *zynaxv1.PublishResponse
-	grpcErr      error
+	client      zynaxv1.EventBusServiceClient
+	stub        *busStub
+	publishResp *zynaxv1.PublishResponse
+	grpcErr     error
 	// Track subscriber state for streaming scenarios
 	subEvents    map[string][]*zynaxv1.CloudEvent // subID -> received events
 	subStreams   map[string]grpc.ServerStreamingClient[zynaxv1.SubscribeResponse]
 	subCtxCancel map[string]context.CancelFunc
 	// For initial metadata check
-	initialResp  *zynaxv1.SubscribeResponse
+	initialResp *zynaxv1.SubscribeResponse
 	// Pending invalid request
 	pendingSubReq   *zynaxv1.SubscribeRequest
 	pendingUnsubReq *zynaxv1.UnsubscribeRequest
@@ -230,11 +230,11 @@ type godogBKey struct{}
 
 func makeCloudEvent(evtType, workflowID string) *zynaxv1.CloudEvent {
 	return &zynaxv1.CloudEvent{
-		Id:         fmt.Sprintf("evt-%d", time.Now().UnixNano()),
-		Source:     "/zynax/test",
+		Id:          fmt.Sprintf("evt-%d", time.Now().UnixNano()),
+		Source:      "/zynax/test",
 		Specversion: "1.0",
-		Type:       evtType,
-		WorkflowId: workflowID,
+		Type:        evtType,
+		WorkflowId:  workflowID,
 	}
 }
 

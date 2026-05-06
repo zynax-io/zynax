@@ -16,9 +16,9 @@ import (
 func writeMinimalWorkflowSchema(t *testing.T, dir string) string {
 	t.Helper()
 	schema := map[string]interface{}{
-		"$schema": "https://json-schema.org/draft/2020-12/schema",
-		"$id":     "https://test.zynax.io/workflow",
-		"type":    "object",
+		"$schema":  "https://json-schema.org/draft/2020-12/schema",
+		"$id":      "https://test.zynax.io/workflow",
+		"type":     "object",
 		"required": []string{"kind", "apiVersion", "metadata"},
 		"properties": map[string]interface{}{
 			"kind":       map[string]interface{}{"type": "string", "const": "Workflow"},

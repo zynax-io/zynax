@@ -37,8 +37,8 @@ func init() {
 }
 
 type canvasResult struct {
-	File     string                     `json:"file"`
-	Errors   []validate.ValidationError `json:"errors,omitempty"`
+	File     string                       `json:"file"`
+	Errors   []validate.ValidationError   `json:"errors,omitempty"`
 	Warnings []validate.ValidationWarning `json:"warnings,omitempty"`
 }
 

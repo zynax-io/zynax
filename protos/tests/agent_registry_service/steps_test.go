@@ -164,15 +164,15 @@ func matchesLabelSelector(labels map[string]string, selector string) bool {
 // ─── Test context ─────────────────────────────────────────────────────────────
 
 type testCtx struct {
-	client          zynaxv1.AgentRegistryServiceClient
-	stub            *registryStub
-	pendingAgent    *zynaxv1.AgentDef
-	lastRegResp     *zynaxv1.RegisterAgentResponse
-	lastAgent       *zynaxv1.AgentDef
-	listResp        *zynaxv1.ListAgentsResponse
-	findResp        *zynaxv1.FindByCapabilityResponse
-	grpcErr         error
-	lastLabels      map[string]string
+	client       zynaxv1.AgentRegistryServiceClient
+	stub         *registryStub
+	pendingAgent *zynaxv1.AgentDef
+	lastRegResp  *zynaxv1.RegisterAgentResponse
+	lastAgent    *zynaxv1.AgentDef
+	listResp     *zynaxv1.ListAgentsResponse
+	findResp     *zynaxv1.FindByCapabilityResponse
+	grpcErr      error
+	lastLabels   map[string]string
 }
 
 func newTestCtx() *testCtx {
@@ -261,11 +261,11 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^the AgentDef has labels \{"([^"]+)": "([^"]+)"(?:, "([^"]+)": "([^"]+)")?\}$`, func(ctx context.Context, k1, v1, k2, v2 string) (context.Context, error) {
 				if tc.pendingAgent == nil {
 					tc.pendingAgent = &zynaxv1.AgentDef{
-						AgentId:  "agent-temp",
-						Name:     "agent-temp",
-						Endpoint: "localhost:50051",
+						AgentId:      "agent-temp",
+						Name:         "agent-temp",
+						Endpoint:     "localhost:50051",
 						Capabilities: []*zynaxv1.CapabilityDef{{Name: "cap"}},
-						Labels:   make(map[string]string),
+						Labels:       make(map[string]string),
 					}
 				}
 				tc.pendingAgent.Labels[k1] = v1
