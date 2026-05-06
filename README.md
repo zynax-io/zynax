@@ -10,7 +10,7 @@
 [![AI Context Budget](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml/badge.svg)](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![CNCF Sandbox Candidate](https://img.shields.io/badge/CNCF-Sandbox_Candidate-026be0.svg)](https://cncf.io)
-[![Go 1.22+](https://img.shields.io/badge/go-1.22+-00add8.svg)](https://go.dev)
+[![Go 1.25+](https://img.shields.io/badge/go-1.25+-00add8.svg)](https://go.dev)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zynax-io/zynax/badge)](https://securityscorecards.dev)
 
 [Quickstart](#-quickstart) · [Architecture](ARCHITECTURE.md) · [Documentation](docs/) · [Contributing](CONTRIBUTING.md) · [Roadmap](ROADMAP.md)
@@ -47,7 +47,7 @@ spec:
       on:
         - event: review.approved
           goto: merge
-        - event: review.changes_requested
+        - event: review.needswork
           goto: fix
 
     fix:
@@ -68,6 +68,59 @@ spec:
 
 ```bash
 zynax apply code-review.yaml
+# run_id: wf-236c478f00eb68ce
+
+zynax status workflow wf-236c478f00eb68ce
+# status: Running  current_state: review
+
+zynax logs wf-236c478f00eb68ce
+# state.entered  review
+# state.exited   review → merge
+```
+
+---
+
+## Install the zynax CLI
+
+Download a pre-built binary from the [latest GitHub Release](https://github.com/zynax-io/zynax/releases/latest):
+
+**macOS (Apple Silicon):**
+```bash
+curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_darwin_arm64.tar.gz | tar xz
+sudo mv zynax /usr/local/bin/
+```
+
+**macOS (Intel):**
+```bash
+curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_darwin_amd64.tar.gz | tar xz
+sudo mv zynax /usr/local/bin/
+```
+
+**Linux (amd64):**
+```bash
+curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_amd64.tar.gz | tar xz
+sudo mv zynax /usr/local/bin/
+```
+
+**Linux (arm64):**
+```bash
+curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_arm64.tar.gz | tar xz
+sudo mv zynax /usr/local/bin/
+```
+
+**Windows (amd64):** download `zynax_windows_amd64.zip` from the release page and add the extracted `zynax.exe` to your `PATH`.
+
+**From source** (requires Go 1.25+):
+```bash
+git clone https://github.com/zynax-io/zynax.git
+cd zynax/cmd/zynax
+GOWORK=off go build -o zynax .
+sudo mv zynax /usr/local/bin/
+```
+
+Verify:
+```bash
+zynax --version
 ```
 
 ---
@@ -151,13 +204,49 @@ Layer 1 YAML is never imported by Go services. Cross-service reads always go thr
 
 ## Quickstart
 
-**Prerequisites:** Docker Desktop. Nothing else.
+### Try it with Docker
+
+**Prerequisites:** Docker Desktop + the `zynax` CLI (see [Install](#install-the-zynax-cli) above).
 
 ```bash
 git clone https://github.com/zynax-io/zynax.git
 cd zynax
+
+# Start the local stack (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)
+make run-local
+
+# Apply an example workflow manifest
+export ZYNAX_API_URL=http://localhost:7080
+zynax apply spec/workflows/examples/code-review.yaml
+# run_id: wf-<hex>
+
+zynax status workflow wf-<hex>
+# status: Running   current_state: review
+
+zynax logs wf-<hex>
+# streams state-transition events
+
+# Stop the stack when done
+make stop-local
+```
+
+Port map while the stack is running:
+
+| Endpoint | URL |
+|----------|-----|
+| api-gateway HTTP | http://localhost:7080 |
+| Temporal Web UI | http://localhost:7088 |
+| Temporal gRPC | localhost:7233 |
+| NATS | localhost:7422 |
+
+### Develop locally
+
+**Prerequisites:** Docker Desktop only (Go, Python, buf are not needed locally).
+
+```bash
 make bootstrap   # one-time: build the zynax-tools Docker image
-make dev-up      # start the full local stack
+make lint        # proto + Go + Python lint
+make test        # full suite (unit + BDD + coverage gate)
 ```
 
 ### Key make commands
@@ -208,7 +297,8 @@ lifecycle publishing (`zynax.workflow.state.entered/exited/completed/failed`), a
 **M4 (in progress)** is delivering the YAML system and CLI: api-gateway HTTP REST layer
 (`POST /api/v1/apply`, `GET /api/v1/workflows/{id}`, `DELETE /api/v1/workflows/{id}`),
 `kind: AgentDef` routing via `AgentRegistryService`, the `zynax` CLI (`apply`, `get`,
-`delete`, `status`), local Docker Compose runner, and GitOps integration.
+`delete`, `status`, `logs`), local Docker Compose runner (`make run-local`),
+pre-built CLI binaries published to GitHub Releases for five platforms, and GitOps integration.
 Canvas: `docs/spdd/314-yaml-system-cli/canvas.md`.
 
 ---

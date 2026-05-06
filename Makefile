@@ -50,7 +50,7 @@ dev-restart: ## Rebuild one service: make dev-restart SVC=agent-registry
 	$(COMPOSE) up -d --build $(SVC)
 
 COMPOSE_LOCAL := docker compose -f infra/docker-compose/docker-compose.yml
-.PHONY: run-local stop-local logs-local
+.PHONY: run-local stop-local logs-local install-cli
 run-local: check-docker ## ★ Build images + start local stack (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)
 	$(COMPOSE_LOCAL) up -d --build
 	@echo ""
@@ -63,6 +63,10 @@ stop-local: ## Stop and remove local stack containers
 
 logs-local: ## Tail all local stack logs
 	$(COMPOSE_LOCAL) logs -f
+
+install-cli: ## Build and install zynax CLI to ~/bin/zynax (requires Go 1.25)
+	cd cmd/zynax && GOWORK=off go build -trimpath -o ~/bin/zynax .
+	@echo "✅ zynax installed → ~/bin/zynax  (ensure ~/bin is on your PATH)"
 
 # ── Lint ───────────────────────────────────────────────────────────────────
 .PHONY: lint lint-go lint-agents lint-go-svc lint-agent lint-fix

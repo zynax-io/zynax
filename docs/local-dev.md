@@ -4,6 +4,26 @@ Docker-first quickstart. Only prerequisite: Docker Desktop (or Docker Engine + C
 
 ---
 
+## Install the zynax CLI
+
+Download a pre-built binary from [GitHub Releases](https://github.com/zynax-io/zynax/releases/latest):
+
+```bash
+# macOS Apple Silicon
+curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_darwin_arm64.tar.gz | tar xz
+sudo mv zynax /usr/local/bin/
+
+# Linux amd64
+curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_amd64.tar.gz | tar xz
+sudo mv zynax /usr/local/bin/
+
+# Or build from source (requires Go 1.25 installed locally):
+cd cmd/zynax && GOWORK=off go build -o ~/bin/zynax .
+# or: make install-cli
+```
+
+---
+
 ## One-time setup
 
 ```bash
