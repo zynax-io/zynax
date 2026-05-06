@@ -97,7 +97,7 @@ func runToProto(r *domain.WorkflowRun) *zynaxv1.WorkflowRun {
 		RunId:              r.RunID,
 		WorkflowId:         r.WorkflowID,
 		Namespace:          r.Namespace,
-		Status:             zynaxv1.WorkflowStatus(r.Status), //nolint:gosec
+		Status:             zynaxv1.WorkflowStatus(r.Status), //nolint:gosec // G115: domain status is a small positive int enum; conversion is safe
 		CurrentState:       r.CurrentState,
 		Engine:             r.Engine,
 		Labels:             r.Labels,
@@ -114,7 +114,7 @@ func eventToProto(ev *domain.WorkflowEvent) *zynaxv1.WorkflowEvent {
 		EventType: ev.EventType,
 		FromState: ev.FromState,
 		ToState:   ev.ToState,
-		Status:    zynaxv1.WorkflowStatus(ev.Status), //nolint:gosec
+		Status:    zynaxv1.WorkflowStatus(ev.Status), //nolint:gosec // G115: domain status is a small positive int enum; conversion is safe
 		Payload:   ev.Payload,
 		Timestamp: timestamppb.New(ev.Timestamp),
 	}

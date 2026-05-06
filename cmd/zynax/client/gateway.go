@@ -47,7 +47,7 @@ func New(baseURL string, insecure bool) *Gateway {
 	tr := http.DefaultTransport
 	if insecure {
 		tr = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // G402: intentional for --insecure local-dev flag; never used in production
 		}
 	}
 	return &Gateway{
