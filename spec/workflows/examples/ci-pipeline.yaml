@@ -80,9 +80,9 @@ spec:
             environment: "staging"
           timeout: 20m
       on:
-        - event: integration_tests.passed
+        - event: integration.passed
           goto: done
-        - event: integration_tests.failed
+        - event: integration.failed
           goto: rollback
 
     rollback:

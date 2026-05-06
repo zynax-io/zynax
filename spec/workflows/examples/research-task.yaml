@@ -48,7 +48,7 @@ spec:
         - event: search.completed
           goto: summarize
 
-        - event: search.no_results
+        - event: search.noresults
           goto: abandon
           set:
             context.abandon_reason: "No results found for topic"
