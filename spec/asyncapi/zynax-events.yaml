@@ -7,6 +7,7 @@ info:
   contact:
     name: Zynax Engineering
     url: https://github.com/zynax-io/zynax
+    email: oss@zynax.io
   description: |
     All Zynax async events published to the NATS JetStream event bus.
     Every message payload is a CloudEvents v1.0 envelope as defined in
