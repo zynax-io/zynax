@@ -388,10 +388,10 @@ func (s *stubSuite) noStaleGeneratedFilesRemainFromThePreviousRun() error {
 
 // ─── CI freshness gate ────────────────────────────────────────────────────────
 
-func (s *stubSuite) aPullRequestThatModifiesAProtoFile() error       { return nil }
-func (s *stubSuite) makeGenerateProtosWasNOTRunBeforeCommitting() error { return nil }
+func (s *stubSuite) aPullRequestThatModifiesAProtoFile() error            { return nil }
+func (s *stubSuite) makeGenerateProtosWasNOTRunBeforeCommitting() error   { return nil }
 func (s *stubSuite) makeGenerateProtosWasRunAndStubsWereCommitted() error { return nil }
-func (s *stubSuite) aPullRequestThatDoesNotModifyAnyProtoFiles() error { return nil }
+func (s *stubSuite) aPullRequestThatDoesNotModifyAnyProtoFiles() error    { return nil }
 
 func (s *stubSuite) theProtoStubsFreshCICheckRuns() error {
 	return s.ciReferencesProtoFreshnessGate()

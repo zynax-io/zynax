@@ -15,9 +15,9 @@ import (
 func writeCapabilitySchema(t *testing.T, dir string) string {
 	t.Helper()
 	schema := map[string]interface{}{
-		"$schema": "https://json-schema.org/draft/2020-12/schema",
-		"$id":     "https://test.zynax.io/capability",
-		"type":    "object",
+		"$schema":  "https://json-schema.org/draft/2020-12/schema",
+		"$id":      "https://test.zynax.io/capability",
+		"type":     "object",
 		"required": []string{"name"},
 		"properties": map[string]interface{}{
 			"name":        map[string]interface{}{"type": "string"},

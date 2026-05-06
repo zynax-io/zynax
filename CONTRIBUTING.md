@@ -49,11 +49,12 @@ Read this document before opening your first PR.
 
 | Tool | Version | Install |
 |------|---------|---------|
-| Go | ≥ 1.22 | [go.dev](https://go.dev) |
+| Go | ≥ 1.26 | [go.dev](https://go.dev) |
 | Python | ≥ 3.12 | `uv python install 3.12` |
 | uv | latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | Docker | ≥ 24 | [docker.com](https://docker.com) |
 | buf | 1.28+ | `brew install bufbuild/buf/buf` |
+| pre-commit | latest | `pip install pre-commit` or `brew install pre-commit` |
 | make | any | pre-installed on macOS/Linux |
 
 ### Setup
@@ -61,7 +62,15 @@ Read this document before opening your first PR.
 ```bash
 git clone https://github.com/zynax-io/zynax.git
 cd zynax
-make bootstrap        # Install all tools + pre-commit hooks (includes commitlint + DCO)
+make bootstrap        # Builds tools Docker image + runs `pre-commit install`
+```
+
+`make bootstrap` wires the pre-commit hooks into `.git/hooks/` so they fire
+automatically on every `git commit`. **You must run this once per clone.**
+If `pre-commit` is not yet installed, `make bootstrap` prints a warning —
+install it first, then re-run `make bootstrap`.
+
+```bash
 make dev-up           # Start local stack: PostgreSQL, Redis, NATS, all services
 make dev-ps           # Verify everything is healthy
 ```
@@ -80,7 +89,7 @@ The `zynax` CLI is a standalone module under `cmd/zynax/`. To test it against th
 running platform:
 
 ```bash
-# 1. Install the CLI (requires Go 1.25 locally, or download from GitHub Releases)
+# 1. Install the CLI (requires Go 1.26 locally, or download from GitHub Releases)
 make install-cli            # builds cmd/zynax and installs to ~/bin/zynax
 
 # 2. Start the local stack
@@ -102,6 +111,38 @@ CLI unit tests (no running stack needed):
 ```bash
 cd cmd/zynax && GOWORK=off go test ./... -race -timeout 60s
 ```
+
+### Pre-commit hooks
+
+The hooks are declared in `.pre-commit-config.yaml`. They do **nothing** until you
+activate them once per clone — `make bootstrap` does this automatically.
+
+**Activate manually** (if you didn't run `make bootstrap`):
+
+```bash
+pip install pre-commit   # or: brew install pre-commit
+pre-commit install       # wires hooks into .git/hooks/pre-commit
+```
+
+After that, on every `git commit` the following checks run automatically:
+
+| Hook | What it checks | Needs locally |
+|------|---------------|---------------|
+| `gofmt` | Go formatting (formats in-place) | Go toolchain |
+| `golangci-lint` | Go static analysis (`tools/golangci-lint.yml`) | `golangci-lint` binary |
+| `ruff` | Python lint + formatting | `ruff` (`uv tool install ruff`) |
+| `mypy` | Python type-checking (`agents/sdk/src/`) | `mypy` (`uv tool install mypy`) |
+| `gitleaks` | Secret / credential scan | `gitleaks` binary |
+
+Run all hooks manually at any time: `pre-commit run --all-files`
+
+> **Note:** The same checks run in CI via `make lint` (Docker-based), so a missing
+> local tool means your commit goes through but CI will catch it. Install the tools
+> for a faster feedback loop — you'll see failures in seconds, not minutes.
+
+**Bypassing hooks:** Use `git commit --no-verify` only for legitimate reasons (e.g. a
+work-in-progress checkpoint on a branch). Add a PR comment explaining why — reviewers
+will ask if you don't.
 
 ### Linting
 

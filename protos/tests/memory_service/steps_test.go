@@ -41,7 +41,7 @@ type memStub struct {
 	zynaxv1.UnimplementedMemoryServiceServer
 	mu      sync.Mutex
 	kv      map[string]map[string]*kvEntry // wfID -> key -> entry
-	vectors map[string][]*vectorEntry       // wfID -> entries
+	vectors map[string][]*vectorEntry      // wfID -> entries
 	nextVec int
 }
 
