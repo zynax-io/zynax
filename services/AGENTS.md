@@ -71,7 +71,24 @@ make test-unit-svc SVC=<service-name>
 ```
 
 Coverage requirement: ≥ 90% on `internal/domain/` (pure logic, no I/O to mock).
-Integration tests hitting real databases use `testcontainers-go`.
+
+### Integration test convention (`//go:build integration`)
+
+Tests that require external services (NATS, Redis, Temporal, a real DB) must carry
+a build tag on the **first line** of the file:
+
+```go
+//go:build integration
+
+package mypackage_test
+```
+
+- `make test-unit` / `go test -tags="" ./...` — **excludes** integration files
+- `make test-integration` / `go test -tags=integration ./...` — **includes** them
+- CI `test-unit` job never passes `-tags=integration`; `test-integration` job always does
+
+Use `testcontainers-go` to spin up real backing services inside the test.
+Never connect to a shared or external service from within a build-tagged test.
 
 ---
 
@@ -92,6 +109,7 @@ Integration tests hitting real databases use `testcontainers-go`.
 | Mistake | Correct approach |
 |---------|-----------------|
 | `go test ./...` without `GOWORK=off` | `GOWORK=off go test ./...` — every time (ADR-017) |
+| Integration test without `//go:build integration` | Add the tag so `make test-unit` skips it automatically |
 | Importing `internal/` from another service | Use gRPC stubs; never share internal packages |
 | Business logic in `api/` | Move to `internal/domain/`; `api/` translates only |
 | External packages in `internal/domain/` | Define an interface in domain; implement in `infrastructure/` |

@@ -509,7 +509,7 @@ jobs:
             if [ -f "services/${svc}/go.mod" ]; then
               echo "── test: services/${svc}"
               cd "services/${svc}"
-              GOWORK=off go test ./... -v -race -timeout 60s -count=1 || failed=true
+              GOWORK=off go test -tags="" ./... -v -race -timeout 60s -count=1 || failed=true
               cd ../..
             fi
           done
@@ -524,7 +524,7 @@ jobs:
           for svc in ${{ env.SERVICE_LIST }}; do
             if [ -f "services/${svc}/go.mod" ] && [ -d "services/${svc}/internal/domain" ]; then
               cd "services/${svc}"
-              GOWORK=off go test ./internal/domain/... \
+              GOWORK=off go test -tags="" ./internal/domain/... \
                 -coverprofile=domain-coverage.out \
                 -covermode=atomic 2>/dev/null || true
               cd ../..
@@ -793,7 +793,7 @@ jobs:
       - name: Detect integration tests
         id: int-detect
         run: |
-          count=$(find . -path "*/tests/integration/*.go" 2>/dev/null | wc -l)
+          count=$(grep -rl "//go:build integration" services/ 2>/dev/null | wc -l)
           echo "has_integration=$count" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
@@ -805,10 +805,10 @@ jobs:
         if: steps.int-detect.outputs.has_integration != '0'
         run: |
           for svc in ${{ env.SERVICE_LIST }}; do
-            if [ -d "services/${svc}/tests/integration" ]; then
+            if grep -rl "//go:build integration" "services/${svc}/" 2>/dev/null | grep -q .; then
               echo "── integration: services/${svc}"
               cd "services/${svc}"
-              GOWORK=off go test ./tests/integration/... -v -timeout 120s
+              GOWORK=off go test -tags=integration ./... -v -timeout 120s
               cd ../..
             fi
           done
@@ -817,8 +817,8 @@ jobs:
       - name: No integration tests yet
         if: steps.int-detect.outputs.has_integration == '0'
         run: |
-          echo "ℹ️  No integration tests found — job passes as a no-op."
-          echo "   Add tests under services/<name>/tests/integration/ when services ship."
+          echo "ℹ️  No integration test files found — job passes as a no-op."
+          echo "   Tag test files with '//go:build integration' to include them here."
 
 # ── Security ──────────────────────────────────────────────────────────────────
 # Runs: govulncheck (Go CVE database), bandit (Python SAST),
