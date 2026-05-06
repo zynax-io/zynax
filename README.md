@@ -10,7 +10,7 @@
 [![AI Context Budget](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml/badge.svg)](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![CNCF Sandbox Candidate](https://img.shields.io/badge/CNCF-Sandbox_Candidate-026be0.svg)](https://cncf.io)
-[![Go 1.25+](https://img.shields.io/badge/go-1.25+-00add8.svg)](https://go.dev)
+[![Go version](https://img.shields.io/github/go-mod/go-version/zynax-io/zynax?filename=go.work&label=go&color=00add8)](go.work)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zynax-io/zynax/badge)](https://securityscorecards.dev)
 
 [Quickstart](#-quickstart) · [Architecture](ARCHITECTURE.md) · [Documentation](docs/) · [Contributing](CONTRIBUTING.md) · [Roadmap](ROADMAP.md)
