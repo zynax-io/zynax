@@ -25,6 +25,8 @@ tags        = ["pii", "email"]
 [rules.allowlist]
 # Python decorators look like email addresses
 regexes     = ['''@pytest\.|@app\.|@router\.|@celery\.|@task\.|@property|@staticmethod|@classmethod|@abstractmethod|@override|@dataclass|@asynccontextmanager''']
+# Public spec files may contain legitimate contact emails (AsyncAPI info.contact)
+paths       = ['''spec/''']
 
 [[rules]]
 id          = "internal-hostname"

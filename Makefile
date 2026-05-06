@@ -289,10 +289,13 @@ validate-policy-schema: ensure-tools ## Validate Policy manifests in spec/workfl
 
 validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)
 	# renovate: datasource=docker depName=asyncapi/cli
+	# asyncapi-latest-version: suppressed — spec stays at 2.6.0; upgrading to 3.x
+	# requires a breaking structural rewrite. Revisit when 3.x tooling matures.
 	docker run --rm \
 		-v "$(PWD)/spec":/spec \
 		asyncapi/cli:6.0.0 \
-		validate /spec/asyncapi/zynax-events.yaml
+		validate /spec/asyncapi/zynax-events.yaml \
+		--suppressWarnings asyncapi-latest-version
 	@echo "✅ AsyncAPI spec valid"
 
 dry-run: ensure-tools ## Dry-run a workflow: make dry-run FILE=spec/workflows/examples/code-review.yaml
