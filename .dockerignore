@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+# Docker build context filter — applies to all `docker build .` commands run
+# from the repo root (primarily `make build-tools` / Dockerfile.tools).
+#
+# Purpose: defence-in-depth. Dockerfile.tools only COPYs cmd/zynax-ci/, so
+# none of the excluded paths would reach the image anyway — but excluding them
+# prevents local secrets from being transmitted to the Docker daemon at all.
+
+# ── Credentials and secrets ───────────────────────────────────────────────────
+**/.env
+**/.env.*
+**/.env.local
+**/.env.*.local
+**/.netrc
+**/.pypirc
+**/.npmrc
+**/*.pem
+**/*.p12
+**/*.pfx
+**/id_rsa
+**/id_ed25519
+**/id_ecdsa
+**/*_key
+**/*_key.pem
+**/credentials
+**/secrets/
+**/canvas.private.md
+
+# ── Git and IDE metadata ──────────────────────────────────────────────────────
+.git/
+**/.gitkeep
+.idea/
+.vscode/
+**/*.swp
+**/*.swo
+
+# ── Build artefacts and caches ────────────────────────────────────────────────
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/node_modules/
+**/.venv/
+**/*.out
+**/*.coverprofile
+**/domain-coverage.out
+**/.cache/
+
+# ── Large directories never needed by Dockerfile.tools ───────────────────────
+services/
+agents/
+protos/generated/
+docs/
+.github/
+infra/docker-compose/
+infra/helm/
+infra/k8s/

@@ -32,7 +32,9 @@ build-tools: check-docker ## Build zynax-tools:local (golang:1.22-alpine + pytho
 	docker build -f infra/docker/Dockerfile.tools -t $(TOOLS_IMAGE) .
 	@echo "✅ Tools image: $(TOOLS_IMAGE)"
 
-pull-tools: check-docker ## Pull tools image from GHCR (faster than build-tools; needs docker login or public package)
+pull-tools: check-docker ## Pull tools image from GHCR (authenticates via `gh auth token`)
+	@echo "🔐 Authenticating to GHCR via gh..."
+	@gh auth token | docker login ghcr.io -u $$(gh api user --jq .login) --password-stdin 2>&1
 	docker pull $(GHCR_TOOLS)
 	@echo "✅ Pulled $(GHCR_TOOLS)"
 	@echo "   Run targets with: make TOOLS_IMAGE=$(GHCR_TOOLS) <target>"
