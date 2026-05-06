@@ -167,21 +167,24 @@ func TestTemporalEngine_GetStatus_Running(t *testing.T) {
 
 func TestTemporalEngine_GetStatus_AllMappings(t *testing.T) {
 	cases := []struct {
+		name string
 		in   enumspb.WorkflowExecutionStatus
 		want domain.WorkflowStatus
 	}{
-		{enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING, domain.WorkflowStatusRunning},
-		{enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED, domain.WorkflowStatusCompleted},
-		{enumspb.WORKFLOW_EXECUTION_STATUS_FAILED, domain.WorkflowStatusFailed},
-		{enumspb.WORKFLOW_EXECUTION_STATUS_TIMED_OUT, domain.WorkflowStatusFailed},
-		{enumspb.WORKFLOW_EXECUTION_STATUS_CANCELED, domain.WorkflowStatusCancelled},
-		{enumspb.WORKFLOW_EXECUTION_STATUS_TERMINATED, domain.WorkflowStatusCancelled},
+		{"running", enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING, domain.WorkflowStatusRunning},
+		{"completed", enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED, domain.WorkflowStatusCompleted},
+		{"failed", enumspb.WORKFLOW_EXECUTION_STATUS_FAILED, domain.WorkflowStatusFailed},
+		{"timed_out maps to failed", enumspb.WORKFLOW_EXECUTION_STATUS_TIMED_OUT, domain.WorkflowStatusFailed},
+		{"canceled", enumspb.WORKFLOW_EXECUTION_STATUS_CANCELED, domain.WorkflowStatusCancelled},
+		{"terminated maps to cancelled", enumspb.WORKFLOW_EXECUTION_STATUS_TERMINATED, domain.WorkflowStatusCancelled},
 	}
 	for _, tc := range cases {
-		got := temporalStatusToDomain(tc.in)
-		if got != tc.want {
-			t.Errorf("temporalStatusToDomain(%v) = %v; want %v", tc.in, got, tc.want)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			got := temporalStatusToDomain(tc.in)
+			if got != tc.want {
+				t.Errorf("temporalStatusToDomain(%v) = %v; want %v", tc.in, got, tc.want)
+			}
+		})
 	}
 }
 

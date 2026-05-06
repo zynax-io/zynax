@@ -233,20 +233,23 @@ func (c *captureExecutor) DispatchCapability(ctx context.Context, in ActivityInp
 
 func TestWorkflowStatus_IsTerminal(t *testing.T) {
 	cases := []struct {
+		name string
 		s    WorkflowStatus
 		want bool
 	}{
-		{WorkflowStatusCompleted, true},
-		{WorkflowStatusFailed, true},
-		{WorkflowStatusCancelled, true},
-		{WorkflowStatusRunning, false},
-		{WorkflowStatusPending, false},
-		{WorkflowStatusUnspecified, false},
+		{"completed is terminal", WorkflowStatusCompleted, true},
+		{"failed is terminal", WorkflowStatusFailed, true},
+		{"cancelled is terminal", WorkflowStatusCancelled, true},
+		{"running is not terminal", WorkflowStatusRunning, false},
+		{"pending is not terminal", WorkflowStatusPending, false},
+		{"unspecified is not terminal", WorkflowStatusUnspecified, false},
 	}
 	for _, tc := range cases {
-		if got := tc.s.IsTerminal(); got != tc.want {
-			t.Errorf("IsTerminal(%v) = %v; want %v", tc.s, got, tc.want)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.s.IsTerminal(); got != tc.want {
+				t.Errorf("IsTerminal(%v) = %v; want %v", tc.s, got, tc.want)
+			}
+		})
 	}
 }
 
