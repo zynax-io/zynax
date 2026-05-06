@@ -83,6 +83,25 @@ make test-integration      # Requires Docker — run before pushing
 make test-unit-svc SVC=agent-registry   # Single service focus
 ```
 
+#### Unit vs integration test separation
+
+Tests that require external services (NATS, Redis, Temporal, a real database) must
+carry a Go build tag on the **very first line** of the file, before the package declaration:
+
+```go
+//go:build integration
+
+package mypackage_test
+```
+
+- `make test-unit` runs `go test -tags="" ./...` — build-tagged files are **excluded**
+- `make test-integration` runs `go test -tags=integration ./...` — they are **included**
+- CI enforces this: the `test-unit` job never passes `-tags=integration`
+
+Use `testcontainers-go` inside integration tests to spin up real backing services.
+The `//go:build integration` tag prevents these tests from silently failing on
+machines where Docker or the service is not running.
+
 ### Testing the zynax CLI end-to-end
 
 The `zynax` CLI is a standalone module under `cmd/zynax/`. To test it against the

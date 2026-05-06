@@ -126,22 +126,22 @@ lint-fix: ensure-tools ## Auto-fix Python agent lint errors
 test: validate-spec test-unit test-bdd test-coverage ## ★ Full local test suite — mirrors CI (spec + Go + Python + BDD + coverage gate)
 test-unit: test-unit-go test-unit-agents ## All unit tests (Go + Python)
 
-test-unit-go: ensure-tools ## Go unit tests for all services
+test-unit-go: ensure-tools ## Go unit tests for all services (excludes //go:build integration files)
 	@for svc in $(GO_SERVICES); do \
 		if [ -f "services/$$svc/go.mod" ]; then \
 			echo "🧪 $$svc"; \
-			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test ./... -v -timeout 60s -count=1" || exit 1; \
+			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test -tags=\"\" ./... -v -timeout 60s -count=1" || exit 1; \
 		fi; \
 	done && echo "✅ Go tests passed"
 
 test-unit-svc: ensure-tools ## Go tests for one service: make test-unit-svc SVC=workflow-compiler
-	$(TOOLS_RUN) sh -c "cd services/$(SVC) && GOWORK=off go test ./... -v -timeout 60s"
+	$(TOOLS_RUN) sh -c "cd services/$(SVC) && GOWORK=off go test -tags=\"\" ./... -v -timeout 60s"
 
 test-coverage: ensure-tools ## Domain coverage gate — ≥90% on internal/domain/ for every Go service
 	@failed=false; \
 	for svc in $(GO_SERVICES); do \
 		if [ -f "services/$$svc/go.mod" ] && [ -d "services/$$svc/internal/domain" ]; then \
-			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test ./internal/domain/... -coverprofile=domain-coverage.out -covermode=atomic -count=1 2>/dev/null"; \
+			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test -tags=\"\" ./internal/domain/... -coverprofile=domain-coverage.out -covermode=atomic -count=1 2>/dev/null"; \
 			total=$$($(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go tool cover -func=domain-coverage.out | grep '^total:' | awk '{print \$$3}' | tr -d '%'" 2>/dev/null); \
 			if [ -z "$$total" ]; then echo "  ⚠  services/$$svc: no domain coverage data"; continue; fi; \
 			printf "  %-35s %s%%\n" "services/$$svc" "$$total"; \
@@ -166,7 +166,13 @@ test-unit-agents: ensure-tools ## pytest-bdd for SDK + all Python agents
 test-unit-agent: ensure-tools ## pytest for one agent: make test-unit-agent AGENT=summarizer
 	$(TOOLS_RUN) sh -c "cd agents/examples/$(AGENT) && uv run pytest tests/ -v"
 
-test-integration: check-docker ## Integration tests against NATS JetStream and Redis backing services
+test-integration: check-docker ## Integration tests (//go:build integration files) — requires Docker Compose stack
+	@count=$$(grep -rl "//go:build integration" services/ 2>/dev/null | wc -l); \
+	if [ "$$count" -eq 0 ]; then \
+		echo "ℹ️  No integration test files found — skipping stack startup."; \
+		echo "   Tag test files with //go:build integration to include them here."; \
+		exit 0; \
+	fi
 	@echo "Starting testing backing services..."
 	$(COMPOSE) --profile testing up -d
 	@echo "Waiting for services to be healthy (up to 60s)..."
@@ -175,14 +181,14 @@ test-integration: check-docker ## Integration tests against NATS JetStream and R
 		  | python3 -c "import sys,json; data=sys.stdin.read(); rows=json.loads(data) if data.strip().startswith(\"[\") else [json.loads(l) for l in data.strip().splitlines() if l]; exit(0 if all(r.get(\"Health\")==\"healthy\" for r in rows if r.get(\"Health\")) and len(rows)>0 else 1)" \
 		  2>/dev/null; do sleep 2; done' || true
 	@for svc in $(GO_SERVICES); do \
-		if [ -f "services/$$svc/tests/integration" ] || find "services/$$svc" -name "*integration*" -name "*.go" 2>/dev/null | grep -q .; then \
-			echo "Integration tests: $$svc"; \
-			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test ./tests/integration/... -v -timeout 120s" || exit 1; \
+		if grep -rl "//go:build integration" "services/$$svc/" 2>/dev/null | grep -q .; then \
+			echo "── integration: services/$$svc"; \
+			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test -tags=integration ./... -v -timeout 120s" || exit 1; \
 		fi; \
 	done
 	@echo "Stopping testing backing services..."
 	$(COMPOSE) --profile testing down --remove-orphans
-	@echo "Integration tests passed"
+	@echo "✅ Integration tests passed"
 
 # ── Proto generation + lint ────────────────────────────────────────────────
 .PHONY: generate-protos go-generate lint-protos
