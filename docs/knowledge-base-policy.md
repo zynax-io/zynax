@@ -222,7 +222,7 @@ docs/spdd/<issue>-<slug>/
 ```
 
 The gitignore rule `docs/spdd/**/canvas.private.md` is enforced in `.gitignore`
-and verified by `tools/validate_canvas.py` (which fails if `canvas.private.md`
+and verified by `zynax-ci validate canvas` (which fails if `canvas.private.md`
 is found alongside a committed Canvas).
 
 ### Creating a private companion
