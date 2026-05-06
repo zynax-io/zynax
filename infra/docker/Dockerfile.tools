@@ -71,6 +71,10 @@ RUN curl -fsSL \
       -o /usr/local/bin/buf \
     && chmod +x /usr/local/bin/buf
 
+# zynax-ci — CI and developer toolchain (validation + AI context checker)
+COPY cmd/zynax-ci/ /src/zynax-ci/
+RUN cd /src/zynax-ci && GOWORK=off go build -trimpath -o /usr/local/bin/zynax-ci .
+
 # ── Stage 2: Final image (python:3.12-alpine) ───────────────────────────────
 FROM python:3.14-alpine AS tools
 
@@ -88,6 +92,7 @@ COPY --from=go-tools /go/bin/protoc-gen-go-grpc  /usr/local/bin/
 COPY --from=go-tools /go/bin/godog               /usr/local/bin/
 COPY --from=go-tools /go/bin/mockery             /usr/local/bin/
 COPY --from=go-tools /go/bin/migrate             /usr/local/bin/
+COPY --from=go-tools /usr/local/bin/zynax-ci     /usr/local/bin/
 
 # ── uv — Python package manager ──────────────────────────────────────────
 # renovate: datasource=github-releases depName=astral-sh/uv

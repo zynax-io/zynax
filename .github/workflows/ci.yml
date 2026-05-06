@@ -134,7 +134,7 @@ jobs:
             if echo "$f" | grep -qE '^(protos/|spec/|CLAUDE\.md|AGENTS\.md|.*/AGENTS\.md|docs/ai-assistant-setup\.md|\.ai/|\.claude/)'; then
               proto=true
             fi
-            if echo "$f" | grep -qE '^(services/|protos/)'; then
+            if echo "$f" | grep -qE '^(services/|protos/|cmd/)'; then
               go=true
             fi
             if echo "$f" | grep -qE '^agents/'; then
@@ -306,9 +306,18 @@ jobs:
           asyncapi validate spec/asyncapi/zynax-events.yaml
           echo "✅ AsyncAPI spec is valid"
 
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        if: steps.spec-detect.outputs.has_spec == '1'
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: cmd/zynax-ci/go.sum
+
       - name: Validate JSON Schemas are well-formed
         if: steps.spec-detect.outputs.has_spec == '1'
-        run: python3 tools/validate_json_schemas.py spec/schemas/
+        run: |
+          (cd cmd/zynax-ci && GOWORK=off go build -o /tmp/zynax-ci .)
+          /tmp/zynax-ci validate schema spec/schemas/
 
 # ── Lint: Go services ─────────────────────────────────────────────────────────
 # Runs: golangci-lint on all Go platform services.

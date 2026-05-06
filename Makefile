@@ -68,6 +68,10 @@ install-cli: ## Build and install zynax CLI to ~/bin/zynax (requires Go 1.25)
 	cd cmd/zynax && GOWORK=off go build -trimpath -o ~/bin/zynax .
 	@echo "✅ zynax installed → ~/bin/zynax  (ensure ~/bin is on your PATH)"
 
+install-ci-tools: ## Build and install zynax-ci toolchain to ~/bin/zynax-ci (requires Go 1.25)
+	cd cmd/zynax-ci && GOWORK=off go build -trimpath -o ~/bin/zynax-ci .
+	@echo "✅ zynax-ci installed → ~/bin/zynax-ci  (ensure ~/bin is on your PATH)"
+
 # ── Lint ───────────────────────────────────────────────────────────────────
 .PHONY: lint lint-go lint-agents lint-go-svc lint-agent lint-fix
 lint: lint-protos lint-go lint-agents ## Lint everything (proto + Go + Python)
@@ -229,53 +233,24 @@ clean-all: clean dev-down clean-tools ## ⚠ Remove everything
 
 validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema validate-policy-schema ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def + policy manifests)
 
-validate-canvas: ## Validate REASONS Canvas files under docs/spdd/ (SPDD — ADR-019)
-	docker run --rm \
-		-v "$(PWD)":/workspace \
-		-w /workspace \
-		python:3.12-alpine sh -c " \
-			python tools/validate_canvas.py docs/spdd/ \
-		"
+validate-canvas: build-tools ## Validate REASONS Canvas files under docs/spdd/ (SPDD — ADR-019)
+	$(TOOLS_RUN) zynax-ci validate canvas docs/spdd/
 	@echo "✅ Canvas validation passed"
 
-validate-capability-schemas: ## Validate capability declarations in spec/ against capability.schema.json
-	docker run --rm \
-		-v "$(PWD)":/workspace \
-		-w /workspace \
-		python:3.12-alpine sh -c " \
-			pip install --quiet jsonschema pyyaml && \
-			python tools/validate_capabilities.py spec/schemas/capability.schema.json spec/workflows/examples/ \
-		"
+validate-capability-schemas: build-tools ## Validate capability declarations in spec/ against capability.schema.json
+	$(TOOLS_RUN) zynax-ci validate capabilities spec/workflows/examples/ --schema-dir spec/schemas
 	@echo "✅ Capability schemas valid"
 
-validate-workflow-schema: ## Validate Workflow manifests in spec/workflows/examples/ against workflow.schema.json
-	docker run --rm \
-		-v "$(PWD)":/workspace \
-		-w /workspace \
-		python:3.12-alpine sh -c " \
-			pip install --quiet jsonschema pyyaml && \
-			python tools/validate_workflows.py spec/schemas/workflow.schema.json spec/workflows/examples/ \
-		"
+validate-workflow-schema: build-tools ## Validate Workflow manifests in spec/workflows/examples/ against workflow.schema.json
+	$(TOOLS_RUN) zynax-ci validate workflows spec/workflows/examples/ --schema-dir spec/schemas
 	@echo "✅ Workflow schemas valid"
 
-validate-agent-def-schema: ## Validate AgentDef manifests in spec/workflows/examples/ against agent-def.schema.json
-	docker run --rm \
-		-v "$(PWD)":/workspace \
-		-w /workspace \
-		python:3.12-alpine sh -c " \
-			pip install --quiet jsonschema pyyaml && \
-			python tools/validate_agent_defs.py spec/schemas/agent-def.schema.json spec/workflows/examples/ \
-		"
+validate-agent-def-schema: build-tools ## Validate AgentDef manifests in spec/workflows/examples/ against agent-def.schema.json
+	$(TOOLS_RUN) zynax-ci validate agent-defs spec/workflows/examples/ --schema-dir spec/schemas
 	@echo "✅ AgentDef schemas valid"
 
-validate-policy-schema: ## Validate Policy manifests in spec/workflows/examples/ against policy.schema.json
-	docker run --rm \
-		-v "$(PWD)":/workspace \
-		-w /workspace \
-		python:3.12-alpine sh -c " \
-			pip install --quiet jsonschema pyyaml && \
-			python tools/validate_policies.py spec/schemas/policy.schema.json spec/workflows/examples/ \
-		"
+validate-policy-schema: build-tools ## Validate Policy manifests in spec/workflows/examples/ against policy.schema.json
+	$(TOOLS_RUN) zynax-ci validate policies spec/workflows/examples/ --schema-dir spec/schemas
 	@echo "✅ Policy schemas valid"
 
 validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)

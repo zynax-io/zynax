@@ -24,11 +24,17 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version: "1.25"
+          cache: true
+          cache-dependency-path: cmd/zynax-ci/go.sum
+
       - name: Count AI context lines
         id: count
         run: |
-          chmod +x tools/count-ai-context.sh
-          OUTPUT=$(sh tools/count-ai-context.sh)
+          (cd cmd/zynax-ci && GOWORK=off go build -o /tmp/zynax-ci .)
+          OUTPUT=$(/tmp/zynax-ci check ai-context)
           echo "$OUTPUT"
           {
             echo "## AI Context Budget"
