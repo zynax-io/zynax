@@ -49,6 +49,21 @@ dev-restart: ## Rebuild one service: make dev-restart SVC=agent-registry
 	@test -n "$(SVC)" || (echo "Usage: make dev-restart SVC=<n>" && exit 1)
 	$(COMPOSE) up -d --build $(SVC)
 
+COMPOSE_LOCAL := docker compose -f infra/docker-compose/docker-compose.yml
+.PHONY: run-local stop-local logs-local
+run-local: check-docker ## ★ Build images + start local stack (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)
+	$(COMPOSE_LOCAL) up -d --build
+	@echo ""
+	@echo "  api-gateway  → http://localhost:7080"
+	@echo "  Temporal UI  → http://localhost:7088"
+	@echo "  export ZYNAX_API_URL=http://localhost:7080"
+
+stop-local: ## Stop and remove local stack containers
+	$(COMPOSE_LOCAL) down
+
+logs-local: ## Tail all local stack logs
+	$(COMPOSE_LOCAL) logs -f
+
 # ── Lint ───────────────────────────────────────────────────────────────────
 .PHONY: lint lint-go lint-agents lint-go-svc lint-agent lint-fix
 lint: lint-protos lint-go lint-agents ## Lint everything (proto + Go + Python)

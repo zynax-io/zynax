@@ -73,6 +73,22 @@ Proto changes require a `.feature` file committed first (ADR-016). Generated stu
 
 ---
 
+## Running the local stack
+
+Start all three platform services plus Temporal and NATS with a single command:
+
+```bash
+make run-local    # build images + start (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)
+make logs-local   # tail all logs
+make stop-local   # stop and remove containers
+```
+
+Port map: api-gateway `http://localhost:7080` · Temporal UI `http://localhost:7088` · Temporal gRPC `localhost:7233` · NATS `localhost:7422`.
+
+See [infra/docker-compose/README.md](../infra/docker-compose/README.md) for the full port map and startup order.
+
+---
+
 ## Quick reference
 
 - Per-layer AGENTS.md files live alongside the code they govern (`services/AGENTS.md`, `agents/AGENTS.md`, etc.)
