@@ -1,0 +1,152 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — local development stack
+#
+# Starts the three implemented platform services plus their dependencies.
+# Usage:
+#   make run-local       # build images + start all services
+#   make stop-local      # stop and remove containers
+#   make logs-local      # tail all service logs
+#
+# Host port map (70xx range):
+#   7080  → api-gateway HTTP       export ZYNAX_API_URL=http://localhost:7080
+#   7233  → Temporal gRPC
+#   7088  → Temporal Web UI        http://localhost:7088
+#   7422  → NATS client            (optional direct access)
+#
+# Not included yet (unimplemented stubs awaiting M5):
+#   agent-registry, task-broker, memory-service, event-bus
+
+services:
+
+  # ── Infrastructure ─────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  temporal:
+    image: temporalio/auto-setup:1.25.2
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_SEEDS: postgres
+      SKIP_DEFAULT_NAMESPACE_CREATION: "false"
+      DEFAULT_NAMESPACE: default
+      DEFAULT_NAMESPACE_RETENTION: 7d
+      LOG_LEVEL: warn
+    ports:
+      - "7233:7233"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "IP=$$(getent hosts $$(hostname) | awk '{print $$1}' | head -1) && temporal workflow list --namespace default --address $${IP}:7233"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  temporal-ui:
+    image: temporalio/ui:2.34.0
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: "http://localhost:7088"
+    ports:
+      - "7088:8080"
+    depends_on:
+      temporal:
+        condition: service_healthy
+
+  nats:
+    image: nats:2.12-alpine
+    command: ["--jetstream", "--store_dir=/data", "--http_port=8222"]
+    ports:
+      - "7422:4222"
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  # ── Platform services ───────────────────────────────────────────────────
+
+  workflow-compiler:
+    build:
+      context: ../..
+      dockerfile: services/workflow-compiler/Dockerfile
+    environment:
+      ZYNAX_WC_PORT: "50054"
+      ZYNAX_WC_METRICS_PORT: "9094"
+      ZYNAX_WC_LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9094/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  engine-adapter:
+    build:
+      context: ../..
+      dockerfile: services/engine-adapter/Dockerfile
+    environment:
+      ZYNAX_ENGINE_ADAPTER_GRPC_PORT: "50055"
+      ZYNAX_ENGINE_ADAPTER_METRICS_PORT: "9095"
+      ZYNAX_ENGINE_ADAPTER_LOG_LEVEL: info
+      ZYNAX_ENGINE_ADAPTER_TEMPORAL_HOST_PORT: temporal:7233
+      ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE: default
+      ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE: engine-adapter
+      ZYNAX_ENGINE_ACTIVE_ENGINE: temporal
+    depends_on:
+      temporal:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9095/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: services/api-gateway/Dockerfile
+    environment:
+      ZYNAX_GW_HTTP_PORT: "8080"
+      ZYNAX_GW_COMPILER_ADDR: workflow-compiler:50054
+      ZYNAX_GW_ENGINE_ADDR: engine-adapter:50055
+      ZYNAX_GW_REGISTRY_ADDR: "localhost:50052"
+      ZYNAX_GW_LOG_LEVEL: info
+    ports:
+      - "7080:8080"
+    depends_on:
+      workflow-compiler:
+        condition: service_healthy
+      engine-adapter:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+volumes:
+  postgres-data:
+  nats-data:

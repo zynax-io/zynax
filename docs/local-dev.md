@@ -4,6 +4,26 @@ Docker-first quickstart. Only prerequisite: Docker Desktop (or Docker Engine + C
 
 ---
 
+## Install the zynax CLI
+
+Download a pre-built binary from [GitHub Releases](https://github.com/zynax-io/zynax/releases/latest):
+
+```bash
+# macOS Apple Silicon
+curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_darwin_arm64.tar.gz | tar xz
+sudo mv zynax /usr/local/bin/
+
+# Linux amd64
+curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_amd64.tar.gz | tar xz
+sudo mv zynax /usr/local/bin/
+
+# Or build from source (requires Go 1.25 installed locally):
+cd cmd/zynax && GOWORK=off go build -o ~/bin/zynax .
+# or: make install-cli
+```
+
+---
+
 ## One-time setup
 
 ```bash
@@ -70,6 +90,22 @@ make lint               # full lint pass before PR
 
 Proto changes require a `.feature` file committed first (ADR-016). Generated stubs in
 `protos/generated/` are committed — never hand-edit them.
+
+---
+
+## Running the local stack
+
+Start all three platform services plus Temporal and NATS with a single command:
+
+```bash
+make run-local    # build images + start (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)
+make logs-local   # tail all logs
+make stop-local   # stop and remove containers
+```
+
+Port map: api-gateway `http://localhost:7080` · Temporal UI `http://localhost:7088` · Temporal gRPC `localhost:7233` · NATS `localhost:7422`.
+
+See [infra/docker-compose/README.md](../infra/docker-compose/README.md) for the full port map and startup order.
 
 ---
 

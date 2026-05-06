@@ -74,6 +74,35 @@ make test-integration      # Requires Docker — run before pushing
 make test-unit-svc SVC=agent-registry   # Single service focus
 ```
 
+### Testing the zynax CLI end-to-end
+
+The `zynax` CLI is a standalone module under `cmd/zynax/`. To test it against the
+running platform:
+
+```bash
+# 1. Install the CLI (requires Go 1.25 locally, or download from GitHub Releases)
+make install-cli            # builds cmd/zynax and installs to ~/bin/zynax
+
+# 2. Start the local stack
+make run-local              # api-gateway :7080, Temporal UI :7088
+
+# 3. Apply a workflow
+export ZYNAX_API_URL=http://localhost:7080
+zynax apply spec/workflows/examples/code-review.yaml
+# → run_id: wf-<hex>
+
+zynax status workflow wf-<hex>
+zynax logs wf-<hex>
+
+# 4. Stop when done
+make stop-local
+```
+
+CLI unit tests (no running stack needed):
+```bash
+cd cmd/zynax && GOWORK=off go test ./... -race -timeout 60s
+```
+
 ### Linting
 
 ```bash

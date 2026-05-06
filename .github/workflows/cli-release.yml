@@ -1,0 +1,189 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# CLI Release — builds the zynax binary for five platforms and publishes a
+# GitHub Release with checksums when a v*.*.* tag is pushed.
+#
+# Trigger:
+#   git tag v0.3.0 && git push origin v0.3.0
+#
+# To also trigger manually:
+#   Actions → CLI Release → Run workflow → enter tag
+
+name: CLI Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'   # pre-releases: v0.4.0-rc.1
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to publish (e.g. v0.3.0)'
+        required: true
+
+permissions:
+  contents: write   # needed to create a GitHub Release
+
+env:
+  GO_VERSION: '1.25'
+
+jobs:
+  # ── Build ────────────────────────────────────────────────────────────────
+
+  build:
+    name: Build — ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            archive: tar.gz
+          - goos: linux
+            goarch: arm64
+            archive: tar.gz
+          - goos: darwin
+            goarch: amd64
+            archive: tar.gz
+          - goos: darwin
+            goarch: arm64
+            archive: tar.gz
+          - goos: windows
+            goarch: amd64
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: cmd/zynax/go.sum
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          BINARY=zynax
+          if [ "$GOOS" = "windows" ]; then BINARY=zynax.exe; fi
+
+          cd cmd/zynax
+          GOWORK=off go build \
+            -trimpath \
+            -ldflags "-s -w -X github.com/zynax-io/zynax/cmd/zynax/cmd.Version=${VERSION}" \
+            -o "${BINARY}" .
+
+      - name: Package archive
+        id: archive
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          GOOS="${{ matrix.goos }}"
+          GOARCH="${{ matrix.goarch }}"
+          ARCHIVE="${{ matrix.archive }}"
+          NAME="zynax_${VERSION}_${GOOS}_${GOARCH}"
+
+          cd cmd/zynax
+          if [ "$ARCHIVE" = "zip" ]; then
+            zip "${NAME}.zip" zynax.exe
+            echo "file=${NAME}.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar czf "${NAME}.tar.gz" zynax
+            echo "file=${NAME}.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zynax-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: cmd/zynax/${{ steps.archive.outputs.file }}
+          retention-days: 7
+
+  # ── Release ──────────────────────────────────────────────────────────────
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: zynax-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Generate checksums
+        run: |
+          cd dist/
+          sha256sum * | tee checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: zynax CLI ${{ steps.ver.outputs.version }}
+          prerelease: ${{ contains(steps.ver.outputs.version, '-') }}
+          body: |
+            ## zynax CLI ${{ steps.ver.outputs.version }}
+
+            Command-line interface for the Zynax declarative AI-workflow control plane.
+
+            ### Install
+
+            **macOS (Apple Silicon):**
+            ```bash
+            curl -L https://github.com/zynax-io/zynax/releases/download/${{ steps.ver.outputs.version }}/zynax_${{ steps.ver.outputs.version }}_darwin_arm64.tar.gz | tar xz
+            sudo mv zynax /usr/local/bin/
+            ```
+
+            **macOS (Intel):**
+            ```bash
+            curl -L https://github.com/zynax-io/zynax/releases/download/${{ steps.ver.outputs.version }}/zynax_${{ steps.ver.outputs.version }}_darwin_amd64.tar.gz | tar xz
+            sudo mv zynax /usr/local/bin/
+            ```
+
+            **Linux (amd64):**
+            ```bash
+            curl -L https://github.com/zynax-io/zynax/releases/download/${{ steps.ver.outputs.version }}/zynax_${{ steps.ver.outputs.version }}_linux_amd64.tar.gz | tar xz
+            sudo mv zynax /usr/local/bin/
+            ```
+
+            **Verify checksums:**
+            ```bash
+            sha256sum -c checksums.txt
+            ```
+
+            **From source:**
+            ```bash
+            git clone https://github.com/zynax-io/zynax.git
+            cd zynax/cmd/zynax
+            GOWORK=off go build -o zynax .
+            sudo mv zynax /usr/local/bin/
+            ```
+
+            ### What's in this release
+
+            See [CLAUDE.md](https://github.com/zynax-io/zynax/blob/main/CLAUDE.md) for the full M4 milestone status.
+          files: |
+            dist/*
