@@ -309,7 +309,7 @@ jobs:
 # Rules (ADR-019):
 #   - feat: PRs must include at least one docs/spdd/**/canvas.md in the diff
 #     OR have an existing canvas.md anywhere under docs/spdd/.
-#   - Any canvas touched by this PR is validated with tools/validate_canvas.py.
+#   - Any canvas touched by this PR is validated with zynax-ci validate canvas.
 #   - Draft status emits a warning but does not fail (Aligned is enforced by
 #     /spdd-generate at code-generation time, not at PR open time).
   canvas-freshness:
@@ -365,10 +365,14 @@ jobs:
             find docs/spdd -name "canvas.md"
           fi
 
-      - name: Set up Python for canvas validation
-        uses: actions/setup-python@v5
+      - name: Set up Go for zynax-ci
+        uses: actions/setup-go@v5
         with:
-          python-version: "3.12"
+          go-version: "1.25"
+          cache-dependency-path: cmd/zynax-ci/go.sum
+
+      - name: Build zynax-ci
+        run: cd cmd/zynax-ci && GOWORK=off go build -o /usr/local/bin/zynax-ci .
 
       - name: Validate touched canvases
         env:
@@ -389,12 +393,12 @@ jobs:
             for canvas in $canvas_in_pr; do
               dir=$(dirname "$canvas")
               echo "Validating $canvas ..."
-              python tools/validate_canvas.py "$dir" || failed=1
+              zynax-ci validate canvas "$dir" || failed=1
             done
             exit $failed
           else
             echo "No canvas in this PR diff — running validate-canvas on all existing canvases..."
-            python tools/validate_canvas.py docs/spdd/
+            zynax-ci validate canvas docs/spdd/
           fi
 
 # ── Secret Scan (gitleaks) ────────────────────────────────────────────────────
