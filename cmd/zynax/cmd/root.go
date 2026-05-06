@@ -10,9 +10,13 @@ import (
 	"github.com/zynax-io/zynax/cmd/zynax/client"
 )
 
+// Version is set at build time via -ldflags "-X ...cmd.Version=v0.3.0".
+var Version = "dev"
+
 var rootCmd = &cobra.Command{
 	Use:          "zynax",
 	Short:        "Zynax CLI — apply, manage, and monitor Zynax workflows",
+	Version:      Version,
 	SilenceUsage: true,
 }
 
