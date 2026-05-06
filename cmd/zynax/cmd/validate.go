@@ -33,13 +33,41 @@ Exits 0 on success, 1 on any validation error.`,
 	RunE: runValidateManifest,
 }
 
+var validateCanvasCmd = &cobra.Command{
+	Use:   "canvas <file>",
+	Short: "Validate a REASONS Canvas for structural completeness",
+	Long: `Validate <file> for all seven REASONS section headers and a **Status:** field.
+
+Required sections: R — Requirements, E — Entities, A — Approach, S — Structure,
+O — Operations, N — Norms, S — Safeguards (two S sections required).
+
+Exits 0 if all sections present, 1 if any are missing.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runValidateCanvas,
+}
+
 func init() {
 	validateManifestCmd.Flags().StringVar(&validateSchemaDir, "schema-dir", "spec/schemas",
 		"directory containing <kind>.schema.json files")
 	validateManifestCmd.Flags().StringVar(&validateFormat, "format", "text",
 		"output format: text or json")
+	validateCanvasCmd.Flags().StringVar(&validateFormat, "format", "text",
+		"output format: text or json")
 	validateCmd.AddCommand(validateManifestCmd)
+	validateCmd.AddCommand(validateCanvasCmd)
 	rootCmd.AddCommand(validateCmd)
+}
+
+func runValidateCanvas(cmd *cobra.Command, args []string) error {
+	file := args[0]
+	errs, err := validate.Canvas(file)
+	if err != nil {
+		return err
+	}
+	if validateFormat == "json" {
+		return printValidateJSON(cmd, errs)
+	}
+	return printValidateText(cmd, file, errs)
 }
 
 func runValidateManifest(cmd *cobra.Command, args []string) error {
