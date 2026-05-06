@@ -2,15 +2,11 @@
 // Zynax — Go workspace
 // All platform services (Go). Agents/adapters are Python (separate pyproject.toml).
 
-go 1.25
+go 1.26.2
 
 use (
-    ./services/agent-registry
-    ./services/task-broker
-    ./services/memory-service
-    ./services/event-bus
-    ./services/api-gateway
-    ./services/workflow-compiler
-    ./services/engine-adapter
-    ./protos/generated/go
+	./protos/generated/go
+	./services/api-gateway
+	./services/engine-adapter
+	./services/workflow-compiler
 )

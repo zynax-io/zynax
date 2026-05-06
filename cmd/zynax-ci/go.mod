@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 module github.com/zynax-io/zynax/cmd/zynax-ci
 
-go 1.25.0
+go 1.26.2
 
 require (
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1

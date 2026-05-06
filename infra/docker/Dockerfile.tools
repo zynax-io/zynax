@@ -2,8 +2,8 @@
 # Zynax — Developer Tools Image
 #
 # Multi-stage Alpine build. No Debian, no apt, no systemd.
-#   Stage go-tools : golang:1.25-alpine  — all Go binaries + buf
-#   Stage final    : python:3.12-alpine  — copies Go binaries, adds Python tools
+#   Stage go-tools : golang:${GO_VERSION}-alpine  — all Go binaries + buf
+#   Stage final    : python:3.14-alpine  — copies Go binaries, adds Python tools
 #
 # Built once via `make build-tools`. Bind-mounts the repo at /workspace.
 # Generated files (stubs, coverage) appear on the host after the run.
@@ -24,7 +24,11 @@
 #   uv                  0.5.10
 
 # ── Stage 1: Go binaries ────────────────────────────────────────────────────
-FROM golang:1.26-alpine AS go-tools
+# GO_VERSION is the single source of truth for the Go toolchain.
+# Override at build time: docker build --build-arg GO_VERSION=1.26.2 ...
+# Default must match go.work `go` directive.
+ARG GO_VERSION=1.26.2
+FROM golang:${GO_VERSION}-alpine AS go-tools
 
 RUN apk add --no-cache git curl
 
