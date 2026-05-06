@@ -80,47 +80,82 @@ zynax logs wf-236c478f00eb68ce
 
 ---
 
-## Install the zynax CLI
+## Published Artifacts
 
-Download a pre-built binary from the [latest GitHub Release](https://github.com/zynax-io/zynax/releases/latest):
+Zynax publishes three kinds of artifacts on every release and on every merge to `main`.
 
-**macOS (Apple Silicon):**
+### zynax CLI — user-facing binary
+
+Download from the [latest GitHub Release](https://github.com/zynax-io/zynax/releases/latest):
+
+| Platform | Command |
+|----------|---------|
+| macOS (Apple Silicon) | `curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax_darwin_arm64.tar.gz \| tar xz && sudo mv zynax /usr/local/bin/` |
+| macOS (Intel) | `curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax_darwin_amd64.tar.gz \| tar xz && sudo mv zynax /usr/local/bin/` |
+| Linux (amd64) | `curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_amd64.tar.gz \| tar xz && sudo mv zynax /usr/local/bin/` |
+| Linux (arm64) | `curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_arm64.tar.gz \| tar xz && sudo mv zynax /usr/local/bin/` |
+
+**From source** (requires Go 1.25+): `cd cmd/zynax && GOWORK=off go build -o ~/bin/zynax .`
+**Makefile shortcut:** `make install-cli`
+
+Verify: `zynax --version`
+
+---
+
+### zynax-ci — CI and developer toolchain
+
+`zynax-ci` is a standalone Go binary that replaces all Python validation scripts. It contains:
+`validate canvas`, `validate schema`, `validate workflows`, `validate agent-defs`,
+`validate capabilities`, `validate policies`, and `check ai-context`.
+
+Download from the [latest GitHub Release](https://github.com/zynax-io/zynax/releases/latest):
+
 ```bash
-curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_darwin_arm64.tar.gz | tar xz
-sudo mv zynax /usr/local/bin/
+# Linux (amd64)
+curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax-ci-linux-amd64 \
+  -o ~/bin/zynax-ci && chmod +x ~/bin/zynax-ci
+
+# macOS (Apple Silicon)
+curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax-ci-darwin-arm64 \
+  -o ~/bin/zynax-ci && chmod +x ~/bin/zynax-ci
+
+# macOS (Intel)
+curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax-ci-darwin-amd64 \
+  -o ~/bin/zynax-ci && chmod +x ~/bin/zynax-ci
 ```
 
-**macOS (Intel):**
+**From source** (requires Go 1.25+): `cd cmd/zynax-ci && GOWORK=off go build -o ~/bin/zynax-ci .`
+**Makefile shortcut:** `make install-ci-tools`
+
+---
+
+### Developer tools Docker image
+
+`ghcr.io/zynax-io/zynax/tools` is the canonical developer tools image. It ships:
+`golangci-lint`, `buf`, `govulncheck`, `godog`, `mockery`, `migrate`,
+`grpc_health_probe`, `protoc-gen-go`, `protoc-gen-go-grpc`, `uv`,
+`ruff`, `mypy`, `bandit`, `pip-audit`, `pytest`, and **`zynax-ci`**.
+
+The image is rebuilt and pushed to GHCR on every merge to `main` that changes
+`infra/docker/Dockerfile.tools` or `cmd/zynax-ci/**` (via
+[`.github/workflows/tools-image.yml`](.github/workflows/tools-image.yml)).
+
+**Pull the image** (alternative to `make build-tools`):
 ```bash
-curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_darwin_amd64.tar.gz | tar xz
-sudo mv zynax /usr/local/bin/
+docker pull ghcr.io/zynax-io/zynax/tools:latest
 ```
 
-**Linux (amd64):**
+**Use with make targets** (skips the local build step):
 ```bash
-curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_amd64.tar.gz | tar xz
-sudo mv zynax /usr/local/bin/
+make TOOLS_IMAGE=ghcr.io/zynax-io/zynax/tools:latest lint
+make TOOLS_IMAGE=ghcr.io/zynax-io/zynax/tools:latest test
+make TOOLS_IMAGE=ghcr.io/zynax-io/zynax/tools:latest validate-spec
 ```
 
-**Linux (arm64):**
+Or set it once in your shell:
 ```bash
-curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_arm64.tar.gz | tar xz
-sudo mv zynax /usr/local/bin/
-```
-
-**Windows (amd64):** download `zynax_windows_amd64.zip` from the release page and add the extracted `zynax.exe` to your `PATH`.
-
-**From source** (requires Go 1.25+):
-```bash
-git clone https://github.com/zynax-io/zynax.git
-cd zynax/cmd/zynax
-GOWORK=off go build -o zynax .
-sudo mv zynax /usr/local/bin/
-```
-
-Verify:
-```bash
-zynax --version
+export TOOLS_IMAGE=ghcr.io/zynax-io/zynax/tools:latest
+make lint test validate-spec
 ```
 
 ---
@@ -259,9 +294,13 @@ make test        # full suite (unit + BDD + coverage gate)
 | `make lint` | Proto + Go + Python lint |
 | `make audit` | Dependency vulnerability audit — govulncheck (Go) + pip-audit (Python); exits 1 on any finding |
 | `make security` | Full security scan — adds bandit SAST to the audit checks |
-| `make validate-spec` | Validate all YAML manifests against JSON schemas |
+| `make validate-spec` | Validate all YAML manifests against JSON schemas (via `zynax-ci`) |
+| `make validate-canvas` | Validate REASONS Canvas files under `docs/spdd/` (via `zynax-ci`) |
 | `make generate-protos` | Regenerate Go + Python stubs from `.proto` files |
-| `make build-tools` | Build the `zynax-tools:local` Docker image (run once after clone) |
+| `make build-tools` | Build the `zynax-tools:local` Docker image from source (one-time after clone) |
+| `make pull-tools` | Pull `ghcr.io/zynax-io/zynax/tools:latest` from GHCR (faster than building) |
+| `make install-cli` | Build and install `zynax` CLI to `~/bin/zynax` |
+| `make install-ci-tools` | Build and install `zynax-ci` toolchain to `~/bin/zynax-ci` |
 
 ---
 
@@ -315,7 +354,7 @@ AI assistants working in this repo load context in layers. Smaller budgets = hig
 | `services/*/AGENTS.md` | Per-service rules (layout, tests, service-specific mistakes) | 150 lines each |
 | `agents/*/AGENTS.md` | Per-adapter rules (Python patterns, gRPC stub usage) | 150 lines each |
 
-Total budget: **2000 lines** across all files. The [AI Context Budget](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml) workflow reports current totals on every relevant PR (advisory, non-blocking). Counted by [tools/count-ai-context.sh](tools/count-ai-context.sh).
+Total budget: **2000 lines** across all files. The [AI Context Budget](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml) workflow reports current totals on every relevant PR (advisory, non-blocking). Counted by `zynax-ci check ai-context`.
 
 ---
 
@@ -332,6 +371,7 @@ services/            Go platform services
   memory-service/    KV + vector context store (M4+)
   event-bus/         NATS JetStream async pub/sub (M4+)
 cmd/zynax/           zynax CLI — apply, get, delete, status (M4 — in progress)
+cmd/zynax-ci/        zynax-ci CI toolchain — validate canvas/schema/manifests, check ai-context
 agents/              Python execution adapters + zynax-sdk
 protos/              gRPC contracts (Go + Python stubs generated)
 protos/tests/        BDD contract test suites (godog)

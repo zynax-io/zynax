@@ -1,9 +1,13 @@
 # AGENTS.md — cmd/zynax-ci/
 
 The `zynax-ci` CLI is a **standalone Go module** (`github.com/zynax-io/zynax/cmd/zynax-ci`).
-It is the CI and developer toolchain for Zynax — it replaces all Python validation scripts
-in `tools/` and `count-ai-context.sh`. It has no dependency on the `zynax` operational CLI,
-the api-gateway, or any platform services.
+It is the CI and developer toolchain for Zynax. It has no dependency on the `zynax` operational
+CLI, the api-gateway, or any platform services.
+
+Pre-built binaries are published to GitHub Releases on `v*.*.*` tags (see
+`.github/workflows/zynax-ci-release.yml`). The binary is also shipped inside the
+`ghcr.io/zynax-io/zynax/tools` Docker image, rebuilt on every main merge that
+changes `cmd/zynax-ci/**` or `infra/docker/Dockerfile.tools`.
 
 ---
 
@@ -24,20 +28,21 @@ cmd/zynax-ci/
     root.go                root command, Version variable
     validate.go            validate parent command
     validate_canvas.go     zynax-ci validate canvas <path>
-    validate_schema.go     zynax-ci validate schema <file>         [step 9]
-    validate_workflows.go  zynax-ci validate workflows <dir>       [step 9]
-    validate_agent_defs.go zynax-ci validate agent-defs <dir>      [step 9]
-    validate_capabilities.go                                        [step 9]
-    validate_policies.go                                            [step 9]
-    check_ai_context.go    zynax-ci check ai-context               [step 9]
+    validate_schema.go     zynax-ci validate schema <file>
+    validate_workflows.go  zynax-ci validate workflows <dir>
+    validate_agent_defs.go zynax-ci validate agent-defs <dir>
+    validate_capabilities.go  zynax-ci validate capabilities <dir>
+    validate_policies.go   zynax-ci validate policies <dir>
+    check_ai_context.go    zynax-ci check ai-context
   validate/
-    canvas.go              Canvas validator (full port of tools/validate_canvas.py)
+    canvas.go              Canvas validator (seven REASONS sections, header fields, Status)
     canvas_test.go
-    schema.go              [step 9]
-    manifest.go            [step 9]
-    capabilities.go        [step 9]
+    schema.go              JSON Schema well-formedness validator
+    manifest.go            Batch YAML manifest validator (Workflow/AgentDef/Policy)
+    capabilities.go        Capability declaration validator
+    helpers.go             Shared ValidationError helpers
   check/
-    context.go             [step 9]
+    context.go             AI context line-count reporter (advisory, always exits 0)
 ```
 
 ## Hard Constraints
