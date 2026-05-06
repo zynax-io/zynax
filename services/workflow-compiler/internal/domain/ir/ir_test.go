@@ -103,29 +103,32 @@ func TestToIR_StatesAreSortedByID(t *testing.T) {
 
 func TestToIR_StateTypes(t *testing.T) {
 	cases := []struct {
+		name       string
 		domainType domain.StateType
 		protoType  zynaxv1.StateType
 	}{
-		{domain.StateTypeNormal, zynaxv1.StateType_STATE_TYPE_NORMAL},
-		{domain.StateTypeTerminal, zynaxv1.StateType_STATE_TYPE_TERMINAL},
-		{domain.StateTypeHumanInTheLoop, zynaxv1.StateType_STATE_TYPE_HUMAN_IN_THE_LOOP},
+		{"normal state", domain.StateTypeNormal, zynaxv1.StateType_STATE_TYPE_NORMAL},
+		{"terminal state", domain.StateTypeTerminal, zynaxv1.StateType_STATE_TYPE_TERMINAL},
+		{"human-in-the-loop state", domain.StateTypeHumanInTheLoop, zynaxv1.StateType_STATE_TYPE_HUMAN_IN_THE_LOOP},
 	}
 	for _, tc := range cases {
-		g := &domain.WorkflowGraph{
-			Name:         "t",
-			Namespace:    "default",
-			InitialState: "s",
-			States: map[string]*domain.State{
-				"s": {ID: "s", Type: tc.domainType},
-			},
-		}
-		wfIR, err := ir.ToIR(g, "id", "v1", time.Time{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if wfIR.States[0].Type != tc.protoType {
-			t.Errorf("type %v: got %v, want %v", tc.domainType, wfIR.States[0].Type, tc.protoType)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			g := &domain.WorkflowGraph{
+				Name:         "t",
+				Namespace:    "default",
+				InitialState: "s",
+				States: map[string]*domain.State{
+					"s": {ID: "s", Type: tc.domainType},
+				},
+			}
+			wfIR, err := ir.ToIR(g, "id", "v1", time.Time{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if wfIR.States[0].Type != tc.protoType {
+				t.Errorf("type %v: got %v, want %v", tc.domainType, wfIR.States[0].Type, tc.protoType)
+			}
+		})
 	}
 }
 
