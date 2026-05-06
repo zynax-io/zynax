@@ -185,10 +185,15 @@ test-integration: check-docker ## Integration tests against NATS JetStream and R
 	@echo "Integration tests passed"
 
 # ── Proto generation + lint ────────────────────────────────────────────────
-.PHONY: generate-protos lint-protos
+.PHONY: generate-protos go-generate lint-protos
 generate-protos: ensure-tools ## Generate Go + Python stubs from .proto files
 	$(TOOLS_RUN) sh -c "cd protos && buf generate --template buf.gen.yaml"
 	@echo "✅ Stubs in protos/generated/go/ and protos/generated/python/ — commit them"
+
+go-generate: ## Re-run //go:generate directives (requires buf locally; same as generate-protos but no Docker)
+	@echo "Running go generate in protos/generated/go — requires buf in PATH"
+	cd protos/generated/go && GOWORK=off go generate ./...
+	@echo "✅ go generate complete — commit updated stubs"
 
 lint-protos: ensure-tools ## buf lint + format check on all proto files
 	$(TOOLS_RUN) sh -c "cd protos && buf lint && buf format --diff --exit-code"
