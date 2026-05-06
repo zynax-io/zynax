@@ -34,6 +34,8 @@ tags        = ["infrastructure"]
 [rules.allowlist]
 # 'local' as a standalone word or in NATS URLs is fine (dev environment docs)
 regexes     = ['''nats://localhost|nats://local\b|description.*[Ll]ocal''']
+# .dockerignore / .gitignore list glob patterns — never real hostnames
+paths       = ['''\.dockerignore$''', '''\.gitignore$''']
 
 [[rules]]
 id          = "private-ip-range"
