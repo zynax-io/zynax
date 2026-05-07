@@ -13,33 +13,32 @@
 | M1 — Contracts Foundation | ✅ Complete | v0.1.0 |
 | M2 — Workflow IR | ✅ Complete | v0.1.0 |
 | M3 — Temporal Execution | ✅ Complete | v0.2.0 |
-| **M4 — YAML System + CLI** | **In Progress** | v0.3.0 |
+| M4 — YAML System + CLI | ✅ Complete | v0.3.0 |
+| **M5 — Adapter Library** | **In Progress** | v0.4.0 |
 
 ---
 
-## M4 — Progress
+## M5 — Progress
 
-Goal: `zynax apply workflow.yaml` compiles, submits, and returns a `run_id`. Users can
-manage workflow runs from the terminal via the `zynax` CLI.
+Goal: Production-ready code quality across all Go services and Python SDK, plus
+security supply-chain gates (SBOM, SLSA). Sets the foundation for M6 Helm deployment.
 
-- [x] api-gateway service: HTTP REST layer — `/api/v1/apply` + `/api/v1/workflows/{id}` (#315, merged)
-- [x] api-gateway: `kind: AgentDef` routing via `AgentRegistryService` (#316, merged)
-- [x] `zynax` CLI: `apply`, `get`, `delete`, `status` commands (#317, #330, merged)
-- [x] `zynax logs`: SSE streaming `WatchWorkflow` events (#318, #338, merged)
-- [x] Local Docker Compose runner — `make run-local` / `make stop-local` (#319, PR #340 open)
-- [x] CLI release CI — multi-platform binaries published to GitHub Releases on `v*.*.*` tag
-- [ ] `zynax gitops watch <dir>` sub-command (#320)
-- [ ] `zynax validate` — Go-based manifest/canvas/schema validation (#331 epic, steps #332–#336)
-
-See [Canvas](../docs/spdd/314-yaml-system-cli/canvas.md) and [Epic #314](https://github.com/zynax-io/zynax/issues/314).
+- [ ] refactor(workflow-compiler): naming, zero-value structs, functional options audit (#222)
+- [ ] refactor: context.Context propagation into domain layer across all Go services (#223)
+- [ ] refactor: error chain consistency — %w wrapping, typed sentinels, errors.Is/As (#224)
+- [ ] docs(agents): Google-style docstrings on all public symbols in agents/sdk (#228)
+- [ ] refactor(agents): strip explanatory comments — self-documenting names (#229)
+- [ ] docs: architecture fitness functions — document all CI gates (#232)
+- [ ] ci: SBOM generation with syft — publish as release artifact (#235)
+- [ ] ci: SLSA provenance — sign released artifacts with sigstore/cosign (#239)
+- [ ] docs: AI-output review checklist (#248)
+- [ ] ci: publish tools image to public GHCR registry securely (#358)
 
 ---
 
 ## Active PRs
 
-| PR | Title | Status |
-|----|-------|--------|
-| #340 | feat(infra): Docker Compose local runner + service Dockerfiles (#319) | Open — awaiting review |
+None.
 
 ---
 
@@ -51,9 +50,6 @@ None.
 
 ## Recently Closed
 
-- M3 (Temporal Execution) — all 5 step issues (#301–#305) merged; all BDD scenarios pass.
-  Canvas: `docs/spdd/214-temporal-execution/canvas.md` (status: Implemented).
-- M4 Step 1 (#315): api-gateway HTTP REST layer merged.
-- M4 Step 2 (#316): api-gateway AgentDef routing merged.
-- M4 Step 3 (#317, #330): `zynax` CLI apply/get/delete/status merged.
-- M4 Step 4 (#318, #338): `zynax logs` SSE streaming merged.
+- M1–M4 GitHub milestones closed (all issues complete).
+- M4 delivered: api-gateway REST, `zynax` CLI, Docker Compose runner, GitOps watch.
+  Step issues #315–#320 all merged. Canvas: `docs/spdd/314-yaml-system-cli/canvas.md`.
