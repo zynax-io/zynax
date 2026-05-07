@@ -145,19 +145,25 @@ pre-commit install       # wires hooks into .git/hooks/pre-commit
 
 After that, on every `git commit` the following checks run automatically:
 
-| Hook | What it checks | Needs locally |
-|------|---------------|---------------|
-| `gofmt` | Go formatting (formats in-place) | Go toolchain |
-| `golangci-lint` | Go static analysis (`tools/golangci-lint.yml`) | `golangci-lint` binary |
-| `ruff` | Python lint + formatting | `ruff` (`uv tool install ruff`) |
-| `mypy` | Python type-checking (`agents/sdk/src/`) | `mypy` (`uv tool install mypy`) |
-| `gitleaks` | Secret / credential scan | `gitleaks` binary |
+| Hook | What it checks | How it's installed |
+|------|---------------|-------------------|
+| `gitleaks` | Secret / credential scan | **Auto** — pre-commit manages it |
+| `ruff` | Python lint + formatting | **Auto** — pre-commit manages it |
+| `gofmt` | Go formatting (formats in-place) | Needs Go toolchain locally |
+| `golangci-lint` | Go static analysis per module (`tools/golangci-lint-precommit.sh`) | Needs `golangci-lint` (`make install-ci-tools`) |
+| `mypy` | Python type-checking (`agents/sdk/src/`) | Needs `mypy` (`uv tool install mypy`) |
+
+`gitleaks` and `ruff` are **managed hooks** — pre-commit downloads and caches them
+automatically on first run; no manual install needed.
+
+`gofmt`, `golangci-lint`, and `mypy` use `language: system` — if the binary is not
+in your `PATH` the hook will fail and block the commit. Install them as part of the
+normal dev setup (`make install-ci-tools` handles golangci-lint and zynax-ci).
+
+> The same checks run in CI via `make lint` (Docker-based). If you're missing a
+> local tool, use `git commit --no-verify` and note it in the PR — CI will catch it.
 
 Run all hooks manually at any time: `pre-commit run --all-files`
-
-> **Note:** The same checks run in CI via `make lint` (Docker-based), so a missing
-> local tool means your commit goes through but CI will catch it. Install the tools
-> for a faster feedback loop — you'll see failures in seconds, not minutes.
 
 **Bypassing hooks:** Use `git commit --no-verify` only for legitimate reasons (e.g. a
 work-in-progress checkpoint on a branch). Add a PR comment explaining why — reviewers
