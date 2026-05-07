@@ -317,7 +317,7 @@ make test        # full suite (unit + BDD + coverage gate)
 | **M1 — Contracts Foundation** | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
 | **M2 — Workflow IR** | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
 | **M3 — Temporal Execution** | **Complete** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) |
-| **M4 — YAML System + CLI** | **In Progress** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) |
+| **M4 — YAML System + CLI** | **Complete** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) |
 
 **M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
 AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract
@@ -339,7 +339,7 @@ lifecycle publishing (`zynax.workflow.state.entered/exited/completed/failed`), a
 `EngineAdapterService` gRPC methods (`Submit`, `Signal`, `Cancel`, `GetWorkflowStatus`,
 `WatchWorkflow`) wired end-to-end.
 
-**M4 (in progress)** is delivering the YAML system and CLI: api-gateway HTTP REST layer
+**M4** delivered the YAML system and CLI: api-gateway HTTP REST layer
 (`POST /api/v1/apply`, `GET /api/v1/workflows/{id}`, `DELETE /api/v1/workflows/{id}`),
 `kind: AgentDef` routing via `AgentRegistryService`, the `zynax` CLI (`apply`, `get`,
 `delete`, `status`, `logs`), local Docker Compose runner (`make run-local`),
@@ -371,12 +371,12 @@ spec/                Workflow YAML manifests and JSON schemas (Workflow, AgentDe
 services/            Go platform services
   workflow-compiler/ YAML → WorkflowIR compiler (M2 — complete)
   engine-adapter/    Temporal execution engine bridge (M3 — complete)
-  api-gateway/       HTTP REST entry point: /api/v1/apply + /api/v1/workflows (M4 — in progress)
+  api-gateway/       HTTP REST entry point: /api/v1/apply + /api/v1/workflows (M4 — complete)
   agent-registry/    Capability catalogue service (M4+)
   task-broker/       Capability routing service (M4+)
   memory-service/    KV + vector context store (M4+)
   event-bus/         NATS JetStream async pub/sub (M4+)
-cmd/zynax/           zynax CLI — apply, get, delete, status (M4 — in progress)
+cmd/zynax/           zynax CLI — apply, get, delete, status (M4 — complete)
 cmd/zynax-ci/        zynax-ci CI toolchain — validate canvas/schema/manifests, check ai-context
 agents/              Python execution adapters + zynax-sdk
 protos/              gRPC contracts (Go + Python stubs generated)
