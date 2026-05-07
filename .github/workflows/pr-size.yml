@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: Apache-2.0
+# PR Size Labeling — auto-labels PRs with size/S · size/M · size/L · size/XL
+# based on net lines changed, excluding generated code, lock files, and docs.
+#
+# Deliberately kept in its own workflow so that the label write-back does NOT
+# re-trigger pr-checks.yml. The previous design embedded this job inside
+# pr-checks.yml (which also listened on `edited`), causing a feedback loop:
+#   label applied → pull_request edited event → pr-checks.yml re-runs
+#
+# This file triggers only on code-change events (opened / synchronize / reopened),
+# so the label write-back fires a `labeled` event that no workflow here subscribes to.
+
+name: PR Size
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-size-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  pr-size:
+    name: PR size label
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Label PR by size and enforce 800-line limit
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+
+            // Exclude generated stubs, lock files, binary fixtures, changelogs,
+            // CI workflow files, and documentation-only paths (AGENTS.md, docs/, state/).
+            const skipPattern = /\.(pb\.go|pb\.py|sum|lock|png|jpg|gif|svg)$|\/generated\/|CHANGELOG\.md$|^\.github\/workflows\/|AGENTS\.md$|^docs\/|^state\/|^\.claude\//;
+            const lines = files
+              .filter(f => !skipPattern.test(f.filename))
+              .reduce((total, f) => total + f.additions + f.deletions, 0);
+
+            const sizeLabel =
+              lines <= 100  ? 'size/S'  :
+              lines <= 400  ? 'size/M'  :
+              lines <= 900  ? 'size/L'  : 'size/XL';
+
+            // Remove any existing size/* labels then apply the new one
+            const { data: existing } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            for (const lbl of existing.filter(l => l.name.startsWith('size/'))) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: lbl.name,
+              });
+            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [sizeLabel],
+            });
+
+            core.info(`PR changes: ${lines} lines (excluding generated/lock files) → ${sizeLabel}`);
+
+            if (lines > 900) {
+              core.setFailed(
+                `PR is ${lines} lines — exceeds the 900-line hard limit.\n` +
+                `Decompose this PR into smaller, reviewable units before requesting review.\n` +
+                `See CONTRIBUTING.md §"PR Size Policy" for guidance.`
+              );
+            } else if (lines > 400) {
+              core.warning(
+                `PR is ${lines} lines — over the 400-line soft limit.\n` +
+                `If it cannot be split, document the reason in the PR template.`
+              );
+            }
