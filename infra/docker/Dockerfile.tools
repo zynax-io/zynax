@@ -25,9 +25,9 @@
 
 # ── Stage 1: Go binaries ────────────────────────────────────────────────────
 # GO_VERSION is the single source of truth for the Go toolchain.
-# Override at build time: docker build --build-arg GO_VERSION=1.26.2 ...
+# Override at build time: docker build --build-arg GO_VERSION=1.26.3 ...
 # Default must match go.work `go` directive.
-ARG GO_VERSION=1.26.2
+ARG GO_VERSION=1.26.3
 FROM golang:${GO_VERSION}-alpine AS go-tools
 
 RUN apk add --no-cache git curl
