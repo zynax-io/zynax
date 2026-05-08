@@ -9,7 +9,7 @@
 **Issue:** #377
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-07
-**Status:** Draft
+**Status:** Aligned
 
 ---
 
