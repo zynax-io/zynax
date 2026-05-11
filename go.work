@@ -5,6 +5,7 @@
 go 1.26.3
 
 use (
+	./agents/adapters/http
 	./protos/generated/go
 	./services/api-gateway
 	./services/engine-adapter
