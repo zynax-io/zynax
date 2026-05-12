@@ -95,5 +95,8 @@ func validatePayload(schemaJSON string, payload []byte) error {
 	if err := json.Unmarshal(payload, &v); err != nil {
 		return fmt.Errorf("invalid JSON payload: %w", err)
 	}
-	return sch.Validate(v)
+	if err := sch.Validate(v); err != nil {
+		return fmt.Errorf("payload schema validation: %w", err)
+	}
+	return nil
 }

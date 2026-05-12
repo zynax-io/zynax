@@ -38,16 +38,16 @@ func run() error {
 	}
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("load config: %w", err)
 	}
-	slog.Info("config loaded", "agent_id", cfg.AgentID, "endpoint", cfg.Endpoint)
+	slog.Info("config loaded", "agent_id", cfg.AgentID, "endpoint", cfg.Endpoint) //nolint:gosec // values from trusted config file
 
 	regConn, err := grpc.NewClient(cfg.RegistryEndpoint,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("registry dial %s: %w", cfg.RegistryEndpoint, err)
 	}
-	defer regConn.Close()
+	defer func() { _ = regConn.Close() }()
 	regClient := zynaxv1.NewAgentRegistryServiceClient(regConn)
 
 	lis, err := net.Listen("tcp", cfg.Endpoint)
@@ -68,7 +68,7 @@ func run() error {
 		return fmt.Errorf("register: %w", err)
 	}
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-	slog.Info("http-adapter serving", "endpoint", cfg.Endpoint)
+	slog.Info("http-adapter serving", "endpoint", cfg.Endpoint) //nolint:gosec // value from trusted config file
 
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- grpcSrv.Serve(lis) }()

@@ -36,6 +36,12 @@ type executeStream interface {
 	Context() context.Context
 }
 
+// httpResult carries the outcome of an HTTP round-trip dispatched by the background goroutine.
+type httpResult struct {
+	resp *http.Response
+	err  error
+}
+
 func (h *httpHandler) execute(
 	ctx context.Context,
 	route config.RouteConfig,
@@ -60,14 +66,10 @@ func (h *httpHandler) execute(
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	type result struct {
-		resp *http.Response
-		err  error
-	}
-	ch := make(chan result, 1)
+	ch := make(chan httpResult, 1)
 	go func() {
 		resp, err := h.client.Do(req)
-		ch <- result{resp, err}
+		ch <- httpResult{resp, err}
 	}()
 
 	tick := time.NewTicker(tickInterval)
@@ -77,32 +79,36 @@ func (h *httpHandler) execute(
 		select {
 		case <-tick.C:
 			if err := stream.Send(progressEvent(taskID)); err != nil {
-				return err
+				return err //nolint:wrapcheck // gRPC stream error already carries transport context
 			}
 		case res := <-ch:
-			if res.err != nil {
-				if ctx.Err() != nil {
-					return sendFailed(stream, taskID, "TIMEOUT", "request exceeded timeout_seconds")
-				}
-				return sendFailed(stream, taskID, "UPSTREAM_ERROR", sanitise(res.err.Error()))
-			}
-			defer res.resp.Body.Close()
-			respBody, err := io.ReadAll(io.LimitReader(res.resp.Body, maxResponseBytes+1))
-			if err != nil {
-				return sendFailed(stream, taskID, "UPSTREAM_ERROR", "failed to read response body")
-			}
-			if int64(len(respBody)) > maxResponseBytes {
-				return sendFailed(stream, taskID, "UPSTREAM_ERROR", "response body exceeds 10 MB limit")
-			}
-			if res.resp.StatusCode >= 200 && res.resp.StatusCode < 300 {
-				return stream.Send(completedEvent(taskID, respBody))
-			}
-			return sendFailed(stream, taskID, "UPSTREAM_ERROR",
-				fmt.Sprintf("upstream returned HTTP %d", res.resp.StatusCode))
+			return handleResult(ctx, stream, taskID, res)
 		case <-ctx.Done():
 			return sendFailed(stream, taskID, "TIMEOUT", "request exceeded timeout_seconds")
 		}
 	}
+}
+
+func handleResult(ctx context.Context, stream executeStream, taskID string, res httpResult) error {
+	if res.err != nil {
+		if ctx.Err() != nil {
+			return sendFailed(stream, taskID, "TIMEOUT", "request exceeded timeout_seconds")
+		}
+		return sendFailed(stream, taskID, "UPSTREAM_ERROR", sanitise(res.err.Error()))
+	}
+	defer func() { _ = res.resp.Body.Close() }()
+	respBody, err := io.ReadAll(io.LimitReader(res.resp.Body, maxResponseBytes+1))
+	if err != nil {
+		return sendFailed(stream, taskID, "UPSTREAM_ERROR", "failed to read response body")
+	}
+	if int64(len(respBody)) > maxResponseBytes {
+		return sendFailed(stream, taskID, "UPSTREAM_ERROR", "response body exceeds 10 MB limit")
+	}
+	if res.resp.StatusCode >= 200 && res.resp.StatusCode < 300 {
+		return stream.Send(completedEvent(taskID, respBody)) //nolint:wrapcheck // gRPC stream error already carries transport context
+	}
+	return sendFailed(stream, taskID, "UPSTREAM_ERROR",
+		fmt.Sprintf("upstream returned HTTP %d", res.resp.StatusCode))
 }
 
 func progressEvent(taskID string) *zynaxv1.TaskEvent {
@@ -123,7 +129,7 @@ func completedEvent(taskID string, payload []byte) *zynaxv1.TaskEvent {
 }
 
 func sendFailed(stream executeStream, taskID, code, msg string) error {
-	return stream.Send(&zynaxv1.TaskEvent{
+	return stream.Send(&zynaxv1.TaskEvent{ //nolint:wrapcheck // gRPC stream error already carries transport context
 		TaskId:    taskID,
 		EventType: zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED,
 		Timestamp: timestamppb.Now(),

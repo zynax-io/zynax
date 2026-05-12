@@ -144,6 +144,20 @@ func TestDeregisterAgent_Error(t *testing.T) {
 	}
 }
 
+func TestRegisterAgent_NonGRPCError_NonTransient(t *testing.T) {
+	// A plain Go error (not a gRPC status) is not transient; RegisterAgent must
+	// return immediately without retrying, covering the !ok branch of isTransient.
+	plainErr := errors.New("plain network error")
+	mock := &mockClient{registerResponses: []error{plainErr}}
+	err := registry.RegisterAgent(context.Background(), mock, testDef)
+	if err == nil {
+		t.Fatal("expected error for non-gRPC error")
+	}
+	if mock.registerCalls != 1 {
+		t.Errorf("registerCalls = %d, want 1 (no retry for non-gRPC errors)", mock.registerCalls)
+	}
+}
+
 func TestBuildAgentDef(t *testing.T) {
 	cfg := &config.AdapterConfig{
 		AgentID:     "http-adapter",
