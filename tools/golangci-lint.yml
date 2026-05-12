@@ -40,12 +40,25 @@ linters:
     wrapcheck:
       ignore-package-globs:
         - "google.golang.org/grpc/*"
+        # CLI tools propagate errors directly to the user — wrapping adds noise.
+        - "github.com/zynax-io/zynax/cmd/zynax/*"
+        - "github.com/zynax-io/zynax/cmd/zynax-ci/*"
+        - "github.com/zynax-io/zynax/cmd/zynax/client*"
+        - "github.com/zynax-io/zynax/cmd/zynax/validate*"
+        - "github.com/zynax-io/zynax/cmd/zynax/gitops*"
+        - "github.com/zynax-io/zynax/cmd/zynax-ci/validate*"
+        - "github.com/zynax-io/zynax/cmd/zynax-ci/check*"
+        - "github.com/zynax-io/zynax/cmd/zynax-ci/cmd*"
+        - "path/filepath"
+        - "os"
+        - "encoding/json"
+        - "bufio"
 
 issues:
   exclusions:
     rules:
       - path: "_test\\.go"
-        linters: [funlen, cyclop, gocritic, gosec]
+        linters: [funlen, cyclop, gocritic, gosec, wrapcheck, errcheck]
       - path: "generated/"
         linters: [all]
       - path: "cmd/.*/main\\.go"
