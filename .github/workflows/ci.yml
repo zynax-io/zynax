@@ -356,11 +356,25 @@ jobs:
       - name: Detect Go code
         id: go-detect
         run: |
-          svc_count=$(find services/ -name "*.go" 2>/dev/null | wc -l)
-          adapter_count=$(find agents/adapters/ -name "*.go" 2>/dev/null | wc -l)
-          cli_count=$(find cmd/ -name "*.go" 2>/dev/null | wc -l)
+          # On push to main all lanes run (no reliable base SHA).
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "has_services=1" >> "$GITHUB_OUTPUT"
+            echo "has_adapters=1"  >> "$GITHUB_OUTPUT"
+            echo "has_cli=1"       >> "$GITHUB_OUTPUT"
+            echo "has_go=1"        >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          CHANGED=$(git diff --name-only "${BASE}...${HEAD}" 2>/dev/null || echo "")
+          svc_count=$(echo "$CHANGED"  | grep "^services/"       | wc -l)
+          adapter_count=$(echo "$CHANGED" | grep "^agents/adapters/" | wc -l)
+          cli_count=$(echo "$CHANGED"  | grep "^cmd/"            | wc -l)
           total=$((svc_count + adapter_count + cli_count))
-          echo "has_go=$total" >> "$GITHUB_OUTPUT"
+          echo "has_services=$svc_count"   >> "$GITHUB_OUTPUT"
+          echo "has_adapters=$adapter_count" >> "$GITHUB_OUTPUT"
+          echo "has_cli=$cli_count"         >> "$GITHUB_OUTPUT"
+          echo "has_go=$total"              >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         if: steps.go-detect.outputs.has_go != '0'
@@ -391,7 +405,7 @@ jobs:
             "golangci-lint-${VERSION_BARE}-linux-amd64/golangci-lint"
 
       - name: golangci-lint (platform services)
-        if: steps.go-detect.outputs.has_go != '0'
+        if: steps.go-detect.outputs.has_services != '0'
         run: |
           failed=false
           for svc in ${{ env.SERVICE_LIST }}; do
@@ -405,7 +419,7 @@ jobs:
           $failed && exit 1 || echo "✅ Go service lint passed"
 
       - name: golangci-lint (Go adapters)
-        if: steps.go-detect.outputs.has_go != '0'
+        if: steps.go-detect.outputs.has_adapters != '0'
         run: |
           failed=false
           for adapter in ${{ env.GO_ADAPTER_LIST }}; do
@@ -419,7 +433,7 @@ jobs:
           $failed && exit 1 || echo "✅ Go adapter lint passed"
 
       - name: golangci-lint (CLI tools)
-        if: steps.go-detect.outputs.has_go != '0'
+        if: steps.go-detect.outputs.has_cli != '0'
         run: |
           failed=false
           for cli in zynax zynax-ci; do
