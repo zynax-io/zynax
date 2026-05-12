@@ -22,6 +22,7 @@ on:
       - "protos/zynax/**/*.proto"
       - "protos/buf.yaml"
       - "protos/buf.gen.yaml"
+      - "infra/docker/Dockerfile.tools"
 
 permissions:
   contents: write
