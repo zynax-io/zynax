@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Zynax — Go workspace
-// All platform services (Go). Agents/adapters are Python (separate pyproject.toml).
+// Platform services and Go adapters. Python agents use separate pyproject.toml files.
 
 go 1.26.3
 

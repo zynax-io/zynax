@@ -9,18 +9,25 @@
 #
 # Job graph (all gates after dco):
 #   dco → changes → lint-proto ─╮
-#                ├─ lint-go   ──┴──→ test-unit
-#                │            └──→ test-integration   (parallel)
+#                ├─ lint-go   ──┴──→ test-unit         (skipped if code=false)
+#                │            └──→ test-integration    (skipped if code=false)
 #                └─ lint-python
 #   dco → security   (independent)
 #
-# Path-based skipping: lint lanes are skipped when no relevant files changed.
-# On push to main all lanes always run (no PR base to diff against).
+# Path-based skipping:
+#   - lint lanes are skipped when no relevant files changed.
+#   - test-unit and test-integration are skipped entirely when the PR only
+#     touches docs/ or root *.md files (code=false from the changes job).
+#   - On push to main all lanes always run (no PR base to diff against).
+#
+# Test coverage:
+#   test-unit covers: platform services (SERVICE_LIST), Go adapters (GO_ADAPTER_LIST),
+#   CLI tools (cmd/zynax, cmd/zynax-ci), BDD contract tests, Python agents.
 #
 # Design: Docker-free in CI (install tools natively for speed and cache
 # reuse). All commands mirror the Makefile targets so local and CI output
-# is identical. When adding a new service or agent update the SERVICE_LIST
-# and AGENT_LIST env vars below — no other changes required.
+# is identical. When adding a new service, Go adapter, or Python agent update
+# the SERVICE_LIST, GO_ADAPTER_LIST, or AGENT_LIST env vars — no other changes required.
 
 name: CI
 
@@ -43,6 +50,7 @@ env:
   GOLANGCI_VERSION: "v2.11.4"
   GOVULNCHECK_VERSION: "v1.1.4"
   SERVICE_LIST: "agent-registry task-broker memory-service event-bus api-gateway workflow-compiler engine-adapter"
+  GO_ADAPTER_LIST: "http"
   AGENT_LIST: "summarizer researcher calculator"
   TRIVY_VERSION: "0.70.0"
 
@@ -93,14 +101,19 @@ jobs:
           echo "✅ All commits carry Signed-off-by"
 
 # ── Change Detection ──────────────────────────────────────────────────────────
-# Detects which path groups changed so downstream lint lanes can be skipped
-# when irrelevant. Outputs: proto / go / python (string "true"/"false").
+# Detects which path groups changed so downstream lanes can be skipped.
+# Outputs:
+#   code   — true when any file outside docs/ or root *.md changes; gates test-unit
+#   proto  — true when protos/, spec/, or AI context files change
+#   go     — true when any Go code changes (services/, cmd/, Go adapters)
+#   python — true when Python agents change
 # On push to main all outputs are "true" — no reliable base SHA to diff.
   changes:
     name: changes
     runs-on: ubuntu-24.04
     needs: [dco]
     outputs:
+      code:   ${{ steps.detect.outputs.code }}
       proto:  ${{ steps.detect.outputs.proto }}
       go:     ${{ steps.detect.outputs.go }}
       python: ${{ steps.detect.outputs.python }}
@@ -114,11 +127,12 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then
             {
+              echo "code=true"
               echo "proto=true"
               echo "go=true"
               echo "python=true"
             } >> "$GITHUB_OUTPUT"
-            echo "ℹ️  Push to main — all lint lanes enabled."
+            echo "ℹ️  Push to main — all lanes enabled."
             exit 0
           fi
 
@@ -126,27 +140,37 @@ jobs:
           HEAD="${{ github.event.pull_request.head.sha }}"
           FILES=$(git diff --name-only "${BASE}...${HEAD}" 2>/dev/null || echo "")
 
-          proto=false go=false python=false
+          code=false proto=false go=false python=false
 
           while IFS= read -r f; do
             [ -z "$f" ] && continue
+
+            # code=true for anything that is not pure documentation or root metadata.
+            # Docs-only paths: docs/ directory and root-level *.md / LICENSE / CODEOWNERS.
+            if ! echo "$f" | grep -qE '^(docs/|[^/]+\.md$|LICENSE$|CODEOWNERS$)'; then
+              code=true
+            fi
+
             if echo "$f" | grep -qE '^(protos/|spec/|CLAUDE\.md|AGENTS\.md|.*/AGENTS\.md|docs/ai-assistant-setup\.md|\.ai/|\.claude/)'; then
               proto=true
             fi
-            if echo "$f" | grep -qE '^(services/|protos/|cmd/)'; then
+            # Go code: platform services, standalone CLI tools, and Go adapters.
+            if echo "$f" | grep -qE '^(services/|protos/|cmd/|agents/adapters/)'; then
               go=true
             fi
-            if echo "$f" | grep -qE '^agents/'; then
+            # Python code: SDK and example agents (Go adapters live under agents/adapters/).
+            if echo "$f" | grep -qE '^agents/' && ! echo "$f" | grep -qE '^agents/adapters/'; then
               python=true
             fi
           done <<< "$FILES"
 
           {
+            echo "code=$code"
             echo "proto=$proto"
             echo "go=$go"
             echo "python=$python"
           } >> "$GITHUB_OUTPUT"
-          echo "── Changed path groups: lint-proto=$proto  lint-go=$go  lint-python=$python"
+          echo "── Changed path groups: code=$code  lint-proto=$proto  lint-go=$go  lint-python=$python"
 
 # ── Lint: Proto, AI context scan, and spec validation ────────────────────────
 # Runs: gitleaks (AI KB files), buf lint/format, stubs freshness,
@@ -329,11 +353,14 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Detect Go services
+      - name: Detect Go code
         id: go-detect
         run: |
-          count=$(find services/ -name "*.go" 2>/dev/null | wc -l)
-          echo "has_go=$count" >> "$GITHUB_OUTPUT"
+          svc_count=$(find services/ -name "*.go" 2>/dev/null | wc -l)
+          adapter_count=$(find agents/adapters/ -name "*.go" 2>/dev/null | wc -l)
+          cli_count=$(find cmd/ -name "*.go" 2>/dev/null | wc -l)
+          total=$((svc_count + adapter_count + cli_count))
+          echo "has_go=$total" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         if: steps.go-detect.outputs.has_go != '0'
@@ -363,7 +390,7 @@ jobs:
             -C /usr/local/bin \
             "golangci-lint-${VERSION_BARE}-linux-amd64/golangci-lint"
 
-      - name: golangci-lint (all Go services)
+      - name: golangci-lint (platform services)
         if: steps.go-detect.outputs.has_go != '0'
         run: |
           failed=false
@@ -375,7 +402,35 @@ jobs:
               cd ../..
             fi
           done
-          $failed && exit 1 || echo "✅ Go lint passed"
+          $failed && exit 1 || echo "✅ Go service lint passed"
+
+      - name: golangci-lint (Go adapters)
+        if: steps.go-detect.outputs.has_go != '0'
+        run: |
+          failed=false
+          for adapter in ${{ env.GO_ADAPTER_LIST }}; do
+            if [ -f "agents/adapters/${adapter}/go.mod" ]; then
+              echo "── lint: agents/adapters/${adapter}"
+              cd "agents/adapters/${adapter}"
+              GOWORK=off golangci-lint run ./... --config "../../../tools/golangci-lint.yml" || failed=true
+              cd ../../..
+            fi
+          done
+          $failed && exit 1 || echo "✅ Go adapter lint passed"
+
+      - name: golangci-lint (CLI tools)
+        if: steps.go-detect.outputs.has_go != '0'
+        run: |
+          failed=false
+          for cli in zynax zynax-ci; do
+            if [ -f "cmd/${cli}/go.mod" ]; then
+              echo "── lint: cmd/${cli}"
+              cd "cmd/${cli}"
+              GOWORK=off golangci-lint run ./... --config "../../tools/golangci-lint.yml" || failed=true
+              cd ../..
+            fi
+          done
+          $failed && exit 1 || echo "✅ CLI tool lint passed"
 
 # ── Lint: Python agents and SDK ───────────────────────────────────────────────
 # Runs: ruff + mypy on SDK + all Python agents.
@@ -440,8 +495,15 @@ jobs:
   test-unit:
     name: test-unit
     runs-on: ubuntu-24.04
-    needs: [lint-go, lint-proto, lint-python]
-    if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    needs: [changes, lint-go, lint-proto, lint-python]
+    # always() prevents cascade-skip when lint lanes are skipped on path-filtered PRs.
+    # needs.changes.outputs.code gates the job: docs-only PRs produce code=false → skipped.
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.code == 'true' &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')
     permissions:
       contents: read
       pull-requests: write
@@ -489,14 +551,20 @@ jobs:
           svc_count=$(find services/ -name "*.go" 2>/dev/null | wc -l)
           bdd_count=$(find protos/tests/ -name "*.go" 2>/dev/null | wc -l)
           svc_bdd_count=$(find services/ -path "*/tests/*" -name "*_test.go" 2>/dev/null | wc -l)
+          adapter_count=$(find agents/adapters/ -name "*.go" 2>/dev/null | wc -l)
+          cli_count=$(find cmd/ -name "*_test.go" 2>/dev/null | wc -l)
           echo "has_services=$svc_count" >> "$GITHUB_OUTPUT"
           echo "has_bdd_impl=$bdd_count" >> "$GITHUB_OUTPUT"
           echo "has_svc_bdd=$svc_bdd_count" >> "$GITHUB_OUTPUT"
+          echo "has_adapters=$adapter_count" >> "$GITHUB_OUTPUT"
+          echo "has_cli=$cli_count" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         if: >-
           steps.go-detect.outputs.has_services != '0' ||
-          steps.go-detect.outputs.has_bdd_impl != '0'
+          steps.go-detect.outputs.has_bdd_impl != '0' ||
+          steps.go-detect.outputs.has_adapters != '0' ||
+          steps.go-detect.outputs.has_cli != '0'
         with:
           go-version-file: go.work
           cache-dependency-path: "**/go.sum"
@@ -657,6 +725,36 @@ jobs:
           echo "   Add *_test.go files alongside the .feature files to make them executable."
           echo "   Engine-adapter Temporal scenarios belong in tests/integration/ instead."
 
+      # ── Go adapter unit tests ─────────────────────────────────────────────
+      - name: Go adapter unit tests
+        if: steps.go-detect.outputs.has_adapters != '0'
+        run: |
+          failed=false
+          for adapter in ${{ env.GO_ADAPTER_LIST }}; do
+            if [ -f "agents/adapters/${adapter}/go.mod" ]; then
+              echo "── test: agents/adapters/${adapter}"
+              cd "agents/adapters/${adapter}"
+              GOWORK=off go test ./... -v -race -timeout 60s -count=1 || failed=true
+              cd ../../..
+            fi
+          done
+          $failed && exit 1 || echo "✅ Go adapter tests passed"
+
+      # ── CLI tool unit tests ───────────────────────────────────────────────
+      - name: CLI tool unit tests (zynax + zynax-ci)
+        if: steps.go-detect.outputs.has_cli != '0'
+        run: |
+          failed=false
+          for cli in zynax zynax-ci; do
+            if [ -f "cmd/${cli}/go.mod" ]; then
+              echo "── test: cmd/${cli}"
+              cd "cmd/${cli}"
+              GOWORK=off go test ./... -v -race -timeout 60s -count=1 || failed=true
+              cd ../..
+            fi
+          done
+          $failed && exit 1 || echo "✅ CLI tool tests passed"
+
       # ── BDD results: post PR comment ──────────────────────────────────────
       - name: Post BDD contract test report on PR
         if: always() && github.event_name == 'pull_request' && steps.go-detect.outputs.has_bdd_impl != '0'
@@ -785,8 +883,14 @@ jobs:
   test-integration:
     name: test-integration
     runs-on: ubuntu-24.04
-    needs: [lint-go, lint-proto, lint-python]
-    if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    needs: [changes, lint-go, lint-proto, lint-python]
+    # Mirrors test-unit: always() breaks cascade-skip; code gate skips on docs-only PRs.
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.code == 'true' &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
