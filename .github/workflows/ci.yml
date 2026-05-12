@@ -930,7 +930,7 @@ jobs:
               echo ""
               echo "| Service | Coverage | Gate |"
               echo "|---------|---------|------|"
-              grep "^service|" "$RESULTS" | while IFS='|' read -r _ name pkg pct; do
+              grep "^service|" "$RESULTS" | while IFS='|' read -r _ name _pkg pct; do
                 gate=$(awk -v p="${pct:-0}" 'BEGIN{print (p+0 >= 90) ? "✅" : "❌"}')
                 echo "| \`services/${name}\` | **${pct}%** | ${gate} |"
               done
