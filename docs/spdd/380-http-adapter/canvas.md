@@ -9,7 +9,7 @@
 **Issue:** #380
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-08
-**Status:** Aligned
+**Status:** Implemented
 
 ---
 
@@ -167,19 +167,21 @@ agents/adapters/http/
 
 This issue (#380) is a single `feat:` PR. Implementation is broken into logical commits within that PR.
 
-1. **BDD feature file** (#392) — commit `protos/tests/features/http_adapter.feature` with adapter-specific scenarios: SSRF prevention (URL never from payload), static-header forwarding, 2xx→COMPLETED, 4xx/5xx→FAILED with `UPSTREAM_ERROR`, PROGRESS ticker fires for slow upstreams, `timeout_seconds` respected, `GetCapabilitySchema` returns route config schema, unknown capability returns `NOT_FOUND`, empty `capability_name` returns `INVALID_ARGUMENT`. CI must be green before any implementation code is committed. ✓ Done
+1. **BDD feature file** (#392) — commit `protos/tests/features/http_adapter.feature` with adapter-specific scenarios: SSRF prevention (URL never from payload), static-header forwarding, 2xx→COMPLETED, 4xx/5xx→FAILED with `UPSTREAM_ERROR`, PROGRESS ticker fires for slow upstreams, `timeout_seconds` respected, `GetCapabilitySchema` returns route config schema, unknown capability returns `NOT_FOUND`, empty `capability_name` returns `INVALID_ARGUMENT`. CI must be green before any implementation code is committed. ✓ Done · PR #390
 
-2. **Module scaffold** (#391) — `go.mod` (Go 1.26.3, module path, `replace` directive for generated stubs), `go.work` updated with `use agents/adapters/http`, `cmd/http-adapter/main.go` skeleton (compile-only, no logic yet).
+2. **Module scaffold** (#391) — `go.mod` (Go 1.26.3, module path, `replace` directive for generated stubs), `go.work` updated with `use agents/adapters/http`, `cmd/http-adapter/main.go` skeleton (compile-only, no logic yet). ✓ Done · PR #424
 
-3. **Config layer** (#393) — `internal/config/config.go`: `AdapterConfig` struct with YAML tags; `RouteConfig` struct; `Load(path string)` function validating required fields (`agent_id`, `endpoint`, `registry_endpoint`, at least one capability with non-empty `name`, `method`, `url`); unit tests.
+3. **Config layer** (#393) — `internal/config/config.go`: `AdapterConfig` struct with YAML tags; `RouteConfig` struct; `Load(path string)` function validating required fields (`agent_id`, `endpoint`, `registry_endpoint`, at least one capability with non-empty `name`, `method`, `url`); unit tests. ✓ Done · PR #425
 
-4. **HTTP handler + router** (#394) — `internal/adapter/server.go`: `AgentServer` struct; `CapabilityRouter` (map built from `AdapterConfig`); `ExecuteCapability` implementation: validate inputs → lookup route → call `HTTPHandler` → stream events. `internal/adapter/handler.go`: `HTTPHandler.Execute(ctx, route, payload)`: build request with `http.NewRequestWithContext`; race HTTP call against `ProgressTicker`; map response → `TaskEvent`; sanitise error messages. `GetCapabilitySchema` from router. Unit tests with `httptest.Server`.
+4. **HTTP handler + router** (#394) — `internal/adapter/server.go`: `AgentServer` struct; `CapabilityRouter` (map built from `AdapterConfig`); `ExecuteCapability` implementation: validate inputs → lookup route → call `HTTPHandler` → stream events. `internal/adapter/handler.go`: `HTTPHandler.Execute(ctx, route, payload)`: build request with `http.NewRequestWithContext`; race HTTP call against `ProgressTicker`; map response → `TaskEvent`; sanitise error messages. `GetCapabilitySchema` from router. Unit tests with `httptest.Server`. ✓ Done · PR #426
 
-5. **Registry client** (#395) — `internal/registry/client.go`: `RegisterAgent` with exponential backoff (2 s base, ×2, max 5 attempts); `DeregisterAgent`; both use `context.Context` from caller.
+5. **Registry client** (#395) — `internal/registry/client.go`: `RegisterAgent` with exponential backoff (2 s base, ×2, max 5 attempts); `DeregisterAgent`; both use `context.Context` from caller. ✓ Done · PR #427
 
-6. **Bootstrap** (#396) — `cmd/http-adapter/main.go`: load config; build `CapabilityRouter`; dial registry; `RegisterAgent`; start gRPC server (health protocol); `signal.NotifyContext` for SIGTERM/SIGINT; `DeregisterAgent` + `GracefulStop` on shutdown.
+6. **Bootstrap** (#396) — `cmd/http-adapter/main.go`: load config; build `CapabilityRouter`; dial registry; `RegisterAgent`; start gRPC server (health protocol); `signal.NotifyContext` for SIGTERM/SIGINT; `DeregisterAgent` + `GracefulStop` on shutdown. ✓ Done · PR #428
 
-7. **Dockerfile + docker-compose** (#397) — two-stage Alpine Dockerfile; `CGO_ENABLED=0 -trimpath`; `USER zynax`; `infra/docker/docker-compose.yml` `http-adapter` service block; `agent-def.yaml.example`.
+7. **Dockerfile + docker-compose** (#397) — two-stage Alpine Dockerfile; `CGO_ENABLED=0 -trimpath`; `USER zynax`; `infra/docker/docker-compose.yml` `http-adapter` service block; `agent-def.yaml.example`. ✓ Done · PR #429
+
+> **Delivery summary (2026-05-12):** All 7 operations complete. Merged PRs: #390 (BDD), #424 (scaffold), #425 (config), #426 (handler+router), #427 (registry client), #428 (bootstrap), #429 (Dockerfile+compose). Issue #380 closed.
 
 ---
 
