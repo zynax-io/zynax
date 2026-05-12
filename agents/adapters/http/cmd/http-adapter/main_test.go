@@ -35,7 +35,7 @@ func TestRun_InvalidConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, _ = f.WriteString("{{invalid yaml")
-	f.Close()
+	_ = f.Close()
 	t.Setenv("ADAPTER_CONFIG", f.Name())
 	if err := run(); err == nil {
 		t.Fatal("expected error for invalid config")
@@ -49,7 +49,7 @@ func TestRun_MissingRequiredFields(t *testing.T) {
 	}
 	// valid YAML but missing agent_id
 	_, _ = f.WriteString("endpoint: \"0.0.0.0:8080\"\nregistry_endpoint: \"localhost:9090\"\ncapabilities:\n  - name: x\n    method: POST\n    url: http://x\n")
-	f.Close()
+	_ = f.Close()
 	t.Setenv("ADAPTER_CONFIG", f.Name())
 	if err := run(); err == nil {
 		t.Fatal("expected error for config missing agent_id")
@@ -63,7 +63,7 @@ func TestRun_InvalidListenAddr(t *testing.T) {
 	}
 	// Valid config but an invalid TCP listen address → net.Listen fails before registry dial.
 	_, _ = f.WriteString("agent_id: test\nname: test\nendpoint: \"localhost:-1\"\nregistry_endpoint: \"127.0.0.1:9090\"\ncapabilities:\n  - name: api\n    method: POST\n    url: http://example.com\n")
-	f.Close()
+	_ = f.Close()
 	t.Setenv("ADAPTER_CONFIG", f.Name())
 	if err := run(); err == nil {
 		t.Fatal("expected error for invalid listen address")
@@ -97,11 +97,11 @@ func TestRun_RegistryNonTransientError(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Use port 0 so the OS picks a free port — net.Listen succeeds.
-	_, _ = f.WriteString(fmt.Sprintf(
+	_, _ = fmt.Fprintf(f,
 		"agent_id: test\nname: test\nendpoint: \"127.0.0.1:0\"\nregistry_endpoint: \"%s\"\ncapabilities:\n  - name: api\n    method: POST\n    url: http://example.com\n",
 		mockLis.Addr().String(),
-	))
-	f.Close()
+	)
+	_ = f.Close()
 	t.Setenv("ADAPTER_CONFIG", f.Name())
 
 	if err := run(); err == nil {

@@ -38,7 +38,7 @@ type RouteConfig struct {
 // Load reads, parses, and validates the YAML config at path.
 // Returns a descriptive error for missing required fields or malformed YAML.
 func Load(path string) (*AdapterConfig, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // path sourced from ADAPTER_CONFIG env var (operator-controlled)
 	if err != nil {
 		return nil, fmt.Errorf("config: read %s: %w", path, err)
 	}

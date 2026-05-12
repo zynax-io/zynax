@@ -16,6 +16,11 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+const (
+	testErrCodeUpstreamError = "UPSTREAM_ERROR"
+	testErrCodeInvalidInput  = "INVALID_INPUT"
+)
+
 // fakeStream is a test double for AgentService_ExecuteCapabilityServer.
 type fakeStream struct {
 	ctx    context.Context
@@ -48,7 +53,7 @@ func newServer(t *testing.T, url string) *adapter.AgentServer {
 }
 
 func TestExecuteCapability_2xx_CompletedWithPayload(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"result":"ok"}`))
@@ -80,7 +85,7 @@ func TestExecuteCapability_2xx_CompletedWithPayload(t *testing.T) {
 }
 
 func TestExecuteCapability_4xx_UpstreamError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer srv.Close()
@@ -94,13 +99,13 @@ func TestExecuteCapability_4xx_UpstreamError(t *testing.T) {
 	if last.EventType != zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
 		t.Errorf("want FAILED, got %v", last.EventType)
 	}
-	if last.Error.Code != "UPSTREAM_ERROR" {
+	if last.Error.Code != testErrCodeUpstreamError {
 		t.Errorf("code = %s, want UPSTREAM_ERROR", last.Error.Code)
 	}
 }
 
 func TestExecuteCapability_5xx_UpstreamError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
@@ -110,7 +115,7 @@ func TestExecuteCapability_5xx_UpstreamError(t *testing.T) {
 		&zynaxv1.ExecuteCapabilityRequest{TaskId: "t1", CapabilityName: "call_api"},
 		stream,
 	)
-	if stream.lastEvent().Error.Code != "UPSTREAM_ERROR" {
+	if stream.lastEvent().Error.Code != testErrCodeUpstreamError {
 		t.Errorf("code = %s, want UPSTREAM_ERROR", stream.lastEvent().Error.Code)
 	}
 }
@@ -125,13 +130,13 @@ func TestExecuteCapability_ConnectionRefused(t *testing.T) {
 	if last.EventType != zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
 		t.Errorf("want FAILED, got %v", last.EventType)
 	}
-	if last.Error.Code != "UPSTREAM_ERROR" {
+	if last.Error.Code != testErrCodeUpstreamError {
 		t.Errorf("code = %s, want UPSTREAM_ERROR", last.Error.Code)
 	}
 }
 
 func TestExecuteCapability_Timeout(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		<-r.Context().Done()
 	}))
 	defer srv.Close()
@@ -156,7 +161,7 @@ func TestExecuteCapability_SlowUpstream_EmitsProgress(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping slow upstream test")
 	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(3 * time.Second)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{}`))
@@ -185,13 +190,13 @@ func TestExecuteCapability_UnknownCapability(t *testing.T) {
 		&zynaxv1.ExecuteCapabilityRequest{TaskId: "t1", CapabilityName: "nonexistent"},
 		stream,
 	)
-	if stream.lastEvent().Error.Code != "INVALID_INPUT" {
+	if stream.lastEvent().Error.Code != testErrCodeInvalidInput {
 		t.Errorf("code = %s, want INVALID_INPUT", stream.lastEvent().Error.Code)
 	}
 }
 
 func TestExecuteCapability_SchemaValidation_InvalidPayload(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
@@ -220,7 +225,7 @@ func TestExecuteCapability_SchemaValidation_InvalidPayload(t *testing.T) {
 	if last.EventType != zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
 		t.Errorf("want FAILED, got %v", last.EventType)
 	}
-	if last.Error.Code != "INVALID_INPUT" {
+	if last.Error.Code != testErrCodeInvalidInput {
 		t.Errorf("code = %s, want INVALID_INPUT", last.Error.Code)
 	}
 }
@@ -292,7 +297,7 @@ func TestExecuteCapability_EmptyCapabilityName(t *testing.T) {
 }
 
 func TestExecuteCapability_NonJSONPayload(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
@@ -321,13 +326,13 @@ func TestExecuteCapability_NonJSONPayload(t *testing.T) {
 	if last.EventType != zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
 		t.Errorf("want FAILED for non-JSON payload, got %v", last.EventType)
 	}
-	if last.Error.Code != "INVALID_INPUT" {
+	if last.Error.Code != testErrCodeInvalidInput {
 		t.Errorf("code = %s, want INVALID_INPUT", last.Error.Code)
 	}
 }
 
 func TestHandler_LargeResponseBody(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		// Exceed the 10 MB cap by one byte
 		_, _ = w.Write(make([]byte, 10*1024*1024+2))
@@ -343,13 +348,13 @@ func TestHandler_LargeResponseBody(t *testing.T) {
 	if last.EventType != zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
 		t.Errorf("want FAILED for oversized body, got %v", last.EventType)
 	}
-	if last.Error.Code != "UPSTREAM_ERROR" {
+	if last.Error.Code != testErrCodeUpstreamError {
 		t.Errorf("code = %s, want UPSTREAM_ERROR", last.Error.Code)
 	}
 }
 
 func TestExecuteCapability_InvalidSchemaConfig(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
@@ -378,7 +383,7 @@ func TestExecuteCapability_InvalidSchemaConfig(t *testing.T) {
 	if last.EventType != zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
 		t.Errorf("want FAILED for invalid schema config, got %v", last.EventType)
 	}
-	if last.Error.Code != "INVALID_INPUT" {
+	if last.Error.Code != testErrCodeInvalidInput {
 		t.Errorf("code = %s, want INVALID_INPUT", last.Error.Code)
 	}
 }
