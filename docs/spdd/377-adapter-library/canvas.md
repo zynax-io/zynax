@@ -11,6 +11,10 @@
 **Date:** 2026-05-07
 **Status:** Aligned
 
+> **Scope note:** This is a milestone-level Canvas. It states the M5 objective and cross-cutting
+> constraints for all five adapters. Each child `feat:` issue carries its own Aligned Canvas before
+> implementation begins (ADR-019). This Canvas is the authoritative parent for them all.
+
 ---
 
 ## R — Requirements
@@ -48,6 +52,16 @@
 - **`ExecuteCapabilityRequest`** (proto message) — `request_id` (UUID v4), `capability_name`, `task_id`, `workflow_id`, `input_payload` (JSON bytes), `timeout_seconds`. Sent by the task broker to trigger a capability.
 - **`TaskEvent`** (proto message) — `task_id`, `event_type` (PROGRESS / COMPLETED / FAILED), `payload` (JSON bytes), `timestamp`, `error` (`CapabilityError`). Adapters stream these back to the task broker.
 - **`CapabilityError`** (proto message) — `code` (well-known string: `"TIMEOUT"`, `"INVALID_INPUT"`, `"UPSTREAM_ERROR"`, `"RESOURCE_EXHAUSTED"`, `"INTERNAL"`), `message` (human-readable, sanitised — no raw API responses, no stack traces, no credential values).
+
+### Adapter index (all five M5 adapters)
+
+| Adapter | Language | Canvas (Aligned) | Epic | Step issues |
+|---------|----------|------------------|------|-------------|
+| `agents/adapters/http/` — REST API proxy | Go | [380 canvas](../380-http-adapter/canvas.md) ✅ | #380 | #391 #392 #393 #394 #395 #396 #397 |
+| `agents/adapters/git/` — GitHub/GitLab operations | Go | [381 canvas](../381-git-adapter/canvas.md) ✅ | #381 | #399 #400 #401 #402 #403 |
+| `agents/adapters/ci/` — CI pipeline triggers | Go | [382 canvas](../382-ci-adapter/canvas.md) ✅ | #382 | #404 #405 #406 #407 #408 |
+| `agents/adapters/llm/` — LLM provider wrapper | Python | [383 canvas](../383-llm-adapter/canvas.md) ✅ | #383 | #409 #410 #411 #412 #413 |
+| `agents/adapters/langgraph/` — LangGraph graph | Python | [384 canvas](../384-langgraph-adapter/canvas.md) ✅ | #384 | #414 #415 #416 #417 #418 |
 
 ### New entities (introduced by M5)
 
@@ -105,6 +119,7 @@ On graceful shutdown:
 - Python adapters: standalone `pyproject.toml` with `uv`; two-stage Docker image.
 - The http-adapter (step 1) establishes the Go scaffold; git/ci adapters reuse it structurally.
 - The llm-adapter (step 4) establishes the Python scaffold; langgraph-adapter reuses it structurally.
+- **Parallel execution:** Go Track (#380/#381/#382) and Python Track (#383/#384) are fully independent — no shared code, no shared CI gates. Both tracks run simultaneously. Within the Go Track, #381 and #382 can also overlap once the http-adapter scaffold is available. Within each adapter, the five implementation steps are serial: BDD → scaffold → handler → registry → docker.
 
 ### What we WILL NOT do
 
@@ -188,18 +203,23 @@ agents/adapters/
 
 ## O — Operations
 
-Each step is a separate `feat:` PR with its own REASONS Canvas and BDD feature file committed before implementation.
-Steps 1–3 (Go track) and steps 4–5 (Python track) are independent and can proceed in parallel.
+Each step is a separate `feat:` PR with its own Aligned REASONS Canvas and BDD feature file committed
+before implementation. Go Track (steps 1–3) and Python Track (steps 4–5) are independent and run in
+full parallel. Within the Go Track, steps 2–3 can also overlap.
 
-1. **feat(adapters/http) #380** — Go module scaffold (`go.mod`, `main.go` with graceful shutdown, `internal/adapter.go` with `CapabilityRouter` + HTTP proxy `CapabilityHandler`, `internal/config.go` with `AdapterConfig`/`RouteConfig` YAML parsing); `ExecuteCapability` streaming loop (ticker PROGRESS for >2 s, COMPLETED/FAILED terminal); `input_payload` JSON Schema validation before execution (INVALID_INPUT on failure); `GetCapabilitySchema` returning schema from config; SSRF prevention (all URLs static config, never from payload); `DeregisterAgent` on shutdown; two-stage Alpine Dockerfile; docker-compose entry. BDD: `http_adapter.feature`. Establishes the Go adapter scaffold reused by steps 2 and 3.
+**Go Track — steps 1–3 (all parallel with Python Track)**
 
-2. **feat(adapters/git) #381** — Go module (same layout as http-adapter); `go-github` client with PAT/App auth from env-var ref (never from payload); `GitConfig`; capabilities: `open_pr` (create PR, validate branch exists before API call), `request_review` (request reviewers, poll for confirmation with PROGRESS), `get_diff` (fetch unified diff, truncate at 4 MB with `truncated: true` flag); rate-limit awareness (`RESOURCE_EXHAUSTED` on 429/403); GitLab config flag (stub only). BDD: `git_adapter.feature`.
+1. **feat(adapters/http) #380** ✅ Canvas Aligned · steps: #392 BDD ✅ · #391 scaffold · #393 config · #394 handler · #395 registry · #396 bootstrap · #397 docker — Go module scaffold (`go.mod`, `main.go` with graceful shutdown, `CapabilityRouter` + HTTP proxy `CapabilityHandler`, `AdapterConfig`/`RouteConfig` YAML parsing); `ExecuteCapability` streaming loop (ticker PROGRESS for >2 s, COMPLETED/FAILED terminal); `input_payload` JSON Schema validation before execution (INVALID_INPUT on failure); `GetCapabilitySchema` from config; SSRF prevention (all URLs static config, never from payload); `DeregisterAgent` on shutdown; two-stage Alpine Dockerfile; docker-compose entry. Establishes the Go adapter scaffold reused by steps 2 and 3.
 
-3. **feat(adapters/ci) #382** — Go module; GitHub Actions REST API; `CIConfig`; capabilities: `trigger_workflow` (dispatch `workflow_dispatch`, poll up to 10 s for run ID to appear), `get_run_status` (`PollLoop` with exponential backoff 2 s→30 s, PROGRESS per cycle with run URL and status, TIMEOUT enforcement via ctx deadline); Jenkins config flag (stub only, returns `INTERNAL` with "not implemented" message). BDD: `ci_adapter.feature`.
+2. **feat(adapters/git) #381** ✅ Canvas Aligned · steps: #399 BDD · #400 scaffold · #401 handler · #402 registry · #403 docker — Go module (same layout as http-adapter); `go-github` client with PAT/App auth from env-var ref (never from payload); `GitConfig`; capabilities: `open_pr` (create PR, validate branch before call), `request_review` (request reviewers, poll with PROGRESS), `get_diff` (unified diff, truncate at 4 MB with `truncated: true`); rate-limit awareness (`RESOURCE_EXHAUSTED` on 429/403); GitLab config flag (stub only).
 
-4. **feat(adapters/llm) #383** — Python module; `AdapterConfig` + `ProviderConfig` parsed at startup; `chat_completion` capability; provider routing: `openai.AsyncOpenAI` for OpenAI, `aiobotocore` for Bedrock (required — boto3 sync is forbidden on the event loop), `httpx.AsyncClient` for Ollama REST; async token streaming → PROGRESS events; COMPLETED with full response; `asyncio.wait_for` for TIMEOUT enforcement; `pydantic.SecretStr` for key fields (never log, never include in CapabilityError); `bandit`+`pip-audit`+`mypy --strict` clean; `[[tool.mypy.overrides]] ignore_missing_imports = true` for untyped provider SDKs. BDD: `llm_adapter.feature`. Establishes the Python adapter scaffold reused by step 5.
+3. **feat(adapters/ci) #382** ✅ Canvas Aligned · steps: #404 BDD · #405 scaffold · #406 handler · #407 registry · #408 docker — Go module; GitHub Actions REST API; `CIConfig`; capabilities: `trigger_workflow` (dispatch `workflow_dispatch`, poll ≤10 s for run ID), `get_run_status` (`PollLoop` 2 s→30 s backoff, PROGRESS per cycle with run URL and status, TIMEOUT via ctx deadline); Jenkins stub (returns `INTERNAL` "not implemented").
 
-5. **feat(adapters/langgraph) #384** — Python module; `GraphMount` config; `GraphLoader` imports and compiles LangGraph graphs at adapter startup (fail-fast if any graph fails to import); `LangGraphHandler` calls `compiled_graph.astream(input_state)` async; one PROGRESS event per `(node_name, state_update)` tuple; ticker PROGRESS if no node fires within 2 s; final graph state serialised with `json.dumps(..., default=str)` fallback; `asyncio.wait_for` for TIMEOUT; graph exceptions mapped to typed `CapabilityError` codes; ADR-015 scope enforced (LangGraph as capability, not engine — documented in Canvas and code comments). BDD: `langgraph_adapter.feature`.
+**Python Track — steps 4–5 (all parallel with Go Track and with each other)**
+
+4. **feat(adapters/llm) #383** ✅ Canvas Aligned · steps: #409 BDD · #410 scaffold · #411 providers · #412 registry · #413 docker — Python module; `AdapterConfig` + `ProviderConfig`; `chat_completion` capability; provider routing: `openai.AsyncOpenAI`, `aiobotocore` for Bedrock (boto3 sync is forbidden), `httpx.AsyncClient` for Ollama; async token streaming → PROGRESS events; COMPLETED with full response; `asyncio.wait_for` for TIMEOUT; `pydantic.SecretStr` for key fields. Establishes the Python adapter scaffold reused by step 5.
+
+5. **feat(adapters/langgraph) #384** ✅ Canvas Aligned · steps: #414 BDD · #415 scaffold · #416 loader · #417 registry · #418 docker — Python module; `GraphMount` config; `GraphLoader` imports and compiles graphs at startup (fail-fast); `LangGraphHandler` calls `compiled_graph.astream(input_state)` async; one PROGRESS per `(node_name, state_update)` tuple; 2 s ticker PROGRESS; final state via `json.dumps(..., default=str)`; `asyncio.wait_for` for TIMEOUT; graph exceptions → typed `CapabilityError`; ADR-015 scope enforced (LangGraph as capability only).
 
 ---
 
