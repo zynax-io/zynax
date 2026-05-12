@@ -840,6 +840,28 @@ jobs:
             fi
           fi
 
+      # ── cmd/zynax-ci coverage gate (≥80%) ────────────────────────────────
+      - name: cmd/zynax-ci coverage gate (≥80%)
+        if: steps.go-detect.outputs.has_cli != '0'
+        run: |
+          if [ -f "cmd/zynax-ci/coverage.out" ]; then
+            cd cmd/zynax-ci
+            total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
+                    | grep "^total:" | awk '{print $3}' | tr -d '%')
+            cd ../..
+            if [ -z "$total" ]; then
+              echo "  ⚠ no coverage total for cmd/zynax-ci — skipping"
+            else
+              echo "── CLI coverage: cmd/zynax-ci  ${total}%"
+              if awk "BEGIN{exit !(${total} < 80)}"; then
+                echo "  ❌ ${total}% < 80% — coverage gate failed for cmd/zynax-ci"
+                exit 1
+              else
+                echo "  ✅ ${total}% ≥ 80% for cmd/zynax-ci"
+              fi
+            fi
+          fi
+
       # ── BDD results: post PR comment ──────────────────────────────────────
       - name: Post BDD contract test report on PR
         if: always() && github.event_name == 'pull_request' && steps.go-detect.outputs.has_bdd_impl != '0'

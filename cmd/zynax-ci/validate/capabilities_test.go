@@ -26,7 +26,7 @@ func writeCapabilitySchema(t *testing.T, dir string) string {
 	}
 	b, _ := json.Marshal(schema)
 	path := filepath.Join(dir, "capability.schema.json")
-	if err := os.WriteFile(path, b, 0o644); err != nil {
+	if err := os.WriteFile(path, b, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return path

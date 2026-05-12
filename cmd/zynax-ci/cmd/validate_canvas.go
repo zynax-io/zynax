@@ -12,6 +12,8 @@ import (
 	"github.com/zynax-io/zynax/cmd/zynax-ci/validate"
 )
 
+const canvasFormatJSON = "json"
+
 var canvasFormat string
 
 var validateCanvasCmd = &cobra.Command{
@@ -50,7 +52,7 @@ func runValidateCanvas(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if len(canvases) == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "(no canvas.md files found under %s)\n", root)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "(no canvas.md files found under %s)\n", root)
 		return nil
 	}
 
@@ -68,7 +70,7 @@ func runValidateCanvas(cmd *cobra.Command, args []string) error {
 		results = append(results, canvasResult{File: path, Errors: errs, Warnings: warns})
 	}
 
-	if canvasFormat == "json" {
+	if canvasFormat == canvasFormatJSON {
 		return printCanvasJSON(cmd, results, failed)
 	}
 	return printCanvasText(cmd, results, failed)
@@ -76,21 +78,22 @@ func runValidateCanvas(cmd *cobra.Command, args []string) error {
 
 func printCanvasText(cmd *cobra.Command, results []canvasResult, failed bool) error {
 	for _, r := range results {
-		if len(r.Errors) > 0 {
-			fmt.Fprintf(cmd.ErrOrStderr(), "FAIL %s:\n", r.File)
+		switch {
+		case len(r.Errors) > 0:
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "FAIL %s:\n", r.File)
 			for _, e := range r.Errors {
-				fmt.Fprintf(cmd.ErrOrStderr(), "  ERROR  %s\n", e.Message)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ERROR  %s\n", e.Message)
 			}
 			for _, w := range r.Warnings {
-				fmt.Fprintf(cmd.ErrOrStderr(), "  WARN   %s\n", w.Message)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  WARN   %s\n", w.Message)
 			}
-		} else if len(r.Warnings) > 0 {
-			fmt.Fprintf(cmd.OutOrStdout(), "  WARN %s:\n", r.File)
+		case len(r.Warnings) > 0:
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  WARN %s:\n", r.File)
 			for _, w := range r.Warnings {
-				fmt.Fprintf(cmd.OutOrStdout(), "         %s\n", w.Message)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "         %s\n", w.Message)
 			}
-		} else {
-			fmt.Fprintf(cmd.OutOrStdout(), "  OK   %s\n", r.File)
+		default:
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  OK   %s\n", r.File)
 		}
 	}
 	if failed {

@@ -35,7 +35,7 @@ func init() {
 	checkCmd.AddCommand(checkAIContextCmd)
 }
 
-func runCheckAIContext(cmd *cobra.Command, args []string) error {
+func runCheckAIContext(_ *cobra.Command, _ []string) error {
 	root := aiContextRoot
 	if root == "." {
 		var err error

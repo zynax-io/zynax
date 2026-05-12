@@ -19,7 +19,7 @@ type SchemaResult struct {
 
 // Schema validates a single JSON Schema file: well-formed JSON + $schema field present.
 func Schema(filePath string) ([]ValidationError, error) {
-	raw, err := os.ReadFile(filePath)
+	raw, err := os.ReadFile(filePath) //nolint:gosec // filePath is caller-supplied schema path
 	if err != nil {
 		return nil, fmt.Errorf("validate schema: read %q: %w", filePath, err)
 	}

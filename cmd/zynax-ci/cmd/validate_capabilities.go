@@ -11,6 +11,8 @@ import (
 	"github.com/zynax-io/zynax/cmd/zynax-ci/validate"
 )
 
+const capabilitiesFormatJSON = "json"
+
 var capabilitiesSchemaDir string
 var capabilitiesFormat string
 
@@ -42,7 +44,7 @@ func runValidateCapabilities(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(results) == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "(no capability declarations found in %s)\n", dir)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "(no capability declarations found in %s)\n", dir)
 		return nil
 	}
 
@@ -53,7 +55,7 @@ func runValidateCapabilities(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if capabilitiesFormat == "json" {
+	if capabilitiesFormat == capabilitiesFormatJSON {
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(results)
@@ -65,16 +67,16 @@ func runValidateCapabilities(cmd *cobra.Command, args []string) error {
 
 	for _, r := range results {
 		if len(r.Errors) > 0 {
-			fmt.Fprintf(cmd.ErrOrStderr(), "FAIL %s capability %q:\n", r.File, r.Capability)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "FAIL %s capability %q:\n", r.File, r.Capability)
 			for _, e := range r.Errors {
 				if e.Path != "" {
-					fmt.Fprintf(cmd.ErrOrStderr(), "  %s: %s\n", e.Path, e.Message)
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  %s: %s\n", e.Path, e.Message)
 				} else {
-					fmt.Fprintf(cmd.ErrOrStderr(), "  ERROR  %s\n", e.Message)
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ERROR  %s\n", e.Message)
 				}
 			}
 		} else {
-			fmt.Fprintf(cmd.OutOrStdout(), "  OK   %s :: %s\n", r.File, r.Capability)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  OK   %s :: %s\n", r.File, r.Capability)
 		}
 	}
 	if failed {

@@ -50,53 +50,65 @@ func Capabilities(dir, schemaPath string) ([]CapabilityResult, error) {
 
 	var results []CapabilityResult
 	for _, path := range files {
-		raw, err := os.ReadFile(path)
+		fileResults, err := validateCapabilitiesInFile(path, sch)
 		if err != nil {
-			return nil, fmt.Errorf("validate capabilities: read %q: %w", path, err)
+			return nil, err
 		}
-
-		var doc interface{}
-		if err := yaml.Unmarshal(raw, &doc); err != nil {
-			continue // not a valid YAML doc — skip
-		}
-
-		m, ok := normaliseMap(doc)
-		if !ok {
-			continue
-		}
-
-		caps := extractCapabilities(m)
-		for _, cap := range caps {
-			name, _ := cap["name"].(string)
-			if name == "" {
-				name = "?"
-			}
-
-			jsonBytes, err := json.Marshal(cap)
-			if err != nil {
-				return nil, fmt.Errorf("validate capabilities: marshal capability in %q: %w", path, err)
-			}
-			var instance interface{}
-			if err := json.Unmarshal(jsonBytes, &instance); err != nil {
-				return nil, fmt.Errorf("validate capabilities: unmarshal capability in %q: %w", path, err)
-			}
-
-			if valErr := sch.Validate(instance); valErr != nil {
-				var ve *jsonschema.ValidationError
-				if errors.As(valErr, &ve) {
-					results = append(results, CapabilityResult{
-						File:       path,
-						Capability: name,
-						Errors:     flattenManifestErrors(path, ve),
-					})
-					continue
-				}
-				return nil, fmt.Errorf("validate capabilities: %w", valErr)
-			}
-			results = append(results, CapabilityResult{File: path, Capability: name})
-		}
+		results = append(results, fileResults...)
 	}
 	return results, nil
+}
+
+func validateCapabilitiesInFile(path string, sch *jsonschema.Schema) ([]CapabilityResult, error) {
+	raw, err := os.ReadFile(path) //nolint:gosec // path is from os.ReadDir on caller-supplied dir
+	if err != nil {
+		return nil, fmt.Errorf("validate capabilities: read %q: %w", path, err)
+	}
+
+	var doc interface{}
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return nil, nil // not a valid YAML doc — skip
+	}
+
+	m, ok := normaliseMap(doc)
+	if !ok {
+		return nil, nil
+	}
+
+	var results []CapabilityResult
+	for _, capMap := range extractCapabilities(m) {
+		r, err := validateOneCapability(path, capMap, sch)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, nil
+}
+
+func validateOneCapability(path string, capMap map[string]interface{}, sch *jsonschema.Schema) (CapabilityResult, error) {
+	name, _ := capMap["name"].(string)
+	if name == "" {
+		name = "?"
+	}
+
+	jsonBytes, err := json.Marshal(capMap)
+	if err != nil {
+		return CapabilityResult{}, fmt.Errorf("validate capabilities: marshal capability in %q: %w", path, err)
+	}
+	var instance interface{}
+	if err := json.Unmarshal(jsonBytes, &instance); err != nil {
+		return CapabilityResult{}, fmt.Errorf("validate capabilities: unmarshal capability in %q: %w", path, err)
+	}
+
+	if valErr := sch.Validate(instance); valErr != nil {
+		var ve *jsonschema.ValidationError
+		if errors.As(valErr, &ve) {
+			return CapabilityResult{File: path, Capability: name, Errors: flattenManifestErrors(path, ve)}, nil
+		}
+		return CapabilityResult{}, fmt.Errorf("validate capabilities: %w", valErr)
+	}
+	return CapabilityResult{File: path, Capability: name}, nil
 }
 
 // extractCapabilities pulls capabilities from spec.capabilities or top-level capabilities.
@@ -115,8 +127,8 @@ func extractCapabilities(m map[string]interface{}) []map[string]interface{} {
 
 	var out []map[string]interface{}
 	for _, item := range raw {
-		if cap, ok := item.(map[string]interface{}); ok {
-			out = append(out, cap)
+		if capMap, ok := item.(map[string]interface{}); ok {
+			out = append(out, capMap)
 		}
 	}
 	return out
