@@ -510,6 +510,11 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      # Shared file written by test steps; read by the coverage comment step.
+      # Format per line: type|name|pkg_label|pct  (pct is a bare number, e.g. 91.2)
+      - name: Initialize coverage results file
+        run: echo "" > /tmp/coverage-results.txt
+
       # ── BDD contract spec: scenario count summary ────────────────────────
       - name: Report BDD contract scenario counts
         run: |
@@ -586,15 +591,19 @@ jobs:
       - name: Go domain coverage measurement
         if: steps.go-detect.outputs.has_services != '0'
         run: |
-          # Run tests scoped to internal/domain/ only to produce a clean coverage
-          # profile for the gate. Running ./... with -coverpkg produces merged profiles
-          # that Go's cover tool cannot summarise with a total: line in all Go versions.
+          # Run tests scoped to internal/domain/ only for a clean coverage profile.
+          # go tool cover is run from inside the service dir so it resolves go.mod.
           for svc in ${{ env.SERVICE_LIST }}; do
             if [ -f "services/${svc}/go.mod" ] && [ -d "services/${svc}/internal/domain" ]; then
               cd "services/${svc}"
               GOWORK=off go test -tags="" ./internal/domain/... \
                 -coverprofile=domain-coverage.out \
                 -covermode=atomic 2>/dev/null || true
+              if [ -f domain-coverage.out ]; then
+                pct=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
+                      | grep "^total:" | awk '{print $3}' | tr -d '%')
+                [ -n "$pct" ] && echo "service|${svc}|internal/domain|${pct}" >> /tmp/coverage-results.txt
+              fi
               cd ../..
             fi
           done
@@ -605,14 +614,16 @@ jobs:
           failed=false
           for svc in ${{ env.SERVICE_LIST }}; do
             if [ -f "services/${svc}/domain-coverage.out" ]; then
-              total=$(GOWORK=off go tool cover -func="services/${svc}/domain-coverage.out" \
+              # cd into the module so go tool cover resolves go.mod correctly
+              cd "services/${svc}"
+              total=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
                       | grep "^total:" | awk '{print $3}' | tr -d '%')
+              cd ../..
               if [ -z "$total" ]; then
                 echo "  ⚠ no coverage total for services/${svc} — skipping"
                 continue
               fi
-              GOWORK=off go tool cover -func="services/${svc}/domain-coverage.out" | grep "^total:" \
-                | awk -v svc="${svc}" '{printf "── domain coverage: services/%s  %s\n", svc, $3}'
+              echo "── domain coverage: services/${svc}  ${total}%"
               if awk "BEGIN{exit !(${total} < 90)}"; then
                 echo "  ❌ ${total}% < 90% — domain coverage gate failed for services/${svc}"
                 failed=true
@@ -734,7 +745,13 @@ jobs:
             if [ -f "agents/adapters/${adapter}/go.mod" ]; then
               echo "── test: agents/adapters/${adapter}"
               cd "agents/adapters/${adapter}"
-              GOWORK=off go test ./... -v -race -timeout 60s -count=1 || failed=true
+              GOWORK=off go test ./... -v -race -timeout 60s -count=1 \
+                -coverprofile=coverage.out -covermode=atomic || failed=true
+              if [ -f coverage.out ]; then
+                pct=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
+                      | grep "^total:" | awk '{print $3}' | tr -d '%')
+                [ -n "$pct" ] && echo "adapter|${adapter}||${pct}" >> /tmp/coverage-results.txt
+              fi
               cd ../../..
             fi
           done
@@ -749,7 +766,13 @@ jobs:
             if [ -f "cmd/${cli}/go.mod" ]; then
               echo "── test: cmd/${cli}"
               cd "cmd/${cli}"
-              GOWORK=off go test ./... -v -race -timeout 60s -count=1 || failed=true
+              GOWORK=off go test ./... -v -race -timeout 60s -count=1 \
+                -coverprofile=coverage.out -covermode=atomic || failed=true
+              if [ -f coverage.out ]; then
+                pct=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
+                      | grep "^total:" | awk '{print $3}' | tr -d '%')
+                [ -n "$pct" ] && echo "cli|${cli}||${pct}" >> /tmp/coverage-results.txt
+              fi
               cd ../..
             fi
           done
@@ -851,9 +874,16 @@ jobs:
             uv run pytest tests/ \
               --cov=src \
               --cov-report=term-missing \
+              --cov-report=json:coverage.json \
               --cov-fail-under=90 \
               -v \
               --tb=short || failed=true
+            if [ -f coverage.json ]; then
+              pct=$(python3 -c \
+                "import json; d=json.load(open('coverage.json')); print(f\"{d['totals']['percent_covered']:.1f}\")" \
+                2>/dev/null || echo "")
+              [ -n "$pct" ] && echo "python|sdk||${pct}" >> /tmp/coverage-results.txt
+            fi
             cd ../..
           fi
 
@@ -864,14 +894,134 @@ jobs:
               uv run pytest tests/ \
                 --cov=src \
                 --cov-report=term-missing \
+                --cov-report=json:coverage.json \
                 --cov-fail-under=90 \
                 -v \
                 --tb=short || failed=true
+              if [ -f coverage.json ]; then
+                pct=$(python3 -c \
+                  "import json; d=json.load(open('coverage.json')); print(f\"{d['totals']['percent_covered']:.1f}\")" \
+                  2>/dev/null || echo "")
+                [ -n "$pct" ] && echo "python|${agent}||${pct}" >> /tmp/coverage-results.txt
+              fi
               cd ../../..
             fi
           done
 
           $failed && exit 1 || echo "✅ Python tests passed"
+
+      # ── Coverage comment: build markdown from shared results file ─────────
+      - name: Build coverage comment
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          RESULTS=/tmp/coverage-results.txt
+          OUT=/tmp/coverage-comment.md
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          SHA="${{ github.sha }}"
+
+          {
+            echo "<!-- zynax-coverage-report -->"
+            echo "## Coverage Report"
+            echo ""
+
+            # ── Go services ────────────────────────────────────────────────
+            if grep -q "^service|" "$RESULTS" 2>/dev/null; then
+              echo "### Go services — \`internal/domain\` (gate ≥ 90%)"
+              echo ""
+              echo "| Service | Coverage | Gate |"
+              echo "|---------|---------|------|"
+              grep "^service|" "$RESULTS" | while IFS='|' read -r _ name _pkg pct; do
+                gate=$(awk -v p="${pct:-0}" 'BEGIN{print (p+0 >= 90) ? "✅" : "❌"}')
+                echo "| \`services/${name}\` | **${pct}%** | ${gate} |"
+              done
+              echo ""
+            fi
+
+            # ── Go adapters ────────────────────────────────────────────────
+            if grep -q "^adapter|" "$RESULTS" 2>/dev/null; then
+              echo "### Go adapters (gate ≥ 85%)"
+              echo ""
+              echo "| Adapter | Coverage | Gate |"
+              echo "|---------|---------|------|"
+              grep "^adapter|" "$RESULTS" | while IFS='|' read -r _ name _ pct; do
+                gate=$(awk -v p="${pct:-0}" 'BEGIN{print (p+0 >= 85) ? "✅" : "❌"}')
+                echo "| \`agents/adapters/${name}\` | **${pct}%** | ${gate} |"
+              done
+              echo ""
+            fi
+
+            # ── CLI tools ──────────────────────────────────────────────────
+            if grep -q "^cli|" "$RESULTS" 2>/dev/null; then
+              echo "### CLI tools (gate ≥ 80%)"
+              echo ""
+              echo "| Tool | Coverage | Gate |"
+              echo "|------|---------|------|"
+              grep "^cli|" "$RESULTS" | while IFS='|' read -r _ name _ pct; do
+                gate=$(awk -v p="${pct:-0}" 'BEGIN{print (p+0 >= 80) ? "✅" : "❌"}')
+                echo "| \`cmd/${name}\` | **${pct}%** | ${gate} |"
+              done
+              echo ""
+            fi
+
+            # ── Python ─────────────────────────────────────────────────────
+            if grep -q "^python|" "$RESULTS" 2>/dev/null; then
+              echo "### Python (gate ≥ 90%)"
+              echo ""
+              echo "| Module | Coverage | Gate |"
+              echo "|--------|---------|------|"
+              grep "^python|" "$RESULTS" | while IFS='|' read -r _ name _ pct; do
+                gate=$(awk -v p="${pct:-0}" 'BEGIN{print (p+0 >= 90) ? "✅" : "❌"}')
+                echo "| \`agents/${name}\` | **${pct}%** | ${gate} |"
+              done
+              echo ""
+            fi
+
+            if ! grep -q "^" "$RESULTS" 2>/dev/null || [ ! -s "$RESULTS" ]; then
+              echo "_No coverage data collected — tests may have been skipped._"
+              echo ""
+            fi
+
+            echo "<sub>Run [#${{ github.run_number }}](${RUN_URL}) · \`${SHA:0:7}\`</sub>"
+          } > "$OUT"
+
+      - name: Post coverage report on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- zynax-coverage-report -->';
+
+            let body;
+            if (fs.existsSync('/tmp/coverage-comment.md')) {
+              body = fs.readFileSync('/tmp/coverage-comment.md', 'utf8');
+            } else {
+              body = `${marker}\n## Coverage Report\n\n_No coverage data available for this run._\n\n<sub>Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})</sub>`;
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
 
 # ── Integration Tests ─────────────────────────────────────────────────────────
 # Runs against real backing services (not mocked). Currently a no-op skeleton;
