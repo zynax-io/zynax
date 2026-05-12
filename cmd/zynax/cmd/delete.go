@@ -22,7 +22,7 @@ var deleteWorkflowCmd = &cobra.Command{
 		if err := gw.DeleteWorkflow(cmd.Context(), args[0]); err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "cancelled: %s\n", args[0])
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "cancelled: %s\n", args[0])
 		return nil
 	},
 }

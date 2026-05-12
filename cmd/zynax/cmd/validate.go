@@ -56,11 +56,11 @@ func runValidateManifest(cmd *cobra.Command, args []string) error {
 
 func printValidateText(cmd *cobra.Command, file string, errs []validate.ValidationError) error {
 	if len(errs) == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "ok: %s\n", file)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "ok: %s\n", file)
 		return nil
 	}
 	for _, e := range errs {
-		fmt.Fprintln(cmd.ErrOrStderr(), e.Error())
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), e.Error())
 	}
 	return fmt.Errorf("validation failed with %d error(s)", len(errs))
 }

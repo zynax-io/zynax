@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -61,7 +60,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("gitops: create watcher: %w", err)
 	}
-	defer watcher.Close()
+	defer func() { _ = watcher.Close() }()
 
 	if err := w.addDirs(watcher); err != nil {
 		return err
@@ -106,7 +105,7 @@ func (w *Watcher) Run(ctx context.Context) error {
 
 // applyFile hashes the file and calls apply only if the content changed.
 func (w *Watcher) applyFile(ctx context.Context, path string) {
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) //nolint:gosec // path is from fsnotify events on a trusted watch dir
 	if err != nil {
 		slog.Warn("gitops: read file", "path", path, "err", err)
 		return
@@ -161,14 +160,14 @@ func (w *Watcher) addDirs(fw *fsnotify.Watcher) error {
 
 func (w *Watcher) loadState() error {
 	statePath := filepath.Join(w.dir, stateFile)
-	f, err := os.Open(statePath)
+	f, err := os.Open(statePath) //nolint:gosec // statePath is always under the user-supplied watch dir
 	if os.IsNotExist(err) {
 		return nil // first run — no state yet
 	}
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return json.NewDecoder(f).Decode(&w.state)
 }
 
@@ -180,11 +179,11 @@ func (w *Watcher) saveState() error {
 	}
 	tmpName := f.Name()
 	if err := json.NewEncoder(f).Encode(w.state); err != nil {
-		f.Close()
+		_ = f.Close()
 		_ = os.Remove(tmpName)
 		return err
 	}
-	f.Close()
+	_ = f.Close()
 	return os.Rename(tmpName, statePath)
 }
 
@@ -198,6 +197,6 @@ func isYAML(path string) bool {
 // hashContent returns a stable hex-encoded SHA-256 of content.
 func hashContent(content []byte) string {
 	h := sha256.New()
-	_, _ = io.WriteString(h, string(content))
+	_, _ = h.Write(content)
 	return hex.EncodeToString(h.Sum(nil))
 }

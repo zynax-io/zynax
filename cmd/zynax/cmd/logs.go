@@ -24,14 +24,14 @@ var logsCmd = &cobra.Command{
 				if err != nil {
 					return err
 				}
-				fmt.Fprintln(cmd.OutOrStdout(), string(b))
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(b))
 				return nil
 			}
 			ts := ev.Timestamp
 			if ts == "" {
 				ts = "-"
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "[%s] %-30s %s → %s (%s)\n",
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[%s] %-30s %s → %s (%s)\n",
 				ts, ev.EventType, ev.FromState, ev.ToState, ev.Status)
 			return nil
 		})

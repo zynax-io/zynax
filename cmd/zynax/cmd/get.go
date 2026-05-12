@@ -23,10 +23,10 @@ var getWorkflowCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "run_id:        %s\n", run.RunID)
-		fmt.Fprintf(cmd.OutOrStdout(), "workflow_id:   %s\n", run.WorkflowID)
-		fmt.Fprintf(cmd.OutOrStdout(), "status:        %s\n", run.Status)
-		fmt.Fprintf(cmd.OutOrStdout(), "current_state: %s\n", run.CurrentState)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "run_id:        %s\n", run.RunID)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "workflow_id:   %s\n", run.WorkflowID)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "status:        %s\n", run.Status)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "current_state: %s\n", run.CurrentState)
 		return nil
 	},
 }
