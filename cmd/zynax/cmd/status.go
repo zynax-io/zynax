@@ -31,7 +31,7 @@ var statusWorkflowCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", run.Status)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n", run.Status)
 		if !terminalStatuses[run.Status] {
 			os.Exit(2)
 		}

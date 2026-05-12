@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-// Sentinel errors returned by Gateway methods.
+// ErrNotFound is returned when the api-gateway responds with HTTP 404.
 var ErrNotFound = errors.New("zynax: not found")
 
 // WorkflowStatus is the api-gateway's workflow run summary.

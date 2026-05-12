@@ -54,7 +54,7 @@ func TestManifest_MissingRequiredField(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "bad.yaml")
 	// Missing 'spec' — required by the Workflow schema.
-	if err := os.WriteFile(f, []byte("kind: Workflow\napiVersion: zynax.io/v1\nmetadata:\n  name: x\n"), 0o644); err != nil {
+	if err := os.WriteFile(f, []byte("kind: Workflow\napiVersion: zynax.io/v1\nmetadata:\n  name: x\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -70,7 +70,7 @@ func TestManifest_MissingRequiredField(t *testing.T) {
 func TestManifest_UnknownKind(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "unknown.yaml")
-	if err := os.WriteFile(f, []byte("kind: Unknown\napiVersion: zynax.io/v1\n"), 0o644); err != nil {
+	if err := os.WriteFile(f, []byte("kind: Unknown\napiVersion: zynax.io/v1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -89,7 +89,7 @@ func TestManifest_UnknownKind(t *testing.T) {
 func TestManifest_MissingKind(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "nokind.yaml")
-	if err := os.WriteFile(f, []byte("apiVersion: zynax.io/v1\nmetadata:\n  name: x\n"), 0o644); err != nil {
+	if err := os.WriteFile(f, []byte("apiVersion: zynax.io/v1\nmetadata:\n  name: x\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -105,7 +105,7 @@ func TestManifest_MissingKind(t *testing.T) {
 func TestManifest_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "broken.yaml")
-	if err := os.WriteFile(f, []byte(":\t invalid yaml {{{"), 0o644); err != nil {
+	if err := os.WriteFile(f, []byte(":\t invalid yaml {{{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -122,5 +122,37 @@ func TestManifest_FileNotFound(t *testing.T) {
 	_, err := validate.Manifest("/nonexistent/path/manifest.yaml", repoSchemaDir())
 	if err == nil {
 		t.Fatal("expected error for missing file, got nil")
+	}
+}
+
+func TestValidationError_ErrorWithPath(t *testing.T) {
+	e := validate.ValidationError{File: "f.yaml", Path: "/kind", Message: "bad kind"}
+	got := e.Error()
+	if got != "f.yaml: at /kind: bad kind" {
+		t.Errorf("Error() = %q", got)
+	}
+}
+
+func TestValidationError_ErrorWithoutPath(t *testing.T) {
+	e := validate.ValidationError{File: "f.yaml", Message: "not a map"}
+	got := e.Error()
+	if got != "f.yaml: not a map" {
+		t.Errorf("Error() = %q", got)
+	}
+}
+
+func TestManifest_NonMappingYAML(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "list.yaml")
+	// A YAML list (not a mapping) should produce a validation error.
+	if err := os.WriteFile(f, []byte("- item1\n- item2\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	errs, err := validate.Manifest(f, repoSchemaDir())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(errs) == 0 {
+		t.Fatal("expected error for non-mapping YAML, got none")
 	}
 }

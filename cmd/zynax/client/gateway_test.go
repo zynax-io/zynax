@@ -5,6 +5,7 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -131,7 +132,7 @@ func TestGetWorkflow_NotFound(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 	_, err := gw.GetWorkflow(context.Background(), "missing")
-	if err != client.ErrNotFound {
+	if !errors.Is(err, client.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
@@ -150,7 +151,7 @@ func TestDeleteWorkflow_NotFound(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 	err := gw.DeleteWorkflow(context.Background(), "missing")
-	if err != client.ErrNotFound {
+	if !errors.Is(err, client.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
@@ -169,7 +170,7 @@ func TestWatchWorkflowLogs_StreamsEvents(t *testing.T) {
 		}
 		for _, ev := range events {
 			b, _ := json.Marshal(ev)
-			fmt.Fprintf(w, "data: %s\n\n", b)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
 		}
 	})
 
@@ -197,7 +198,7 @@ func TestWatchWorkflowLogs_NotFound(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 	err := gw.WatchWorkflowLogs(context.Background(), "ghost", func(_ client.LogEvent) error { return nil })
-	if err != client.ErrNotFound {
+	if !errors.Is(err, client.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }

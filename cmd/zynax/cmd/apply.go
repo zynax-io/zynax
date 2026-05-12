@@ -44,13 +44,13 @@ func runApply(cmd *cobra.Command, gw *client.Gateway, body []byte) error {
 		return err
 	}
 	for _, w := range warnings {
-		fmt.Fprintf(cmd.OutOrStdout(), "warning: %s\n", w)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "warning: %s\n", w)
 	}
 	if runID != "" {
-		fmt.Fprintf(cmd.OutOrStdout(), "run_id: %s\n", runID)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "run_id: %s\n", runID)
 	}
 	if agentID != "" {
-		fmt.Fprintf(cmd.OutOrStdout(), "agent_id: %s\n", agentID)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "agent_id: %s\n", agentID)
 	}
 	return nil
 }
@@ -61,14 +61,14 @@ func runDryRun(cmd *cobra.Command, gw *client.Gateway, body []byte) error {
 		return err
 	}
 	for _, w := range warnings {
-		fmt.Fprintf(cmd.OutOrStdout(), "warning: %s\n", w)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "warning: %s\n", w)
 	}
 	if len(errs) == 0 {
-		fmt.Fprintln(cmd.OutOrStdout(), "ok (dry-run: no errors)")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "ok (dry-run: no errors)")
 		return nil
 	}
 	for _, e := range errs {
-		fmt.Fprintf(cmd.ErrOrStderr(), "error (line %d): [%s] %s\n", e.Line, e.Code, e.Message)
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "error (line %d): [%s] %s\n", e.Line, e.Code, e.Message)
 	}
 	return fmt.Errorf("compilation failed with %d error(s)", len(errs))
 }

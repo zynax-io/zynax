@@ -30,7 +30,7 @@ State is persisted to <dir>/.zynax-watch.state so restarts are idempotent.
 
 Press Ctrl+C to stop (exits 0).`,
 	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		dir := args[0]
 		info, err := os.Stat(dir)
 		if err != nil {

@@ -36,7 +36,7 @@ func (e ValidationError) Error() string {
 // Returns (nil, nil) on success; ([errors…], nil) on schema violations;
 // (nil, err) on I/O or structural failures.
 func Manifest(filePath, schemaDir string) ([]ValidationError, error) {
-	raw, err := os.ReadFile(filePath)
+	raw, err := os.ReadFile(filePath) //nolint:gosec // filePath is caller-supplied manifest path
 	if err != nil {
 		return nil, fmt.Errorf("validate: read %q: %w", filePath, err)
 	}
@@ -95,7 +95,11 @@ func Manifest(filePath, schemaDir string) ([]ValidationError, error) {
 func compileSchema(absPath string) (*jsonschema.Schema, error) {
 	c := jsonschema.NewCompiler()
 	c.Draft = jsonschema.Draft2020
-	return c.Compile("file://" + absPath)
+	schema, err := c.Compile("file://" + absPath)
+	if err != nil {
+		return nil, fmt.Errorf("validate: compile schema %q: %w", absPath, err)
+	}
+	return schema, nil
 }
 
 // flattenErrors collects leaf validation errors from the error tree.
