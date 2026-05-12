@@ -95,36 +95,36 @@ func Context(repoRoot string) (ContextReport, error) {
 
 // Print writes the report in the same table format as count-ai-context.sh.
 func (r ContextReport) Print(w *os.File) {
-	fmt.Fprintf(w, "| %-55s | %5s | %5s | %-6s |\n", "File", "Lines", "Limit", "Status")
-	fmt.Fprintln(w, "|----------------------------------------------------------|-------|-------|--------|")
+	_, _ = fmt.Fprintf(w, "| %-55s | %5s | %5s | %-6s |\n", "File", "Lines", "Limit", "Status")
+	_, _ = fmt.Fprintln(w, "|----------------------------------------------------------|-------|-------|--------|")
 	for _, f := range r.Files {
 		status := "OK"
 		if f.Warn {
 			status = "WARN"
 		}
-		fmt.Fprintf(w, "| %-55s | %5d | %5d | %-6s |\n", f.Path, f.Lines, f.Threshold, status)
+		_, _ = fmt.Fprintf(w, "| %-55s | %5d | %5d | %-6s |\n", f.Path, f.Lines, f.Threshold, status)
 	}
-	fmt.Fprintln(w, "|----------------------------------------------------------|-------|-------|--------|")
+	_, _ = fmt.Fprintln(w, "|----------------------------------------------------------|-------|-------|--------|")
 	totalStatus := "OK"
 	if r.Total > r.TotalLimit {
 		totalStatus = "WARN"
 	}
-	fmt.Fprintf(w, "| %-55s | %5d | %5d | %-6s |\n", "TOTAL", r.Total, r.TotalLimit, totalStatus)
-	fmt.Fprintln(w, "")
+	_, _ = fmt.Fprintf(w, "| %-55s | %5d | %5d | %-6s |\n", "TOTAL", r.Total, r.TotalLimit, totalStatus)
+	_, _ = fmt.Fprintln(w, "")
 	if r.Warnings > 0 {
-		fmt.Fprintf(w, "WARNING: %d file(s) exceed their line threshold.\n", r.Warnings)
-		fmt.Fprintln(w, "Consider trimming AI context files — smaller budgets improve signal density.")
+		_, _ = fmt.Fprintf(w, "WARNING: %d file(s) exceed their line threshold.\n", r.Warnings)
+		_, _ = fmt.Fprintln(w, "Consider trimming AI context files — smaller budgets improve signal density.")
 	} else {
-		fmt.Fprintln(w, "All AI context files are within budget.")
+		_, _ = fmt.Fprintln(w, "All AI context files are within budget.")
 	}
 }
 
 func countLines(path string) (int, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // path is from filepath.WalkDir on the repo root
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	s := bufio.NewScanner(f)
 	n := 0
 	for s.Scan() {

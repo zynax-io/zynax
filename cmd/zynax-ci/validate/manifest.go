@@ -48,55 +48,69 @@ func BatchManifests(dir, kind, schemaPath string) ([]ManifestResult, error) {
 
 	var results []ManifestResult
 	for _, path := range files {
-		raw, err := os.ReadFile(path)
+		r, err := validateManifestFile(path, kind, sch)
 		if err != nil {
-			return nil, fmt.Errorf("validate manifests: read %q: %w", path, err)
+			return nil, err
 		}
-
-		var doc interface{}
-		if err := yaml.Unmarshal(raw, &doc); err != nil {
-			results = append(results, ManifestResult{
-				File:   path,
-				Errors: single(path, "", "YAML parse error: "+err.Error()),
-			})
-			continue
+		if r != nil {
+			results = append(results, *r)
 		}
-
-		m, ok := normaliseMap(doc)
-		if !ok {
-			continue // not a mapping — skip silently (not a manifest)
-		}
-		if docKind, _ := m["kind"].(string); docKind != kind {
-			continue // wrong kind — skip
-		}
-
-		jsonBytes, err := json.Marshal(normalise(doc))
-		if err != nil {
-			return nil, fmt.Errorf("validate manifests: marshal %q: %w", path, err)
-		}
-
-		var instance interface{}
-		if err := json.Unmarshal(jsonBytes, &instance); err != nil {
-			return nil, fmt.Errorf("validate manifests: unmarshal %q: %w", path, err)
-		}
-
-		if valErr := sch.Validate(instance); valErr != nil {
-			var ve *jsonschema.ValidationError
-			if errors.As(valErr, &ve) {
-				results = append(results, ManifestResult{File: path, Errors: flattenManifestErrors(path, ve)})
-				continue
-			}
-			return nil, fmt.Errorf("validate manifests: %w", valErr)
-		}
-		results = append(results, ManifestResult{File: path})
 	}
 	return results, nil
+}
+
+// validateManifestFile validates one YAML file against the schema for the given kind.
+// Returns nil (no error) when the file should be skipped (wrong kind or not a mapping).
+func validateManifestFile(path, kind string, sch *jsonschema.Schema) (*ManifestResult, error) {
+	raw, err := os.ReadFile(path) //nolint:gosec // path is from filepath.ReadDir on caller-supplied dir
+	if err != nil {
+		return nil, fmt.Errorf("validate manifests: read %q: %w", path, err)
+	}
+
+	var doc interface{}
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		r := ManifestResult{File: path, Errors: single(path, "", "YAML parse error: "+err.Error())}
+		return &r, nil
+	}
+
+	m, ok := normaliseMap(doc)
+	if !ok {
+		return nil, nil // not a mapping — skip silently
+	}
+	if docKind, _ := m["kind"].(string); docKind != kind {
+		return nil, nil // wrong kind — skip
+	}
+
+	jsonBytes, err := json.Marshal(normalise(doc))
+	if err != nil {
+		return nil, fmt.Errorf("validate manifests: marshal %q: %w", path, err)
+	}
+
+	var instance interface{}
+	if err := json.Unmarshal(jsonBytes, &instance); err != nil {
+		return nil, fmt.Errorf("validate manifests: unmarshal %q: %w", path, err)
+	}
+
+	if valErr := sch.Validate(instance); valErr != nil {
+		var ve *jsonschema.ValidationError
+		if errors.As(valErr, &ve) {
+			r := ManifestResult{File: path, Errors: flattenManifestErrors(path, ve)}
+			return &r, nil
+		}
+		return nil, fmt.Errorf("validate manifests: %w", valErr)
+	}
+	r := ManifestResult{File: path}
+	return &r, nil
 }
 
 func compileSchema(absPath string) (*jsonschema.Schema, error) {
 	c := jsonschema.NewCompiler()
 	c.Draft = jsonschema.Draft2020
-	return c.Compile("file://" + absPath)
+	schema, err := c.Compile("file://" + absPath)
+	if err != nil {
+		return nil, fmt.Errorf("validate: compile schema %q: %w", absPath, err)
+	}
+	return schema, nil
 }
 
 func flattenManifestErrors(file string, ve *jsonschema.ValidationError) []ValidationError {

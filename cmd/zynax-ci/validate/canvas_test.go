@@ -150,11 +150,11 @@ func TestCanvas_MissingContextSecurity(t *testing.T) {
 func TestCanvas_PrivateFilePresent(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "canvas.md")
-	if err := os.WriteFile(f, []byte(fullCanvas), 0o644); err != nil {
+	if err := os.WriteFile(f, []byte(fullCanvas), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	private := filepath.Join(dir, "canvas.private.md")
-	if err := os.WriteFile(private, []byte("secret"), 0o644); err != nil {
+	if err := os.WriteFile(private, []byte("secret"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	errs, _, err := validate.Canvas(f)
@@ -174,6 +174,13 @@ func TestCanvas_MultipleMissing(t *testing.T) {
 	}
 	assertContainsMessage(t, errs, "N — Norms")
 	assertContainsMessage(t, errs, "O — Operations")
+}
+
+func TestValidationError_Error(t *testing.T) {
+	e := validate.ValidationError{File: "canvas.md", Message: "missing R section"}
+	if e.Error() != "canvas.md: missing R section" {
+		t.Errorf("Error() = %q, want %q", e.Error(), "canvas.md: missing R section")
+	}
 }
 
 func TestCanvas_FileNotFound(t *testing.T) {
@@ -202,7 +209,7 @@ func TestCanvas_RealCanvas(t *testing.T) {
 func writeTempCanvas(t *testing.T, content string) string {
 	t.Helper()
 	f := filepath.Join(t.TempDir(), "canvas.md")
-	if err := os.WriteFile(f, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(f, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return f

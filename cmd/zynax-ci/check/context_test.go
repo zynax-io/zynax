@@ -17,10 +17,10 @@ func writeLines(t *testing.T, path string, n int) {
 	for i := 0; i < n; i++ {
 		b.WriteString("line\n")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -102,6 +102,38 @@ func TestContext_MissingFiles(t *testing.T) {
 	if len(report.Files) != 0 {
 		t.Errorf("expected 0 file entries, got %d", len(report.Files))
 	}
+}
+
+func TestContextReport_Print_WithinBudget(t *testing.T) {
+	root := t.TempDir()
+	writeLines(t, filepath.Join(root, "CLAUDE.md"), 10)
+
+	report, err := check.Context(root)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	f, err := os.CreateTemp(t.TempDir(), "report-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	report.Print(f) // exercises Print() for the within-budget path
+}
+
+func TestContextReport_Print_WithWarning(t *testing.T) {
+	root := t.TempDir()
+	writeLines(t, filepath.Join(root, "CLAUDE.md"), 250) // exceeds threshold
+
+	report, err := check.Context(root)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	f, err := os.CreateTemp(t.TempDir(), "report-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	report.Print(f) // exercises warning branch of Print()
 }
 
 func TestContext_RootAgentsMdNotCountedTwice(t *testing.T) {

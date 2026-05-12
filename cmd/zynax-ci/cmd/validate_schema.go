@@ -45,7 +45,7 @@ func runValidateSchema(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(results) == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "(no JSON schema files found under %s)\n", path)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "(no JSON schema files found under %s)\n", path)
 		return nil
 	}
 
@@ -68,12 +68,12 @@ func runValidateSchema(cmd *cobra.Command, args []string) error {
 
 	for _, r := range results {
 		if len(r.Errors) > 0 {
-			fmt.Fprintf(cmd.ErrOrStderr(), "FAIL %s:\n", r.File)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "FAIL %s:\n", r.File)
 			for _, e := range r.Errors {
-				fmt.Fprintf(cmd.ErrOrStderr(), "  ERROR  %s\n", e.Message)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ERROR  %s\n", e.Message)
 			}
 		} else {
-			fmt.Fprintf(cmd.OutOrStdout(), "  OK   %s\n", r.File)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  OK   %s\n", r.File)
 		}
 	}
 	if failed {

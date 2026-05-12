@@ -41,7 +41,7 @@ func runValidateWorkflows(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(results) == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "(no Workflow manifests found in %s)\n", dir)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "(no Workflow manifests found in %s)\n", dir)
 		return nil
 	}
 	return printManifestResults(cmd, results, workflowsFormat)
@@ -67,16 +67,16 @@ func printManifestResults(cmd *cobra.Command, results []validate.ManifestResult,
 
 	for _, r := range results {
 		if len(r.Errors) > 0 {
-			fmt.Fprintf(cmd.ErrOrStderr(), "FAIL %s:\n", r.File)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "FAIL %s:\n", r.File)
 			for _, e := range r.Errors {
 				if e.Path != "" {
-					fmt.Fprintf(cmd.ErrOrStderr(), "  %s: %s\n", e.Path, e.Message)
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  %s: %s\n", e.Path, e.Message)
 				} else {
-					fmt.Fprintf(cmd.ErrOrStderr(), "  ERROR  %s\n", e.Message)
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ERROR  %s\n", e.Message)
 				}
 			}
 		} else {
-			fmt.Fprintf(cmd.OutOrStdout(), "  OK   %s\n", r.File)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  OK   %s\n", r.File)
 		}
 	}
 	if failed {

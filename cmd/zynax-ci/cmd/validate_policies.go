@@ -40,7 +40,7 @@ func runValidatePolicies(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(results) == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "(no Policy manifests found in %s)\n", dir)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "(no Policy manifests found in %s)\n", dir)
 		return nil
 	}
 	return printManifestResults(cmd, results, policiesFormat)

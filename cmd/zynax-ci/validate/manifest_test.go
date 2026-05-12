@@ -28,7 +28,7 @@ func writeMinimalWorkflowSchema(t *testing.T, dir string) string {
 	}
 	b, _ := json.Marshal(schema)
 	path := filepath.Join(dir, "workflow.schema.json")
-	if err := os.WriteFile(path, b, 0o644); err != nil {
+	if err := os.WriteFile(path, b, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return path
@@ -37,7 +37,7 @@ func writeMinimalWorkflowSchema(t *testing.T, dir string) string {
 func writeYAML(t *testing.T, dir, name, content string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return path

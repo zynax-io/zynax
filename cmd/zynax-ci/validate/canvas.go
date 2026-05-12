@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+// Package validate provides validators for REASONS Canvases, YAML manifests,
+// JSON Schemas, and capability definitions used by zynax-ci.
 package validate
 
 import (
@@ -70,11 +72,11 @@ var statusRe = regexp.MustCompile(`\*\*Status:\*\*\s*(\w+)`)
 //
 // Returns errors (hard failures), warnings (advisory), and any I/O error.
 func Canvas(filePath string) ([]ValidationError, []ValidationWarning, error) {
-	f, err := os.Open(filePath)
+	f, err := os.Open(filePath) //nolint:gosec // filePath is caller-supplied canvas path
 	if err != nil {
 		return nil, nil, fmt.Errorf("validate: read %q: %w", filePath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var lines []string
 	scanner := bufio.NewScanner(f)
