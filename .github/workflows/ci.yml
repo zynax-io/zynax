@@ -757,6 +757,32 @@ jobs:
           done
           $failed && exit 1 || echo "✅ Go adapter tests passed"
 
+      # ── Go adapter coverage gate (≥85%) ──────────────────────────────────
+      - name: Go adapter coverage gate (≥85%)
+        if: steps.go-detect.outputs.has_adapters != '0'
+        run: |
+          failed=false
+          for adapter in ${{ env.GO_ADAPTER_LIST }}; do
+            if [ -f "agents/adapters/${adapter}/coverage.out" ]; then
+              cd "agents/adapters/${adapter}"
+              total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
+                      | grep "^total:" | awk '{print $3}' | tr -d '%')
+              cd ../../..
+              if [ -z "$total" ]; then
+                echo "  ⚠ no coverage total for agents/adapters/${adapter} — skipping"
+                continue
+              fi
+              echo "── adapter coverage: agents/adapters/${adapter}  ${total}%"
+              if awk "BEGIN{exit !(${total} < 85)}"; then
+                echo "  ❌ ${total}% < 85% — coverage gate failed for agents/adapters/${adapter}"
+                failed=true
+              else
+                echo "  ✅ ${total}% ≥ 85% for agents/adapters/${adapter}"
+              fi
+            fi
+          done
+          $failed && exit 1 || true
+
       # ── CLI tool unit tests ───────────────────────────────────────────────
       - name: CLI tool unit tests (zynax + zynax-ci)
         if: steps.go-detect.outputs.has_cli != '0'

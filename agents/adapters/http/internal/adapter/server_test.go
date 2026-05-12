@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -256,5 +257,150 @@ func TestGetCapabilitySchema_Unknown(t *testing.T) {
 		&zynaxv1.GetCapabilitySchemaRequest{CapabilityName: "unknown"})
 	if err == nil {
 		t.Fatal("expected error for unknown capability")
+	}
+}
+
+func TestGetCapabilitySchema_EmptyName(t *testing.T) {
+	s := newServer(t, "https://example.com")
+	_, err := s.GetCapabilitySchema(context.Background(),
+		&zynaxv1.GetCapabilitySchemaRequest{CapabilityName: ""})
+	if err == nil {
+		t.Fatal("expected error for empty capability_name")
+	}
+}
+
+func TestExecuteCapability_EmptyTaskID(t *testing.T) {
+	stream := &fakeStream{ctx: context.Background()}
+	err := newServer(t, "http://127.0.0.1:1").ExecuteCapability(
+		&zynaxv1.ExecuteCapabilityRequest{CapabilityName: "call_api"},
+		stream,
+	)
+	if err == nil {
+		t.Fatal("expected error for empty task_id")
+	}
+}
+
+func TestExecuteCapability_EmptyCapabilityName(t *testing.T) {
+	stream := &fakeStream{ctx: context.Background()}
+	err := newServer(t, "http://127.0.0.1:1").ExecuteCapability(
+		&zynaxv1.ExecuteCapabilityRequest{TaskId: "t1", CapabilityName: ""},
+		stream,
+	)
+	if err == nil {
+		t.Fatal("expected error for empty capability_name")
+	}
+}
+
+func TestExecuteCapability_NonJSONPayload(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	s := adapter.NewAgentServer(&config.AdapterConfig{
+		AgentID:          "test",
+		Endpoint:         "0.0.0.0:8080",
+		RegistryEndpoint: "registry:9090",
+		Capabilities: []config.RouteConfig{{
+			Name:            "typed_api",
+			Method:          "POST",
+			URL:             srv.URL,
+			InputSchemaJSON: `{"type":"object","required":["name"],"properties":{"name":{"type":"string"}}}`,
+		}},
+	})
+	stream := &fakeStream{ctx: context.Background()}
+	_ = s.ExecuteCapability(
+		&zynaxv1.ExecuteCapabilityRequest{
+			TaskId:         "t1",
+			CapabilityName: "typed_api",
+			InputPayload:   []byte("not valid json"),
+		},
+		stream,
+	)
+	last := stream.lastEvent()
+	if last.EventType != zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
+		t.Errorf("want FAILED for non-JSON payload, got %v", last.EventType)
+	}
+	if last.Error.Code != "INVALID_INPUT" {
+		t.Errorf("code = %s, want INVALID_INPUT", last.Error.Code)
+	}
+}
+
+func TestHandler_LargeResponseBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		// Exceed the 10 MB cap by one byte
+		_, _ = w.Write(make([]byte, 10*1024*1024+2))
+	}))
+	defer srv.Close()
+
+	stream := &fakeStream{ctx: context.Background()}
+	_ = newServer(t, srv.URL).ExecuteCapability(
+		&zynaxv1.ExecuteCapabilityRequest{TaskId: "t1", CapabilityName: "call_api"},
+		stream,
+	)
+	last := stream.lastEvent()
+	if last.EventType != zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
+		t.Errorf("want FAILED for oversized body, got %v", last.EventType)
+	}
+	if last.Error.Code != "UPSTREAM_ERROR" {
+		t.Errorf("code = %s, want UPSTREAM_ERROR", last.Error.Code)
+	}
+}
+
+func TestExecuteCapability_InvalidSchemaConfig(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	s := adapter.NewAgentServer(&config.AdapterConfig{
+		AgentID:          "test",
+		Endpoint:         "0.0.0.0:8080",
+		RegistryEndpoint: "registry:9090",
+		Capabilities: []config.RouteConfig{{
+			Name:            "typed_api",
+			Method:          "POST",
+			URL:             srv.URL,
+			InputSchemaJSON: `not valid JSON schema {{{`,
+		}},
+	})
+	stream := &fakeStream{ctx: context.Background()}
+	_ = s.ExecuteCapability(
+		&zynaxv1.ExecuteCapabilityRequest{
+			TaskId:         "t1",
+			CapabilityName: "typed_api",
+			InputPayload:   []byte(`{"name":"test"}`),
+		},
+		stream,
+	)
+	last := stream.lastEvent()
+	if last.EventType != zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
+		t.Errorf("want FAILED for invalid schema config, got %v", last.EventType)
+	}
+	if last.Error.Code != "INVALID_INPUT" {
+		t.Errorf("code = %s, want INVALID_INPUT", last.Error.Code)
+	}
+}
+
+func TestHandler_LongErrorSanitised(t *testing.T) {
+	// A hostname longer than 512 chars generates an error message that exceeds
+	// maxErrMsgLen, exercising the sanitise truncation branch.
+	longHost := "http://" + strings.Repeat("a", 510) + ".example.invalid/api"
+	s := adapter.NewAgentServer(&config.AdapterConfig{
+		AgentID: "test", Endpoint: "0.0.0.0:8080", RegistryEndpoint: "r:9090",
+		Capabilities: []config.RouteConfig{{Name: "call_api", Method: "GET", URL: longHost}},
+	})
+	stream := &fakeStream{ctx: context.Background()}
+	_ = s.ExecuteCapability(
+		&zynaxv1.ExecuteCapabilityRequest{TaskId: "t1", CapabilityName: "call_api"},
+		stream,
+	)
+	last := stream.lastEvent()
+	if last.EventType != zynaxv1.TaskEventType_TASK_EVENT_TYPE_FAILED {
+		t.Errorf("want FAILED, got %v", last.EventType)
+	}
+	if len(last.Error.Message) > 512 {
+		t.Errorf("error message not truncated: len=%d", len(last.Error.Message))
 	}
 }
