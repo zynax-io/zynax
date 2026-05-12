@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: Apache-2.0
+# http-adapter — AdapterConfig example
+#
+# Copy this file to agent-def.yaml, fill in your values, and point the
+# adapter at it via:  ADAPTER_CONFIG=/path/to/agent-def.yaml
+#
+# Credentials are NEVER placed inline — use env-var name references in
+# headers (the adapter resolves the value at startup from the process env).
+# This is the SSRF safeguard: all HTTP endpoints are static config only;
+# no URL fields are accepted from input_payload at runtime.
+
+# Unique identifier for this adapter instance in the Zynax registry.
+agent_id: http-adapter-payments
+
+# Human-readable name surfaced in operator dashboards.
+name: Payments HTTP Adapter
+
+# Optional description for the registry UI.
+description: Wraps the internal payments REST API as a Zynax capability.
+
+# gRPC address this adapter listens on (host:port).
+# Must match the endpoint registered with AgentRegistryService.
+endpoint: "0.0.0.0:9090"
+
+# gRPC address of the AgentRegistryService.
+registry_endpoint: "agent-registry:9091"
+
+# capabilities — one entry per Zynax capability exposed by this adapter.
+# Each entry maps a capability name to a static HTTP route.
+capabilities:
+  - name: create_payment          # snake_case, 1–64 chars; must match workflow step name
+    description: "Creates a new payment transaction via the payments API."
+    method: POST
+    url: "https://api.example.com/v1/transactions"
+
+    # Static headers. Values beginning with '$' are env-var name references:
+    # the adapter reads os.Getenv("PAYMENTS_API_KEY") at startup.
+    # Never put credential values here — only env-var names.
+    headers:
+      Authorization: "$PAYMENTS_API_KEY"
+      Accept: "application/json"
+
+    # Per-route timeout override (seconds). 0 means use the request's
+    # timeout_seconds field from ExecuteCapabilityRequest.
+    timeout_seconds: 30
+
+    # JSON Schema (draft-07) for input_payload validation.
+    # The adapter validates every incoming request before calling upstream.
+    # Omit or leave empty to skip validation.
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["amount", "currency", "recipient"],
+        "properties": {
+          "amount":    { "type": "number",  "minimum": 0.01 },
+          "currency":  { "type": "string",  "pattern": "^[A-Z]{3}$" },
+          "recipient": { "type": "string",  "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+
+    # JSON Schema for the COMPLETED event payload returned to the caller.
+    output_schema_json: |
+      {
+        "type": "object",
+        "properties": {
+          "transaction_id": { "type": "string" },
+          "status":         { "type": "string" }
+        }
+      }
+
+  - name: get_payment_status
+    description: "Returns the current status of an existing payment transaction."
+    method: GET
+    url: "https://api.example.com/v1/transactions"
+    headers:
+      Authorization: "$PAYMENTS_API_KEY"
+    timeout_seconds: 10
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["transaction_id"],
+        "properties": {
+          "transaction_id": { "type": "string" }
+        }
+      }

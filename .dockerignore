@@ -55,3 +55,9 @@ docs/
 infra/docker-compose/
 infra/helm/
 infra/k8s/
+
+# ── Adapter build allowlist (negations for agents/adapters/*/Dockerfile) ──────
+# Adapter Dockerfiles are built from repo root and need their module source
+# plus the generated proto stubs to resolve the workspace replace directive.
+!agents/adapters/http/
+!protos/generated/go/
