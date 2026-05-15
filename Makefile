@@ -6,7 +6,8 @@
 .DEFAULT_GOAL := help
 SHELL         := /bin/bash
 GO_SERVICES   := agent-registry task-broker memory-service event-bus api-gateway workflow-compiler engine-adapter
-AGENTS        := summarizer researcher calculator
+# Auto-discovered from agents/examples/*/pyproject.toml — no manual update needed when adding a new agent.
+AGENTS        := $(shell find agents/examples -maxdepth 2 -name pyproject.toml -exec dirname {} \; 2>/dev/null | xargs -rI{} basename {} | sort)
 COMPOSE       := docker compose -f infra/docker/docker-compose.yml
 COMPOSE_TOOLS := docker compose -f infra/docker/docker-compose.tools.yml
 # Override to skip the local build: make TOOLS_IMAGE=ghcr.io/zynax-io/zynax/tools:latest <target>
