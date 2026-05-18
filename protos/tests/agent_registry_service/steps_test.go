@@ -190,15 +190,15 @@ func (tc *testCtx) setupServer(t *testing.T) error {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { _ = conn.Close() }) //nolint:errcheck
 	tc.client = zynaxv1.NewAgentRegistryServiceClient(conn)
 	return nil
 }
 
-func (tc *testCtx) registerAgent(agentID, cap string, labels map[string]string) error {
-	caps := []*zynaxv1.CapabilityDef{{Name: cap}}
+func (tc *testCtx) registerAgent(agentID, capability string, labels map[string]string) error {
+	caps := []*zynaxv1.CapabilityDef{{Name: capability}}
 	ag := &zynaxv1.AgentDef{
 		AgentId:      agentID,
 		Name:         agentID,
@@ -209,9 +209,10 @@ func (tc *testCtx) registerAgent(agentID, cap string, labels map[string]string) 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_, err := tc.client.RegisterAgent(ctx, &zynaxv1.RegisterAgentRequest{Agent: ag})
-	return err
+	return err //nolint:wrapcheck
 }
 
+//nolint:cyclop,funlen
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(sc *godog.ScenarioContext) {
@@ -328,7 +329,7 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				ag, err := tc.client.GetAgent(callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
 				if ag.Status != zynaxv1.AgentStatus_AGENT_STATUS_REGISTERED {
 					return ctx, fmt.Errorf("expected REGISTERED, got %v", ag.Status)
@@ -341,7 +342,7 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				ag, err := tc.client.GetAgent(callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
 				if len(ag.Capabilities) < 2 {
 					return ctx, fmt.Errorf("expected 2 capabilities, got %d", len(ag.Capabilities))
@@ -354,7 +355,7 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				ag, err := tc.client.GetAgent(callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
 				if ag.RegisteredAt == nil || ag.RegisteredAt.AsTime().IsZero() {
 					return ctx, fmt.Errorf("expected non-zero registered_at")
@@ -362,8 +363,8 @@ func TestFeatures(t *testing.T) {
 				return ctx, nil
 			})
 
-			sc.Step(`^agent "([^"]*)" is registered with capability "([^"]*)"$`, func(ctx context.Context, agentID, cap string) (context.Context, error) {
-				err := tc.registerAgent(agentID, cap, nil)
+			sc.Step(`^agent "([^"]*)" is registered with capability "([^"]*)"$`, func(ctx context.Context, agentID, capability string) (context.Context, error) {
+				err := tc.registerAgent(agentID, capability, nil)
 				if err == nil {
 					// Keep pendingAgent populated so subsequent label steps know which agent to update.
 					tc.pendingAgent = &zynaxv1.AgentDef{
@@ -389,17 +390,17 @@ func TestFeatures(t *testing.T) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
 				_, err := tc.client.RegisterAgent(callCtx, &zynaxv1.RegisterAgentRequest{Agent: ag})
-				return ctx, err
+				return ctx, err //nolint:wrapcheck
 			})
 
 			sc.Step(`^agent "([^"]*)" is registered with labels \{"([^"]+)": "([^"]+)"\}$`, func(ctx context.Context, agentID, k, v string) (context.Context, error) {
 				return ctx, tc.registerAgent(agentID, "cap", map[string]string{k: v})
 			})
 
-			sc.Step(`^FindByCapability is called with capability_name "([^"]*)"$`, func(ctx context.Context, cap string) (context.Context, error) {
+			sc.Step(`^FindByCapability is called with capability_name "([^"]*)"$`, func(ctx context.Context, capability string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				resp, err := tc.client.FindByCapability(callCtx, &zynaxv1.FindByCapabilityRequest{CapabilityName: cap})
+				resp, err := tc.client.FindByCapability(callCtx, &zynaxv1.FindByCapabilityRequest{CapabilityName: capability})
 				tc.findResp = resp
 				tc.grpcErr = err
 				return ctx, nil
@@ -450,7 +451,7 @@ func TestFeatures(t *testing.T) {
 
 			sc.Step(`^the gRPC status is OK$`, func(ctx context.Context) (context.Context, error) {
 				if tc.grpcErr != nil {
-					return ctx, fmt.Errorf("expected OK but got: %v", tc.grpcErr)
+					return ctx, fmt.Errorf("expected OK but got: %w", tc.grpcErr)
 				}
 				return ctx, nil
 			})
@@ -492,16 +493,16 @@ func TestFeatures(t *testing.T) {
 				return ctx, nil
 			})
 
-			sc.Step(`^the response includes capability "([^"]*)"$`, func(ctx context.Context, cap string) (context.Context, error) {
+			sc.Step(`^the response includes capability "([^"]*)"$`, func(ctx context.Context, capability string) (context.Context, error) {
 				if tc.lastAgent == nil {
 					return ctx, fmt.Errorf("no agent response")
 				}
 				for _, c := range tc.lastAgent.Capabilities {
-					if c.Name == cap {
+					if c.Name == capability {
 						return ctx, nil
 					}
 				}
-				return ctx, fmt.Errorf("capability %q not found", cap)
+				return ctx, fmt.Errorf("capability %q not found", capability)
 			})
 
 			sc.Step(`^the response includes label "([^"]*)" with value "([^"]*)"$`, func(ctx context.Context, k, v string) (context.Context, error) {
@@ -537,7 +538,7 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				ag, err := tc.client.GetAgent(callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
 				if ag.Status != zynaxv1.AgentStatus_AGENT_STATUS_DEREGISTERED {
 					return ctx, fmt.Errorf("expected DEREGISTERED, got %v", ag.Status)
@@ -549,7 +550,7 @@ func TestFeatures(t *testing.T) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
 				_, err := tc.client.DeregisterAgent(callCtx, &zynaxv1.DeregisterAgentRequest{AgentId: agentID})
-				return ctx, err
+				return ctx, err //nolint:wrapcheck
 			})
 
 			sc.Step(`^RegisterAgent is called again with agent_id "([^"]*)"$`, func(ctx context.Context, agentID string) (context.Context, error) {

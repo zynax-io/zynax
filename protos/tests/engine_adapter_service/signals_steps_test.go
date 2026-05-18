@@ -80,7 +80,7 @@ func (s *engineStub) WatchWorkflow(req *zynaxv1.WatchWorkflowRequest, stream grp
 			ToState:   toSt,
 		}
 		if err := stream.Send(evt); err != nil {
-			return err
+			return err //nolint:wrapcheck
 		}
 	}
 
@@ -94,12 +94,12 @@ func (s *engineStub) WatchWorkflow(req *zynaxv1.WatchWorkflowRequest, stream grp
 		ToState:   run.CurrentState,
 	}
 	if err := stream.Send(evt); err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 
 	// If already terminal, emit the terminal event and close
 	if isTerminal(run.Status) {
-		return stream.Send(&zynaxv1.WorkflowEvent{
+		return stream.Send(&zynaxv1.WorkflowEvent{ //nolint:wrapcheck
 			RunId:     req.RunId,
 			EventType: "workflow.terminal",
 			Status:    run.Status,
@@ -108,7 +108,7 @@ func (s *engineStub) WatchWorkflow(req *zynaxv1.WatchWorkflowRequest, stream grp
 	}
 
 	// Non-terminal run: emit a completion event to close the stream
-	return stream.Send(&zynaxv1.WorkflowEvent{
+	return stream.Send(&zynaxv1.WorkflowEvent{ //nolint:wrapcheck
 		RunId:     req.RunId,
 		EventType: "workflow.completed",
 		Status:    zynaxv1.WorkflowStatus_WORKFLOW_STATUS_COMPLETED,
@@ -121,6 +121,7 @@ func (s *engineStub) WatchWorkflow(req *zynaxv1.WatchWorkflowRequest, stream grp
 // termination, state-transition details, and Signal input validation
 // (9 scenarios total).
 
+//nolint:cyclop,funlen
 func TestSignals(t *testing.T) {
 	suite := godog.TestSuite{
 		Name: "engine_adapter_signals",
@@ -137,14 +138,14 @@ func TestSignals(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to dial: %v", err)
 			}
-			t.Cleanup(func() { conn.Close() })
+			t.Cleanup(func() { _ = conn.Close() }) //nolint:errcheck
 
 			tc := &engineCtx{
 				client: zynaxv1.NewEngineAdapterServiceClient(conn),
 				stub:   stub,
 			}
 
-			sc.Before(func(ctx context.Context, scenario *godog.Scenario) (context.Context, error) {
+			sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 				tc.lastRunID = ""
 				tc.lastWorkflowID = ""
 				tc.pendingNS = ""
@@ -298,28 +299,28 @@ func TestSignals(t *testing.T) {
 
 			sc.Step(`^the gRPC status is OK$`, func() error {
 				if tc.grpcErr != nil {
-					return fmt.Errorf("expected OK, got error: %v", tc.grpcErr)
+					return fmt.Errorf("expected OK, got error: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is INVALID_ARGUMENT$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.InvalidArgument {
-					return fmt.Errorf("expected INVALID_ARGUMENT, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected INVALID_ARGUMENT, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is NOT_FOUND$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.NotFound {
-					return fmt.Errorf("expected NOT_FOUND, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected NOT_FOUND, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is FAILED_PRECONDITION$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.FailedPrecondition {
-					return fmt.Errorf("expected FAILED_PRECONDITION, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected FAILED_PRECONDITION, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
@@ -354,7 +355,7 @@ func TestSignals(t *testing.T) {
 				if len(tc.watchEvents) == 0 && tc.lastRunID != "" {
 					stream, err := tc.client.WatchWorkflow(context.Background(), &zynaxv1.WatchWorkflowRequest{RunId: tc.lastRunID})
 					if err != nil {
-						return fmt.Errorf("WatchWorkflow error: %v", err)
+						return fmt.Errorf("WatchWorkflow error: %w", err)
 					}
 					for {
 						evt, recvErr := stream.Recv()

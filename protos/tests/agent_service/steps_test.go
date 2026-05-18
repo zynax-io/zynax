@@ -20,6 +20,11 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const (
+	capSummarize  = "summarize"
+	taskIDDefault = "task-default"
+)
+
 // ─── Stub server ─────────────────────────────────────────────────────────────
 
 type agentStub struct {
@@ -39,7 +44,7 @@ func (s *agentStub) ExecuteCapability(req *zynaxv1.ExecuteCapabilityRequest, str
 	}
 
 	switch req.CapabilityName {
-	case "summarize":
+	case capSummarize:
 		timeout := req.TimeoutSeconds
 		if timeout > 0 && timeout <= 1 {
 			// simulate timeout
@@ -90,11 +95,11 @@ func (s *agentStub) GetCapabilitySchema(_ context.Context, req *zynaxv1.GetCapab
 	if req.CapabilityName == "" {
 		return nil, status.Error(codes.InvalidArgument, "capability_name must not be empty")
 	}
-	if req.CapabilityName != "summarize" {
+	if req.CapabilityName != capSummarize {
 		return nil, status.Errorf(codes.NotFound, "capability %q not found", req.CapabilityName)
 	}
 	return &zynaxv1.GetCapabilitySchemaResponse{
-		CapabilityName:   "summarize",
+		CapabilityName:   capSummarize,
 		InputSchemaJson:  `{"type":"object","properties":{"documents":{"type":"array"}}}`,
 		OutputSchemaJson: `{"type":"object","properties":{"summary":{"type":"string"}}}`,
 		Description:      "Summarizes a list of documents",
@@ -117,8 +122,8 @@ func newTestCtx() *testCtx {
 	return &testCtx{
 		req: &zynaxv1.ExecuteCapabilityRequest{
 			RequestId:      "req-default",
-			CapabilityName: "summarize",
-			TaskId:         "task-default",
+			CapabilityName: capSummarize,
+			TaskId:         taskIDDefault,
 			WorkflowId:     "wf-default",
 			InputPayload:   []byte(`{"documents": ["hello"]}`),
 		},
@@ -137,9 +142,9 @@ func (tc *testCtx) anAgentIsRunningOnTestServer(t *testing.T) func() error {
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 		if err != nil {
-			return err
+			return err //nolint:wrapcheck
 		}
-		t.Cleanup(func() { conn.Close() })
+		t.Cleanup(func() { _ = conn.Close() }) //nolint:errcheck
 		tc.client = zynaxv1.NewAgentServiceClient(conn)
 		return nil
 	}
@@ -194,11 +199,12 @@ func (tc *testCtx) callAndWaitForFailed() error {
 	return nil
 }
 
+//nolint:cyclop,funlen
 func InitializeScenario(sc *godog.ScenarioContext) {
 	var tc *testCtx
 	var t *testing.T
 
-	sc.Before(func(ctx context.Context, scenario *godog.Scenario) (context.Context, error) {
+	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		tc = newTestCtx()
 		return ctx, nil
 	})
@@ -216,9 +222,9 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return ctx, tc.anAgentIsRunningOnTestServer(theT)()
 	})
 
-	sc.Step(`^a valid ExecuteCapabilityRequest for capability "([^"]*)"$`, func(ctx context.Context, cap string) (context.Context, error) {
-		tc.req.CapabilityName = cap
-		tc.req.TaskId = "task-default"
+	sc.Step(`^a valid ExecuteCapabilityRequest for capability "([^"]*)"$`, func(ctx context.Context, capability string) (context.Context, error) {
+		tc.req.CapabilityName = capability
+		tc.req.TaskId = taskIDDefault
 		tc.req.InputPayload = []byte(`{"documents": ["hello"]}`)
 		return ctx, nil
 	})
@@ -277,7 +283,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 
 	sc.Step(`^a valid ExecuteCapabilityRequest with task_id "([^"]*)"$`, func(ctx context.Context, taskID string) (context.Context, error) {
 		tc.req.TaskId = taskID
-		tc.req.CapabilityName = "summarize"
+		tc.req.CapabilityName = capSummarize
 		tc.req.InputPayload = []byte(`{"documents": ["hello"]}`)
 		return ctx, nil
 	})
@@ -301,8 +307,8 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 
 	sc.Step(`^an ExecuteCapabilityRequest with timeout_seconds set to (\d+)$`, func(ctx context.Context, secs int) (context.Context, error) {
-		tc.req.TimeoutSeconds = int32(secs)
-		tc.req.CapabilityName = "summarize"
+		tc.req.TimeoutSeconds = int32(secs) //nolint:gosec
+		tc.req.CapabilityName = capSummarize
 		tc.req.InputPayload = []byte(`{"documents": ["hello"]}`)
 		return ctx, nil
 	})
@@ -334,7 +340,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		}
 		st, ok := status.FromError(tc.grpcErr)
 		if !ok || st.Code() != codes.DeadlineExceeded {
-			return ctx, fmt.Errorf("expected DEADLINE_EXCEEDED, got %v", tc.grpcErr)
+			return ctx, fmt.Errorf("expected DEADLINE_EXCEEDED, got %w", tc.grpcErr)
 		}
 		return ctx, nil
 	})
@@ -389,8 +395,8 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		return ctx, nil
 	})
 
-	sc.Step(`^an ExecuteCapabilityRequest for capability "([^"]*)"$`, func(ctx context.Context, cap string) (context.Context, error) {
-		tc.req.CapabilityName = cap
+	sc.Step(`^an ExecuteCapabilityRequest for capability "([^"]*)"$`, func(ctx context.Context, capability string) (context.Context, error) {
+		tc.req.CapabilityName = capability
 		tc.req.InputPayload = []byte(`{"documents": ["hello"]}`)
 		return ctx, nil
 	})
@@ -401,7 +407,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		}
 		st, ok := status.FromError(tc.grpcErr)
 		if !ok || st.Code() != codes.NotFound {
-			return ctx, fmt.Errorf("expected NOT_FOUND, got %v", tc.grpcErr)
+			return ctx, fmt.Errorf("expected NOT_FOUND, got %w", tc.grpcErr)
 		}
 		return ctx, nil
 	})
@@ -434,7 +440,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		}
 		st, ok := status.FromError(tc.grpcErr)
 		if !ok || st.Code() != codes.InvalidArgument {
-			return ctx, fmt.Errorf("expected INVALID_ARGUMENT, got %v", tc.grpcErr)
+			return ctx, fmt.Errorf("expected INVALID_ARGUMENT, got %w", tc.grpcErr)
 		}
 		return ctx, nil
 	})
@@ -460,8 +466,8 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	})
 
 	sc.Step(`^a valid ExecuteCapabilityRequest$`, func(ctx context.Context) (context.Context, error) {
-		tc.req.CapabilityName = "summarize"
-		tc.req.TaskId = "task-default"
+		tc.req.CapabilityName = capSummarize
+		tc.req.TaskId = taskIDDefault
 		tc.req.InputPayload = []byte(`{"documents": ["hello"]}`)
 		return ctx, nil
 	})
@@ -495,12 +501,13 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 // godogTKey is used to store *testing.T in context.
 type godogTKey struct{}
 
+//nolint:cyclop,funlen
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(sc *godog.ScenarioContext) {
 			var tc *testCtx
 
-			sc.Before(func(ctx context.Context, scenario *godog.Scenario) (context.Context, error) {
+			sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 				tc = newTestCtx()
 				ctx = context.WithValue(ctx, godogTKey{}, t)
 				return ctx, nil
@@ -510,9 +517,9 @@ func TestFeatures(t *testing.T) {
 				return ctx, tc.anAgentIsRunningOnTestServer(t)()
 			})
 
-			sc.Step(`^a valid ExecuteCapabilityRequest for capability "([^"]*)"$`, func(ctx context.Context, cap string) (context.Context, error) {
-				tc.req.CapabilityName = cap
-				tc.req.TaskId = "task-default"
+			sc.Step(`^a valid ExecuteCapabilityRequest for capability "([^"]*)"$`, func(ctx context.Context, capability string) (context.Context, error) {
+				tc.req.CapabilityName = capability
+				tc.req.TaskId = taskIDDefault
 				tc.req.InputPayload = []byte(`{"documents": ["hello"]}`)
 				return ctx, nil
 			})
@@ -568,7 +575,7 @@ func TestFeatures(t *testing.T) {
 
 			sc.Step(`^a valid ExecuteCapabilityRequest with task_id "([^"]*)"$`, func(ctx context.Context, taskID string) (context.Context, error) {
 				tc.req.TaskId = taskID
-				tc.req.CapabilityName = "summarize"
+				tc.req.CapabilityName = capSummarize
 				tc.req.InputPayload = []byte(`{"documents": ["hello"]}`)
 				return ctx, nil
 			})
@@ -592,8 +599,8 @@ func TestFeatures(t *testing.T) {
 			})
 
 			sc.Step(`^an ExecuteCapabilityRequest with timeout_seconds set to (\d+)$`, func(ctx context.Context, secs int) (context.Context, error) {
-				tc.req.TimeoutSeconds = int32(secs)
-				tc.req.CapabilityName = "summarize"
+				tc.req.TimeoutSeconds = int32(secs) //nolint:gosec
+				tc.req.CapabilityName = capSummarize
 				tc.req.InputPayload = []byte(`{"documents": ["hello"]}`)
 				return ctx, nil
 			})
@@ -679,8 +686,8 @@ func TestFeatures(t *testing.T) {
 				return ctx, nil
 			})
 
-			sc.Step(`^an ExecuteCapabilityRequest for capability "([^"]*)"$`, func(ctx context.Context, cap string) (context.Context, error) {
-				tc.req.CapabilityName = cap
+			sc.Step(`^an ExecuteCapabilityRequest for capability "([^"]*)"$`, func(ctx context.Context, capability string) (context.Context, error) {
+				tc.req.CapabilityName = capability
 				tc.req.InputPayload = []byte(`{"documents": ["hello"]}`)
 				return ctx, nil
 			})
@@ -750,8 +757,8 @@ func TestFeatures(t *testing.T) {
 			})
 
 			sc.Step(`^a valid ExecuteCapabilityRequest$`, func(ctx context.Context) (context.Context, error) {
-				tc.req.CapabilityName = "summarize"
-				tc.req.TaskId = "task-default"
+				tc.req.CapabilityName = capSummarize
+				tc.req.TaskId = taskIDDefault
 				tc.req.InputPayload = []byte(`{"documents": ["hello"]}`)
 				return ctx, nil
 			})
@@ -783,8 +790,8 @@ func TestFeatures(t *testing.T) {
 
 			// ─── GetCapabilitySchema steps ────────────────────────────────────────
 
-			sc.Step(`^GetCapabilitySchema is called with capability_name "([^"]*)"$`, func(ctx context.Context, cap string) (context.Context, error) {
-				resp, err := tc.client.GetCapabilitySchema(ctx, &zynaxv1.GetCapabilitySchemaRequest{CapabilityName: cap})
+			sc.Step(`^GetCapabilitySchema is called with capability_name "([^"]*)"$`, func(ctx context.Context, capability string) (context.Context, error) {
+				resp, err := tc.client.GetCapabilitySchema(ctx, &zynaxv1.GetCapabilitySchemaRequest{CapabilityName: capability})
 				tc.grpcErr = err
 				tc.schemaResp = resp
 				return ctx, nil
@@ -804,7 +811,7 @@ func TestFeatures(t *testing.T) {
 
 			sc.Step(`^the gRPC status is OK$`, func(ctx context.Context) (context.Context, error) {
 				if tc.grpcErr != nil {
-					return ctx, fmt.Errorf("expected OK but got error: %v", tc.grpcErr)
+					return ctx, fmt.Errorf("expected OK but got error: %w", tc.grpcErr)
 				}
 				return ctx, nil
 			})

@@ -263,6 +263,7 @@ type godogMKey struct{}
 
 // ─── TestFeatures ─────────────────────────────────────────────────────────────
 
+//nolint:cyclop,funlen
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		Name: "memory_service",
@@ -279,14 +280,14 @@ func TestFeatures(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to dial: %v", err)
 			}
-			t.Cleanup(func() { conn.Close() })
+			t.Cleanup(func() { _ = conn.Close() }) //nolint:errcheck
 
 			tc := &memCtx{
 				client: zynaxv1.NewMemoryServiceClient(conn),
 				stub:   stub,
 			}
 
-			sc.Before(func(ctx context.Context, scenario *godog.Scenario) (context.Context, error) {
+			sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 				tc.getResp = nil
 				tc.listResp = nil
 				tc.queryResp = nil
@@ -321,7 +322,7 @@ func TestFeatures(t *testing.T) {
 					Key:        key,
 					Value:      []byte(value),
 				})
-				return err
+				return err //nolint:wrapcheck
 			})
 
 			sc.Step(`^Set is called with key "([^"]*)" value "([^"]*)" scoped to workflow "([^"]*)"$`, func(key, value, wfID string) error {
@@ -330,7 +331,7 @@ func TestFeatures(t *testing.T) {
 					Key:        key,
 					Value:      []byte(value),
 				})
-				return err
+				return err //nolint:wrapcheck
 			})
 
 			sc.Step(`^Set has been called with key "([^"]*)" value "([^"]*)" scoped to "([^"]*)"$`, func(key, value, wfID string) error {
@@ -339,7 +340,7 @@ func TestFeatures(t *testing.T) {
 					Key:        key,
 					Value:      []byte(value),
 				})
-				return err
+				return err //nolint:wrapcheck
 			})
 
 			sc.Step(`^Set has been called with key "([^"]*)" scoped to "([^"]*)"$`, func(key, wfID string) error {
@@ -348,7 +349,7 @@ func TestFeatures(t *testing.T) {
 					Key:        key,
 					Value:      []byte("placeholder"),
 				})
-				return err
+				return err //nolint:wrapcheck
 			})
 
 			sc.Step(`^Set is called with key "([^"]*)" value "([^"]*)" ttl_seconds (\d+) scoped to "([^"]*)"$`, func(key, value string, ttl int, wfID string) error {
@@ -356,9 +357,9 @@ func TestFeatures(t *testing.T) {
 					WorkflowId: wfID,
 					Key:        key,
 					Value:      []byte(value),
-					TtlSeconds: int32(ttl),
+					TtlSeconds: int32(ttl), //nolint:gosec
 				})
-				return err
+				return err //nolint:wrapcheck
 			})
 
 			sc.Step(`^Set is called with key "([^"]*)" value "([^"]*)" and no TTL scoped to "([^"]*)"$`, func(key, value, wfID string) error {
@@ -367,7 +368,7 @@ func TestFeatures(t *testing.T) {
 					Key:        key,
 					Value:      []byte(value),
 				})
-				return err
+				return err //nolint:wrapcheck
 			})
 
 			sc.Step(`^(\d+) seconds elapse$`, func(n int) error {
@@ -399,7 +400,7 @@ func TestFeatures(t *testing.T) {
 						Embedding:  v.embedding,
 						Text:       v.text,
 					}); err != nil {
-						return err
+						return err //nolint:wrapcheck
 					}
 				}
 				tc.pendingQueryVectorReq = &zynaxv1.QueryVectorRequest{
@@ -417,7 +418,7 @@ func TestFeatures(t *testing.T) {
 						Embedding:  []float32{float32(i), float32(i + 1)},
 						Text:       fmt.Sprintf("vector-%d", i),
 					}); err != nil {
-						return err
+						return err //nolint:wrapcheck
 					}
 				}
 				return nil
@@ -430,7 +431,7 @@ func TestFeatures(t *testing.T) {
 					Text:       "test vector",
 				})
 				if err != nil {
-					return err
+					return err //nolint:wrapcheck
 				}
 				tc.storedVecID = resp.VectorId
 				return nil
@@ -443,7 +444,7 @@ func TestFeatures(t *testing.T) {
 					Text:       "test vector",
 				})
 				if err != nil {
-					return err
+					return err //nolint:wrapcheck
 				}
 				tc.storedVecID = resp.VectorId
 				return nil
@@ -518,7 +519,7 @@ func TestFeatures(t *testing.T) {
 					return fmt.Errorf("expected NOT_FOUND, got nil error")
 				}
 				if s, ok := status.FromError(err); !ok || s.Code() != codes.NotFound {
-					return fmt.Errorf("expected NOT_FOUND, got: %v", err)
+					return fmt.Errorf("expected NOT_FOUND, got: %w", err)
 				}
 				return nil
 			})
@@ -550,12 +551,12 @@ func TestFeatures(t *testing.T) {
 				tc.queryResp, tc.grpcErr = tc.client.QueryVector(context.Background(), &zynaxv1.QueryVectorRequest{
 					WorkflowId: wfID,
 					Embedding:  parseEmbedding(embStr),
-					TopK:       int32(topK),
+					TopK:       int32(topK), //nolint:gosec
 				})
 				return nil
 			})
 
-			sc.Step(`^QueryVector is called with top_k (\d+)$`, func(topK int) error {
+			sc.Step(`^QueryVector is called with top_k (\d+)$`, func(_ int) error {
 				tc.queryResp, tc.grpcErr = tc.client.QueryVector(context.Background(), tc.pendingQueryVectorReq)
 				return nil
 			})
@@ -564,7 +565,7 @@ func TestFeatures(t *testing.T) {
 				tc.queryResp, tc.grpcErr = tc.client.QueryVector(context.Background(), &zynaxv1.QueryVectorRequest{
 					WorkflowId: wfID,
 					Embedding:  []float32{0.5, 0.5},
-					TopK:       int32(topK),
+					TopK:       int32(topK), //nolint:gosec
 				})
 				return nil
 			})
@@ -582,7 +583,7 @@ func TestFeatures(t *testing.T) {
 				tc.queryResp, tc.grpcErr = tc.client.QueryVector(context.Background(), &zynaxv1.QueryVectorRequest{
 					WorkflowId: wfID,
 					Embedding:  []float32{0.5, 0.5},
-					TopK:       int32(topK),
+					TopK:       int32(topK), //nolint:gosec
 				})
 				return nil
 			})
@@ -633,21 +634,21 @@ func TestFeatures(t *testing.T) {
 
 			sc.Step(`^the gRPC status is OK$`, func() error {
 				if tc.grpcErr != nil {
-					return fmt.Errorf("expected OK, got error: %v", tc.grpcErr)
+					return fmt.Errorf("expected OK, got error: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is NOT_FOUND$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.NotFound {
-					return fmt.Errorf("expected NOT_FOUND, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected NOT_FOUND, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is INVALID_ARGUMENT$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.InvalidArgument {
-					return fmt.Errorf("expected INVALID_ARGUMENT, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected INVALID_ARGUMENT, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
@@ -806,7 +807,7 @@ func parseEmbedding(s string) []float32 {
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
 		var f float64
-		fmt.Sscanf(p, "%f", &f)
+		_, _ = fmt.Sscanf(p, "%f", &f) //nolint:errcheck
 		out = append(out, float32(f))
 	}
 	return out

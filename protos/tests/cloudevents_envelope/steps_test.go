@@ -46,6 +46,8 @@ func validateCloudEventJSON(raw map[string]interface{}) []string {
 
 // ─── Test context ─────────────────────────────────────────────────────────────
 
+const ceCheckVal = "check"
+
 type ceCtx struct {
 	rawJSON       map[string]interface{} // for schema validation scenarios
 	proto         *zynaxv1.CloudEvent    // for proto round-trip scenarios
@@ -57,13 +59,14 @@ type godogCEKey struct{}
 
 // ─── TestFeatures ─────────────────────────────────────────────────────────────
 
+//nolint:cyclop,funlen
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		Name: "cloudevents_envelope",
 		ScenarioInitializer: func(sc *godog.ScenarioContext) {
 			tc := &ceCtx{}
 
-			sc.Before(func(ctx context.Context, scenario *godog.Scenario) (context.Context, error) {
+			sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 				tc.rawJSON = nil
 				tc.proto = nil
 				tc.roundTripped = nil
@@ -176,7 +179,7 @@ func TestFeatures(t *testing.T) {
 					return nil
 				})
 
-			sc.Step(`^a CloudEvent proto message with data bytes \[([^\]]+)\]$`, func(bytesStr string) error {
+			sc.Step(`^a CloudEvent proto message with data bytes \[([^\]]+)\]$`, func(_ string) error {
 				tc.proto = &zynaxv1.CloudEvent{
 					Id:          "evt-data",
 					Source:      "/zynax/test",
@@ -216,11 +219,11 @@ func TestFeatures(t *testing.T) {
 				marshaller := protojson.MarshalOptions{}
 				jsonBytes, err := marshaller.Marshal(tc.proto)
 				if err != nil {
-					return fmt.Errorf("proto JSON marshal error: %v", err)
+					return fmt.Errorf("proto JSON marshal error: %w", err)
 				}
 				tc.roundTripped = &zynaxv1.CloudEvent{}
 				if err := protojson.Unmarshal(jsonBytes, tc.roundTripped); err != nil {
-					return fmt.Errorf("proto JSON unmarshal error: %v", err)
+					return fmt.Errorf("proto JSON unmarshal error: %w", err)
 				}
 				return nil
 			})
@@ -231,11 +234,11 @@ func TestFeatures(t *testing.T) {
 				}
 				jsonBytes, err := protojson.Marshal(tc.proto)
 				if err != nil {
-					return fmt.Errorf("proto JSON marshal error: %v", err)
+					return fmt.Errorf("proto JSON marshal error: %w", err)
 				}
 				tc.roundTripped = &zynaxv1.CloudEvent{}
 				if err := protojson.Unmarshal(jsonBytes, tc.roundTripped); err != nil {
-					return fmt.Errorf("proto JSON unmarshal error: %v", err)
+					return fmt.Errorf("proto JSON unmarshal error: %w", err)
 				}
 				return nil
 			})
@@ -292,12 +295,12 @@ func TestFeatures(t *testing.T) {
 				if tc.proto == nil {
 					return fmt.Errorf("proto is nil")
 				}
-				tc.proto.Id = "check"
+				tc.proto.Id = ceCheckVal
 				return nil
 			})
 
 			sc.Step(`^it contains field "source" of type string$`, func() error {
-				tc.proto.Source = "check"
+				tc.proto.Source = ceCheckVal
 				return nil
 			})
 
@@ -307,7 +310,7 @@ func TestFeatures(t *testing.T) {
 			})
 
 			sc.Step(`^it contains field "type" of type string$`, func() error {
-				tc.proto.Type = "check"
+				tc.proto.Type = ceCheckVal
 				return nil
 			})
 
@@ -327,27 +330,27 @@ func TestFeatures(t *testing.T) {
 			})
 
 			sc.Step(`^it contains field "workflow_id" of type string$`, func() error {
-				tc.proto.WorkflowId = "check"
+				tc.proto.WorkflowId = ceCheckVal
 				return nil
 			})
 
 			sc.Step(`^it contains field "run_id" of type string$`, func() error {
-				tc.proto.RunId = "check"
+				tc.proto.RunId = ceCheckVal
 				return nil
 			})
 
 			sc.Step(`^it contains field "namespace" of type string$`, func() error {
-				tc.proto.Namespace = "check"
+				tc.proto.Namespace = ceCheckVal
 				return nil
 			})
 
 			sc.Step(`^it contains field "capability_name" of type string$`, func() error {
-				tc.proto.CapabilityName = "check"
+				tc.proto.CapabilityName = ceCheckVal
 				return nil
 			})
 
 			sc.Step(`^it contains field "subject" of type string$`, func() error {
-				tc.proto.Subject = "check"
+				tc.proto.Subject = ceCheckVal
 				return nil
 			})
 

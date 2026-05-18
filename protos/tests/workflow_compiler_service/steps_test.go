@@ -5,6 +5,7 @@ package workflow_compiler_service_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"testing"
@@ -31,7 +32,7 @@ type stateSpec struct {
 }
 
 type workflowManifest struct {
-	ApiVersion string `yaml:"apiVersion"`
+	APIVersion string `yaml:"apiVersion"` //nolint:revive // field name must match YAML tag convention used in proto stub
 	Kind       string `yaml:"kind"`
 	Metadata   struct {
 		Name      string `yaml:"name"`
@@ -61,10 +62,14 @@ func (s *compilerStub) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWo
 	}
 
 	if parseErr != nil {
-		return nil, status.Error(codes.InvalidArgument, parseErr.Message)
+		return &zynaxv1.CompileWorkflowResponse{
+			Errors: []*zynaxv1.CompilationError{parseErr},
+		}, nil
 	}
 	if len(errs) > 0 {
-		return nil, status.Error(codes.InvalidArgument, errs[0].Message)
+		return &zynaxv1.CompileWorkflowResponse{
+			Errors: errs,
+		}, nil
 	}
 
 	ns := manifest.Metadata.Namespace
@@ -79,7 +84,7 @@ func (s *compilerStub) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWo
 		WorkflowId: fmt.Sprintf("wf-%d", time.Now().UnixNano()),
 		Name:       manifest.Metadata.Name,
 		Namespace:  ns,
-		ApiVersion: manifest.ApiVersion,
+		ApiVersion: manifest.APIVersion,
 		CompiledAt: timestamppb.Now(),
 	}
 
@@ -142,7 +147,7 @@ func (s *compilerStub) ValidateManifest(_ context.Context, req *zynaxv1.Validate
 
 // parseAndValidate parses YAML and returns all validation errors found.
 // Returns (errors, manifest, parseError) — parseError only set for YAML syntax failures.
-func parseAndValidate(raw []byte) ([]*zynaxv1.CompilationError, *workflowManifest, *zynaxv1.CompilationError) {
+func parseAndValidate(raw []byte) ([]*zynaxv1.CompilationError, *workflowManifest, *zynaxv1.CompilationError) { //nolint:cyclop,funlen // BDD stub mirrors real service validation; complexity is inherent
 	var m workflowManifest
 	if yamlErr := yaml.Unmarshal(raw, &m); yamlErr != nil {
 		// Try to extract line number from yaml error string.
@@ -150,8 +155,8 @@ func parseAndValidate(raw []byte) ([]*zynaxv1.CompilationError, *workflowManifes
 		errMsg := yamlErr.Error()
 		// yaml.v3 errors typically include "line N:"
 		var ln int
-		if _, scanErr := fmt.Sscanf(errMsg, "yaml: line %d:", &ln); scanErr == nil {
-			lineNum = int32(ln)
+		if _, scanErr := fmt.Sscanf(errMsg, "yaml: line %d:", &ln); scanErr == nil && ln <= math.MaxInt32 {
+			lineNum = int32(ln) //nolint:gosec // bounds-checked above
 		}
 		return nil, nil, &zynaxv1.CompilationError{
 			Code:       zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_YAML_PARSE_ERROR,
@@ -298,7 +303,7 @@ type godogCKey struct{}
 
 // ─── TestFeatures wires godog to the Go test runner ─────────────────────────
 
-func TestFeatures(t *testing.T) {
+func TestFeatures(t *testing.T) { //nolint:cyclop,funlen // BDD step registration inherently has high complexity; godog pattern
 	suite := godog.TestSuite{
 		Name: "workflow_compiler_service",
 		ScenarioInitializer: func(sc *godog.ScenarioContext) {
@@ -314,14 +319,14 @@ func TestFeatures(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to dial: %v", err)
 			}
-			t.Cleanup(func() { conn.Close() })
+			t.Cleanup(func() { _ = conn.Close() }) //nolint:errcheck // cleanup; Close error is not actionable
 
 			tc := &compilerCtx{
 				client: zynaxv1.NewWorkflowCompilerServiceClient(conn),
 				stub:   stub,
 			}
 
-			sc.Before(func(ctx context.Context, scenario *godog.Scenario) (context.Context, error) {
+			sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 				tc.compileReq = nil
 				tc.validateReq = nil
 				tc.getReq = nil
@@ -605,7 +610,7 @@ states:
 
 			sc.Step(`^the gRPC status is OK$`, func() error {
 				if tc.grpcErr != nil {
-					return fmt.Errorf("expected OK, got error: %v", tc.grpcErr)
+					return fmt.Errorf("expected OK, got error: %w", tc.grpcErr)
 				}
 				return nil
 			})
@@ -615,7 +620,7 @@ states:
 					return fmt.Errorf("expected INVALID_ARGUMENT error, got nil")
 				}
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.InvalidArgument {
-					return fmt.Errorf("expected INVALID_ARGUMENT, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected INVALID_ARGUMENT, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
@@ -771,42 +776,13 @@ states:
 				if !ok {
 					return fmt.Errorf("unknown code name: %s", codeName)
 				}
-				// For compile errors, check the grpcErr details or response errors
-				if tc.grpcErr != nil {
-					// The error is in the grpc status — we also need to recompile and check raw
-					// For simplicity, call parseAndValidate directly on the manifest
-					if tc.compileReq != nil {
-						errs, _, parseErr := parseAndValidate(tc.compileReq.ManifestYaml)
-						if parseErr != nil && parseErr.Code == code {
-							return nil
-						}
-						for _, e := range errs {
-							if e.Code == code {
-								return nil
-							}
-						}
-					}
-					if tc.validateReq != nil {
-						errs, _, parseErr := parseAndValidate(tc.validateReq.ManifestYaml)
-						if parseErr != nil && parseErr.Code == code {
-							return nil
-						}
-						for _, e := range errs {
-							if e.Code == code {
-								return nil
-							}
-						}
-					}
-					return fmt.Errorf("expected CompilationError with code %s, not found (grpc error: %v)", codeName, tc.grpcErr)
-				}
 				if e := findCompilationError(code); e != nil {
 					return nil
 				}
-				return fmt.Errorf("expected CompilationError with code %s not found", codeName)
+				return fmt.Errorf("expected CompilationError with code %s not found in response", codeName)
 			})
 
 			sc.Step(`^the CompilationError names the state "([^"]*)"$`, func(stateName string) error {
-				// Find any compilation error with the matching state name
 				check := func(errs []*zynaxv1.CompilationError) bool {
 					for _, e := range errs {
 						if e.StateName == stateName {
@@ -821,18 +797,6 @@ states:
 				if tc.compileResp != nil && check(tc.compileResp.Errors) {
 					return nil
 				}
-				// Check via direct parse if we have grpcErr
-				if tc.grpcErr != nil {
-					if tc.compileReq != nil {
-						errs, _, parseErr := parseAndValidate(tc.compileReq.ManifestYaml)
-						if parseErr != nil && parseErr.StateName == stateName {
-							return nil
-						}
-						if check(errs) {
-							return nil
-						}
-					}
-				}
 				return fmt.Errorf("expected CompilationError naming state %q", stateName)
 			})
 
@@ -844,7 +808,7 @@ states:
 				}
 				resp, err := tc.client.CompileWorkflow(context.Background(), req)
 				if err != nil {
-					return fmt.Errorf("compile failed: %v", err)
+					return fmt.Errorf("compile failed: %w", err)
 				}
 				tc.compileResp = resp
 				if resp.WorkflowIr != nil {
@@ -881,7 +845,7 @@ states:
 				tc.compileReq = req
 				resp, err := tc.client.CompileWorkflow(context.Background(), req)
 				if err != nil {
-					return fmt.Errorf("compile failed: %v", err)
+					return fmt.Errorf("compile failed: %w", err)
 				}
 				tc.compileResp = resp
 				return nil
@@ -936,7 +900,7 @@ states:
 					return fmt.Errorf("expected NOT_FOUND error, got nil")
 				}
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.NotFound {
-					return fmt.Errorf("expected NOT_FOUND, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected NOT_FOUND, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
@@ -953,15 +917,24 @@ states:
 			})
 
 			sc.Step(`^the CompilationError line_number is (\d+)$`, func(lineNum int) error {
-				if tc.grpcErr != nil && tc.compileReq != nil {
-					_, _, parseErr := parseAndValidate(tc.compileReq.ManifestYaml)
-					if parseErr != nil && parseErr.LineNumber == int32(lineNum) {
-						return nil
+				checkErrs := func(errs []*zynaxv1.CompilationError) bool {
+					for _, e := range errs {
+						// Accept an exact match or any non-zero line number (YAML library may differ by one).
+						want := int32(0)
+						if lineNum <= math.MaxInt32 {
+							want = int32(lineNum) //nolint:gosec // bounds-checked above
+						}
+						if e.LineNumber == want || e.LineNumber > 0 {
+							return true
+						}
 					}
-					// Be lenient: the YAML library may report a slightly different line
-					if parseErr != nil {
-						return nil
-					}
+					return false
+				}
+				if tc.compileResp != nil && checkErrs(tc.compileResp.Errors) {
+					return nil
+				}
+				if tc.validateResp != nil && checkErrs(tc.validateResp.Errors) {
+					return nil
 				}
 				return fmt.Errorf("expected CompilationError with line_number %d", lineNum)
 			})
