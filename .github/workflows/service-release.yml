@@ -1,0 +1,175 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Service Image Release — builds multi-arch container images for each platform
+# service that has a Dockerfile, pushes them to GHCR, generates a CycloneDX
+# SBOM with syft for each image, and attaches the SBOMs to a GitHub Release.
+#
+# Trigger:
+#   git tag v0.5.0 && git push origin v0.5.0
+#
+# Manual trigger (dry-run / pre-release validation):
+#   Actions → Service Image Release → Run workflow → enter tag
+#
+# Services built: api-gateway · engine-adapter · workflow-compiler
+# Stub services (agent-registry, task-broker, memory-service, event-bus) are
+# excluded until they have Dockerfiles.
+#
+# Image name convention:
+#   ghcr.io/zynax-io/zynax/<svc>:<version>   (semver — e.g. v0.5.0)
+#   ghcr.io/zynax-io/zynax/<svc>:latest       (floating — updated on every push)
+#
+# This workflow is designed to be extended by #239 (cosign image signing +
+# SLSA provenance). The id-token: write permission below is reserved for that
+# follow-on work and must not be removed.
+
+name: Service Image Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'   # pre-releases: v0.5.0-rc.1
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to publish (e.g. v0.5.0)'
+        required: true
+
+permissions:
+  contents: write   # create GitHub Release and upload SBOM assets
+  packages: write   # push container images to GHCR
+  id-token: write   # reserved for cosign OIDC signing (#239) — do not remove
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/zynax-io/zynax
+  SYFT_VERSION: "1.44.0"   # keep in sync with infra/docker/Dockerfile.tools
+
+# ── Build, push, and generate SBOM ───────────────────────────────────────────
+# One job per service (matrix). Each job builds a multi-arch image, pushes it
+# to GHCR, runs syft to produce a CycloneDX JSON SBOM, and uploads the SBOM
+# as a workflow artifact for the release job to attach.
+
+jobs:
+  build-push-sbom:
+    name: Build, push and SBOM — ${{ matrix.service }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api-gateway, engine-adapter, workflow-compiler]
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ steps.ver.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+
+      - name: Install syft v${{ env.SYFT_VERSION }}
+        run: |
+          curl -sSfL \
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/syft.tar.gz
+          tar -xzf /tmp/syft.tar.gz -C /usr/local/bin syft
+          rm /tmp/syft.tar.gz
+          syft version
+
+      - name: Generate SBOM — ${{ matrix.service }}
+        run: |
+          syft \
+            "${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ steps.ver.outputs.version }}" \
+            -o cyclonedx-json \
+            --file "${{ matrix.service }}-sbom.json"
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-${{ matrix.service }}
+          path: ${{ matrix.service }}-sbom.json
+          retention-days: 7
+
+# ── GitHub Release ────────────────────────────────────────────────────────────
+# Collects the three SBOM artifacts from the matrix jobs and attaches them to
+# a GitHub Release for the triggering tag.
+
+  release:
+    name: Create GitHub Release
+    needs: build-push-sbom
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download SBOM artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: sbom-*
+          merge-multiple: true
+          path: sboms/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: Zynax Services ${{ steps.ver.outputs.version }}
+          prerelease: ${{ contains(steps.ver.outputs.version, '-') }}
+          body: |
+            ## Zynax Services ${{ steps.ver.outputs.version }}
+
+            Service container images published to GHCR.
+
+            ### Published images
+
+            | Service | Image |
+            |---------|-------|
+            | api-gateway | `ghcr.io/zynax-io/zynax/api-gateway:${{ steps.ver.outputs.version }}` |
+            | engine-adapter | `ghcr.io/zynax-io/zynax/engine-adapter:${{ steps.ver.outputs.version }}` |
+            | workflow-compiler | `ghcr.io/zynax-io/zynax/workflow-compiler:${{ steps.ver.outputs.version }}` |
+
+            ### Verify images
+
+            ```bash
+            docker pull ghcr.io/zynax-io/zynax/api-gateway:${{ steps.ver.outputs.version }}
+            docker pull ghcr.io/zynax-io/zynax/engine-adapter:${{ steps.ver.outputs.version }}
+            docker pull ghcr.io/zynax-io/zynax/workflow-compiler:${{ steps.ver.outputs.version }}
+            ```
+
+            ### Software Bill of Materials
+
+            CycloneDX SBOM files (`api-gateway-sbom.json`, `engine-adapter-sbom.json`,
+            `workflow-compiler-sbom.json`) are attached to this release for each service image.
+          files: sboms/*.json
