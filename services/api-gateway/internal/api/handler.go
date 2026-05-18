@@ -83,7 +83,7 @@ func (h *Handler) applyWorkflow(w http.ResponseWriter, r *http.Request, body []b
 	case req.DryRun:
 		writeJSON(w, http.StatusOK, dryRunResp{DryRun: true, Warnings: result.Warnings})
 	default:
-		writeJSON(w, http.StatusAccepted, applyResp{RunID: result.RunID, Warnings: result.Warnings})
+		writeJSON(w, http.StatusAccepted, applyResp{RunID: result.RunID, Status: result.Status, Warnings: result.Warnings})
 	}
 }
 
@@ -197,6 +197,7 @@ type errResp struct {
 
 type applyResp struct {
 	RunID    string   `json:"run_id"`
+	Status   string   `json:"status,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
 }
 

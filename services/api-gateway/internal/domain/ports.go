@@ -49,7 +49,10 @@ type CompilerPort interface {
 
 // EnginePort is the gateway's outbound dependency on EngineAdapterService.
 type EnginePort interface {
-	SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint string) (string, error)
+	// SubmitWorkflow submits irBytes to the engine under the given workflowID.
+	// The engine uses workflowID as the Temporal workflow identifier so that
+	// subsequent DescribeWorkflowExecution lookups find the same execution.
+	SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint, workflowID string) (string, error)
 	GetWorkflowStatus(ctx context.Context, runID string) (WorkflowRunSummary, error)
 	CancelWorkflow(ctx context.Context, runID string) error
 	// WatchWorkflow streams lifecycle events for runID, calling send for each.

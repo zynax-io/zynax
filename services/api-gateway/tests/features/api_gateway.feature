@@ -107,6 +107,25 @@ Feature: API Gateway
     Then the HTTP status is 409
     And the response code is "ALREADY_EXISTS"
 
+  # ── POST /api/v1/apply — Idempotent Apply (#485) ────────────────────────
+
+  Scenario: POST /api/v1/apply with same manifest while workflow is running returns existing run_id
+    Given a WorkflowCompilerService that compiles the manifest successfully
+    And an EngineAdapterService that reports a running workflow for the derived manifest hash
+    When POST /api/v1/apply is called with a valid kind: Workflow YAML body
+    Then the HTTP status is 202
+    And the response contains a non-empty run_id
+    And the response has status "existing"
+
+  Scenario: POST /api/v1/apply after the workflow completes starts a new workflow run
+    Given a WorkflowCompilerService that compiles the manifest successfully
+    And an EngineAdapterService that reports a completed workflow for the derived manifest hash
+    And an EngineAdapterService that accepts a new workflow submission for re-run
+    When POST /api/v1/apply is called with a valid kind: Workflow YAML body
+    Then the HTTP status is 202
+    And the response contains a non-empty run_id
+    And the response has status "new"
+
   # ── GET /api/v1/workflows/{id}/logs (M4 step 4, issue #318) ─────────────
 
   Scenario: GET /api/v1/workflows/{id}/logs streams SSE events and closes on terminal

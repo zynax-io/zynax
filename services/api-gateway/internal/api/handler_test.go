@@ -37,7 +37,7 @@ type stubEngine struct {
 	watchErr    error
 }
 
-func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _ string) (string, error) {
+func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _, _ string) (string, error) {
 	return s.submitID, s.submitErr
 }
 
