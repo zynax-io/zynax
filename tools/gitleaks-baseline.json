@@ -1,0 +1,48 @@
+[
+ {
+  "Description": "Email address — must not appear in public AI context files",
+  "StartLine": 135,
+  "EndLine": 135,
+  "StartColumn": 61,
+  "EndColumn": 83,
+  "Match": "ogomezmanresa@gmail.com",
+  "Secret": "ogomezmanresa@gmail.com",
+  "File": "AGENTS.md",
+  "SymlinkFile": "",
+  "Commit": "",
+  "Entropy": 3.5883543,
+  "Author": "",
+  "Email": "",
+  "Date": "",
+  "Message": "",
+  "Tags": [
+   "pii",
+   "email"
+  ],
+  "RuleID": "email-address",
+  "Fingerprint": "AGENTS.md:email-address:135"
+ },
+ {
+  "Description": "Email address — must not appear in public AI context files",
+  "StartLine": 55,
+  "EndLine": 55,
+  "StartColumn": 39,
+  "EndColumn": 61,
+  "Match": "ogomezmanresa@gmail.com",
+  "Secret": "ogomezmanresa@gmail.com",
+  "File": "CLAUDE.md",
+  "SymlinkFile": "",
+  "Commit": "",
+  "Entropy": 3.5883543,
+  "Author": "",
+  "Email": "",
+  "Date": "",
+  "Message": "",
+  "Tags": [
+   "pii",
+   "email"
+  ],
+  "RuleID": "email-address",
+  "Fingerprint": "CLAUDE.md:email-address:55"
+ }
+]
