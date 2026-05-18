@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
@@ -185,11 +186,17 @@ func resolveOperand(expr string, ctx map[string]string) string {
 }
 
 // resolveTemplate substitutes {{ .ctx.<key> }} placeholders in the JSON template
-// with values from the ctx map.
+// with values from the ctx map. Keys are sorted to guarantee deterministic output
+// across workflow replays (map iteration order is non-deterministic in Go).
 func resolveTemplate(template string, ctx map[string]string) []byte {
+	keys := make([]string, 0, len(ctx))
+	for k := range ctx {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	result := template
-	for k, v := range ctx {
-		result = strings.ReplaceAll(result, "{{ .ctx."+k+" }}", v)
+	for _, k := range keys {
+		result = strings.ReplaceAll(result, "{{ .ctx."+k+" }}", ctx[k])
 	}
 	return []byte(result)
 }

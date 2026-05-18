@@ -343,6 +343,27 @@ func TestResolveTemplate(t *testing.T) {
 	}
 }
 
+// TestResolveTemplate_Deterministic asserts that resolveTemplate produces
+// byte-identical output across repeated calls with the same multi-key ctx,
+// guarding against non-determinism from map iteration order.
+func TestResolveTemplate_Deterministic(t *testing.T) {
+	ctx := map[string]string{
+		"alpha":   "A",
+		"beta":    "B",
+		"gamma":   "G",
+		"delta":   "D",
+		"epsilon": "E",
+	}
+	tmpl := `{"a":"{{ .ctx.alpha }}","b":"{{ .ctx.beta }}","g":"{{ .ctx.gamma }}","d":"{{ .ctx.delta }}","e":"{{ .ctx.epsilon }}"}`
+	first := string(resolveTemplate(tmpl, ctx))
+	for i := 0; i < 50; i++ {
+		got := string(resolveTemplate(tmpl, ctx))
+		if got != first {
+			t.Fatalf("non-deterministic output on iteration %d:\n got  %s\n want %s", i, got, first)
+		}
+	}
+}
+
 // --- helpers ---
 
 func equalSlice(a, b []string) bool {
