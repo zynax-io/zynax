@@ -71,7 +71,7 @@ func (s *engineStub) SubmitWorkflow(_ context.Context, req *zynaxv1.SubmitWorkfl
 
 	engine := req.EngineHint
 	if engine == "" {
-		engine = "default"
+		engine = "default" //nolint:goconst
 	}
 
 	run := &zynaxv1.WorkflowRun{
@@ -180,6 +180,7 @@ type godogEKey struct{}
 // Covers @lifecycle scenarios: submission, status query, cancellation, and
 // input validation for Submit/Cancel/GetWorkflowStatus (15 scenarios total).
 
+//nolint:cyclop,funlen
 func TestLifecycle(t *testing.T) {
 	suite := godog.TestSuite{
 		Name: "engine_adapter_lifecycle",
@@ -196,14 +197,14 @@ func TestLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to dial: %v", err)
 			}
-			t.Cleanup(func() { conn.Close() })
+			t.Cleanup(func() { _ = conn.Close() }) //nolint:errcheck
 
 			tc := &engineCtx{
 				client: zynaxv1.NewEngineAdapterServiceClient(conn),
 				stub:   stub,
 			}
 
-			sc.Before(func(ctx context.Context, scenario *godog.Scenario) (context.Context, error) {
+			sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 				tc.lastRunID = ""
 				tc.lastWorkflowID = ""
 				tc.pendingNS = ""
@@ -389,7 +390,7 @@ func TestLifecycle(t *testing.T) {
 			sc.Step(`^GetWorkflowStatus for that run_id returns status RUNNING$`, func() error {
 				resp, err := tc.client.GetWorkflowStatus(context.Background(), &zynaxv1.GetWorkflowStatusRequest{RunId: tc.lastRunID})
 				if err != nil {
-					return fmt.Errorf("GetWorkflowStatus error: %v", err)
+					return fmt.Errorf("GetWorkflowStatus error: %w", err)
 				}
 				if resp.Status != zynaxv1.WorkflowStatus_WORKFLOW_STATUS_RUNNING {
 					return fmt.Errorf("expected RUNNING, got %s", resp.Status)
@@ -403,7 +404,7 @@ func TestLifecycle(t *testing.T) {
 				}
 				resp, err := tc.client.GetWorkflowStatus(context.Background(), &zynaxv1.GetWorkflowStatusRequest{RunId: tc.submitResp.RunId})
 				if err != nil {
-					return fmt.Errorf("GetWorkflowStatus error: %v", err)
+					return fmt.Errorf("GetWorkflowStatus error: %w", err)
 				}
 				if resp.Namespace != ns {
 					return fmt.Errorf("expected namespace %q, got %q", ns, resp.Namespace)
@@ -417,7 +418,7 @@ func TestLifecycle(t *testing.T) {
 				}
 				resp, err := tc.client.GetWorkflowStatus(context.Background(), &zynaxv1.GetWorkflowStatusRequest{RunId: tc.submitResp.RunId})
 				if err != nil {
-					return fmt.Errorf("GetWorkflowStatus error: %v", err)
+					return fmt.Errorf("GetWorkflowStatus error: %w", err)
 				}
 				if resp.Labels[key] != value {
 					return fmt.Errorf("expected label %q=%q, got %q", key, value, resp.Labels[key])
@@ -428,7 +429,7 @@ func TestLifecycle(t *testing.T) {
 			sc.Step(`^GetWorkflowStatus for "([^"]*)" returns status CANCELLED$`, func(runID string) error {
 				resp, err := tc.client.GetWorkflowStatus(context.Background(), &zynaxv1.GetWorkflowStatusRequest{RunId: runID})
 				if err != nil {
-					return fmt.Errorf("GetWorkflowStatus error: %v", err)
+					return fmt.Errorf("GetWorkflowStatus error: %w", err)
 				}
 				if resp.Status != zynaxv1.WorkflowStatus_WORKFLOW_STATUS_CANCELLED {
 					return fmt.Errorf("expected CANCELLED, got %s", resp.Status)
@@ -450,35 +451,35 @@ func TestLifecycle(t *testing.T) {
 
 			sc.Step(`^the gRPC status is OK$`, func() error {
 				if tc.grpcErr != nil {
-					return fmt.Errorf("expected OK, got error: %v", tc.grpcErr)
+					return fmt.Errorf("expected OK, got error: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is INVALID_ARGUMENT$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.InvalidArgument {
-					return fmt.Errorf("expected INVALID_ARGUMENT, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected INVALID_ARGUMENT, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is NOT_FOUND$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.NotFound {
-					return fmt.Errorf("expected NOT_FOUND, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected NOT_FOUND, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is ALREADY_EXISTS$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.AlreadyExists {
-					return fmt.Errorf("expected ALREADY_EXISTS, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected ALREADY_EXISTS, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is FAILED_PRECONDITION$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.FailedPrecondition {
-					return fmt.Errorf("expected FAILED_PRECONDITION, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected FAILED_PRECONDITION, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
@@ -499,7 +500,7 @@ func TestLifecycle(t *testing.T) {
 				}
 				resp, err := tc.client.GetWorkflowStatus(context.Background(), &zynaxv1.GetWorkflowStatusRequest{RunId: tc.submitResp.RunId})
 				if err != nil {
-					return fmt.Errorf("GetWorkflowStatus error: %v", err)
+					return fmt.Errorf("GetWorkflowStatus error: %w", err)
 				}
 				if resp.Engine != engine {
 					return fmt.Errorf("expected engine %q, got %q", engine, resp.Engine)
@@ -535,7 +536,7 @@ func TestLifecycle(t *testing.T) {
 				}
 				resp, err := tc.client.GetWorkflowStatus(context.Background(), &zynaxv1.GetWorkflowStatusRequest{RunId: tc.lastRunID})
 				if err != nil {
-					return fmt.Errorf("GetWorkflowStatus error: %v", err)
+					return fmt.Errorf("GetWorkflowStatus error: %w", err)
 				}
 				if resp.CancellationReason == "" {
 					return fmt.Errorf("expected non-empty cancellation_reason")

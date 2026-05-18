@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+
 // Package testserver provides a shared in-memory gRPC server helper for BDD contract tests.
 package testserver
 
@@ -22,7 +23,7 @@ func NewBufconnServer(t *testing.T) (*grpc.Server, func(context.Context, string)
 	srv := grpc.NewServer()
 	t.Cleanup(func() {
 		srv.GracefulStop()
-		lis.Close()
+		_ = lis.Close() //nolint:errcheck
 	})
 	go func() { _ = srv.Serve(lis) }()
 	dialer := func(ctx context.Context, _ string) (net.Conn, error) {

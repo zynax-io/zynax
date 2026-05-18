@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -45,7 +46,9 @@ func (s *Server) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWorkflow
 
 	manifest, parseErrs := domain.ParseManifest(req.ManifestYaml)
 	if len(parseErrs) > 0 {
-		return nil, status.Error(codes.InvalidArgument, parseErrs[0].Message)
+		return &zynaxv1.CompileWorkflowResponse{
+			Errors: toProtoErrors(parseErrs),
+		}, nil
 	}
 
 	if manifest.Namespace == "" && req.Namespace != "" {
@@ -54,11 +57,15 @@ func (s *Server) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWorkflow
 
 	g, buildErrs := domain.Build(manifest)
 	if len(buildErrs) > 0 {
-		return nil, status.Error(codes.InvalidArgument, buildErrs[0].Message)
+		return &zynaxv1.CompileWorkflowResponse{
+			Errors: toProtoErrors(buildErrs),
+		}, nil
 	}
 
 	if validationErrs := validators.Run(g, validators.All()...); len(validationErrs) > 0 {
-		return nil, status.Error(codes.InvalidArgument, validationErrs[0].Message)
+		return &zynaxv1.CompileWorkflowResponse{
+			Errors: toProtoErrors(validationErrs),
+		}, nil
 	}
 
 	wfID := s.idGen()
@@ -157,10 +164,16 @@ func toProtoErrors(errs []domain.ParseError) []*zynaxv1.CompilationError {
 		if !ok {
 			pbCode = zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_UNSPECIFIED
 		}
+		var lineNumber int32
+		if e.Line <= math.MaxInt32 {
+			lineNumber = int32(e.Line) //nolint:gosec // bounds-checked by enclosing if
+		} else {
+			lineNumber = math.MaxInt32
+		}
 		out = append(out, &zynaxv1.CompilationError{
 			Code:       pbCode,
 			Message:    e.Message,
-			LineNumber: int32(e.Line), //nolint:gosec // line numbers are small positive integers
+			LineNumber: lineNumber,
 			StateName:  e.StateName,
 		})
 	}

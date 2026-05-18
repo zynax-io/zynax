@@ -39,10 +39,10 @@ func newBrokerStub() *brokerStub {
 	}
 }
 
-func (s *brokerStub) registerCapability(cap, agentID string) {
+func (s *brokerStub) registerCapability(capName, agentID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.capabilities[cap] = agentID
+	s.capabilities[capName] = agentID
 }
 
 func (s *brokerStub) DispatchTask(_ context.Context, req *zynaxv1.DispatchTaskRequest) (*zynaxv1.DispatchTaskResponse, error) {
@@ -119,11 +119,12 @@ func (s *brokerStub) AcknowledgeTask(_ context.Context, req *zynaxv1.Acknowledge
 	}
 
 	now := timestamppb.Now()
-	if req.Status == zynaxv1.TaskStatus_TASK_STATUS_COMPLETED {
+	switch req.Status {
+	case zynaxv1.TaskStatus_TASK_STATUS_COMPLETED:
 		task.Status = zynaxv1.TaskStatus_TASK_STATUS_COMPLETED
 		task.ResultPayload = req.ResultPayload
 		task.CompletedAt = now
-	} else if req.Status == zynaxv1.TaskStatus_TASK_STATUS_FAILED {
+	case zynaxv1.TaskStatus_TASK_STATUS_FAILED:
 		task.Error = req.Error
 		if task.RetryCount < task.MaxRetries {
 			task.RetryCount++
@@ -132,7 +133,7 @@ func (s *brokerStub) AcknowledgeTask(_ context.Context, req *zynaxv1.Acknowledge
 			task.Status = zynaxv1.TaskStatus_TASK_STATUS_FAILED
 			task.CompletedAt = now
 		}
-	} else {
+	default:
 		task.Status = zynaxv1.TaskStatus_TASK_STATUS_CANCELLED
 		task.CompletedAt = now
 	}
@@ -216,39 +217,21 @@ func (tc *testCtx) setupServer(t *testing.T) error {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { _ = conn.Close() }) //nolint:errcheck
 	tc.client = zynaxv1.NewTaskBrokerServiceClient(conn)
 	return nil
 }
 
-func (tc *testCtx) dispatch(cap, wfID string, opts ...func(*zynaxv1.WorkflowTask)) (string, error) {
-	task := &zynaxv1.WorkflowTask{
-		WorkflowId:     wfID,
-		CapabilityName: cap,
-		InputPayload:   []byte(`{"input": "test"}`),
-	}
-	for _, opt := range opts {
-		opt(task)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	resp, err := tc.client.DispatchTask(ctx, &zynaxv1.DispatchTaskRequest{Task: task})
-	if err != nil {
-		return "", err
-	}
-	return resp.TaskId, nil
-}
-
-func (tc *testCtx) insertTaskDirectly(taskID string, status zynaxv1.TaskStatus, cap, wfID string, maxRetries, retryCount int32) {
+func (tc *testCtx) insertTaskDirectly(taskID string, status zynaxv1.TaskStatus, capName, wfID string, maxRetries, retryCount int32) {
 	now := timestamppb.Now()
 	tc.stub.mu.Lock()
 	defer tc.stub.mu.Unlock()
 	tc.stub.tasks[taskID] = &zynaxv1.WorkflowTask{
 		TaskId:         taskID,
 		WorkflowId:     wfID,
-		CapabilityName: cap,
+		CapabilityName: capName,
 		InputPayload:   []byte(`{"input": "test"}`),
 		Status:         status,
 		MaxRetries:     maxRetries,
@@ -259,6 +242,7 @@ func (tc *testCtx) insertTaskDirectly(taskID string, status zynaxv1.TaskStatus, 
 	}
 }
 
+//nolint:cyclop,funlen
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(sc *godog.ScenarioContext) {
@@ -277,20 +261,20 @@ func TestFeatures(t *testing.T) {
 				return ctx, nil
 			})
 
-			sc.Step(`^agent "([^"]*)" is registered with capability "([^"]*)"$`, func(ctx context.Context, agentID, cap string) (context.Context, error) {
-				tc.stub.registerCapability(cap, agentID)
+			sc.Step(`^agent "([^"]*)" is registered with capability "([^"]*)"$`, func(ctx context.Context, agentID, capability string) (context.Context, error) {
+				tc.stub.registerCapability(capability, agentID)
 				return ctx, nil
 			})
 
-			sc.Step(`^agent "([^"]*)" is registered with capability "([^"]*)" for broker$`, func(ctx context.Context, agentID, cap string) (context.Context, error) {
-				tc.stub.registerCapability(cap, agentID)
+			sc.Step(`^agent "([^"]*)" is registered with capability "([^"]*)" for broker$`, func(ctx context.Context, agentID, capability string) (context.Context, error) {
+				tc.stub.registerCapability(capability, agentID)
 				return ctx, nil
 			})
 
-			sc.Step(`^a valid WorkflowTask for capability "([^"]*)" with valid input payload$`, func(ctx context.Context, cap string) (context.Context, error) {
+			sc.Step(`^a valid WorkflowTask for capability "([^"]*)" with valid input payload$`, func(ctx context.Context, capability string) (context.Context, error) {
 				tc.pendingTask = &zynaxv1.WorkflowTask{
 					WorkflowId:     "wf-default",
-					CapabilityName: cap,
+					CapabilityName: capability,
 					InputPayload:   []byte(`{"input": "test"}`),
 				}
 				return ctx, nil
@@ -340,7 +324,7 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				task, err := tc.client.GetTask(callCtx, &zynaxv1.GetTaskRequest{TaskId: tc.lastTaskID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
 				if task.Status != zynaxv1.TaskStatus_TASK_STATUS_PENDING {
 					return ctx, fmt.Errorf("expected PENDING, got %v", task.Status)
@@ -348,17 +332,17 @@ func TestFeatures(t *testing.T) {
 				return ctx, nil
 			})
 
-			sc.Step(`^agent "([^"]*)" is registered with capability "([^"]*)"$`, func(ctx context.Context, agentID, cap string) (context.Context, error) {
-				tc.stub.registerCapability(cap, agentID)
+			sc.Step(`^agent "([^"]*)" is registered with capability "([^"]*)"$`, func(ctx context.Context, agentID, capability string) (context.Context, error) {
+				tc.stub.registerCapability(capability, agentID)
 				return ctx, nil
 			})
 
-			sc.Step(`^DispatchTask is called for capability "([^"]*)"$`, func(ctx context.Context, cap string) (context.Context, error) {
+			sc.Step(`^DispatchTask is called for capability "([^"]*)"$`, func(ctx context.Context, capability string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
 				task := &zynaxv1.WorkflowTask{
 					WorkflowId:     "wf-routing",
-					CapabilityName: cap,
+					CapabilityName: capability,
 					InputPayload:   []byte(`{"input": "test"}`),
 				}
 				resp, err := tc.client.DispatchTask(callCtx, &zynaxv1.DispatchTaskRequest{Task: task})
@@ -408,7 +392,7 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				task, err := tc.client.GetTask(callCtx, &zynaxv1.GetTaskRequest{TaskId: tc.lastTaskID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
 				if task.WorkflowId != wfID {
 					return ctx, fmt.Errorf("expected workflow_id %q, got %q", wfID, task.WorkflowId)
@@ -416,7 +400,7 @@ func TestFeatures(t *testing.T) {
 				return ctx, nil
 			})
 
-			sc.Step(`^no agent is registered for capability "([^"]*)"$`, func(ctx context.Context, cap string) (context.Context, error) {
+			sc.Step(`^no agent is registered for capability "([^"]*)"$`, func(ctx context.Context, _ string) (context.Context, error) {
 				return ctx, nil
 			})
 
@@ -435,7 +419,7 @@ func TestFeatures(t *testing.T) {
 					WorkflowId:     "wf-timeout",
 					CapabilityName: "summarize",
 					InputPayload:   []byte(`{"input": "test"}`),
-					TimeoutSeconds: int32(secs),
+					TimeoutSeconds: int32(secs), //nolint:gosec
 				}
 				return ctx, nil
 			})
@@ -444,7 +428,7 @@ func TestFeatures(t *testing.T) {
 				tc.stub.mu.Lock()
 				defer tc.stub.mu.Unlock()
 				for _, task := range tc.stub.tasks {
-					if task.TimeoutSeconds == int32(secs) {
+					if task.TimeoutSeconds == int32(secs) { //nolint:gosec
 						return ctx, nil
 					}
 				}
@@ -491,7 +475,7 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				task, err := tc.client.GetTask(callCtx, &zynaxv1.GetTaskRequest{TaskId: taskID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
 				if task.Status != zynaxv1.TaskStatus_TASK_STATUS_COMPLETED {
 					return ctx, fmt.Errorf("expected COMPLETED, got %v", task.Status)
@@ -500,7 +484,7 @@ func TestFeatures(t *testing.T) {
 				return ctx, nil
 			})
 
-			sc.Step(`^GetTask for "([^"]*)" returns the result payload$`, func(ctx context.Context, taskID string) (context.Context, error) {
+			sc.Step(`^GetTask for "([^"]*)" returns the result payload$`, func(ctx context.Context, _ string) (context.Context, error) {
 				if tc.lastTask == nil {
 					return ctx, fmt.Errorf("no task loaded")
 				}
@@ -511,7 +495,7 @@ func TestFeatures(t *testing.T) {
 			})
 
 			sc.Step(`^a dispatched task with task_id "([^"]*)" and max_retries (\d+)$`, func(ctx context.Context, taskID string, maxRetries int) (context.Context, error) {
-				tc.insertTaskDirectly(taskID, zynaxv1.TaskStatus_TASK_STATUS_DISPATCHED, "cap", "wf-test", int32(maxRetries), 0)
+				tc.insertTaskDirectly(taskID, zynaxv1.TaskStatus_TASK_STATUS_DISPATCHED, "cap", "wf-test", int32(maxRetries), 0) //nolint:gosec
 				return ctx, nil
 			})
 
@@ -533,7 +517,7 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				task, err := tc.client.GetTask(callCtx, &zynaxv1.GetTaskRequest{TaskId: taskID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
 				if task.Status != zynaxv1.TaskStatus_TASK_STATUS_FAILED {
 					return ctx, fmt.Errorf("expected FAILED, got %v", task.Status)
@@ -550,7 +534,7 @@ func TestFeatures(t *testing.T) {
 			})
 
 			sc.Step(`^a dispatched task with task_id "([^"]*)" max_retries (\d+) retry_count (\d+)$`, func(ctx context.Context, taskID string, maxRetries, retryCount int) (context.Context, error) {
-				tc.insertTaskDirectly(taskID, zynaxv1.TaskStatus_TASK_STATUS_DISPATCHED, "cap", "wf-test", int32(maxRetries), int32(retryCount))
+				tc.insertTaskDirectly(taskID, zynaxv1.TaskStatus_TASK_STATUS_DISPATCHED, "cap", "wf-test", int32(maxRetries), int32(retryCount)) //nolint:gosec
 				return ctx, nil
 			})
 
@@ -559,7 +543,7 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				task, err := tc.client.GetTask(callCtx, &zynaxv1.GetTaskRequest{TaskId: taskID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
 				if task.Status != zynaxv1.TaskStatus_TASK_STATUS_RETRYING {
 					return ctx, fmt.Errorf("expected RETRYING, got %v", task.Status)
@@ -573,9 +557,9 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				task, err := tc.client.GetTask(callCtx, &zynaxv1.GetTaskRequest{TaskId: taskID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
-				if task.RetryCount != int32(count) {
+				if task.RetryCount != int32(count) { //nolint:gosec
 					return ctx, fmt.Errorf("expected retry_count=%d, got %d", count, task.RetryCount)
 				}
 				return ctx, nil
@@ -613,7 +597,7 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				task, err := tc.client.GetTask(callCtx, &zynaxv1.GetTaskRequest{TaskId: taskID})
 				if err != nil {
-					return ctx, err
+					return ctx, err //nolint:wrapcheck
 				}
 				if task.Status != zynaxv1.TaskStatus_TASK_STATUS_CANCELLED {
 					return ctx, fmt.Errorf("expected CANCELLED, got %v", task.Status)

@@ -51,7 +51,7 @@ func (s *stubSuite) theFileExists(path string) error {
 // ─── buf.gen.yaml parsing ─────────────────────────────────────────────────────
 
 func (s *stubSuite) bufGenYamlIsParsed(path string) error {
-	data, err := os.ReadFile(filepath.Join(s.root, path))
+	data, err := os.ReadFile(filepath.Join(s.root, path)) //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("reading %q: %w", path, err)
 	}
@@ -218,7 +218,7 @@ func (s *stubSuite) theyDeclarePackage(pkg string) error {
 		if !strings.HasSuffix(e.Name(), ".pb.go") {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		data, err := os.ReadFile(filepath.Join(dir, e.Name())) //nolint:gosec
 		if err != nil {
 			return err
 		}
@@ -239,7 +239,7 @@ func (s *stubSuite) theyImport(importPath string) error {
 		if !strings.HasSuffix(e.Name(), ".pb.go") {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		data, err := os.ReadFile(filepath.Join(dir, e.Name())) //nolint:gosec
 		if err != nil {
 			return err
 		}
@@ -251,7 +251,7 @@ func (s *stubSuite) theyImport(importPath string) error {
 }
 
 func (s *stubSuite) inspectFile(path string) error {
-	data, err := os.ReadFile(filepath.Join(s.root, path))
+	data, err := os.ReadFile(filepath.Join(s.root, path)) //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("reading %q: %w", path, err)
 	}
@@ -411,7 +411,7 @@ func (s *stubSuite) theCheckPassesWithoutInspectingStubs() error {
 
 func (s *stubSuite) ciReferencesProtoFreshnessGate() error {
 	ciPath := filepath.Join(s.root, ".github", "workflows", "ci.yml")
-	data, err := os.ReadFile(ciPath)
+	data, err := os.ReadFile(ciPath) //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("reading ci.yml: %w", err)
 	}
@@ -544,6 +544,7 @@ func (s *stubSuite) verifyPairedStubs(protoDir, stubDir, protoExt, stubExt strin
 
 // ─── godog wiring ─────────────────────────────────────────────────────────────
 
+//nolint:cyclop,funlen
 func InitializeScenario(ctx *godog.ScenarioContext) {
 	s := newSuite()
 

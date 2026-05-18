@@ -152,7 +152,7 @@ func (s *busStub) Subscribe(req *zynaxv1.SubscribeRequest, stream grpc.ServerStr
 		delete(s.subscribers, req.SubscriberId)
 		s.mu.Unlock()
 		cancel()
-		return err
+		return err //nolint:wrapcheck
 	}
 
 	// Stream events to subscriber until context cancelled
@@ -178,7 +178,7 @@ func (s *busStub) Subscribe(req *zynaxv1.SubscribeRequest, stream grpc.ServerStr
 				}
 				if err := stream.Send(resp); err != nil {
 					cancel()
-					return err
+					return err //nolint:wrapcheck
 				}
 				lastSent++
 			}
@@ -270,6 +270,7 @@ func readNEvents(stream grpc.ServerStreamingClient[zynaxv1.SubscribeResponse], n
 
 // ─── TestFeatures ─────────────────────────────────────────────────────────────
 
+//nolint:cyclop,funlen
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		Name: "event_bus_service",
@@ -286,7 +287,7 @@ func TestFeatures(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to dial: %v", err)
 			}
-			t.Cleanup(func() { conn.Close() })
+			t.Cleanup(func() { _ = conn.Close() }) //nolint:errcheck
 
 			tc := &busCtx{
 				client:       zynaxv1.NewEventBusServiceClient(conn),
@@ -296,7 +297,7 @@ func TestFeatures(t *testing.T) {
 				subCtxCancel: make(map[string]context.CancelFunc),
 			}
 
-			sc.Before(func(ctx context.Context, scenario *godog.Scenario) (context.Context, error) {
+			sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 				// Cancel all open streams from previous scenario
 				for _, cancel := range tc.subCtxCancel {
 					cancel()
@@ -328,13 +329,13 @@ func TestFeatures(t *testing.T) {
 				})
 				if err != nil {
 					cancel()
-					return nil, nil, err
+					return nil, nil, err //nolint:wrapcheck
 				}
 				// Read the initial metadata response
 				_, err = stream.Recv()
 				if err != nil {
 					cancel()
-					return nil, nil, err
+					return nil, nil, err //nolint:wrapcheck
 				}
 				return stream, cancel, nil
 			}
@@ -345,7 +346,7 @@ func TestFeatures(t *testing.T) {
 				return nil
 			})
 
-			sc.Step(`^a valid CloudEvent with type "([^"]*)" scoped to "([^"]*)"$`, func(evtType, wfID string) error {
+			sc.Step(`^a valid CloudEvent with type "([^"]*)" scoped to "([^"]*)"$`, func(_, _ string) error {
 				return nil // stored in When step
 			})
 
@@ -493,7 +494,7 @@ func TestFeatures(t *testing.T) {
 				evt := makeCloudEvent(evtType, "wf-42")
 				_, err := tc.client.Publish(context.Background(), &zynaxv1.PublishRequest{Event: evt})
 				if err != nil {
-					return err
+					return err //nolint:wrapcheck
 				}
 				time.Sleep(150 * time.Millisecond)
 				return nil
@@ -503,7 +504,7 @@ func TestFeatures(t *testing.T) {
 				evt := makeCloudEvent("zynax.workflow.test", wfID)
 				_, err := tc.client.Publish(context.Background(), &zynaxv1.PublishRequest{Event: evt})
 				if err != nil {
-					return err
+					return err //nolint:wrapcheck
 				}
 				time.Sleep(150 * time.Millisecond)
 				return nil
@@ -513,7 +514,7 @@ func TestFeatures(t *testing.T) {
 				evt := makeCloudEvent("zynax.test", wfID)
 				_, err := tc.client.Publish(context.Background(), &zynaxv1.PublishRequest{Event: evt})
 				if err != nil {
-					return err
+					return err //nolint:wrapcheck
 				}
 				time.Sleep(150 * time.Millisecond)
 				return nil
@@ -523,7 +524,7 @@ func TestFeatures(t *testing.T) {
 				evt := makeCloudEvent("zynax.test.event", "wf-42")
 				_, err := tc.client.Publish(context.Background(), &zynaxv1.PublishRequest{Event: evt})
 				if err != nil {
-					return err
+					return err //nolint:wrapcheck
 				}
 				time.Sleep(150 * time.Millisecond)
 				return nil
@@ -576,21 +577,21 @@ func TestFeatures(t *testing.T) {
 
 			sc.Step(`^the gRPC status is OK$`, func() error {
 				if tc.grpcErr != nil {
-					return fmt.Errorf("expected OK, got error: %v", tc.grpcErr)
+					return fmt.Errorf("expected OK, got error: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is INVALID_ARGUMENT$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.InvalidArgument {
-					return fmt.Errorf("expected INVALID_ARGUMENT, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected INVALID_ARGUMENT, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
 
 			sc.Step(`^the gRPC status is NOT_FOUND$`, func() error {
 				if s, ok := status.FromError(tc.grpcErr); !ok || s.Code() != codes.NotFound {
-					return fmt.Errorf("expected NOT_FOUND, got: %v", tc.grpcErr)
+					return fmt.Errorf("expected NOT_FOUND, got: %w", tc.grpcErr)
 				}
 				return nil
 			})
@@ -628,7 +629,7 @@ func TestFeatures(t *testing.T) {
 				return fmt.Errorf("subscriber %q did not receive any event", subID)
 			})
 
-			sc.Step(`^the received event type is "([^"]*)"$`, func(evtType string) error {
+			sc.Step(`^the received event type is "([^"]*)"$`, func(_ string) error {
 				// Already verified by the routing logic; this is a soft check
 				return nil
 			})
@@ -755,11 +756,11 @@ func TestFeatures(t *testing.T) {
 				defer cancel()
 				stream, err := tc.client.Subscribe(ctx, tc.pendingSubReq)
 				if err != nil {
-					return fmt.Errorf("Subscribe error: %v", err)
+					return fmt.Errorf("Subscribe error: %w", err)
 				}
 				resp, err := stream.Recv()
 				if err != nil {
-					return fmt.Errorf("Recv error: %v", err)
+					return fmt.Errorf("Recv error: %w", err)
 				}
 				if resp.SubscriberId != subID {
 					return fmt.Errorf("expected subscriber_id %q, got %q", subID, resp.SubscriberId)

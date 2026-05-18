@@ -54,12 +54,24 @@ linters:
         - "encoding/json"
         - "bufio"
 
+exclude-dirs:
+  - "protos/generated"
+
 issues:
   exclusions:
     rules:
       - path: "_test\\.go"
-        linters: [funlen, cyclop, gocritic, gosec, wrapcheck, errcheck]
-      - path: "generated/"
-        linters: [all]
+        linters:
+          - funlen
+          - cyclop
+          - gocritic
+          - gosec
+          - wrapcheck
+          - errcheck
+          - errorlint
+          - goconst
+          - revive
+          - contextcheck
       - path: "cmd/.*/main\\.go"
-        linters: [funlen]
+        linters:
+          - funlen

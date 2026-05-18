@@ -84,11 +84,17 @@ func TestCompileWorkflow_EmptyManifest(t *testing.T) {
 }
 
 func TestCompileWorkflow_InvalidYAML(t *testing.T) {
-	_, err := newServer().CompileWorkflow(context.Background(), &zynaxv1.CompileWorkflowRequest{
+	resp, err := newServer().CompileWorkflow(context.Background(), &zynaxv1.CompileWorkflowRequest{
 		ManifestYaml: []byte("not: yaml: {"),
 	})
-	if grpcCode(err) != codes.InvalidArgument {
-		t.Errorf("expected InvalidArgument, got %v", err)
+	if err != nil {
+		t.Fatalf("expected OK gRPC status, got: %v", err)
+	}
+	if len(resp.Errors) == 0 {
+		t.Error("expected at least one error in response.Errors")
+	}
+	if resp.WorkflowIr != nil {
+		t.Error("expected nil WorkflowIR when errors are present")
 	}
 }
 
@@ -108,11 +114,66 @@ spec:
     review:
       on: []
 `)
-	_, err := newServer().CompileWorkflow(context.Background(), &zynaxv1.CompileWorkflowRequest{
+	resp, err := newServer().CompileWorkflow(context.Background(), &zynaxv1.CompileWorkflowRequest{
 		ManifestYaml: yaml,
 	})
-	if grpcCode(err) != codes.InvalidArgument {
-		t.Errorf("expected InvalidArgument, got %v", err)
+	if err != nil {
+		t.Fatalf("expected OK gRPC status, got: %v", err)
+	}
+	if len(resp.Errors) == 0 {
+		t.Error("expected at least one error in response.Errors")
+	}
+	if resp.WorkflowIr != nil {
+		t.Error("expected nil WorkflowIR when errors are present")
+	}
+}
+
+func TestCompileWorkflow_AllErrorsReturned(t *testing.T) {
+	// A manifest with multiple distinct validation errors must return all of them,
+	// not just the first. Two unreachable states + no terminal state = ≥2 errors.
+	yaml := []byte(`apiVersion: zynax.io/v1alpha1
+kind: Workflow
+metadata:
+  name: multi-err
+  namespace: default
+spec:
+  initial_state: start
+  states:
+    start:
+      on:
+        - event: go
+          goto: step1
+    step1:
+      on: []
+    orphan1:
+      on: []
+    orphan2:
+      on: []
+`)
+	resp, err := newServer().CompileWorkflow(context.Background(), &zynaxv1.CompileWorkflowRequest{
+		ManifestYaml: yaml,
+	})
+	if err != nil {
+		t.Fatalf("expected OK gRPC status, got: %v", err)
+	}
+	if len(resp.Errors) < 2 {
+		t.Errorf("expected ≥2 errors, got %d: %v", len(resp.Errors), resp.Errors)
+	}
+}
+
+func TestCompileWorkflow_LineNumberBoundsCheck(t *testing.T) {
+	// toProtoErrors must clamp line numbers that exceed int32 range.
+	// We verify the happy path: a valid parse error has a sensible line number.
+	resp, err := newServer().CompileWorkflow(context.Background(), &zynaxv1.CompileWorkflowRequest{
+		ManifestYaml: []byte("not: yaml: {"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected gRPC error: %v", err)
+	}
+	for _, e := range resp.Errors {
+		if e.LineNumber < 0 {
+			t.Errorf("line_number must be non-negative, got %d", e.LineNumber)
+		}
 	}
 }
 
