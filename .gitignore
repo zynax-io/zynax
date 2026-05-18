@@ -6,6 +6,9 @@
 *.out
 /bin/
 
+# Generated SBOM artifacts
+sbom-*.json
+
 # Python
 __pycache__/
 *.py[cod]
