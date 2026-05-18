@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math"
 	"sort"
 	"strings"
@@ -60,7 +61,9 @@ func (i *IRInterpreter) Run(
 			return fmt.Errorf("engine-adapter: state %q not found in IR", ec.CurrentState)
 		}
 		if state.GetType() == zynaxv1.StateType_STATE_TYPE_TERMINAL {
-			_ = pub.Publish(ctx, "zynax.workflow.completed", ec.WorkflowID, ec.CurrentState)
+			if err := pub.Publish(ctx, "zynax.workflow.completed", ec.WorkflowID, ec.CurrentState); err != nil {
+				slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.completed", "workflow_id", ec.WorkflowID, "err", err)
+			}
 			return nil
 		}
 		if err := pub.Publish(ctx, "zynax.workflow.state.entered", ec.WorkflowID, ec.CurrentState); err != nil {
@@ -68,15 +71,21 @@ func (i *IRInterpreter) Run(
 		}
 		result, err := executeActions(ctx, state, ec, exec)
 		if err != nil {
-			_ = pub.Publish(ctx, "zynax.workflow.failed", ec.WorkflowID, ec.CurrentState)
+			if perr := pub.Publish(ctx, "zynax.workflow.failed", ec.WorkflowID, ec.CurrentState); perr != nil {
+				slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.failed", "workflow_id", ec.WorkflowID, "err", perr)
+			}
 			return err
 		}
 		transition, err := resolveTransition(state.GetTransitions(), result, ec.Ctx)
 		if err != nil {
-			_ = pub.Publish(ctx, "zynax.workflow.failed", ec.WorkflowID, ec.CurrentState)
+			if perr := pub.Publish(ctx, "zynax.workflow.failed", ec.WorkflowID, ec.CurrentState); perr != nil {
+				slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.failed", "workflow_id", ec.WorkflowID, "err", perr)
+			}
 			return err
 		}
-		_ = pub.Publish(ctx, "zynax.workflow.state.exited", ec.WorkflowID, ec.CurrentState)
+		if perr := pub.Publish(ctx, "zynax.workflow.state.exited", ec.WorkflowID, ec.CurrentState); perr != nil {
+			slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.state.exited", "workflow_id", ec.WorkflowID, "err", perr)
+		}
 		mergePayload(ec.Ctx, result.Payload)
 		ec.CurrentState = transition.GetTargetState()
 	}
