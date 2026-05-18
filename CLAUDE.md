@@ -89,7 +89,7 @@ One commit per logical change · one PR per issue · never squash unrelated work
 ## Development workflow
 
 ```bash
-make bootstrap       # one-time setup (builds zynax-tools Docker image)
+make bootstrap       # one-time setup (pulls ghcr.io/zynax-io/zynax-tools:main from GHCR)
 make lint            # proto + Go + Python lint
 make test            # all unit tests
 make generate-protos # regenerate Go + Python stubs (commit the output)
