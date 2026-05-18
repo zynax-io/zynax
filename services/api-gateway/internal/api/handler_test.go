@@ -77,8 +77,12 @@ func newServer(c domain.CompilerPort, e domain.EnginePort) *httptest.Server {
 }
 
 func newServerWithRegistry(c domain.CompilerPort, e domain.EnginePort, r domain.RegistryPort) *httptest.Server {
+	return newServerWithAuth(c, e, r, "")
+}
+
+func newServerWithAuth(c domain.CompilerPort, e domain.EnginePort, r domain.RegistryPort, apiKey string) *httptest.Server {
 	svc := domain.NewApplyService(c, e, r)
-	h := api.NewHandler(svc)
+	h := api.NewHandler(svc, apiKey)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 	return httptest.NewServer(mux)
@@ -421,5 +425,140 @@ func TestHandler_WorkflowLogs_NotFound_Returns404(t *testing.T) {
 
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("status: got %d, want 404", resp.StatusCode)
+	}
+}
+
+// ── Bearer-token auth middleware ──────────────────────────────────────────
+
+func TestHandler_Auth_CorrectKey_Passes(t *testing.T) {
+	srv := newServerWithAuth(
+		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
+		&stubEngine{submitID: "run-auth"},
+		&stubRegistry{},
+		"secret-key",
+	)
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/apply", bytes.NewBufferString(workflowYAML))
+	req.Header.Set("Content-Type", "application/yaml")
+	req.Header.Set("Authorization", "Bearer secret-key")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusAccepted {
+		t.Errorf("status: got %d, want 202", resp.StatusCode)
+	}
+}
+
+func TestHandler_Auth_MissingKey_Returns401(t *testing.T) {
+	srv := newServerWithAuth(
+		&stubCompiler{},
+		&stubEngine{},
+		&stubRegistry{},
+		"secret-key",
+	)
+	defer srv.Close()
+
+	resp, err := http.Post(srv.URL+"/api/v1/apply", "application/yaml", bytes.NewBufferString(workflowYAML))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status: got %d, want 401", resp.StatusCode)
+	}
+	body := decodeBody(t, resp)
+	if body["code"] != "UNAUTHORIZED" {
+		t.Errorf("code: got %v, want UNAUTHORIZED", body["code"])
+	}
+}
+
+func TestHandler_Auth_WrongKey_Returns401(t *testing.T) {
+	srv := newServerWithAuth(
+		&stubCompiler{},
+		&stubEngine{},
+		&stubRegistry{},
+		"secret-key",
+	)
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/apply", bytes.NewBufferString(workflowYAML))
+	req.Header.Set("Content-Type", "application/yaml")
+	req.Header.Set("Authorization", "Bearer wrong-key")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status: got %d, want 401", resp.StatusCode)
+	}
+}
+
+func TestHandler_Auth_EmptyAPIKey_DisablesGate(t *testing.T) {
+	// When ZYNAX_API_KEY is empty, auth is disabled — unauthenticated requests must pass.
+	srv := newServerWithAuth(
+		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
+		&stubEngine{submitID: "run-noauth"},
+		&stubRegistry{},
+		"",
+	)
+	defer srv.Close()
+
+	resp, err := http.Post(srv.URL+"/api/v1/apply", "application/yaml", bytes.NewBufferString(workflowYAML))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusAccepted {
+		t.Errorf("status: got %d, want 202 (auth disabled)", resp.StatusCode)
+	}
+}
+
+func TestHandler_Auth_DeleteWithKey_Returns401(t *testing.T) {
+	srv := newServerWithAuth(
+		&stubCompiler{},
+		&stubEngine{},
+		&stubRegistry{},
+		"secret-key",
+	)
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/workflows/run-abc", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status: got %d, want 401", resp.StatusCode)
+	}
+}
+
+func TestHandler_Auth_GetNotProtected(t *testing.T) {
+	// GET endpoints must remain open even when ZYNAX_API_KEY is set.
+	srv := newServerWithAuth(
+		&stubCompiler{},
+		&stubEngine{statusRun: domain.WorkflowRunSummary{RunID: "r1", Status: "RUNNING"}},
+		&stubRegistry{},
+		"secret-key",
+	)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/api/v1/workflows/r1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status: got %d, want 200 (GET must not require auth)", resp.StatusCode)
 	}
 }

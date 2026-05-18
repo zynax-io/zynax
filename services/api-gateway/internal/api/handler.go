@@ -21,20 +21,24 @@ const maxBodyBytes = 1 << 20 // 1 MB
 
 // Handler handles HTTP requests for POST /api/v1/apply and GET /api/v1/workflows/{id}.
 type Handler struct {
-	svc *domain.ApplyService
+	svc    *domain.ApplyService
+	apiKey string
 }
 
 // NewHandler creates a Handler backed by the given ApplyService.
-func NewHandler(svc *domain.ApplyService) *Handler {
-	return &Handler{svc: svc}
+// apiKey is the value of ZYNAX_API_KEY; an empty string disables bearer auth.
+func NewHandler(svc *domain.ApplyService, apiKey string) *Handler {
+	return &Handler{svc: svc, apiKey: apiKey}
 }
 
 // RegisterRoutes registers all HTTP routes on mux. Requires Go 1.22+ ServeMux.
+// Mutating endpoints (POST, DELETE) are protected by bearer-token auth when
+// ZYNAX_API_KEY is set; read-only endpoints (GET) are always open.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/v1/apply", h.handleApply)
+	mux.HandleFunc("POST /api/v1/apply", requireBearer(h.apiKey, h.handleApply))
 	mux.HandleFunc("GET /api/v1/workflows/{id}/logs", h.handleWorkflowLogs)
 	mux.HandleFunc("GET /api/v1/workflows/{id}", h.handleGetWorkflow)
-	mux.HandleFunc("DELETE /api/v1/workflows/{id}", h.handleDeleteWorkflow)
+	mux.HandleFunc("DELETE /api/v1/workflows/{id}", requireBearer(h.apiKey, h.handleDeleteWorkflow))
 }
 
 func (h *Handler) handleApply(w http.ResponseWriter, r *http.Request) {

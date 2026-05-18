@@ -28,6 +28,7 @@ type config struct {
 	EngineAddr   string `envconfig:"ENGINE_ADDR" default:"localhost:50055"`
 	RegistryAddr string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
 	LogLevel     string `envconfig:"LOG_LEVEL" default:"info"`
+	APIKey       string `envconfig:"API_KEY"`
 }
 
 func main() {
@@ -53,8 +54,12 @@ func run(cfg config) error {
 	}
 	defer cleanup()
 
+	if cfg.APIKey == "" {
+		slog.Warn("api_key not set — auth disabled")
+	}
+
 	svc := domain.NewApplyService(clients, clients, clients)
-	handler := api.NewHandler(svc)
+	handler := api.NewHandler(svc, cfg.APIKey)
 
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
