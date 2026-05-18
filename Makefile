@@ -103,6 +103,11 @@ install-ci-tools: ## Build and install zynax-ci toolchain to ~/bin/zynax-ci (req
 	cd cmd/zynax-ci && GOWORK=off go build -trimpath -o ~/bin/zynax-ci .
 	@echo "✅ zynax-ci installed → ~/bin/zynax-ci  (ensure ~/bin is on your PATH)"
 
+# ── Local CI gate ──────────────────────────────────────────────────────────
+.PHONY: ci
+ci: lint test security gitleaks ## ★ Full local CI gate — lint → test (incl. validate-spec) → security → secret scan
+	@echo "✅ Local CI gate passed — ready to push"
+
 # ── Lint ───────────────────────────────────────────────────────────────────
 .PHONY: lint lint-go lint-go-adapters lint-agents lint-go-svc lint-agent lint-fix
 lint: lint-protos lint-go lint-go-adapters lint-agents ## Lint everything (proto + Go services + Go adapters + Python)
