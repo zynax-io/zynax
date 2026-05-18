@@ -428,6 +428,48 @@ func TestHandler_WorkflowLogs_NotFound_Returns404(t *testing.T) {
 	}
 }
 
+// ── X-Request-ID middleware ───────────────────────────────────────────────
+
+func newServerWithRequestID(c domain.CompilerPort, e domain.EnginePort) *httptest.Server {
+	svc := domain.NewApplyService(c, e, &stubRegistry{})
+	h := api.NewHandler(svc, "")
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+	return httptest.NewServer(api.RequestIDMiddleware(mux))
+}
+
+func TestRequestIDMiddleware_EchoesExistingID(t *testing.T) {
+	srv := newServerWithRequestID(&stubCompiler{}, &stubEngine{statusRun: domain.WorkflowRunSummary{RunID: "r1"}})
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/v1/workflows/r1", nil)
+	req.Header.Set("X-Request-ID", "trace-abc")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if got := resp.Header.Get("X-Request-ID"); got != "trace-abc" {
+		t.Errorf("X-Request-ID: got %q, want %q", got, "trace-abc")
+	}
+}
+
+func TestRequestIDMiddleware_GeneratesID_WhenAbsent(t *testing.T) {
+	srv := newServerWithRequestID(&stubCompiler{}, &stubEngine{statusRun: domain.WorkflowRunSummary{RunID: "r1"}})
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/api/v1/workflows/r1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if got := resp.Header.Get("X-Request-ID"); got == "" {
+		t.Error("X-Request-ID header must be set even when not provided by client")
+	}
+}
+
 // ── Bearer-token auth middleware ──────────────────────────────────────────
 
 func TestHandler_Auth_CorrectKey_Passes(t *testing.T) {

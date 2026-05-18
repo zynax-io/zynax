@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
@@ -32,16 +33,21 @@ type GatewayClients struct {
 // NewGatewayClients dials all three downstream gRPC services. The returned
 // cleanup function closes all connections and must be deferred by the caller.
 func NewGatewayClients(compilerAddr, engineAddr, registryAddr string) (*GatewayClients, func(), error) {
-	compConn, err := grpc.NewClient(compilerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	dialOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(requestIDUnaryInterceptor),
+		grpc.WithStreamInterceptor(requestIDStreamInterceptor),
+	}
+	compConn, err := grpc.NewClient(compilerAddr, dialOpts...)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("api-gateway: compiler dial: %w", err)
 	}
-	engConn, err := grpc.NewClient(engineAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	engConn, err := grpc.NewClient(engineAddr, dialOpts...)
 	if err != nil {
 		_ = compConn.Close()
 		return nil, func() {}, fmt.Errorf("api-gateway: engine dial: %w", err)
 	}
-	regConn, err := grpc.NewClient(registryAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	regConn, err := grpc.NewClient(registryAddr, dialOpts...)
 	if err != nil {
 		_ = compConn.Close()
 		_ = engConn.Close()
@@ -224,6 +230,36 @@ func mapRegistryGRPCError(err error) error {
 	default:
 		return fmt.Errorf("api-gateway: registry: %w", err)
 	}
+}
+
+// ── gRPC client interceptors ──────────────────────────────────────────────
+
+func requestIDUnaryInterceptor(
+	ctx context.Context,
+	method string,
+	req, reply any,
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
+) error {
+	if id := domain.RequestIDFromContext(ctx); id != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "request-id", id)
+	}
+	return invoker(ctx, method, req, reply, cc, opts...)
+}
+
+func requestIDStreamInterceptor(
+	ctx context.Context,
+	desc *grpc.StreamDesc,
+	cc *grpc.ClientConn,
+	method string,
+	streamer grpc.Streamer,
+	opts ...grpc.CallOption,
+) (grpc.ClientStream, error) {
+	if id := domain.RequestIDFromContext(ctx); id != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "request-id", id)
+	}
+	return streamer(ctx, desc, cc, method, opts...)
 }
 
 // ── proto conversion ──────────────────────────────────────────────────────
