@@ -247,13 +247,22 @@ lint-protos: ensure-tools ## buf lint + format check on all proto files
 	@echo "✅ Proto lint passed"
 
 # ── Security ───────────────────────────────────────────────────────────────
-.PHONY: security security-go security-go-adapters security-agents scan-image audit gitleaks
+.PHONY: security security-go security-go-adapters security-agents scan-image sbom audit gitleaks
 security: security-go security-go-adapters security-agents ## Full security scan (govulncheck + bandit + pip-audit + trivy)
 
 scan-image: ## Scan one service container image for CVEs: make scan-image SVC=agent-registry
 	docker build -t zynax/$(SVC):scan services/$(SVC)/
 	trivy image --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore zynax/$(SVC):scan
 	docker rmi zynax/$(SVC):scan
+
+sbom: ensure-tools ## Generate CycloneDX SBOM for one service image: make sbom SVC=api-gateway
+	docker build services/$(SVC) -t $(REGISTRY)/zynax-$(SVC):local
+	docker run --rm \
+	  -v /var/run/docker.sock:/var/run/docker.sock \
+	  -v "$(CURDIR):/workspace" -w /workspace \
+	  $(TOOLS_IMAGE) \
+	  syft $(REGISTRY)/zynax-$(SVC):local -o cyclonedx-json --file sbom-$(SVC).json
+	@echo "✅ SBOM written to sbom-$(SVC).json"
 
 gitleaks: ensure-tools ## Scan working tree for secrets/PII — mirrors the ci.yml Secret scan gate (no git history)
 	$(TOOLS_RUN) gitleaks detect --no-git --source . \
