@@ -40,6 +40,7 @@ Everything else runs inside containers. No Go, Python, or buf installation neede
 
 | Command | What it does | When to use |
 |---------|-------------|-------------|
+| `make ci` | **Full local CI gate** — lint → test → security → secret scan in sequence | Before opening a PR |
 | `make lint` | Proto + Go + Python lint (ruff, mypy, golangci-lint, buf) | Before every commit |
 | `make test` | Full suite: spec validation + Go unit tests + BDD contracts + Python tests | Before pushing |
 | `make test-unit-go` | Go unit tests with coverage report for all services | During Go development |
@@ -62,6 +63,7 @@ make lint          # catch style issues early
 make test-unit-go  # fast feedback loop while coding
 # ... write code ...
 make test          # full suite before pushing
+make ci            # full CI gate before opening a PR
 ```
 
 Work happens in `services/<service-name>/`. Use `GOWORK=off` for any `go` command run
@@ -73,6 +75,7 @@ directly (not via make) inside a service directory — see `CLAUDE.md` for why.
 make lint              # ruff + mypy on agents/
 make test-unit-agents  # pytest-bdd for SDK and examples
 make security-agents   # bandit + pip-audit
+make ci                # full CI gate before opening a PR
 ```
 
 Work happens in `agents/sdk/` or `agents/examples/<agent>/`. Each agent is an isolated
@@ -85,7 +88,7 @@ make lint-protos        # buf lint + format check
 # ... edit .proto files ...
 make generate-protos    # regenerate stubs — always commit the output
 make test-bdd           # verify BDD contract tests still pass
-make lint               # full lint pass before PR
+make ci                 # full CI gate before opening a PR
 ```
 
 Proto changes require a `.feature` file committed first (ADR-016). Generated stubs in
