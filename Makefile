@@ -6,6 +6,8 @@
 .DEFAULT_GOAL := help
 SHELL         := /bin/bash
 GO_SERVICES   := agent-registry task-broker memory-service event-bus api-gateway workflow-compiler engine-adapter
+# Auto-discovered from go.work — no manual update needed when adding a new adapter module under agents/adapters/.
+GO_ADAPTERS   := $(shell grep -E '^\s+\./agents/adapters/' go.work | sed 's|.*agents/adapters/||' | tr -d '\t ' | sort)
 # Auto-discovered from agents/examples/*/pyproject.toml — no manual update needed when adding a new agent.
 AGENTS        := $(shell find agents/examples -maxdepth 2 -name pyproject.toml -exec dirname {} \; 2>/dev/null | xargs -rI{} basename {} | sort)
 COMPOSE       := docker compose -f infra/docker/docker-compose.yml
@@ -102,14 +104,20 @@ install-ci-tools: ## Build and install zynax-ci toolchain to ~/bin/zynax-ci (req
 	@echo "✅ zynax-ci installed → ~/bin/zynax-ci  (ensure ~/bin is on your PATH)"
 
 # ── Lint ───────────────────────────────────────────────────────────────────
-.PHONY: lint lint-go lint-agents lint-go-svc lint-agent lint-fix
-lint: lint-protos lint-go lint-agents ## Lint everything (proto + Go + Python)
+.PHONY: lint lint-go lint-go-adapters lint-agents lint-go-svc lint-agent lint-fix
+lint: lint-protos lint-go lint-go-adapters lint-agents ## Lint everything (proto + Go services + Go adapters + Python)
 
 lint-go: ensure-tools ## Lint all Go platform services with golangci-lint
 	@for svc in $(GO_SERVICES); do \
 		echo "🔍 $$svc"; \
 		$(TOOLS_RUN) sh -c "cd services/$$svc && golangci-lint run ./... --config ../../tools/golangci-lint.yml"; \
 	done && echo "✅ Go lint passed"
+
+lint-go-adapters: ensure-tools ## Lint all Go adapter modules with golangci-lint
+	@for adp in $(GO_ADAPTERS); do \
+		echo "🔍 adapters/$$adp"; \
+		$(TOOLS_RUN) sh -c "cd agents/adapters/$$adp && golangci-lint run ./... --config ../../../tools/golangci-lint.yml"; \
+	done && echo "✅ Go adapter lint passed"
 
 lint-go-svc: ensure-tools ## Lint one Go service: make lint-go-svc SVC=agent-registry
 	$(TOOLS_RUN) sh -c "cd services/$(SVC) && golangci-lint run ./... --config ../../tools/golangci-lint.yml"
@@ -128,9 +136,9 @@ lint-fix: ensure-tools ## Auto-fix Python agent lint errors
 		$(TOOLS_RUN) sh -c "cd agents/examples/$$a && uv run ruff check --fix src/ tests/ && uv run ruff format src/ tests/" || true; done
 
 # ── Tests ──────────────────────────────────────────────────────────────────
-.PHONY: test test-unit test-unit-go test-unit-svc test-unit-agents test-unit-agent test-bdd test-coverage test-integration
-test: validate-spec test-unit test-bdd test-coverage ## ★ Full local test suite — mirrors CI (spec + Go + Python + BDD + coverage gate)
-test-unit: test-unit-go test-unit-agents ## All unit tests (Go + Python)
+.PHONY: test test-unit test-unit-go test-unit-adapters test-unit-svc test-unit-agents test-unit-agent test-bdd test-coverage test-coverage-adapters test-integration
+test: validate-spec test-unit test-bdd test-coverage test-coverage-adapters ## ★ Full local test suite — mirrors CI (spec + Go + Python + BDD + coverage gate)
+test-unit: test-unit-go test-unit-adapters test-unit-agents ## All unit tests (Go services + Go adapters + Python)
 
 test-unit-go: ensure-tools ## Go unit tests for all services (excludes //go:build integration files)
 	@for svc in $(GO_SERVICES); do \
@@ -139,6 +147,14 @@ test-unit-go: ensure-tools ## Go unit tests for all services (excludes //go:buil
 			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test -tags=\"\" ./... -v -timeout 60s -count=1" || exit 1; \
 		fi; \
 	done && echo "✅ Go tests passed"
+
+test-unit-adapters: ensure-tools ## Go unit tests for all adapter modules
+	@for adp in $(GO_ADAPTERS); do \
+		if [ -f "agents/adapters/$$adp/go.mod" ]; then \
+			echo "🧪 adapters/$$adp"; \
+			$(TOOLS_RUN) sh -c "cd agents/adapters/$$adp && GOWORK=off go test -tags=\"\" ./... -v -timeout 60s -count=1" || exit 1; \
+		fi; \
+	done && echo "✅ Go adapter tests passed"
 
 test-unit-svc: ensure-tools ## Go tests for one service: make test-unit-svc SVC=workflow-compiler
 	$(TOOLS_RUN) sh -c "cd services/$(SVC) && GOWORK=off go test -tags=\"\" ./... -v -timeout 60s"
@@ -158,6 +174,22 @@ test-coverage: ensure-tools ## Domain coverage gate — ≥90% on internal/domai
 		fi; \
 	done; \
 	$$failed && exit 1 || echo "✅ Domain coverage gate passed (all services ≥90%%)"
+
+test-coverage-adapters: ensure-tools ## Total coverage gate — ≥80% across all packages for every Go adapter
+	@failed=false; \
+	for adp in $(GO_ADAPTERS); do \
+		if [ -f "agents/adapters/$$adp/go.mod" ]; then \
+			$(TOOLS_RUN) sh -c "cd agents/adapters/$$adp && GOWORK=off go test -tags=\"\" ./... -coverprofile=coverage.out -covermode=atomic -count=1 2>/dev/null"; \
+			total=$$($(TOOLS_RUN) sh -c "cd agents/adapters/$$adp && GOWORK=off go tool cover -func=coverage.out | grep '^total:' | awk '{print \$$3}' | tr -d '%'" 2>/dev/null); \
+			if [ -z "$$total" ]; then echo "  ⚠  agents/adapters/$$adp: no coverage data"; continue; fi; \
+			printf "  %-40s %s%%\n" "agents/adapters/$$adp" "$$total"; \
+			if awk "BEGIN{exit !($$total < 80)}"; then \
+				echo "  ❌ $$total%% < 80%% — coverage gate failed for agents/adapters/$$adp"; \
+				failed=true; \
+			fi; \
+		fi; \
+	done; \
+	$$failed && exit 1 || echo "✅ Adapter coverage gate passed (all adapters ≥80%%)"
 
 test-bdd: ensure-tools ## Godog BDD contract tests for all protos/tests/ packages
 	$(TOOLS_RUN) sh -c "cd protos/tests && GOWORK=off go test ./... -v -timeout 120s"
@@ -212,8 +244,8 @@ lint-protos: ensure-tools ## buf lint + format check on all proto files
 	@echo "✅ Proto lint passed"
 
 # ── Security ───────────────────────────────────────────────────────────────
-.PHONY: security security-go security-agents scan-image audit gitleaks
-security: security-go security-agents ## Full security scan (govulncheck + bandit + pip-audit + trivy)
+.PHONY: security security-go security-go-adapters security-agents scan-image audit gitleaks
+security: security-go security-go-adapters security-agents ## Full security scan (govulncheck + bandit + pip-audit + trivy)
 
 scan-image: ## Scan one service container image for CVEs: make scan-image SVC=agent-registry
 	docker build -t zynax/$(SVC):scan services/$(SVC)/
@@ -228,6 +260,11 @@ gitleaks: ensure-tools ## Scan working tree for secrets/PII — mirrors the ci.y
 
 security-go: ensure-tools ## govulncheck on all Go services
 	@for svc in $(GO_SERVICES); do $(TOOLS_RUN) sh -c "cd services/$$svc && govulncheck ./..."; done
+
+security-go-adapters: ensure-tools ## govulncheck on all Go adapter modules
+	@for adp in $(GO_ADAPTERS); do \
+		$(TOOLS_RUN) sh -c "cd agents/adapters/$$adp && GOWORK=off govulncheck ./..."; \
+	done && echo "✅ Adapter security scan passed"
 
 security-agents: ensure-tools ## bandit + pip-audit on SDK + all agents
 	@$(TOOLS_RUN) sh -c "cd agents/sdk && uv run bandit -r src/ -ll && uv run pip-audit"
