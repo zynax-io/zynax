@@ -10,10 +10,10 @@ GO_SERVICES   := agent-registry task-broker memory-service event-bus api-gateway
 AGENTS        := $(shell find agents/examples -maxdepth 2 -name pyproject.toml -exec dirname {} \; 2>/dev/null | xargs -rI{} basename {} | sort)
 COMPOSE       := docker compose -f infra/docker/docker-compose.yml
 COMPOSE_TOOLS := docker compose -f infra/docker/docker-compose.tools.yml
-# Override to skip the local build: make TOOLS_IMAGE=ghcr.io/zynax-io/zynax/tools:latest <target>
-TOOLS_IMAGE   ?= zynax-tools:local
+# Override to use a local build: make TOOLS_IMAGE=zynax-tools:local build-tools
+TOOLS_IMAGE   ?= ghcr.io/zynax-io/zynax-tools:main
 REGISTRY      := ghcr.io/zynax-io
-GHCR_TOOLS    := ghcr.io/zynax-io/zynax/tools:latest
+GHCR_TOOLS    := ghcr.io/zynax-io/zynax-tools:main
 TOOLS_RUN     := docker run --rm -v "$(PWD)":/workspace -w /workspace --env-file infra/docker/.env.tools $(TOOLS_IMAGE)
 
 .PHONY: help
@@ -22,7 +22,7 @@ help:
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: bootstrap check-docker build-tools
-bootstrap: check-docker build-tools ## ★ Run once after clone — builds tools image and installs pre-commit hooks
+bootstrap: ensure-tools ## ★ Run once after clone — pulls tools image from GHCR and installs pre-commit hooks
 	@if command -v pre-commit >/dev/null 2>&1; then \
 	  pre-commit install && echo "✅ pre-commit hooks installed"; \
 	else \
@@ -45,13 +45,16 @@ pull-tools: check-docker ## Pull tools image from GHCR (authenticates via `gh au
 	@echo "✅ Pulled $(GHCR_TOOLS)"
 	@echo "   Run targets with: make TOOLS_IMAGE=$(GHCR_TOOLS) <target>"
 
-# Internal: build local image only when TOOLS_IMAGE is the local default.
-# Targets that use this as a prereq skip the Docker build when the caller
-# overrides TOOLS_IMAGE (e.g. TOOLS_IMAGE=ghcr.io/zynax-io/zynax/tools:latest).
+# Internal prereq used by every tool-backed target.
+# - local image (zynax-tools:local): builds from Dockerfile.tools
+# - remote image (default GHCR): pulls only when not already cached locally
 .PHONY: ensure-tools
 ensure-tools: check-docker
 ifeq ($(TOOLS_IMAGE),zynax-tools:local)
 	$(MAKE) build-tools
+else
+	@docker image inspect $(TOOLS_IMAGE) >/dev/null 2>&1 \
+		|| (echo "⬇️  Pulling $(TOOLS_IMAGE)..." && docker pull $(TOOLS_IMAGE))
 endif
 
 # ── Local environment ──────────────────────────────────────────────────────
