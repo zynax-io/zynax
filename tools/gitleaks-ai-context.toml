@@ -2,7 +2,7 @@
 # Focused on patterns that are safe in source code but dangerous in public documentation:
 # local paths, credentials, PII, and internal infrastructure details.
 #
-# Run manually: gitleaks detect --no-git --source . --config tools/gitleaks-ai-context.toml
+# Run manually: make gitleaks
 # CI: triggered on any PR touching CLAUDE.md, AGENTS.md, docs/ai-assistant-setup.md, .ai/, .claude/
 
 title = "Zynax AI context security scan"
@@ -16,6 +16,9 @@ id          = "local-absolute-path"
 description = "Absolute local filesystem path — must not appear in public AI context files"
 regex       = '''(?i)(\/home\/[a-z0-9_\-\.]+\/|\/mnt\/[a-z0-9_\-\.]+\/|\/Users\/[a-zA-Z0-9_\-\.]+\/|C:\\[Uu]sers\\[a-zA-Z0-9_\-\.]+\\)'''
 tags        = ["pii", "local-path"]
+[rules.allowlist]
+# Policy doc uses counter-examples to illustrate what NOT to put in AI context files
+paths       = ['''docs/knowledge-base-policy\.md''']
 
 [[rules]]
 id          = "email-address"
@@ -24,9 +27,25 @@ regex       = '''[a-zA-Z0-9._%+\-]{2,}@[a-zA-Z0-9.\-]{2,}\.[a-zA-Z]{2,6}'''
 tags        = ["pii", "email"]
 [rules.allowlist]
 # Python decorators look like email addresses
-regexes     = ['''@pytest\.|@app\.|@router\.|@celery\.|@task\.|@property|@staticmethod|@classmethod|@abstractmethod|@override|@dataclass|@asynccontextmanager''']
-# Public spec files may contain legitimate contact emails (AsyncAPI info.contact)
-paths       = ['''spec/''']
+regexes     = [
+  '''@pytest\.|@app\.|@router\.|@celery\.|@task\.|@property|@staticmethod|@classmethod|@abstractmethod|@override|@dataclass|@asynccontextmanager''',
+  # SSH git URLs (git@github.com:…) match the email pattern but are not emails
+  '''git@github\.com''',
+  '''git@gitlab\.com''',
+]
+# Docs/governance files legitimately contain template or project-contact emails;
+# policy doc uses them as counter-examples; spec files may have AsyncAPI contact fields.
+paths       = [
+  '''spec/''',
+  '''CONTRIBUTING\.md''',
+  '''GOVERNANCE\.md''',
+  '''docs/git-workflow\.md''',
+  '''docs/github-setup\.md''',
+  '''docs/dev-config-private\.md''',
+  '''docs/engineering/''',
+  '''docs/knowledge-base-policy\.md''',
+  '''\.github/''',
+]
 
 [[rules]]
 id          = "internal-hostname"
@@ -37,7 +56,14 @@ tags        = ["infrastructure"]
 # 'local' as a standalone word or in NATS URLs is fine (dev environment docs)
 regexes     = ['''nats://localhost|nats://local\b|description.*[Ll]ocal''']
 # .dockerignore / .gitignore list glob patterns — never real hostnames
-paths       = ['''\.dockerignore$''', '''\.gitignore$''']
+# infra/AGENTS.md documents .env.local as a filename, not a hostname
+# Policy doc uses counter-examples
+paths       = [
+  '''\.dockerignore$''',
+  '''\.gitignore$''',
+  '''infra/AGENTS\.md''',
+  '''docs/knowledge-base-policy\.md''',
+]
 
 [[rules]]
 id          = "private-ip-range"
@@ -55,6 +81,7 @@ tags        = ["injection", "security"]
 paths       = [
   '''tools/gitleaks-ai-context\.toml''',
   '''docs/knowledge-base-policy\.md''',
+  '''CONTRIBUTING\.md''',
   '''\.claude/commands/''',
   '''\.claude/settings''',
 ]
@@ -72,4 +99,10 @@ paths       = [
   '''vendor/''',
   '''go\.sum''',
   '''.*\.lock''',
+  # Local tool caches — gitignored, machine-specific, never contain real secrets
+  '''\.ruff_cache/''',
+  '''\.venv/''',
+  '''\.mypy_cache/''',
+  # The baseline file itself stores finding data and must not be re-scanned
+  '''tools/gitleaks-baseline\.json''',
 ]

@@ -14,7 +14,9 @@ COMPOSE_TOOLS := docker compose -f infra/docker/docker-compose.tools.yml
 TOOLS_IMAGE   ?= ghcr.io/zynax-io/zynax-tools:main
 REGISTRY      := ghcr.io/zynax-io
 GHCR_TOOLS    := ghcr.io/zynax-io/zynax-tools:main
-TOOLS_RUN     := docker run --rm -v "$(PWD)":/workspace -w /workspace --env-file infra/docker/.env.tools $(TOOLS_IMAGE)
+TOOLS_RUN     := docker run --rm -v ".:/workspace" -w /workspace --env-file infra/docker/.env.tools \
+                   -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/workspace \
+                   $(TOOLS_IMAGE)
 
 .PHONY: help
 help:
@@ -218,8 +220,11 @@ scan-image: ## Scan one service container image for CVEs: make scan-image SVC=ag
 	trivy image --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore zynax/$(SVC):scan
 	docker rmi zynax/$(SVC):scan
 
-gitleaks: ensure-tools ## Scan local repo for secrets via TOOLS_IMAGE (no local install required)
-	$(TOOLS_RUN) gitleaks detect --source . --config tools/gitleaks-ai-context.toml --verbose
+gitleaks: ensure-tools ## Scan working tree for secrets/PII — mirrors the ci.yml Secret scan gate (no git history)
+	$(TOOLS_RUN) gitleaks detect --no-git --source . \
+	  --config tools/gitleaks-ai-context.toml \
+	  --baseline-path tools/gitleaks-baseline.json \
+	  --verbose
 
 security-go: ensure-tools ## govulncheck on all Go services
 	@for svc in $(GO_SERVICES); do $(TOOLS_RUN) sh -c "cd services/$$svc && govulncheck ./..."; done
