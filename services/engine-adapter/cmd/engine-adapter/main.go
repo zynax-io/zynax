@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
@@ -151,7 +152,9 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), error) {
 }
 
 func startGRPC(cfg config, engine domain.WorkflowEngine) (*grpc.Server, error) {
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(requestIDServerInterceptor),
+	)
 	reflection.Register(srv)
 
 	healthSvc := health.NewServer()
@@ -197,6 +200,20 @@ func startHTTP(cfg config) *http.Server {
 		}
 	}()
 	return srv
+}
+
+func requestIDServerInterceptor(
+	ctx context.Context,
+	req any,
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
+) (any, error) {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if vals := md.Get("request-id"); len(vals) > 0 {
+			slog.Info("grpc request", "method", info.FullMethod, "request_id", vals[0])
+		}
+	}
+	return handler(ctx, req)
 }
 
 func getEnv(key, fallback string) string {
