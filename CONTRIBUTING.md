@@ -62,7 +62,7 @@ Read this document before opening your first PR.
 ```bash
 git clone https://github.com/zynax-io/zynax.git
 cd zynax
-make bootstrap        # Builds tools Docker image + runs `pre-commit install`
+make bootstrap        # Pulls ghcr.io/zynax-io/zynax-tools:main from GHCR + runs `pre-commit install`
 ```
 
 `make bootstrap` wires the pre-commit hooks into `.git/hooks/` so they fire
