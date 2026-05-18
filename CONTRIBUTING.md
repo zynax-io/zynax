@@ -339,7 +339,7 @@ enforced. See [ADR-018](docs/adr/ADR-018-ai-kb-authorization-model.md) for the f
 3. Add the service to `go.work` (Go workspace).
 4. Add the service to the `SERVICES` variable in `Makefile`.
 5. Create the Helm chart from the base template in `infra/helm/`.
-6. Add the service to `infra/docker/docker-compose.yml`.
+6. Add the service to `infra/docker-compose/docker-compose.yml`.
 7. Add an ADR in `docs/adr/` documenting the new service's purpose and boundaries.
 8. Write `.feature` files for the first capability before any implementation.
 9. Add to `.github/workflows/ci.yml` path filters.
