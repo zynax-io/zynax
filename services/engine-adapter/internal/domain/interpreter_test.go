@@ -5,8 +5,11 @@
 package domain
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
@@ -361,6 +364,26 @@ func TestResolveTemplate_Deterministic(t *testing.T) {
 		if got != first {
 			t.Fatalf("non-deterministic output on iteration %d:\n got  %s\n want %s", i, got, first)
 		}
+	}
+}
+
+func TestIRInterpreter_PublishErrorLogged(t *testing.T) {
+	// Redirect the default slog logger to a buffer so we can assert the Warn line.
+	var buf bytes.Buffer
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	defer slog.SetDefault(old)
+
+	// Terminal-only IR: only the "completed" publish fires; publisher returns error.
+	ir := buildIR("wf-pub-err", "done", terminal("done"))
+	pub := &stubPublisher{err: errors.New("event bus down")}
+
+	// Run should succeed — publish failure is logged, not propagated.
+	if err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "lifecycle event publish failed") {
+		t.Errorf("expected slog.Warn log line, got: %s", buf.String())
 	}
 }
 
