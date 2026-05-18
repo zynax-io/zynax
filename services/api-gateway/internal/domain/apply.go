@@ -4,8 +4,13 @@ package domain
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Sentinel errors surfaced to the HTTP handler for status-code mapping.
@@ -15,6 +20,46 @@ var (
 	ErrNotFound           = errors.New("api-gateway: not found")
 	ErrAgentAlreadyExists = errors.New("api-gateway: agent already registered")
 )
+
+// manifestIDLen is the number of hex characters used as the workflow ID suffix.
+// 16 hex chars = 8 bytes = 64 bits of the SHA-256 digest — sufficient for
+// workflow-scoped uniqueness within a single Temporal namespace.
+const manifestIDLen = 16
+
+// status values from the proto WorkflowStatus enum (via String()).
+const (
+	statusRunning   = "WORKFLOW_STATUS_RUNNING"
+	statusCompleted = "WORKFLOW_STATUS_COMPLETED"
+)
+
+// ManifestWorkflowID derives a deterministic workflow identifier from raw
+// manifest YAML. The YAML is canonicalised before hashing so that semantically
+// equivalent documents (differing only in whitespace or indentation) produce
+// the same ID. Format: "wf-" + first manifestIDLen hex chars of SHA-256.
+func ManifestWorkflowID(manifestYAML []byte) string {
+	sum := sha256.Sum256(canonicaliseYAML(manifestYAML))
+	return "wf-" + hex.EncodeToString(sum[:])[:manifestIDLen]
+}
+
+// canonicaliseYAML parses and re-marshals YAML to normalise trailing
+// whitespace and indentation differences. Falls back to raw bytes on error.
+func canonicaliseYAML(raw []byte) []byte {
+	var v any
+	if err := yaml.Unmarshal(raw, &v); err != nil {
+		return raw
+	}
+	out, err := yaml.Marshal(v)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
+// rerunWorkflowID appends a Unix-second timestamp to baseID so that a re-run
+// of a completed workflow gets a unique Temporal workflow ID.
+func rerunWorkflowID(baseID string, t time.Time) string {
+	return fmt.Sprintf("%s-%d", baseID, t.Unix())
+}
 
 // ApplyRequest carries the parameters for a manifest apply operation.
 type ApplyRequest struct {
@@ -30,6 +75,10 @@ type ApplyResult struct {
 	AgentID  string
 	Warnings []string
 	Errors   []CompileError
+	// Status is "new" when a fresh workflow was started, "existing" when a
+	// running workflow with the same manifest hash was found. Empty for dry
+	// runs and agent registrations.
+	Status string
 }
 
 // ApplyService orchestrates manifest apply operations.
@@ -58,15 +107,35 @@ func (s *ApplyService) ApplyWorkflow(ctx context.Context, req ApplyRequest) (App
 	if req.DryRun {
 		return ApplyResult{Warnings: compiled.Warnings}, nil
 	}
-	return s.submit(ctx, compiled, req.EngineHint)
+	return s.submit(ctx, req.ManifestYAML, compiled, req.EngineHint)
 }
 
-func (s *ApplyService) submit(ctx context.Context, compiled CompileResult, engineHint string) (ApplyResult, error) {
-	runID, err := s.engine.SubmitWorkflow(ctx, compiled.IRBytes, engineHint)
+// submit checks for an existing workflow execution with the hash-derived ID
+// and applies idempotency logic before starting a new run:
+//   - Running  → return existing run_id with Status "existing"
+//   - Completed → start new run with a timestamp-suffixed ID (re-run)
+//   - Not found / failed / other terminal → start new run with hash ID
+func (s *ApplyService) submit(ctx context.Context, manifestYAML []byte, compiled CompileResult, engineHint string) (ApplyResult, error) {
+	workflowID := ManifestWorkflowID(manifestYAML)
+
+	existing, err := s.engine.GetWorkflowStatus(ctx, workflowID)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return ApplyResult{}, fmt.Errorf("api-gateway: check existing workflow: %w", err)
+	}
+	if err == nil {
+		switch existing.Status {
+		case statusRunning:
+			return ApplyResult{RunID: existing.RunID, Warnings: compiled.Warnings, Status: "existing"}, nil
+		case statusCompleted:
+			workflowID = rerunWorkflowID(workflowID, time.Now())
+		}
+	}
+
+	runID, err := s.engine.SubmitWorkflow(ctx, compiled.IRBytes, engineHint, workflowID)
 	if err != nil {
 		return ApplyResult{}, fmt.Errorf("api-gateway: %w", err)
 	}
-	return ApplyResult{RunID: runID, Warnings: compiled.Warnings}, nil
+	return ApplyResult{RunID: runID, Warnings: compiled.Warnings, Status: "new"}, nil
 }
 
 // ApplyAgentDef registers an AgentDef manifest with the agent registry.

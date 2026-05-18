@@ -5,6 +5,7 @@ package domain_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
@@ -22,16 +23,18 @@ func (s *stubCompiler) CompileWorkflow(_ context.Context, _ []byte, _ string, _ 
 
 // stubEngine is a test double for EnginePort.
 type stubEngine struct {
-	submitID    string
-	submitErr   error
-	statusRun   domain.WorkflowRunSummary
-	statusErr   error
-	cancelErr   error
-	watchEvents []domain.WatchEvent
-	watchErr    error
+	submitID           string
+	submitErr          error
+	capturedWorkflowID string
+	statusRun          domain.WorkflowRunSummary
+	statusErr          error
+	cancelErr          error
+	watchEvents        []domain.WatchEvent
+	watchErr           error
 }
 
-func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _ string) (string, error) {
+func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _, workflowID string) (string, error) {
+	s.capturedWorkflowID = workflowID
 	return s.submitID, s.submitErr
 }
 
@@ -239,5 +242,136 @@ func TestApplyService_WatchWorkflowLogs_NotFound(t *testing.T) {
 	err := svc.WatchWorkflowLogs(context.Background(), "ghost", func(_ domain.WatchEvent) error { return nil })
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
+	}
+}
+
+// ── CancelWorkflow ───────────────────────────────────────────────────────────
+
+func TestApplyService_CancelWorkflow_Success(t *testing.T) {
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{})
+	if err := svc.CancelWorkflow(context.Background(), "r1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestApplyService_CancelWorkflow_NotFound(t *testing.T) {
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{cancelErr: domain.ErrNotFound}, &stubRegistry{})
+	err := svc.CancelWorkflow(context.Background(), "ghost")
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("got %v, want ErrNotFound", err)
+	}
+}
+
+// ── ManifestWorkflowID ───────────────────────────────────────────────────────
+
+func TestManifestWorkflowID_Deterministic(t *testing.T) {
+	yaml := []byte("kind: Workflow\nmetadata:\n  name: test\n")
+	want := domain.ManifestWorkflowID(yaml)
+	for i := range 100 {
+		if got := domain.ManifestWorkflowID(yaml); got != want {
+			t.Fatalf("not deterministic on iteration %d: got %q, want %q", i, got, want)
+		}
+	}
+}
+
+func TestManifestWorkflowID_Format(t *testing.T) {
+	id := domain.ManifestWorkflowID([]byte("kind: Workflow"))
+	if !strings.HasPrefix(id, "wf-") {
+		t.Errorf("want wf- prefix, got %q", id)
+	}
+	if len(id) != 3+16 {
+		t.Errorf("want len 19 (wf- + 16 hex chars), got %d (%q)", len(id), id)
+	}
+}
+
+func TestManifestWorkflowID_DifferentInputs_DifferentIDs(t *testing.T) {
+	id1 := domain.ManifestWorkflowID([]byte("kind: Workflow\nname: alpha"))
+	id2 := domain.ManifestWorkflowID([]byte("kind: Workflow\nname: beta"))
+	if id1 == id2 {
+		t.Error("different manifests must produce different IDs")
+	}
+}
+
+func TestManifestWorkflowID_WhitespaceInsensitive(t *testing.T) {
+	base := []byte("kind: Workflow\nmetadata:\n  name: test\n")
+	trailing := []byte("kind: Workflow\nmetadata:\n  name: test\n\n\n")
+	if domain.ManifestWorkflowID(base) != domain.ManifestWorkflowID(trailing) {
+		t.Error("trailing newlines must not change the workflow ID")
+	}
+}
+
+// ── Idempotent Apply ─────────────────────────────────────────────────────────
+
+func TestApplyService_ApplyWorkflow_Idempotent_Running_ReturnsExisting(t *testing.T) {
+	yaml := []byte("kind: Workflow\nmetadata:\n  name: idem\n")
+	wfID := domain.ManifestWorkflowID(yaml)
+	engine := &stubEngine{
+		statusRun: domain.WorkflowRunSummary{RunID: wfID, Status: "WORKFLOW_STATUS_RUNNING"},
+	}
+	svc := domain.NewApplyService(
+		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
+		engine,
+		&stubRegistry{},
+	)
+	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: yaml})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.RunID != wfID {
+		t.Errorf("got run_id %q, want %q", result.RunID, wfID)
+	}
+	if result.Status != "existing" {
+		t.Errorf("got status %q, want existing", result.Status)
+	}
+	if engine.capturedWorkflowID != "" {
+		t.Error("SubmitWorkflow must not be called when workflow is already running")
+	}
+}
+
+func TestApplyService_ApplyWorkflow_Idempotent_Completed_StartsRerun(t *testing.T) {
+	yaml := []byte("kind: Workflow\nmetadata:\n  name: idem\n")
+	wfID := domain.ManifestWorkflowID(yaml)
+	engine := &stubEngine{
+		statusRun: domain.WorkflowRunSummary{RunID: wfID, Status: "WORKFLOW_STATUS_COMPLETED"},
+		submitID:  "rerun-id",
+	}
+	svc := domain.NewApplyService(
+		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
+		engine,
+		&stubRegistry{},
+	)
+	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: yaml})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Status != "new" {
+		t.Errorf("got status %q, want new", result.Status)
+	}
+	if !strings.HasPrefix(engine.capturedWorkflowID, wfID+"-") {
+		t.Errorf("rerun workflow ID must start with %q-, got %q", wfID, engine.capturedWorkflowID)
+	}
+}
+
+func TestApplyService_ApplyWorkflow_New_UsesHashID(t *testing.T) {
+	yaml := []byte("kind: Workflow\nmetadata:\n  name: fresh\n")
+	wfID := domain.ManifestWorkflowID(yaml)
+	engine := &stubEngine{
+		statusErr: domain.ErrNotFound,
+		submitID:  wfID,
+	}
+	svc := domain.NewApplyService(
+		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
+		engine,
+		&stubRegistry{},
+	)
+	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: yaml})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Status != "new" {
+		t.Errorf("got status %q, want new", result.Status)
+	}
+	if engine.capturedWorkflowID != wfID {
+		t.Errorf("new workflow must use hash ID %q, got %q", wfID, engine.capturedWorkflowID)
 	}
 }

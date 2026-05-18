@@ -78,11 +78,14 @@ func (c *GatewayClients) CompileWorkflow(ctx context.Context, manifestYAML []byt
 }
 
 // SubmitWorkflow implements domain.EnginePort.
-func (c *GatewayClients) SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint string) (string, error) {
+// workflowID overrides the compiler-assigned WorkflowId in the IR so that
+// Temporal uses the hash-derived deterministic identifier for deduplication.
+func (c *GatewayClients) SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint, workflowID string) (string, error) {
 	ir := &zynaxv1.WorkflowIR{}
 	if err := proto.Unmarshal(irBytes, ir); err != nil {
 		return "", fmt.Errorf("api-gateway: unmarshal IR: %w", err)
 	}
+	ir.WorkflowId = workflowID
 	resp, err := c.engine.SubmitWorkflow(ctx, &zynaxv1.SubmitWorkflowRequest{
 		WorkflowIr: ir,
 		EngineHint: engineHint,
