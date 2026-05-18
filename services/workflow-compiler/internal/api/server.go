@@ -164,14 +164,16 @@ func toProtoErrors(errs []domain.ParseError) []*zynaxv1.CompilationError {
 		if !ok {
 			pbCode = zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_UNSPECIFIED
 		}
-		lineNum := e.Line
-		if lineNum > math.MaxInt32 {
-			lineNum = math.MaxInt32
+		var lineNumber int32
+		if e.Line <= math.MaxInt32 {
+			lineNumber = int32(e.Line) //nolint:gosec // bounds-checked by enclosing if
+		} else {
+			lineNumber = math.MaxInt32
 		}
 		out = append(out, &zynaxv1.CompilationError{
 			Code:       pbCode,
 			Message:    e.Message,
-			LineNumber: int32(lineNum), //nolint:gosec // bounds-checked above
+			LineNumber: lineNumber,
 			StateName:  e.StateName,
 		})
 	}
