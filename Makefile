@@ -10,8 +10,9 @@ GO_SERVICES   := agent-registry task-broker memory-service event-bus api-gateway
 GO_ADAPTERS   := $(shell grep -E '^\s+\./agents/adapters/' go.work | sed 's|.*agents/adapters/||' | tr -d '\t ' | sort)
 # Auto-discovered from agents/examples/*/pyproject.toml — no manual update needed when adding a new agent.
 AGENTS        := $(shell find agents/examples -maxdepth 2 -name pyproject.toml -exec dirname {} \; 2>/dev/null | xargs -rI{} basename {} | sort)
-COMPOSE       := docker compose -f infra/docker/docker-compose.yml
-COMPOSE_TOOLS := docker compose -f infra/docker/docker-compose.tools.yml
+COMPOSE          := docker compose -f infra/docker-compose/docker-compose.yml
+COMPOSE_SERVICES := docker compose -f infra/docker-compose/docker-compose.services.yml
+COMPOSE_TOOLS    := docker compose -f infra/docker-compose/docker-compose.tools.yml
 # Override to use a local build: make TOOLS_IMAGE=zynax-tools:local build-tools
 TOOLS_IMAGE   ?= ghcr.io/zynax-io/zynax-tools:main
 REGISTRY      := ghcr.io/zynax-io
@@ -63,37 +64,34 @@ endif
 
 # ── Local environment ──────────────────────────────────────────────────────
 .PHONY: dev-up dev-down dev-logs dev-ps dev-reset dev-restart
-dev-up: check-docker ## Start full local stack (platform + agents + observability)
-	$(COMPOSE) up -d --build
-	@echo "" && echo "  API Gateway → http://localhost:8080  |  Grafana → http://localhost:3000  |  Jaeger → http://localhost:16686"
+dev-up: run-local ## Start full local stack — alias for run-local
 
-dev-down:   ## Stop all services
+dev-down:    ## Stop all services — alias for stop-local
 	$(COMPOSE) down
-dev-logs:   ## Tail all logs
+dev-logs:    ## Tail all logs — alias for logs-local
 	$(COMPOSE) logs -f
-dev-ps:     ## Show service status
+dev-ps:      ## Show service status
 	$(COMPOSE) ps
-dev-reset:  ## ⚠ Destroy data and restart
+dev-reset:   ## ⚠ Destroy data and restart
 	@read -p "Delete all volumes? [y/N] " ans && [ "$$ans" = y ]
 	$(COMPOSE) down -v --remove-orphans && $(MAKE) dev-up
 dev-restart: ## Rebuild one service: make dev-restart SVC=agent-registry
 	@test -n "$(SVC)" || (echo "Usage: make dev-restart SVC=<n>" && exit 1)
 	$(COMPOSE) up -d --build $(SVC)
 
-COMPOSE_LOCAL := docker compose -f infra/docker-compose/docker-compose.yml
 .PHONY: run-local stop-local logs-local install-cli
 run-local: check-docker ## ★ Build images + start local stack (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)
-	$(COMPOSE_LOCAL) up -d --build
+	$(COMPOSE) up -d --build
 	@echo ""
 	@echo "  api-gateway  → http://localhost:7080"
 	@echo "  Temporal UI  → http://localhost:7088"
 	@echo "  export ZYNAX_API_URL=http://localhost:7080"
 
 stop-local: ## Stop and remove local stack containers
-	$(COMPOSE_LOCAL) down
+	$(COMPOSE) down
 
 logs-local: ## Tail all local stack logs
-	$(COMPOSE_LOCAL) logs -f
+	$(COMPOSE) logs -f
 
 install-cli: ## Build and install zynax CLI to ~/bin/zynax (requires Go 1.25)
 	cd cmd/zynax && GOWORK=off go build -trimpath -o ~/bin/zynax .
@@ -217,10 +215,10 @@ test-integration: check-docker ## Integration tests (//go:build integration file
 		exit 0; \
 	fi
 	@echo "Starting testing backing services..."
-	$(COMPOSE) --profile testing up -d
+	$(COMPOSE_SERVICES) --profile testing up -d
 	@echo "Waiting for services to be healthy (up to 60s)..."
 	@timeout 60 sh -c \
-		'until docker compose -f infra/docker/docker-compose.yml ps --format json 2>/dev/null \
+		'until docker compose -f infra/docker-compose/docker-compose.services.yml ps --format json 2>/dev/null \
 		  | python3 -c "import sys,json; data=sys.stdin.read(); rows=json.loads(data) if data.strip().startswith(\"[\") else [json.loads(l) for l in data.strip().splitlines() if l]; exit(0 if all(r.get(\"Health\")==\"healthy\" for r in rows if r.get(\"Health\")) and len(rows)>0 else 1)" \
 		  2>/dev/null; do sleep 2; done' || true
 	@for svc in $(GO_SERVICES); do \
@@ -230,7 +228,7 @@ test-integration: check-docker ## Integration tests (//go:build integration file
 		fi; \
 	done
 	@echo "Stopping testing backing services..."
-	$(COMPOSE) --profile testing down --remove-orphans
+	$(COMPOSE_SERVICES) --profile testing down --remove-orphans
 	@echo "✅ Integration tests passed"
 
 # ── Proto generation + lint ────────────────────────────────────────────────

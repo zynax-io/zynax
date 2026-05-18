@@ -5,8 +5,8 @@
 # Combine with docker-compose.yml:
 #
 #   docker compose \
-#     -f infra/docker/docker-compose.yml \
-#     -f infra/docker/docker-compose.test.yml \
+#     -f infra/docker-compose/docker-compose.services.yml \
+#     -f infra/docker-compose/docker-compose.test.yml \
 #     --profile testing up -d
 
 services:

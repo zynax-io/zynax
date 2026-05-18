@@ -131,7 +131,7 @@ services:
       ZYNAX_GW_HTTP_PORT: "8080"
       ZYNAX_GW_COMPILER_ADDR: workflow-compiler:50054
       ZYNAX_GW_ENGINE_ADDR: engine-adapter:50055
-      ZYNAX_GW_REGISTRY_ADDR: "localhost:50052"
+      ZYNAX_GW_REGISTRY_ADDR: "agent-registry:50052"
       ZYNAX_GW_LOG_LEVEL: info
     ports:
       - "7080:8080"

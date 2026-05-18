@@ -1,7 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
-# Zynax — Local Docker Compose Stack
+# Zynax — Docker Compose Files
 
-Minimal local stack for end-to-end testing of the three implemented platform services.
+All Compose files live in this directory:
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Canonical local dev stack — used by `make run-local` / `make dev-up` |
+| `docker-compose.services.yml` | Profiles-based overlay (testing/dev) — used by `make test-integration` |
+| `docker-compose.tools.yml` | Test-runner container for Python integration tests |
+| `docker-compose.test.yml` | CI overlay — disables persistent volumes for ephemeral test runs |
+
+## Local dev stack
+
+Canonical stack for end-to-end testing of the three implemented platform services.
 
 ## Quick start
 
