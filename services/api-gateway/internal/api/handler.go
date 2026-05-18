@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
 )
@@ -131,6 +132,11 @@ func (h *Handler) handleWorkflowLogs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "streaming not supported", "INTERNAL")
 		return
 	}
+	// Disable the server-level WriteTimeout for this connection so long-running
+	// workflows are not forcibly cut off at 30 s. Non-streaming endpoints keep
+	// the server-wide deadline because they never call this code path.
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
 	started := false
 	err := h.svc.WatchWorkflowLogs(r.Context(), id, func(ev domain.WatchEvent) error {
 		if !started {
