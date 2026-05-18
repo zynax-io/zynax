@@ -74,49 +74,49 @@ Feature: WorkflowCompilerService contract — YAML manifest compilation
 
   # ─── Structural validation errors ─────────────────────────────────────────
 
-  Scenario: Reject a manifest with no terminal state
+  Scenario: Manifest with no terminal state returns errors in response body
     Given a Workflow YAML where no state has type "terminal"
     When CompileWorkflow is called
-    Then the gRPC status is INVALID_ARGUMENT
+    Then the gRPC status is OK
     And the response contains a CompilationError with code NO_TERMINAL_STATE
 
-  Scenario: Reject a manifest with an orphan state
+  Scenario: Manifest with an orphan state returns errors in response body
     Given a Workflow YAML where state "fix" is never referenced in transitions
     When CompileWorkflow is called
-    Then the gRPC status is INVALID_ARGUMENT
+    Then the gRPC status is OK
     And the response contains a CompilationError with code ORPHAN_STATE
     And the CompilationError names the state "fix"
 
-  Scenario: Reject a manifest with duplicate state names
+  Scenario: Manifest with duplicate state names returns errors in response body
     Given a Workflow YAML where state name "review" appears twice
     When CompileWorkflow is called
-    Then the gRPC status is INVALID_ARGUMENT
+    Then the gRPC status is OK
     And the response contains a CompilationError with code DUPLICATE_STATE_NAME
     And the CompilationError names the state "review"
 
-  Scenario: Reject a manifest with a transition to an unknown state
+  Scenario: Manifest with unknown state reference returns errors in response body
     Given a Workflow YAML where a transition targets state "nonexistent"
     When CompileWorkflow is called
-    Then the gRPC status is INVALID_ARGUMENT
+    Then the gRPC status is OK
     And the response contains a CompilationError with code UNKNOWN_STATE_REFERENCE
     And the CompilationError names the state "nonexistent"
 
-  Scenario: Reject a manifest with no initial state
+  Scenario: Manifest with no initial state returns errors in response body
     Given a Workflow YAML where no state is marked as initial
     When CompileWorkflow is called
-    Then the gRPC status is INVALID_ARGUMENT
+    Then the gRPC status is OK
     And the response contains a CompilationError with code NO_INITIAL_STATE
 
-  Scenario: Reject a manifest with multiple initial states
+  Scenario: Manifest with multiple initial states returns errors in response body
     Given a Workflow YAML where two states are marked as initial
     When CompileWorkflow is called
-    Then the gRPC status is INVALID_ARGUMENT
+    Then the gRPC status is OK
     And the response contains a CompilationError with code MULTIPLE_INITIAL_STATES
 
   Scenario: CompilationError includes line_number when YAML is malformed
     Given a Workflow YAML with a syntax error on line 7
     When CompileWorkflow is called
-    Then the gRPC status is INVALID_ARGUMENT
+    Then the gRPC status is OK
     And the response contains a CompilationError with code YAML_PARSE_ERROR
     And the CompilationError line_number is 7
 
@@ -128,10 +128,10 @@ Feature: WorkflowCompilerService contract — YAML manifest compilation
     Then the gRPC status is INVALID_ARGUMENT
     And the error message mentions "manifest_yaml"
 
-  Scenario: CompileWorkflow with non-YAML bytes is rejected
+  Scenario: CompileWorkflow with non-YAML bytes returns errors in response body
     Given a CompileWorkflowRequest with manifest_yaml set to "not yaml {"
     When CompileWorkflow is called
-    Then the gRPC status is INVALID_ARGUMENT
+    Then the gRPC status is OK
     And the response contains a CompilationError with code YAML_PARSE_ERROR
 
   Scenario: ValidateManifest with empty manifest_yaml is rejected
