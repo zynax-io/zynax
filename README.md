@@ -9,7 +9,7 @@
 [![CI](https://github.com/zynax-io/zynax/actions/workflows/ci.yml/badge.svg)](https://github.com/zynax-io/zynax/actions/workflows/ci.yml)
 [![AI Context Budget](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml/badge.svg)](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![CNCF Sandbox Candidate](https://img.shields.io/badge/CNCF-Sandbox_Candidate-026be0.svg)](https://cncf.io)
+[![Built with CNCF-graduated technologies](https://img.shields.io/badge/built_with-CNCF_graduated_tech-026be0.svg)](https://www.cncf.io/projects/)
 [![Go version](https://img.shields.io/github/go-mod/go-version/zynax-io/zynax?filename=go.work&label=go&color=00add8)](go.work)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zynax-io/zynax/badge)](https://securityscorecards.dev)
 
@@ -319,8 +319,8 @@ make test        # full suite (unit + BDD + coverage gate)
 |-----------|--------|---------|------|
 | **M1 — Contracts Foundation** | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
 | **M2 — Workflow IR** | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
-| **M3 — Temporal Execution** | **Complete** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) |
-| **M4 — YAML System + CLI** | **Complete** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) |
+| **M3 — Temporal Execution** | ⚠ **Partial** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) · no task-broker — blocked by M5.C [#460](https://github.com/zynax-io/zynax/issues/460) |
+| **M4 — YAML System + CLI** | ⚠ **Partial** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) · no agent-registry — blocked by M5.C [#460](https://github.com/zynax-io/zynax/issues/460) |
 
 **M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
 AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract
@@ -415,5 +415,5 @@ SPDX-License-Identifier: Apache-2.0
 ---
 
 <div align="center">
-<sub>Zynax is a CNCF Sandbox candidate project.</sub>
+<sub>Zynax is built with CNCF-graduated technologies (Temporal, gRPC, OpenTelemetry). It is not an official CNCF project.</sub>
 </div>
