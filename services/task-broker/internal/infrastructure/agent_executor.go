@@ -32,9 +32,14 @@ func (e *AgentExecutor) Execute(ctx context.Context, agent domain.AgentInfo, tas
 	}
 	defer func() { _ = conn.Close() }()
 
+	reqID, err := newRequestID()
+	if err != nil {
+		return nil, nil, fmt.Errorf("task-broker: generate request ID: %w", err)
+	}
+
 	client := zynaxv1.NewAgentServiceClient(conn)
 	stream, err := client.ExecuteCapability(ctx, &zynaxv1.ExecuteCapabilityRequest{
-		RequestId:      newRequestID(),
+		RequestId:      reqID,
 		TaskId:         task.TaskID,
 		WorkflowId:     task.WorkflowID,
 		CapabilityName: task.CapabilityName,
@@ -69,10 +74,10 @@ func (e *AgentExecutor) Execute(ctx context.Context, agent domain.AgentInfo, tas
 	return nil, nil, nil
 }
 
-func newRequestID() string {
+func newRequestID() (string, error) {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		panic(fmt.Sprintf("task-broker: newRequestID: %v", err))
+		return "", fmt.Errorf("task-broker: rand.Read: %w", err)
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b), nil
 }
