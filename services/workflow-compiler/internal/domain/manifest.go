@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -113,7 +114,7 @@ type yamlTransition struct {
 // ParseManifest parses raw YAML bytes into a domain Manifest.
 // Returns all errors found — not just the first — to let callers surface all
 // problems in a single response. Returns (nil, errs) on any error.
-func ParseManifest(data []byte) (*Manifest, ParseErrors) { //nolint:funlen // four sequential validation phases (YAML→decode→top-level→states) are one concern
+func ParseManifest(_ context.Context, data []byte) (*Manifest, ParseErrors) { //nolint:funlen // four sequential validation phases (YAML→decode→top-level→states) are one concern
 	// Phase 1: YAML syntax — parse into yaml.Node for source position info.
 	var root yaml.Node
 	if err := yaml.Unmarshal(data, &root); err != nil {

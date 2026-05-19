@@ -1,6 +1,7 @@
 package validators_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/domain"
@@ -43,7 +44,7 @@ func TestCapabilityRefValidator(t *testing.T) {
 					},
 				},
 			})
-			errs := v.Validate(g)
+			errs := v.Validate(context.Background(), g)
 			if tc.wantErr && len(errs) == 0 {
 				t.Errorf("capability %q: expected error, got none", tc.capability)
 			}
@@ -58,7 +59,7 @@ func TestCapabilityRefValidator_NoActions(t *testing.T) {
 	g := graphWith("s", map[string]*domain.State{
 		"s": {ID: "s", Type: domain.StateTypeTerminal},
 	})
-	if errs := (validators.CapabilityRefValidator{}).Validate(g); len(errs) != 0 {
+	if errs := (validators.CapabilityRefValidator{}).Validate(context.Background(), g); len(errs) != 0 {
 		t.Errorf("expected no errors for state with no actions, got %v", errs)
 	}
 }
@@ -91,7 +92,7 @@ func TestEventNameValidator(t *testing.T) {
 				"a": normalState("a", tr(tc.eventType, "b")),
 				"b": terminalState(),
 			})
-			errs := v.Validate(g)
+			errs := v.Validate(context.Background(), g)
 			if tc.wantErr && len(errs) == 0 {
 				t.Errorf("event_type %q: expected error, got none", tc.eventType)
 			}
@@ -106,7 +107,7 @@ func TestEventNameValidator_NoTransitions(t *testing.T) {
 	g := graphWith("s", map[string]*domain.State{
 		"s": {ID: "s", Type: domain.StateTypeTerminal},
 	})
-	if errs := (validators.EventNameValidator{}).Validate(g); len(errs) != 0 {
+	if errs := (validators.EventNameValidator{}).Validate(context.Background(), g); len(errs) != 0 {
 		t.Errorf("expected no errors for state with no transitions, got %v", errs)
 	}
 }
@@ -140,7 +141,7 @@ func TestNamespaceValidator(t *testing.T) {
 				"s": terminalState(),
 			})
 			g.Namespace = tc.namespace
-			errs := v.Validate(g)
+			errs := v.Validate(context.Background(), g)
 			if tc.wantErr && len(errs) == 0 {
 				t.Errorf("namespace %q: expected error, got none", tc.namespace)
 			}
@@ -209,7 +210,7 @@ func TestDuplicateTransitionValidator(t *testing.T) {
 	v := validators.DuplicateTransitionValidator{}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			errs := v.Validate(tc.g)
+			errs := v.Validate(context.Background(), tc.g)
 			if tc.wantErr && len(errs) == 0 {
 				t.Error("expected error, got none")
 			}

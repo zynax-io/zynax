@@ -1,6 +1,7 @@
 package ir_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -36,7 +37,7 @@ func minimalGraph() *domain.WorkflowGraph {
 }
 
 func call(g *domain.WorkflowGraph) (*zynaxv1.WorkflowIR, error) {
-	return ir.ToIR(g, "wf-001", "zynax.io/v1alpha1", time.Time{}) //nolint:wrapcheck
+	return ir.ToIR(context.Background(), g, "wf-001", "zynax.io/v1alpha1", time.Time{}) //nolint:wrapcheck
 }
 
 // ToIR basic shape ─────────────────────────────────────────────────────────────
@@ -121,7 +122,7 @@ func TestToIR_StateTypes(t *testing.T) {
 					"s": {ID: "s", Type: tc.domainType},
 				},
 			}
-			wfIR, err := ir.ToIR(g, "id", "v1", time.Time{})
+			wfIR, err := ir.ToIR(context.Background(), g, "id", "v1", time.Time{})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -180,7 +181,7 @@ func TestToIR_TransitionConditions(t *testing.T) {
 			"b": {ID: "b", Type: domain.StateTypeTerminal},
 		},
 	}
-	wfIR, err := ir.ToIR(g, "id", "v1", time.Time{})
+	wfIR, err := ir.ToIR(context.Background(), g, "id", "v1", time.Time{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -222,7 +223,7 @@ func TestToIR_ActionFields(t *testing.T) {
 			},
 		},
 	}
-	wfIR, err := ir.ToIR(g, "id", "v1", time.Time{})
+	wfIR, err := ir.ToIR(context.Background(), g, "id", "v1", time.Time{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -276,7 +277,7 @@ func TestToIR_TerminalStateHasNoTransitions(t *testing.T) {
 
 func TestToIR_CompiledAtExplicit(t *testing.T) {
 	ts := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	wfIR, err := ir.ToIR(minimalGraph(), "id", "v1", ts)
+	wfIR, err := ir.ToIR(context.Background(), minimalGraph(), "id", "v1", ts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -288,14 +289,14 @@ func TestToIR_CompiledAtExplicit(t *testing.T) {
 // Validation errors ────────────────────────────────────────────────────────────
 
 func TestToIR_NilGraphReturnsError(t *testing.T) {
-	_, err := ir.ToIR(nil, "id", "v1", time.Time{})
+	_, err := ir.ToIR(context.Background(), nil, "id", "v1", time.Time{})
 	if err == nil {
 		t.Error("expected error for nil graph, got nil")
 	}
 }
 
 func TestToIR_EmptyWorkflowIDReturnsError(t *testing.T) {
-	_, err := ir.ToIR(minimalGraph(), "", "v1", time.Time{})
+	_, err := ir.ToIR(context.Background(), minimalGraph(), "", "v1", time.Time{})
 	if err == nil {
 		t.Error("expected error for empty workflowID, got nil")
 	}
@@ -327,7 +328,7 @@ func TestToIR_HITLGraph(t *testing.T) {
 			"done": {ID: "done", Type: domain.StateTypeTerminal},
 		},
 	}
-	wfIR, err := ir.ToIR(g, "wf-002", "zynax.io/v1alpha1", time.Time{})
+	wfIR, err := ir.ToIR(context.Background(), g, "wf-002", "zynax.io/v1alpha1", time.Time{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

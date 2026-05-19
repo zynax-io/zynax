@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // WorkflowGraph is the directed state machine built from a parsed Manifest.
 // Nodes are States; edges are the Transitions embedded in each State,
@@ -19,7 +22,7 @@ type WorkflowGraph struct {
 //   - no orphan states (unreachable from initial_state via transitions)
 //
 // Returns all errors found — not just the first.
-func Build(m *Manifest) (*WorkflowGraph, ParseErrors) {
+func Build(_ context.Context, m *Manifest) (*WorkflowGraph, ParseErrors) {
 	var errs ParseErrors
 
 	// initial_state must reference a known state.

@@ -41,14 +41,14 @@ func New() *Server {
 
 // CompileWorkflow parses, validates, and compiles a YAML manifest into a WorkflowIR.
 // The compiled IR is stored unless dry_run is true.
-func (s *Server) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWorkflowRequest) (*zynaxv1.CompileWorkflowResponse, error) {
+func (s *Server) CompileWorkflow(ctx context.Context, req *zynaxv1.CompileWorkflowRequest) (*zynaxv1.CompileWorkflowResponse, error) {
 	if len(req.ManifestYaml) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "manifest_yaml must not be empty")
 	}
 
 	start := time.Now()
 
-	manifest, parseErrs := domain.ParseManifest(req.ManifestYaml)
+	manifest, parseErrs := domain.ParseManifest(ctx, req.ManifestYaml)
 	if len(parseErrs) > 0 {
 		return &zynaxv1.CompileWorkflowResponse{
 			Errors: toProtoErrors(parseErrs),
@@ -59,21 +59,21 @@ func (s *Server) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWorkflow
 		manifest.Namespace = req.Namespace
 	}
 
-	g, buildErrs := domain.Build(manifest)
+	g, buildErrs := domain.Build(ctx, manifest)
 	if len(buildErrs) > 0 {
 		return &zynaxv1.CompileWorkflowResponse{
 			Errors: toProtoErrors(buildErrs),
 		}, nil
 	}
 
-	if validationErrs := validators.Run(g, validators.All()...); len(validationErrs) > 0 {
+	if validationErrs := validators.Run(ctx, g, validators.All()...); len(validationErrs) > 0 {
 		return &zynaxv1.CompileWorkflowResponse{
 			Errors: toProtoErrors(validationErrs),
 		}, nil
 	}
 
 	wfID := s.generateID()
-	wfIR, err := ir.ToIR(g, wfID, manifest.APIVersion, time.Now().UTC())
+	wfIR, err := ir.ToIR(ctx, g, wfID, manifest.APIVersion, time.Now().UTC())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "IR generation: %v", err)
 	}
@@ -97,12 +97,12 @@ func (s *Server) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWorkflow
 
 // ValidateManifest checks a manifest for structural correctness without persisting anything.
 // All errors found are returned — not just the first.
-func (s *Server) ValidateManifest(_ context.Context, req *zynaxv1.ValidateManifestRequest) (*zynaxv1.ValidateManifestResponse, error) {
+func (s *Server) ValidateManifest(ctx context.Context, req *zynaxv1.ValidateManifestRequest) (*zynaxv1.ValidateManifestResponse, error) {
 	if len(req.ManifestYaml) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "manifest_yaml must not be empty")
 	}
 
-	manifest, parseErrs := domain.ParseManifest(req.ManifestYaml)
+	manifest, parseErrs := domain.ParseManifest(ctx, req.ManifestYaml)
 	if len(parseErrs) > 0 {
 		return &zynaxv1.ValidateManifestResponse{
 			Valid:  false,
@@ -112,11 +112,11 @@ func (s *Server) ValidateManifest(_ context.Context, req *zynaxv1.ValidateManife
 
 	var allErrs []domain.ParseError
 
-	g, buildErrs := domain.Build(manifest)
+	g, buildErrs := domain.Build(ctx, manifest)
 	allErrs = append(allErrs, buildErrs...)
 
 	if g != nil {
-		allErrs = append(allErrs, validators.Run(g, validators.All()...)...)
+		allErrs = append(allErrs, validators.Run(ctx, g, validators.All()...)...)
 	}
 
 	return &zynaxv1.ValidateManifestResponse{
