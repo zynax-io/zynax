@@ -1,0 +1,2 @@
+# Compiled adapter binaries produced by `go build ./cmd/...`
+*-adapter

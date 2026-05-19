@@ -45,5 +45,8 @@ uv.lock
 .codeium/
 .aider*
 
+# Pipeline working files — local scratch, never committed
+pr-body.md
+
 # Generated proto stubs ARE committed — do not add protos/generated/ here
 docs/spdd/**/canvas.private.md
