@@ -1,6 +1,7 @@
 package validators_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/domain"
@@ -75,7 +76,7 @@ func TestTerminalStateValidator(t *testing.T) {
 	v := validators.TerminalStateValidator{}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			errs := v.Validate(tc.g)
+			errs := v.Validate(context.Background(), tc.g)
 			if tc.wantErr && len(errs) == 0 {
 				t.Error("expected error, got none")
 			}
@@ -125,7 +126,7 @@ func TestOrphanStateValidator(t *testing.T) {
 	v := validators.OrphanStateValidator{}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			errs := v.Validate(tc.g)
+			errs := v.Validate(context.Background(), tc.g)
 			if tc.wantOrphan == "" && len(errs) != 0 {
 				t.Errorf("expected no error, got %v", errs)
 			}
@@ -204,7 +205,7 @@ func TestCircularTransitionDetector(t *testing.T) {
 	v := validators.CircularTransitionDetector{}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			errs := v.Validate(tc.g)
+			errs := v.Validate(context.Background(), tc.g)
 			if tc.wantErr && len(errs) == 0 {
 				t.Error("expected error, got none")
 			}
@@ -225,7 +226,7 @@ func TestRun_AccumulatesErrors(t *testing.T) {
 		"a": normalState("a", tr("loop", "a")),
 		// no terminal + trapped cycle — two validators should each fire
 	})
-	errs := validators.Run(g, validators.All()...)
+	errs := validators.Run(context.Background(), g, validators.All()...)
 	if len(errs) == 0 {
 		t.Error("expected errors from multiple validators, got none")
 	}
@@ -236,7 +237,7 @@ func TestRun_NoErrors(t *testing.T) {
 		"a": normalState("a", tr("go", "b")),
 		"b": terminalState(),
 	})
-	errs := validators.Run(g, validators.All()...)
+	errs := validators.Run(context.Background(), g, validators.All()...)
 	if len(errs) != 0 {
 		t.Errorf("expected no errors, got %v", errs)
 	}

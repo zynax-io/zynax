@@ -1,6 +1,7 @@
 package validators
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
@@ -26,7 +27,7 @@ type CapabilityRefValidator struct{}
 var reservedPrefixes = []string{"zynax_", "system_", "internal_"}
 
 // Validate implements Validator.
-func (CapabilityRefValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
+func (CapabilityRefValidator) Validate(_ context.Context, g *domain.WorkflowGraph) []domain.ParseError {
 	var errs []domain.ParseError
 	for stateID, state := range g.States {
 		for i, action := range state.Actions {
@@ -61,7 +62,7 @@ func (CapabilityRefValidator) Validate(g *domain.WorkflowGraph) []domain.ParseEr
 type EventNameValidator struct{}
 
 // Validate implements Validator.
-func (EventNameValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
+func (EventNameValidator) Validate(_ context.Context, g *domain.WorkflowGraph) []domain.ParseError {
 	var errs []domain.ParseError
 	for stateID, state := range g.States {
 		for _, t := range state.Transitions {
@@ -83,7 +84,7 @@ func (EventNameValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError 
 type NamespaceValidator struct{}
 
 // Validate implements Validator.
-func (NamespaceValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
+func (NamespaceValidator) Validate(_ context.Context, g *domain.WorkflowGraph) []domain.ParseError {
 	ns := g.Namespace
 	if ns == "" {
 		return nil // empty namespace is caught by the manifest parser
@@ -110,7 +111,7 @@ func (NamespaceValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError 
 type DuplicateTransitionValidator struct{}
 
 // Validate implements Validator.
-func (DuplicateTransitionValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
+func (DuplicateTransitionValidator) Validate(_ context.Context, g *domain.WorkflowGraph) []domain.ParseError {
 	var errs []domain.ParseError
 	for stateID, state := range g.States {
 		seen := make(map[string]struct{}, len(state.Transitions))

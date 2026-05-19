@@ -1,6 +1,7 @@
 package validators
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -13,7 +14,7 @@ import (
 type TerminalStateValidator struct{}
 
 // Validate implements Validator.
-func (TerminalStateValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
+func (TerminalStateValidator) Validate(_ context.Context, g *domain.WorkflowGraph) []domain.ParseError {
 	for _, s := range g.States {
 		if s.Type == domain.StateTypeTerminal {
 			return nil
@@ -30,7 +31,7 @@ func (TerminalStateValidator) Validate(g *domain.WorkflowGraph) []domain.ParseEr
 type OrphanStateValidator struct{}
 
 // Validate implements Validator.
-func (OrphanStateValidator) Validate(g *domain.WorkflowGraph) []domain.ParseError {
+func (OrphanStateValidator) Validate(_ context.Context, g *domain.WorkflowGraph) []domain.ParseError {
 	reachable := reachableFrom(g, g.InitialState)
 	var errs []domain.ParseError
 	for id, state := range g.States {
@@ -54,7 +55,7 @@ func (OrphanStateValidator) Validate(g *domain.WorkflowGraph) []domain.ParseErro
 type CircularTransitionDetector struct{}
 
 // Validate implements Validator.
-func (CircularTransitionDetector) Validate(g *domain.WorkflowGraph) []domain.ParseError { //nolint:funlen // DFS with cycle reporting requires tracking stack and visited sets in one pass
+func (CircularTransitionDetector) Validate(_ context.Context, g *domain.WorkflowGraph) []domain.ParseError { //nolint:funlen // DFS with cycle reporting requires tracking stack and visited sets in one pass
 	productive := productiveStates(g)
 
 	// DFS with three-colour marking:

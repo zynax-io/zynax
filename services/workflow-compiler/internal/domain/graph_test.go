@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"testing"
 )
 
@@ -28,7 +29,7 @@ func buildMinimalManifest() *Manifest {
 }
 
 func TestBuild_Valid(t *testing.T) {
-	g, errs := Build(buildMinimalManifest())
+	g, errs := Build(context.Background(), buildMinimalManifest())
 	if len(errs) != 0 {
 		t.Fatalf("expected no errors, got %v", errs)
 	}
@@ -43,7 +44,7 @@ func TestBuild_Valid(t *testing.T) {
 func TestBuild_UnknownInitialState(t *testing.T) {
 	m := buildMinimalManifest()
 	m.InitialState = "nonexistent"
-	_, errs := Build(m)
+	_, errs := Build(context.Background(), m)
 	if len(errs) == 0 {
 		t.Fatal("expected error for unknown initial_state")
 	}
@@ -64,7 +65,7 @@ func TestBuild_TransitionToUnknownState(t *testing.T) {
 		EventType:   "oops",
 		TargetState: "ghost",
 	})
-	_, errs := Build(m)
+	_, errs := Build(context.Background(), m)
 	if len(errs) == 0 {
 		t.Fatal("expected error for unknown transition target")
 	}
@@ -101,7 +102,7 @@ func TestBuild_NoTerminalState(t *testing.T) {
 			},
 		},
 	}
-	_, errs := Build(m)
+	_, errs := Build(context.Background(), m)
 	if len(errs) == 0 {
 		t.Fatal("expected error for no terminal state")
 	}
@@ -139,7 +140,7 @@ func TestBuild_OrphanState(t *testing.T) {
 			},
 		},
 	}
-	_, errs := Build(m)
+	_, errs := Build(context.Background(), m)
 	if len(errs) == 0 {
 		t.Fatal("expected error for orphan state")
 	}
@@ -169,14 +170,14 @@ func TestBuild_MultipleErrors(t *testing.T) {
 			},
 		},
 	}
-	_, errs := Build(m)
+	_, errs := Build(context.Background(), m)
 	if len(errs) < 2 {
 		t.Errorf("expected multiple errors, got %d: %v", len(errs), errs)
 	}
 }
 
 func TestTransitionsFor_Match(t *testing.T) {
-	g, errs := Build(buildMinimalManifest())
+	g, errs := Build(context.Background(), buildMinimalManifest())
 	if len(errs) != 0 {
 		t.Fatalf("build failed: %v", errs)
 	}
@@ -187,7 +188,7 @@ func TestTransitionsFor_Match(t *testing.T) {
 }
 
 func TestTransitionsFor_NoMatch(t *testing.T) {
-	g, _ := Build(buildMinimalManifest())
+	g, _ := Build(context.Background(), buildMinimalManifest())
 	ts := g.TransitionsFor("start", "unknown.event")
 	if len(ts) != 0 {
 		t.Errorf("expected 0 transitions, got %d", len(ts))
@@ -195,7 +196,7 @@ func TestTransitionsFor_NoMatch(t *testing.T) {
 }
 
 func TestTransitionsFor_UnknownState(t *testing.T) {
-	g, _ := Build(buildMinimalManifest())
+	g, _ := Build(context.Background(), buildMinimalManifest())
 	ts := g.TransitionsFor("nonexistent", "any.event")
 	if ts != nil {
 		t.Errorf("expected nil for unknown state, got %v", ts)
@@ -203,7 +204,7 @@ func TestTransitionsFor_UnknownState(t *testing.T) {
 }
 
 func TestTerminalStates(t *testing.T) {
-	g, _ := Build(buildMinimalManifest())
+	g, _ := Build(context.Background(), buildMinimalManifest())
 	ts := g.TerminalStates()
 	if len(ts) != 1 || ts[0] != "done" {
 		t.Errorf("TerminalStates() = %v, want [done]", ts)
@@ -228,7 +229,7 @@ func TestTerminalStates_Multiple(t *testing.T) {
 			"failure": {ID: "failure", Type: StateTypeTerminal},
 		},
 	}
-	g, errs := Build(m)
+	g, errs := Build(context.Background(), m)
 	if len(errs) != 0 {
 		t.Fatalf("build failed: %v", errs)
 	}
@@ -256,11 +257,11 @@ spec:
     finish:
       type: terminal
 `)
-	m, parseErrs := ParseManifest(data)
+	m, parseErrs := ParseManifest(context.Background(), data)
 	if len(parseErrs) != 0 {
 		t.Fatalf("parse failed: %v", parseErrs)
 	}
-	g, buildErrs := Build(m)
+	g, buildErrs := Build(context.Background(), m)
 	if len(buildErrs) != 0 {
 		t.Fatalf("build failed: %v", buildErrs)
 	}

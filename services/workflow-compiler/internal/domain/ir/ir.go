@@ -2,6 +2,7 @@
 package ir
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -18,7 +19,7 @@ const irVersion = "v1"
 // ToIR converts a validated WorkflowGraph to a proto WorkflowIR.
 // workflowID and apiVersion are caller-supplied envelope values.
 // compiledAt defaults to time.Now() when zero.
-func ToIR(g *domain.WorkflowGraph, workflowID, apiVersion string, compiledAt time.Time) (*zynaxv1.WorkflowIR, error) {
+func ToIR(_ context.Context, g *domain.WorkflowGraph, workflowID, apiVersion string, compiledAt time.Time) (*zynaxv1.WorkflowIR, error) {
 	if g == nil {
 		return nil, fmt.Errorf("graph must not be nil")
 	}

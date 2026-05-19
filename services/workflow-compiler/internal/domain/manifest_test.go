@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -68,7 +69,7 @@ spec:
 }
 
 func TestParseManifest_MinimalValid(t *testing.T) {
-	m, errs := ParseManifest(minimalValid())
+	m, errs := ParseManifest(context.Background(), minimalValid())
 	if len(errs) != 0 {
 		t.Fatalf("expected no errors, got %v", errs)
 	}
@@ -91,7 +92,7 @@ func TestParseManifest_MinimalValid(t *testing.T) {
 }
 
 func TestParseManifest_FullValid(t *testing.T) {
-	m, errs := ParseManifest(fullValid())
+	m, errs := ParseManifest(context.Background(), fullValid())
 	if len(errs) != 0 {
 		t.Fatalf("expected no errors, got %v", errs)
 	}
@@ -144,7 +145,7 @@ func TestParseManifest_FullValid(t *testing.T) {
 
 func TestParseManifest_InvalidYAML(t *testing.T) {
 	bad := []byte("key: [unterminated")
-	_, errs := ParseManifest(bad)
+	_, errs := ParseManifest(context.Background(), bad)
 	if len(errs) == 0 {
 		t.Fatal("expected parse errors for invalid YAML")
 	}
@@ -154,7 +155,7 @@ func TestParseManifest_InvalidYAML(t *testing.T) {
 }
 
 func TestParseManifest_Empty(t *testing.T) {
-	_, errs := ParseManifest([]byte(""))
+	_, errs := ParseManifest(context.Background(), []byte(""))
 	if len(errs) == 0 {
 		t.Fatal("expected error for empty manifest")
 	}
@@ -175,7 +176,7 @@ spec:
     s:
       type: terminal
 `)
-	_, errs := ParseManifest(data)
+	_, errs := ParseManifest(context.Background(), data)
 	if len(errs) == 0 {
 		t.Fatal("expected error for wrong kind")
 	}
@@ -202,7 +203,7 @@ spec:
     s:
       type: terminal
 `)
-	_, errs := ParseManifest(data)
+	_, errs := ParseManifest(context.Background(), data)
 	if len(errs) == 0 {
 		t.Fatal("expected error for missing name")
 	}
@@ -222,7 +223,7 @@ spec:
     s:
       type: terminal
 `)
-	_, errs := ParseManifest(data)
+	_, errs := ParseManifest(context.Background(), data)
 	if len(errs) == 0 {
 		t.Fatal("expected error for missing initial_state")
 	}
@@ -246,7 +247,7 @@ metadata:
 spec:
   initial_state: s
 `)
-	_, errs := ParseManifest(data)
+	_, errs := ParseManifest(context.Background(), data)
 	if len(errs) == 0 {
 		t.Fatal("expected error for empty states")
 	}
@@ -264,7 +265,7 @@ spec:
     s:
       type: bogus_type
 `)
-	_, errs := ParseManifest(data)
+	_, errs := ParseManifest(context.Background(), data)
 	if len(errs) == 0 {
 		t.Fatal("expected error for invalid state type")
 	}
@@ -287,7 +288,7 @@ spec:
       actions:
         - timeout: 5s
 `)
-	_, errs := ParseManifest(data)
+	_, errs := ParseManifest(context.Background(), data)
 	if len(errs) == 0 {
 		t.Fatal("expected error for missing action capability")
 	}
@@ -311,7 +312,7 @@ spec:
         - capability: ping
           timeout: "not-a-duration"
 `)
-	_, errs := ParseManifest(data)
+	_, errs := ParseManifest(context.Background(), data)
 	if len(errs) == 0 {
 		t.Fatal("expected error for invalid timeout")
 	}
@@ -336,7 +337,7 @@ spec:
     done:
       type: terminal
 `)
-	_, errs := ParseManifest(data)
+	_, errs := ParseManifest(context.Background(), data)
 	if len(errs) == 0 {
 		t.Fatal("expected error for missing transition event")
 	}
@@ -361,7 +362,7 @@ spec:
     done:
       type: terminal
 `)
-	_, errs := ParseManifest(data)
+	_, errs := ParseManifest(context.Background(), data)
 	if len(errs) == 0 {
 		t.Fatal("expected error for missing transition goto")
 	}
@@ -371,7 +372,7 @@ spec:
 }
 
 func TestParseManifest_DefaultNamespace(t *testing.T) {
-	m, errs := ParseManifest(minimalValid())
+	m, errs := ParseManifest(context.Background(), minimalValid())
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -381,7 +382,7 @@ func TestParseManifest_DefaultNamespace(t *testing.T) {
 }
 
 func TestParseManifest_StateLineNumbers(t *testing.T) {
-	m, errs := ParseManifest(fullValid())
+	m, errs := ParseManifest(context.Background(), fullValid())
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
