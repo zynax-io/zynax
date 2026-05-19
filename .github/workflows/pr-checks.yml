@@ -52,7 +52,7 @@ jobs:
 
       - name: Cache actionlint
         id: actionlint-cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: /usr/local/bin/actionlint
           key: actionlint-1.7.7-linux-amd64
@@ -120,7 +120,7 @@ jobs:
       - name: Cache buf
         id: buf-cache
         if: steps.proto-detect.outputs.proto_changed != '0'
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: /usr/local/bin/buf
           key: buf-1.47.2-linux-x86_64
@@ -345,7 +345,7 @@ jobs:
 
       - name: Cache gitleaks
         id: gitleaks-cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: /usr/local/bin/gitleaks
           key: gitleaks-8.21.2-linux-x64
