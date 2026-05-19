@@ -126,14 +126,49 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 **Goal:** Existing systems become capabilities without SDK adoption.
 
-> Label: `milestone: M5`
+> Label: `milestone: M5` · Epic: [#377](https://github.com/zynax-io/zynax/issues/377)
+> Execution plan: [docs/milestones/M5-plan.md](docs/milestones/M5-plan.md)
 
-- [ ] `http-adapter`: wraps any REST API — config-only, no code
-- [ ] `llm-adapter`: Bedrock, Ollama, OpenAI — provider configurable
-- [ ] `git-adapter`: GitHub/GitLab capabilities + webhook → event-bus
-- [ ] `langgraph-adapter`: runs a LangGraph app as a capability
-- [ ] `LangGraphEngine` adapter in `engine-adapter` service
-- [ ] Adapter cookbook: documented patterns for CI, databases, messaging
+M5 is structured into five parallel tracks, each with a REASONS Canvas and child issues.
+
+### M5.A — Truth Pass ([#458](https://github.com/zynax-io/zynax/issues/458))
+
+- [x] Remove CNCF Sandbox Candidate badge (#472)
+- [x] Audit CHANGELOG for phantom entries (#473)
+- [ ] Python SDK decision (#474)
+
+### M5.B — Engine Correctness Hardening ([#459](https://github.com/zynax-io/zynax/issues/459))
+
+- [x] Fix `resolveTemplate` map-iteration non-determinism (#475)
+- [ ] Replace bespoke guard parser with `cel-go` (#476)
+- [x] Return full `CompilationError` list from `CompileWorkflow` (#477)
+- [x] Fix SSE `WriteTimeout` breaking `zynax logs` at 30 s (#478)
+
+### M5.C — Capability Dispatch End-to-End ([#460](https://github.com/zynax-io/zynax/issues/460))
+
+- [x] `task-broker` MVP: in-memory `TaskBrokerService`, 5 RPCs, hexagonal layout (#479 / PRs #520 #522 #523)
+- [ ] `agent-registry` MVP: in-memory `AgentRegistryService`, 5 RPCs (#480 — BDD trim → domain → wiring)
+- [ ] Docker Compose wiring: task-broker + agent-registry in `make run-local` (#481)
+
+### M5.D — Control Plane Security Baseline ([#461](https://github.com/zynax-io/zynax/issues/461)) ✅
+
+- [x] Bearer-token auth middleware for api-gateway (#482)
+- [x] Log event publish failures instead of discarding (#483)
+- [x] X-Request-ID propagation across all services (#484)
+- [x] Idempotent `zynax apply` — manifest hash derives stable workflow ID (#485)
+- [x] Consolidate Docker Compose files (#486)
+
+### M5.E — Developer Experience Polish ([#462](https://github.com/zynax-io/zynax/issues/462)) ✅
+
+- [x] Idempotent apply and compose consolidation (shared with M5.D: #485 #486)
+
+### Adapter Library ([#377](https://github.com/zynax-io/zynax/issues/377))
+
+- [x] `http-adapter`: REST API proxy — config-only, no code (#380)
+- [ ] `git-adapter`: GitHub/GitLab operations (`open_pr`, `request_review`, `get_diff`) (#381)
+- [ ] `ci-adapter`: CI pipeline triggers (`trigger_workflow`, `get_run_status`) (#382)
+- [ ] `llm-adapter`: OpenAI / Bedrock / Ollama inference (#383) — Python
+- [ ] `langgraph-adapter`: any LangGraph graph as a named capability (#384) — Python
 
 ---
 

@@ -9,7 +9,7 @@
 **Date:** 2026-05-18
 **Status:** Aligned
 
-**Child issues:** #479 (task-broker MVP) · #480 (agent-registry MVP) · #481 (compose wiring)
+**Child issues:** #479 (task-broker MVP — code merged; cleanup: #530 #531 #532) · #480 (agent-registry MVP — steps: #526 #527 #528) · #481 (compose wiring)
 
 ---
 
@@ -28,8 +28,8 @@
 ## E — Entities
 
 ### Existing entities (contracts unchanged)
-- **`TaskBrokerService`** (`protos/zynax/v1/task_broker.proto`) — existing proto contract with `SubmitTask`, `GetTask`, `WatchTask`, `ReportTaskEvent`. The implementation must honour this contract exactly.
-- **`AgentRegistryService`** (`protos/zynax/v1/agent_registry.proto`) — existing proto contract with `RegisterAgent`, `DeregisterAgent`, `GetAgent`, `ListAgents`.
+- **`TaskBrokerService`** (`protos/zynax/v1/task_broker.proto`) — existing proto contract with `DispatchTask`, `AcknowledgeTask`, `GetTask`, `ListTasks`, `CancelTask`. The implementation must honour this contract exactly.
+- **`AgentRegistryService`** (`protos/zynax/v1/agent_registry.proto`) — existing proto contract with `RegisterAgent`, `DeregisterAgent`, `GetAgent`, `ListAgents`, `FindByCapability`.
 - **`AgentDef`** / **`CapabilityDef`** — proto messages describing an agent and its capabilities.
 - **`TaskEvent`** — proto message streaming PROGRESS / COMPLETED / FAILED events from agent to broker.
 - **`DispatchCapabilityActivity`** — Temporal activity in engine-adapter that submits a task to the broker and waits for completion.
@@ -88,9 +88,9 @@
 
 ## O — Operations
 
-1. **[#479]** Implement `services/task-broker/` — BDD `.feature` file first, then implementation. `SubmitTask`, `GetTask`, `WatchTask`, `ReportTaskEvent`. In-memory round-robin assignment by capability name. ≥90% domain coverage.
-2. **[#480]** Implement `services/agent-registry/` — BDD `.feature` file first (update existing stub to test real server), then implementation. `RegisterAgent`, `DeregisterAgent`, `GetAgent`, `ListAgents`. ≥90% domain coverage.
-3. **[#481]** Wire both services into docker-compose; fix `ZYNAX_GW_REGISTRY_ADDR: "localhost:50052"` → `agent-registry:50052`; add http-adapter `RegisterAgent` call; verify end-to-end path; update README.
+1. **[#479]** ✅ Implement `services/task-broker/` — 5 RPCs (`DispatchTask`, `AcknowledgeTask`, `GetTask`, `ListTasks`, `CancelTask`). In-memory round-robin assignment by capability name. Domain coverage 92.7%. Child quality issues: #530 (AGENTS.md), #531 (BDD align), #532 (handler tests).
+2. **[#480]** Implement `services/agent-registry/` — BDD feature file trim (#526) first, then domain (#527) then gRPC wiring (#528). `RegisterAgent`, `DeregisterAgent`, `GetAgent`, `ListAgents`, `FindByCapability`. ≥90% domain coverage.
+3. **[#481]** Wire both services into docker-compose; fix `ZYNAX_GW_REGISTRY_ADDR: "localhost:50052"` → `agent-registry:50051`; verify end-to-end path; update README. Depends on #528.
 
 ---
 
