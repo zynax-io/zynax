@@ -9,5 +9,6 @@ use (
 	./protos/generated/go
 	./services/api-gateway
 	./services/engine-adapter
+	./services/task-broker
 	./services/workflow-compiler
 )
