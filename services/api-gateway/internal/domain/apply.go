@@ -13,14 +13,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Sentinel errors surfaced to the HTTP handler for status-code mapping.
-var (
-	ErrCompilationFailed  = errors.New("api-gateway: compilation failed")
-	ErrEngineUnavailable  = errors.New("api-gateway: engine unavailable")
-	ErrNotFound           = errors.New("api-gateway: not found")
-	ErrAgentAlreadyExists = errors.New("api-gateway: agent already registered")
-)
-
 // manifestIDLen is the number of hex characters used as the workflow ID suffix.
 // 16 hex chars = 8 bytes = 64 bits of the SHA-256 digest — sufficient for
 // workflow-scoped uniqueness within a single Temporal namespace.

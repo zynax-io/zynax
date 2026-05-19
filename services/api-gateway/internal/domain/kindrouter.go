@@ -3,7 +3,6 @@
 package domain
 
 import (
-	"errors"
 	"fmt"
 
 	"gopkg.in/yaml.v3"
@@ -17,10 +16,6 @@ const (
 	KindWorkflow Kind = "Workflow"
 	KindAgentDef Kind = "AgentDef"
 )
-
-// ErrUnknownKind is returned when the manifest kind: field is absent or not
-// in the allowlist {Workflow, AgentDef}.
-var ErrUnknownKind = errors.New("api-gateway: unsupported manifest kind")
 
 // DetectKind reads only the top-level kind: field from manifestYAML.
 // Full manifest parsing and validation is intentionally delegated to
