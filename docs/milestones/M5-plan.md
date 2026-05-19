@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-19
+**Last updated:** 2026-05-19 (rev 2)
 
 ---
 
@@ -36,7 +36,18 @@ Aligns all documentation with implementation reality following the 2026-05 archi
 |-------|-------|--------|
 | [#472](https://github.com/zynax-io/zynax/issues/472) | Remove CNCF badge + update milestone status | ✅ Done |
 | [#473](https://github.com/zynax-io/zynax/issues/473) | Audit CHANGELOG for phantom entries | ✅ Done |
-| [#474](https://github.com/zynax-io/zynax/issues/474) | Python SDK decision | ⬜ Open |
+| [#474](https://github.com/zynax-io/zynax/issues/474) | **Python SDK** — Agent base class epic | ⬜ Epic (see below) |
+
+### Python SDK epic (#474) — promoted
+
+**Canvas:** [docs/spdd/474-python-sdk/canvas.md](../spdd/474-python-sdk/canvas.md)
+**Decision:** Option A chosen — implement minimal `Agent` base class.
+
+| Issue | Step | Title | Status |
+|-------|------|-------|--------|
+| [#535](https://github.com/zynax-io/zynax/issues/535) | O1 | Implement Agent base class | ⬜ Open |
+| [#536](https://github.com/zynax-io/zynax/issues/536) | O2 | Unit tests (≥ 85% coverage) | ⬜ Open (blocked on #535) |
+| [#537](https://github.com/zynax-io/zynax/issues/537) | O3 | Docs update — README, ARCHITECTURE.md, AGENTS.md | ⬜ Open (blocked on #535+#536) |
 
 ---
 
@@ -49,9 +60,20 @@ Fixes four production-incident-grade bugs identified in the 2026-05 architectura
 | Issue | Title | Status |
 |-------|-------|--------|
 | [#475](https://github.com/zynax-io/zynax/issues/475) | resolveTemplate map-iteration determinism | ✅ Done |
-| [#476](https://github.com/zynax-io/zynax/issues/476) | Replace bespoke guard parser with cel-go | ⬜ Open |
+| [#476](https://github.com/zynax-io/zynax/issues/476) | **Guard evaluator** — cel-go epic | ⬜ Epic (see below) |
 | [#477](https://github.com/zynax-io/zynax/issues/477) | CompileWorkflow structured error list | ✅ Done |
 | [#478](https://github.com/zynax-io/zynax/issues/478) | SSE WriteTimeout fix | ✅ Done |
+
+### Guard evaluator epic (#476) — promoted
+
+**Canvas:** [docs/spdd/476-guard-parser/canvas.md](../spdd/476-guard-parser/canvas.md)
+**Decision:** Option A — integrate `github.com/google/cel-go` (fail-closed on eval error).
+
+| Issue | Step | Title | Status |
+|-------|------|-------|--------|
+| [#538](https://github.com/zynax-io/zynax/issues/538) | O1 | Integrate cel-go into evalGuard | ⬜ Open |
+| [#539](https://github.com/zynax-io/zynax/issues/539) | O2 | Test suite + fuzz seed | ⬜ Open (blocked on #538) |
+| [#540](https://github.com/zynax-io/zynax/issues/540) | O3 | Remove CEL misrepresentation from docs | ⬜ Open (blocked on #538+#539) |
 
 ---
 
@@ -113,13 +135,57 @@ Both child issues merged: #485 #486.
 
 **Canvas:** [docs/spdd/377-adapter-library/canvas.md](../spdd/377-adapter-library/canvas.md)
 
-| Adapter | Epic | Canvas | Step issues | Status |
-|---------|------|--------|-------------|--------|
-| http | [#380](https://github.com/zynax-io/zynax/issues/380) | [380 canvas](../spdd/380-http-adapter/canvas.md) | #391–#397 | ✅ Done |
-| git | [#381](https://github.com/zynax-io/zynax/issues/381) | [381 canvas](../spdd/381-git-adapter/canvas.md) | #399–#403 | BDD done; impl pending |
-| ci | [#382](https://github.com/zynax-io/zynax/issues/382) | [382 canvas](../spdd/382-ci-adapter/canvas.md) | #404–#408 | BDD done; impl pending |
-| llm | [#383](https://github.com/zynax-io/zynax/issues/383) | [383 canvas](../spdd/383-llm-adapter/canvas.md) | #409–#413 | BDD done; impl pending |
-| langgraph | [#384](https://github.com/zynax-io/zynax/issues/384) | [384 canvas](../spdd/384-langgraph-adapter/canvas.md) | #414–#418 | BDD done; impl pending |
+### http-adapter (#380) ✅ Complete
+
+All step issues merged: #391 #392 #393 #394 #395 #396 #397.
+
+### git-adapter (#381)
+
+**Canvas:** [docs/spdd/381-git-adapter/canvas.md](../spdd/381-git-adapter/canvas.md) · Capabilities: `open_pr`, `request_review`, `get_diff`
+
+| Issue | Step | Title | Status |
+|-------|------|-------|--------|
+| [#399](https://github.com/zynax-io/zynax/issues/399) | O1 | BDD contract feature file | ✅ Done |
+| [#400](https://github.com/zynax-io/zynax/issues/400) | O2 | Go module scaffold + config layer | ⬜ Open |
+| [#401](https://github.com/zynax-io/zynax/issues/401) | O3 | Capability handler (open_pr, request_review, get_diff) | ⬜ Open (blocked on #400) |
+| [#402](https://github.com/zynax-io/zynax/issues/402) | O4 | Registry client + bootstrap | ⬜ Open (blocked on #401) |
+| [#403](https://github.com/zynax-io/zynax/issues/403) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #402) |
+
+### ci-adapter (#382)
+
+**Canvas:** [docs/spdd/382-ci-adapter/canvas.md](../spdd/382-ci-adapter/canvas.md) · Capabilities: `trigger_workflow`, `get_run_status`
+
+| Issue | Step | Title | Status |
+|-------|------|-------|--------|
+| [#404](https://github.com/zynax-io/zynax/issues/404) | O1 | BDD contract feature file | ✅ Done |
+| [#405](https://github.com/zynax-io/zynax/issues/405) | O2 | Go module scaffold + config layer | ⬜ Open |
+| [#406](https://github.com/zynax-io/zynax/issues/406) | O3 | CIHandler + PollLoop | ⬜ Open (blocked on #405) |
+| [#407](https://github.com/zynax-io/zynax/issues/407) | O4 | Registry client + bootstrap | ⬜ Open (blocked on #406) |
+| [#408](https://github.com/zynax-io/zynax/issues/408) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #407) |
+
+### llm-adapter (#383)
+
+**Canvas:** [docs/spdd/383-llm-adapter/canvas.md](../spdd/383-llm-adapter/canvas.md) · Capability: `chat_completion` · Python
+
+| Issue | Step | Title | Status |
+|-------|------|-------|--------|
+| [#409](https://github.com/zynax-io/zynax/issues/409) | O1 | BDD contract feature file | ✅ Done |
+| [#410](https://github.com/zynax-io/zynax/issues/410) | O2 | Module scaffold + ProviderConfig | ⬜ Open |
+| [#411](https://github.com/zynax-io/zynax/issues/411) | O3 | Provider handlers (OpenAI, Bedrock, Ollama) | ⬜ Open (blocked on #410) |
+| [#412](https://github.com/zynax-io/zynax/issues/412) | O4 | Registry client + bootstrap | ⬜ Open (blocked on #411) |
+| [#413](https://github.com/zynax-io/zynax/issues/413) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #412) |
+
+### langgraph-adapter (#384)
+
+**Canvas:** [docs/spdd/384-langgraph-adapter/canvas.md](../spdd/384-langgraph-adapter/canvas.md) · Maps LangGraph StateGraph to capabilities · Python
+
+| Issue | Step | Title | Status |
+|-------|------|-------|--------|
+| [#414](https://github.com/zynax-io/zynax/issues/414) | O1 | BDD contract feature file | ✅ Done |
+| [#415](https://github.com/zynax-io/zynax/issues/415) | O2 | Module scaffold + GraphMount config | ⬜ Open |
+| [#416](https://github.com/zynax-io/zynax/issues/416) | O3 | GraphLoader + LangGraphHandler | ⬜ Open (blocked on #415) |
+| [#417](https://github.com/zynax-io/zynax/issues/417) | O4 | Registry client + bootstrap | ⬜ Open (blocked on #416) |
+| [#418](https://github.com/zynax-io/zynax/issues/418) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #417) |
 
 ---
 
