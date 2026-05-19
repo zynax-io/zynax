@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -75,7 +76,7 @@ func (s *Server) CompileWorkflow(ctx context.Context, req *zynaxv1.CompileWorkfl
 	wfID := s.generateID()
 	wfIR, err := ir.ToIR(ctx, g, wfID, manifest.APIVersion, time.Now().UTC())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "IR generation: %v", err)
+		return nil, grpcErr(fmt.Errorf("IR generation: %w", err))
 	}
 
 	if !req.DryRun {
@@ -192,4 +193,21 @@ func generateWorkflowID() string {
 	randBytes := make([]byte, 8)
 	_, _ = rand.Read(randBytes) // crypto/rand.Read never errors on supported platforms
 	return fmt.Sprintf("wf-%s", hex.EncodeToString(randBytes))
+}
+
+// grpcErr maps a domain error to the appropriate gRPC status code.
+// Input-validation guards (codes.InvalidArgument, codes.NotFound for in-memory
+// lookups) stay inline in each handler; this helper handles unexpected domain
+// failures surfaced as codes.Internal and context propagation errors.
+func grpcErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, context.Canceled) {
+		return status.Error(codes.Canceled, err.Error())
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return status.Error(codes.DeadlineExceeded, err.Error())
+	}
+	return status.Error(codes.Internal, err.Error())
 }
