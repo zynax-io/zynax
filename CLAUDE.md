@@ -12,6 +12,7 @@ any layer.
 | M2 — Workflow IR | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
 | M3 — Temporal Execution | ⚠ **Partial** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) · no task-broker (blocked by M5.C #460) |
 | M4 — YAML System + CLI | ⚠ **Partial** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) · no agent-registry (blocked by M5.C #460) |
+| **M5 — Adapter Library** | 🔄 **In Progress** | v0.4.0 | [Epic #377](https://github.com/zynax-io/zynax/issues/377) · [Plan](docs/milestones/M5-plan.md) · M5.D ✅ M5.E ✅ · M5.C in progress |
 
 M1 delivered: 8 gRPC contracts, AsyncAPI spec, JSON schemas, Go + Python generated stubs,
 140+ BDD scenarios across all services, 5 CI gates. All work tracked in Epic #1 (closed).
@@ -153,9 +154,9 @@ Full guide: `docs/patterns/spdd-guide.md` · Template: `docs/spdd/CANVAS_TEMPLAT
 | **M2** (Complete) | WorkflowIR structured fields in `workflow_compiler.proto`, `WorkflowCompilerService` skeleton (in-memory), JSON Schema for WorkflowIR | Temporal integration, persistence, CLI |
 | **M3** (⚠ Partial) | Temporal-backed `EngineAdapterService` — `WorkflowEngine` interface, `IRInterpreterWorkflow`, `DispatchCapabilityActivity`, `TemporalEngine`, gRPC wiring | Other engine adapters, K8s deployment · task-broker missing (M5.C #460) |
 | **M4** (⚠ Partial) | api-gateway REST layer, `zynax` CLI, `kind: AgentDef` routing, Docker Compose runner, GitOps watch | Observability, production hardening · agent-registry missing (M5.C #460) |
-| **M5** (Active) | Adapter library (http ✅, git, ci, llm, langgraph), task-broker MVP, agent-registry MVP | — |
+| **M5** (Active) | M5.A docs alignment, M5.B engine fixes, M5.C capability dispatch (task-broker ✅ code, agent-registry pending), M5.D security ✅, M5.E DX ✅, http-adapter ✅, git/ci/llm/langgraph adapters | Persistence, K8s deployment, event-bus |
 
-Active milestone: M5 (Adapter Library). See open issues labelled `milestone: M5`.
+Active milestone: M5 (Adapter Library). See [docs/milestones/M5-plan.md](docs/milestones/M5-plan.md) for the full execution plan.
 
 ## Common AI Anti-Patterns
 

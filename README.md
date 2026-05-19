@@ -321,6 +321,7 @@ make test        # full suite (unit + BDD + coverage gate)
 | **M2 — Workflow IR** | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
 | **M3 — Temporal Execution** | ⚠ **Partial** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) · no task-broker — blocked by M5.C [#460](https://github.com/zynax-io/zynax/issues/460) |
 | **M4 — YAML System + CLI** | ⚠ **Partial** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) · no agent-registry — blocked by M5.C [#460](https://github.com/zynax-io/zynax/issues/460) |
+| **M5 — Adapter Library** | 🔄 **In Progress** | v0.4.0 | [Epic #377](https://github.com/zynax-io/zynax/issues/377) · [Plan](docs/milestones/M5-plan.md) · M5.D ✅ · M5.E ✅ · task-broker ✅ · agent-registry pending |
 
 **M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
 AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract
