@@ -90,9 +90,13 @@ func (e *fakeExecutor) Execute(_ context.Context, _ domain.AgentInfo, _ *domain.
 	return e.resultPayload, e.taskErr, e.execErr
 }
 
-type blockingExecutor struct{ block chan struct{} }
+type blockingExecutor struct {
+	started chan struct{}
+	block   chan struct{}
+}
 
 func (e *blockingExecutor) Execute(_ context.Context, _ domain.AgentInfo, _ *domain.Task) ([]byte, *domain.TaskError, error) {
+	close(e.started)
 	<-e.block
 	return []byte(`{}`), nil, nil
 }
@@ -144,18 +148,31 @@ func TestDispatchTask_HappyPath(t *testing.T) {
 	}
 }
 
-func TestDispatchTask_BlockUntilPending(t *testing.T) {
+func TestDispatchTask_NonBlocking(t *testing.T) {
 	repo := newFakeRepo()
 	block := make(chan struct{})
-	svc := domain.NewTaskService(repo, &fakeFinder{agents: oneAgent()}, &blockingExecutor{block: block})
+	started := make(chan struct{})
+	svc := domain.NewTaskService(repo, &fakeFinder{agents: oneAgent()}, &blockingExecutor{started: started, block: block})
 
-	taskID, _, _ := svc.DispatchTask(context.Background(), validTask())
-	task, _ := repo.GetByID(context.Background(), taskID)
-	if task.Status != domain.TaskStatusPending {
-		t.Errorf("status before execution = %s", task.Status)
+	taskID, _, err := svc.DispatchTask(context.Background(), validTask())
+	if err != nil {
+		t.Fatalf("DispatchTask: %v", err)
 	}
+
+	// Wait until executeAsync has set status=DISPATCHED and called Execute.
+	<-started
+	task, _ := repo.GetByID(context.Background(), taskID)
+	if task.Status != domain.TaskStatusDispatched {
+		t.Errorf("want DISPATCHED while executor is blocked, got %s", task.Status)
+	}
+
 	close(block)
 	svc.WaitBackground()
+
+	task, _ = repo.GetByID(context.Background(), taskID)
+	if task.Status != domain.TaskStatusCompleted {
+		t.Errorf("want COMPLETED after executor finishes, got %s", task.Status)
+	}
 }
 
 func TestDispatchTask_ExecutorFailure(t *testing.T) {
