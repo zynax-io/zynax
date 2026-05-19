@@ -333,10 +333,10 @@ func extractYAMLErrorLine(err error) int {
 	if err == nil {
 		return 0
 	}
-	m := yamlLineRe.FindStringSubmatch(err.Error())
-	if len(m) < 2 {
+	matches := yamlLineRe.FindStringSubmatch(err.Error())
+	if len(matches) < 2 {
 		return 0
 	}
-	n, _ := strconv.Atoi(m[1])
-	return n
+	lineNum, _ := strconv.Atoi(matches[1])
+	return lineNum
 }

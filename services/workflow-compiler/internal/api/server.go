@@ -20,18 +20,22 @@ import (
 
 // Server implements WorkflowCompilerServiceServer using in-memory IR storage.
 // The in-memory store is appropriate for M2; a persistent backend is deferred.
+//
+// Server is not usable at zero value; always construct via New().
+// When future milestones add injectable dependencies (persistent store, tracer),
+// extend New() with functional options following the WithXxx(v) pattern.
 type Server struct {
 	zynaxv1.UnimplementedWorkflowCompilerServiceServer
-	mu    sync.RWMutex
-	store map[string]*zynaxv1.WorkflowIR
-	idGen func() string
+	mu         sync.RWMutex
+	store      map[string]*zynaxv1.WorkflowIR
+	generateID func() string
 }
 
 // New creates a Server ready to serve gRPC requests.
 func New() *Server {
 	return &Server{
-		store: make(map[string]*zynaxv1.WorkflowIR),
-		idGen: newWorkflowID,
+		store:      make(map[string]*zynaxv1.WorkflowIR),
+		generateID: generateWorkflowID,
 	}
 }
 
@@ -68,7 +72,7 @@ func (s *Server) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWorkflow
 		}, nil
 	}
 
-	wfID := s.idGen()
+	wfID := s.generateID()
 	wfIR, err := ir.ToIR(g, wfID, manifest.APIVersion, time.Now().UTC())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "IR generation: %v", err)
@@ -82,7 +86,7 @@ func (s *Server) CompileWorkflow(_ context.Context, req *zynaxv1.CompileWorkflow
 
 	durationMs := time.Since(start).Milliseconds()
 	if durationMs == 0 {
-		durationMs = 1
+		durationMs = minDurationMs
 	}
 
 	return &zynaxv1.CompileWorkflowResponse{
@@ -180,8 +184,12 @@ func toProtoErrors(errs []domain.ParseError) []*zynaxv1.CompilationError {
 	return out
 }
 
-func newWorkflowID() string {
-	b := make([]byte, 8)
-	_, _ = rand.Read(b) // crypto/rand.Read never errors on supported platforms
-	return fmt.Sprintf("wf-%s", hex.EncodeToString(b))
+// minDurationMs is the minimum value reported for compilation_duration_ms.
+// Prevents a zero duration from being misread as "not measured" by consumers.
+const minDurationMs = 1
+
+func generateWorkflowID() string {
+	randBytes := make([]byte, 8)
+	_, _ = rand.Read(randBytes) // crypto/rand.Read never errors on supported platforms
+	return fmt.Sprintf("wf-%s", hex.EncodeToString(randBytes))
 }
