@@ -110,11 +110,11 @@ func marshalInputTemplate(input map[string]interface{}) (string, error) {
 	if len(input) == 0 {
 		return "", nil
 	}
-	b, err := json.Marshal(input)
+	jsonBytes, err := json.Marshal(input)
 	if err != nil {
 		return "", fmt.Errorf("marshaling input template: %w", err)
 	}
-	return string(b), nil
+	return string(jsonBytes), nil
 }
 
 func convertTransitions(transitions []domain.Transition) []*zynaxv1.TransitionIR {
