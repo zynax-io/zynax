@@ -28,7 +28,6 @@ on:
     types: [opened, synchronize, reopened]
   push:
     branches: [main]
-  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
