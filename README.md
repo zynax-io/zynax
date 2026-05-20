@@ -164,6 +164,35 @@ make TOOLS_IMAGE=ghcr.io/zynax-io/zynax/tools:main-<sha> lint
 
 ---
 
+## Docker Images
+
+All service and adapter images are published to GitHub Container Registry (GHCR) and are publicly readable. No authentication required to pull.
+
+| Image | Description |
+|-------|-------------|
+| `ghcr.io/zynax-io/zynax/api-gateway` | REST gateway — receives `zynax apply` requests |
+| `ghcr.io/zynax-io/zynax/workflow-compiler` | YAML → WorkflowIR compiler |
+| `ghcr.io/zynax-io/zynax/engine-adapter` | Temporal execution adapter |
+| `ghcr.io/zynax-io/zynax/task-broker` | In-memory capability dispatcher |
+| `ghcr.io/zynax-io/zynax/http-adapter` | HTTP REST capability adapter |
+| `ghcr.io/zynax-io/zynax/tools` | Dev toolchain image (Go + Python + proto tools) |
+
+Images are rebuilt on every merge to `main` (`:main` tag) and on every versioned release (`:v<version>` and `:latest` tags).
+
+**Pull the latest main build:**
+```bash
+docker pull ghcr.io/zynax-io/zynax/api-gateway:main
+```
+
+**Pull a specific version:**
+```bash
+docker pull ghcr.io/zynax-io/zynax/api-gateway:v0.4.0
+```
+
+Replace `api-gateway` with any image name from the table above.
+
+---
+
 ## Key Principles
 
 **Declarative-first** — workflows are YAML manifests, not code. Versionable, diffable, GitOps-ready.
