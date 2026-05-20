@@ -19,7 +19,7 @@
 #   - lint lanes are skipped when no relevant files changed.
 #   - test-unit and test-integration are skipped entirely when the PR only
 #     touches docs/ or root *.md files (code=false from the changes job).
-#   - On push to main all lanes always run (no PR base to diff against).
+#   - On push to main or merge_group, all lanes always run (no PR diff available).
 #
 # Test coverage:
 #   test-unit covers: platform services (SERVICE_LIST), Go adapters (GO_ADAPTER_LIST),
@@ -37,6 +37,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
