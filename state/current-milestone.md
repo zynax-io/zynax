@@ -53,6 +53,7 @@ Fix the CI pipeline before all other work. These are XS/S admin + YAML changes.
 | ~~[#548](https://github.com/zynax-io/zynax/issues/548)~~ | ~~Enable allow_auto_merge~~ | XS | ✅ Done via API |
 | ~~[#545](https://github.com/zynax-io/zynax/issues/545)~~ | ~~Fix CI concurrency — cancel stale runs~~ | XS | ✅ Done |
 | ~~[#589](https://github.com/zynax-io/zynax/issues/589)~~ | ~~Remove merge_group trigger from workflow files~~ | XS | ✅ Done |
+| ~~[#546](https://github.com/zynax-io/zynax/issues/546)~~ | ~~Remove push-to-main forced-true override~~ | S | ✅ Done |
 | [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition | M | All install URLs → 404 |
 | [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | No artifacts exist |
 
@@ -104,7 +105,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
 - **E2E demo** — blocked on #481 fully wired.
-- **CI throughput** — auto-merge enabled (`allow_auto_merge: true`), `strict: true` branch protection set via API. Merge queue removed — developer rebases. Remaining: #546 push-to-main override.
+- **CI throughput** — auto-merge enabled, `strict: true` + merge queue removed, #545 concurrency fix, #589 merge_group removed, #546 push-to-main override done. BATCH 0 complete; next: #557 release pipeline.
 - **v0.4.0 release** — blocked on #557 (release race condition fix) then #558 (tag).
 
 ---

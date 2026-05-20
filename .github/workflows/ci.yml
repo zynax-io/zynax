@@ -19,7 +19,7 @@
 #   - lint lanes are skipped when no relevant files changed.
 #   - test-unit and test-integration are skipped entirely when the PR only
 #     touches docs/ or root *.md files (code=false from the changes job).
-#   - On push to main, all lanes always run (no PR diff available).
+#   - On push to main, path-based skipping works via git diff HEAD^1 HEAD.
 #
 # Test coverage:
 #   test-unit covers: platform services (SERVICE_LIST), Go adapters (GO_ADAPTER_LIST),
@@ -109,7 +109,7 @@ jobs:
 #   proto  — true when protos/, spec/, or AI context files change
 #   go     — true when any Go code changes (services/, cmd/, Go adapters)
 #   python — true when Python agents change
-# On push to main all outputs are "true" — no reliable base SHA to diff.
+# On push to main uses git diff HEAD^1 HEAD; on PR uses the PR diff range.
   changes:
     name: changes
     runs-on: ubuntu-24.04
@@ -127,20 +127,23 @@ jobs:
       - name: Detect changed path groups
         id: detect
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BASE="HEAD^1"
+            HEAD_SHA="HEAD"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
             {
               echo "code=true"
               echo "proto=true"
               echo "go=true"
               echo "python=true"
             } >> "$GITHUB_OUTPUT"
-            echo "ℹ️  Push to main — all lanes enabled."
+            echo "ℹ️  Unknown event '${{ github.event_name }}' — all lanes enabled."
             exit 0
           fi
-
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
-          FILES=$(git diff --name-only "${BASE}...${HEAD}" 2>/dev/null || echo "")
+          FILES=$(git diff --name-only "${BASE}...${HEAD_SHA}" 2>/dev/null || echo "")
 
           code=false proto=false go=false python=false
 
@@ -1170,7 +1173,9 @@ jobs:
   security:
     name: security
     runs-on: ubuntu-24.04
-    needs: [dco]
+    needs: [dco, changes]
+    # PRs: always run (satisfies required check). Push to main: skip on docs-only changes.
+    if: github.event_name != 'push' || needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
