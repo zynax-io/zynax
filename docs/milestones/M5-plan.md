@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 17 — #601 filed; Go 1.25→1.26.3 Dockerfile toolchain fix; #562 dependency updated; BATCH 1 reordered)
+**Last updated:** 2026-05-20 (rev 18 — #601 ✅; Go 1.25→1.26.3 Dockerfile fix merged; #562 unblocked)
 
 ---
 
@@ -96,7 +96,7 @@ Edit `.github/workflows/` YAML and GitHub repository settings only.
 | [#559](https://github.com/zynax-io/zynax/issues/559) | Add task-broker to service-release matrix | XS | ✅ Done (delivered in #557) |
 | [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | ✅ Done |
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | ✅ Done |
-| [#601](https://github.com/zynax-io/zynax/issues/601) | **Fix Go builder base image to 1.26.3-alpine in service Dockerfiles** | XS | After #561 — **health-gate fix; do first** |
+| [#601](https://github.com/zynax-io/zynax/issues/601) | Fix Go builder base image to 1.26.3-alpine in service Dockerfiles | XS | ✅ Done |
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | After **#601** (images must exist) |
 | [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | After #562 |
 
@@ -285,7 +285,7 @@ without rewriting the graph).
 - **task-broker excluded** from service-release matrix.
 - **http-adapter** has a Dockerfile but zero release pipeline.
 - **Two workflows build the tools image** to different names.
-- ~~**Go toolchain mismatch** — service Dockerfiles use `golang:1.25-alpine` but `go.mod` requires `go 1.26.3`; service image builds fail with `GOTOOLCHAIN=local` error.~~ → fixed by [#601](https://github.com/zynax-io/zynax/issues/601)
+- ~~**Go toolchain mismatch** — service Dockerfiles used `golang:1.25-alpine` but `go.mod` requires `go 1.26.3`; service image builds failed with `GOTOOLCHAIN=local` error.~~ ✅ Fixed by [#601](https://github.com/zynax-io/zynax/issues/601)
 
 ### Child issues (ordered execution plan)
 | Issue | Title | Size | Priority |
@@ -295,7 +295,7 @@ without rewriting the graph).
 | [#559](https://github.com/zynax-io/zynax/issues/559) | Add task-broker to service-release matrix | XS | ✅ Done (delivered in #557 — task-broker already in release.yml matrix) |
 | [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | ✅ Done |
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | ✅ Done |
-| [#601](https://github.com/zynax-io/zynax/issues/601) | **Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles** | XS | **P0 — health-gate fix** · unblocks #562 |
+| [#601](https://github.com/zynax-io/zynax/issues/601) | Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles | XS | ✅ Done · unblocked #562 |
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR images publicly readable | XS | P1 · blocked on **#601** |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image (remove tools-publish.yml) | XS | P2 |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 | XS | P2 |

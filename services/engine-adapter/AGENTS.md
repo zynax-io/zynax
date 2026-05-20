@@ -1,6 +1,6 @@
 # services/engine-adapter — AGENTS.md
 
-> Go 1.25+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
+> Go 1.26.3+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
 > **Status: M3 Complete.** Temporal backend fully implemented; LangGraph/Argo deferred to M5/M6.
 
 ---

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Build context: repo root  (docker build -f services/api-gateway/Dockerfile .)
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26.3-alpine AS builder
 WORKDIR /workspace
 COPY protos/generated/go/go.mod protos/generated/go/go.sum ./protos/generated/go/
 COPY services/api-gateway/go.mod services/api-gateway/go.sum ./services/api-gateway/
