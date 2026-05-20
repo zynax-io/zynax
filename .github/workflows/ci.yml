@@ -45,6 +45,10 @@ concurrency:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 env:
   PYTHON_VERSION: "3.12"
   BUF_VERSION: "1.47.2"

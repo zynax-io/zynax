@@ -37,6 +37,10 @@ permissions:
   contents: read
   pull-requests: write
 
+defaults:
+  run:
+    shell: bash
+
 # ── GitHub Actions Workflow Lint ──────────────────────────────────────────────
 # actionlint catches expression-context mismatches (e.g. using pull_request
 # context variables in a job that also fires on push), invalid step outputs,
