@@ -1,0 +1,11 @@
+# Pinned digest for ghcr.io/zynax-io/zynax/ci-runner
+#
+# Updated after each successful tools-image.yml build — see the
+# "Output ci-runner digest" step summary for the latest value.
+#
+# Use in workflow files for fully reproducible container references:
+#   container:
+#     image: ghcr.io/zynax-io/zynax/ci-runner@<digest>
+#
+# Populated after first successful build — placeholder until then.
+sha256:0000000000000000000000000000000000000000000000000000000000000000
