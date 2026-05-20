@@ -77,8 +77,12 @@ LABEL org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
 # Alpine system deps — curl intentionally absent from this stage
 RUN apk add --no-cache git bash ca-certificates python3 py3-pip libstdc++ libgcc
 
-# ── Go toolchain — bin + compiled stdlib only; src/test/api stripped (~185 MB) ─
+# ── Go toolchain — bin + stdlib src + compiled pkg + lib ─────────────────────
+# go/src is required by govulncheck: it calls go list -json -deps which resolves
+# stdlib package source paths (e.g. $GOROOT/src/unsafe). Without src, govulncheck
+# fails with "package unsafe is not in std".
 COPY --from=builder /usr/local/go/bin /usr/local/go/bin
+COPY --from=builder /usr/local/go/src /usr/local/go/src
 COPY --from=builder /usr/local/go/pkg /usr/local/go/pkg
 COPY --from=builder /usr/local/go/lib /usr/local/go/lib
 
