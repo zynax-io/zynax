@@ -444,6 +444,49 @@ func TestIRInterpreter_PublishErrorLogged(t *testing.T) {
 	}
 }
 
+// TestEvalGuard_FailClosed_InvalidExpressions verifies fail-closed for specific
+// expressions called out in the issue-#539 acceptance criteria.
+func TestEvalGuard_FailClosed_InvalidExpressions(t *testing.T) {
+	cases := []struct {
+		name string
+		expr string
+	}{
+		{"invalid-keywords", "not a valid expression !!!"},
+		{"malformed-parenthesis", `ctx.x == ("y"`},
+	}
+	ctx := map[string]string{"x": "y"}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if evalGuard(tc.expr, ctx) {
+				t.Errorf("expression %q should be fail-closed (false)", tc.expr)
+			}
+		})
+	}
+}
+
+func TestEvalGuard_BooleanLiteral(t *testing.T) {
+	if !evalGuard("true", map[string]string{}) {
+		t.Error(`evalGuard("true", {}) should return true`)
+	}
+	if evalGuard("false", map[string]string{}) {
+		t.Error(`evalGuard("false", {}) should return false`)
+	}
+}
+
+// FuzzEvalGuard verifies that evalGuard never panics for any input combination.
+// Full fuzz execution is deferred to M7.C (#469); this seed enables the corpus.
+func FuzzEvalGuard(f *testing.F) {
+	f.Add(`ctx.status == "approved"`, "status", "approved")
+	f.Add(`ctx.status != "rejected"`, "status", "ok")
+	f.Add("true", "key", "val")
+	f.Add("false", "key", "val")
+	f.Add("", "key", "val")
+	f.Add("not a valid expression !!!", "key", "val")
+	f.Fuzz(func(_ *testing.T, expr, key, val string) {
+		_ = evalGuard(expr, map[string]string{key: val})
+	})
+}
+
 // --- helpers ---
 
 func equalSlice(a, b []string) bool {
