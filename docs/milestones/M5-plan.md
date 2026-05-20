@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 13 — #538 done; cel-go guard evaluator integrated, fail-closed)
+**Last updated:** 2026-05-20 (rev 14 — #561 done; push images to GHCR on every main merge)
 
 ---
 
@@ -95,7 +95,7 @@ Edit `.github/workflows/` YAML and GitHub repository settings only.
 |-------|-------|------|------------|
 | [#559](https://github.com/zynax-io/zynax/issues/559) | Add task-broker to service-release matrix | XS | ✅ Done (delivered in #557) |
 | [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | ✅ Done |
-| [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | After #559+#560 |
+| [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | ✅ Done |
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | After #561 |
 | [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | After #562 |
 
@@ -292,7 +292,7 @@ without rewriting the graph).
 | [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | ✅ Done (CHANGELOG promoted; tag push pending user action) |
 | [#559](https://github.com/zynax-io/zynax/issues/559) | Add task-broker to service-release matrix | XS | ✅ Done (delivered in #557 — task-broker already in release.yml matrix) |
 | [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | ✅ Done |
-| [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | P1 |
+| [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | ✅ Done |
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR images publicly readable | XS | P1 |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image (remove tools-publish.yml) | XS | P2 |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 | XS | P2 |
