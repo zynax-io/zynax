@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 22 — #566 ✅; Docker Images section added to README, GHCR image refs in docker-compose; BATCH 1 complete)
+**Last updated:** 2026-05-20 (rev 23 — #566 ✅ BATCH 1 complete; #551/#552 promoted to P0 next; self-contained ci-runner requirement added; BATCH 5 reordered)
 
 ---
 
@@ -155,21 +155,34 @@ implement `AgentRepository` port (in-memory backing for M5; Postgres in M6), `Ag
 application service with round-robin health tracking, and heartbeat timeout logic (mark unhealthy
 after 2 min without ping). Reference: `services/task-broker/internal/domain/` for the pattern.
 
-### BATCH 5 — CI DX improvements (P1 · M5.F Group B/C/E, after BATCH 0)
+### BATCH 5 — CI DX improvements (P0 first pair · then P1 · M5.F Group B/C/E, after BATCH 0)
 
-| Issue | Title | Size | Dependency |
-|-------|-------|------|------------|
-| [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | After #546 |
-| [#549](https://github.com/zynax-io/zynax/issues/549) | Extend changes job per-service module granularity | M | After #546 |
-| [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M | After #549 |
-| [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner (Alpine, minimal) | S | None |
-| [#552](https://github.com/zynax-io/zynax/issues/552) | Switch GH Actions jobs to ci-runner container mode | M | After #551 |
-| [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L | After #552 |
-| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml | XS | ✅ Done |
-| [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS | None |
-| [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | After #561 |
+**Do #551 → #552 first.** Every subsequent PR pays the ubuntu-24.04 cold-start tax until these
+land. Once #552 merges, all jobs run inside the pre-baked Alpine ci-runner container and no CI
+step downloads packages from the internet (other than code-level dependency installs such as
+`go mod download` or `uv sync`).
 
-**Engineer profile:** DevOps / GitHub Actions specialist.
+**Self-contained requirement for #551:** `Dockerfile.ci-runner` must bake in every tool the CI
+pipeline calls — Go 1.26.3, golangci-lint, govulncheck, godog, mockery, buf,
+protoc-gen-go, protoc-gen-go-grpc, Python + uv, ruff, mypy, bandit, pip-audit, pytest,
+gitleaks, wget, and the `zynax-ci` binary. No `apt-get install`, `go install`, or `pip install`
+of tooling at run time. The image is rebuilt and published to
+`ghcr.io/zynax-io/zynax/ci-runner:latest` on every change to its Dockerfile (same pattern as
+`tools-image.yml`). Reference: `infra/docker/Dockerfile.tools` for the current tool list.
+
+| Issue | Title | Size | Dependency | Priority |
+|-------|-------|------|------------|----------|
+| [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner — self-contained Alpine image | S | None | **P0 — do next** |
+| [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner container mode | M | After #551 | **P0 — do after #551** |
+| [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | After #552 | P1 |
+| [#549](https://github.com/zynax-io/zynax/issues/549) | Extend changes job per-service module granularity | M | After #552 | P1 |
+| [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M | After #549 | P1 |
+| [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L | After #552 | P2 |
+| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml | XS | ✅ Done | — |
+| [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS | After #552 | P2 |
+| [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | After #552 | P2 |
+
+**Engineer profile:** DevOps / GitHub Actions specialist with Docker/Alpine experience.
 
 ### BATCH 6 — Adapter implementations (P2 · #377, after M5.C complete)
 
