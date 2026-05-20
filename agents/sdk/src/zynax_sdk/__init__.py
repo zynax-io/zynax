@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-# SDK implementation begins in M2. This package is a placeholder that
-# activates the CI Python test step and proto stub consumption path.
+"""Zynax Python SDK — framework-agnostic agent runtime adapter."""
 
 __version__ = "0.1.0"
+
+from zynax_sdk.agent import Agent, capability
+
+__all__ = ["Agent", "capability", "__version__"]

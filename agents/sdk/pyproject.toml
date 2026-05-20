@@ -9,7 +9,7 @@ packages = ["src/zynax_sdk"]
 [project]
 name = "zynax-sdk"
 version = "0.1.0"
-description = "Zynax Python SDK — framework-agnostic agent runtime adapter"
+description = "Zynax Python SDK — Agent base class for building gRPC capability providers"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 
@@ -41,8 +41,11 @@ mypy_path      = "src"
 module = [
     "grpc",
     "grpc.*",
+    "google.protobuf",
+    "google.protobuf.*",
     "opentelemetry.*",
     "prometheus_client",
+    "zynax.*",
 ]
 ignore_missing_imports = true
 
