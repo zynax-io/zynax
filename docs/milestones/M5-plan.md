@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 24 — #551 ✅ Dockerfile.ci-runner created, tools-image.yml updated with ci-runner build job)
+**Last updated:** 2026-05-20 (rev 25 — #566 ✅ reconciled (GitHub-closed, table was stale); #552 ci-runner container-mode PR opened)
 
 ---
 
@@ -100,7 +100,7 @@ Edit `.github/workflows/` YAML and GitHub repository settings only.
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | ✅ Done — 5 service/adapter images public |
 | (admin) | Confirm zynax/tools published + set public | — | ✅ Done — tools-image.yml succeeded 2026-05-20; package set public |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml + delete zynax-tools | XS | ✅ Done |
-| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ After #563 |
+| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ✅ Done |
 
 **Engineer profile:** DevOps / GitHub Actions specialist.
 
@@ -172,7 +172,7 @@ of tooling at run time. The image is rebuilt and published to
 | Issue | Title | Size | Dependency | Priority |
 |-------|-------|------|------------|----------|
 | [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner — self-contained Alpine image | S | ✅ Done | — |
-| [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner container mode | M | After #551 | **P0 — do next** |
+| [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner container mode | M | ✅ Done | **P0** |
 | [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | After #552 | P1 |
 | [#549](https://github.com/zynax-io/zynax/issues/549) | Extend changes job per-service module granularity | M | After #552 | P1 |
 | [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M | After #549 | P1 |
@@ -273,7 +273,7 @@ without rewriting the graph).
 | Issue | Title | Size |
 |-------|-------|------|
 | [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner | S | ✅ Done |
-| [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner | M |
+| [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner | M | ✅ Done |
 | [#358](https://github.com/zynax-io/zynax/issues/358) | Publish tools image to public GHCR securely | S |
 
 ### Group D — M7 test gate integration

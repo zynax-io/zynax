@@ -30,7 +30,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ Dockerfile.ci-runner; next: **#552** switch all jobs to ci-runner container mode |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ Dockerfile.ci-runner; #552 ✅ container-mode PR merged; next: **#554** force-full-pipeline trigger |
 | **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟢 BATCH 1 complete — #566 ✅ Docker Images in README; GHCR image refs in docker-compose |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
@@ -42,12 +42,12 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — #552 switch all jobs to ci-runner (P0, unblocked by #551 ✅)
+## IMMEDIATE — #554 force-full-pipeline trigger (P1, unblocked by #552 ✅)
 
 ### BATCH 0 — ✅ All done
 ~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
 
-### BATCH 1 — In Progress
+### BATCH 1 — ✅ All done
 
 | Issue | Title | Size | Status |
 |-------|-------|------|--------|
@@ -57,6 +57,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 | (admin) | **Confirm zynax/tools published + set public** | — | ✅ Done — tools-image.yml succeeded 2026-05-20; package set public |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml + delete old zynax-tools package | XS | ✅ Done |
 | [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ✅ Done |
+| [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner container mode | M | ✅ Done |
 
 ---
 
