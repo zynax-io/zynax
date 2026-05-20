@@ -30,8 +30,8 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — BATCH 0 complete; BATCH 1 — #560 #561 done; #562 pending (packages not yet public); BATCH 2 complete (#540 ✅) |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #557 #558 #559 #560 #561 done; tag push pending; #562+ ready |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🔴 Health gate — Release workflow red since #598; **#601** (Go 1.25→1.26.3 Dockerfile fix) must merge first; BATCH 2 complete (#540 ✅) |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🔴 Health gate — **#601** pending (service image builds failing); unblocks #562 → #566 |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | In Progress — task-broker code merged; agent-registry pending |
@@ -42,22 +42,21 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — M5.F CI Sprint (BATCH 0, no dependencies)
+## IMMEDIATE — Health gate + BATCH 1 completion
 
-Fix the CI pipeline before all other work. These are XS/S admin + YAML changes.
+**Release workflow is red (run [26162881268](https://github.com/zynax-io/zynax/actions/runs/26162881268)) — fix #601 before any other new work.**
 
-| Issue | Title | Size | Why |
-|-------|-------|------|-----|
-| ~~[#547](https://github.com/zynax-io/zynax/issues/547)~~ | ~~Remove test-integration from required status checks~~ | XS | ✅ Done |
-| ~~[#544](https://github.com/zynax-io/zynax/issues/544)~~ | ~~Enable GitHub Merge Queue~~ | XS | ✅ Done (superseded — merge queue removed; strict: true + allow_auto_merge enabled via API — see #589) |
-| ~~[#548](https://github.com/zynax-io/zynax/issues/548)~~ | ~~Enable allow_auto_merge~~ | XS | ✅ Done via API |
-| ~~[#545](https://github.com/zynax-io/zynax/issues/545)~~ | ~~Fix CI concurrency — cancel stale runs~~ | XS | ✅ Done |
-| ~~[#589](https://github.com/zynax-io/zynax/issues/589)~~ | ~~Remove merge_group trigger from workflow files~~ | XS | ✅ Done |
-| ~~[#546](https://github.com/zynax-io/zynax/issues/546)~~ | ~~Remove push-to-main forced-true override~~ | S | ✅ Done |
-| ~~[#557](https://github.com/zynax-io/zynax/issues/557)~~ | ~~Fix release race condition~~ | M | ✅ Done |
-| ~~[#558](https://github.com/zynax-io/zynax/issues/558)~~ | ~~Cut v0.4.0 — CHANGELOG promoted~~ | XS | ✅ Done (tag push: see below) |
-| ~~[#559](https://github.com/zynax-io/zynax/issues/559)~~ | ~~Add task-broker to service-release matrix~~ | XS | ✅ Done (delivered in #557) |
-| ~~[#560](https://github.com/zynax-io/zynax/issues/560)~~ | ~~Add http-adapter image to release pipeline~~ | S | ✅ Done (BATCH 1) |
+### BATCH 0 — ✅ All done
+~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
+
+### BATCH 1 — In Progress
+
+| Issue | Title | Size | Status |
+|-------|-------|------|--------|
+| ~~[#561](https://github.com/zynax-io/zynax/issues/561)~~ | ~~Push service/adapter images to GHCR on every main merge~~ | S | ✅ Done |
+| **[#601](https://github.com/zynax-io/zynax/issues/601)** | **Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles** | XS | 🔴 **Do first** — health gate |
+| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | ⬜ Blocked on #601 |
+| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ Blocked on #562 |
 
 ---
 
@@ -103,11 +102,14 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 ## Known Blockers
 
+- **🔴 Release workflow (health gate)** — [run 26162881268](https://github.com/zynax-io/zynax/actions/runs/26162881268) failed: service Dockerfiles use `golang:1.25-alpine` but `go.mod` requires `go 1.26.3`. Fix: **[#601](https://github.com/zynax-io/zynax/issues/601)** (XS — bump 4 Dockerfiles). Do first.
+- **GHCR service images absent** — `zynax/api-gateway`, `zynax/engine-adapter`, `zynax/workflow-compiler`, `zynax/task-broker` do not yet exist on GHCR. Blocked on **#601** merging and Release workflow succeeding.
+- **#562 (GHCR public visibility)** — blocked on #601. Cannot set visibility on non-existent packages.
+- **#566 (README pull commands)** — blocked on #562.
 - **agent-registry (#480)** — BDD trim (#526) must merge before domain (#527) begins (ADR-016).
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
 - **E2E demo** — blocked on #481 fully wired.
-- **CI throughput** — BATCH 0 complete; BATCH 1: #560 #561 done; #562 (GHCR public visibility) next.
 - **v0.4.0 tag** — CHANGELOG promoted; run `git tag -a v0.4.0 -m "M5 Adapter Library" && git push origin v0.4.0` on main to trigger the release workflow and create GitHub Release assets.
 
 ---
