@@ -1,0 +1,322 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Release coordinator — single workflow triggered by a version tag.
+# Fans out to parallel build jobs, then creates ONE GitHub Release with
+# all artifacts attached. Replaces the three legacy tag-triggered workflows
+# (cli-release.yml, service-release.yml, zynax-ci-release.yml), which are
+# now workflow_dispatch-only for manual/dry-run use.
+#
+# Trigger:
+#   git tag v0.4.0 && git push origin v0.4.0
+#
+# Dry-run (manual):
+#   Actions → Release → Run workflow → enter tag
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g. v0.4.0)'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write   # reserved for cosign OIDC signing (#239) — do not remove
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/zynax-io/zynax
+  SYFT_VERSION: "1.44.0"
+
+# ── CLI binary — 5 platforms ──────────────────────────────────────────────────
+
+jobs:
+  build-cli:
+    name: CLI — ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - { goos: linux,   goarch: amd64, archive: tar.gz }
+          - { goos: linux,   goarch: arm64, archive: tar.gz }
+          - { goos: darwin,  goarch: amd64, archive: tar.gz }
+          - { goos: darwin,  goarch: arm64, archive: tar.gz }
+          - { goos: windows, goarch: amd64, archive: zip    }
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version-file: cmd/zynax/go.mod
+          cache-dependency-path: cmd/zynax/go.sum
+
+      - name: Resolve version
+        id: ver
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          BINARY=zynax
+          [ "$GOOS" = "windows" ] && BINARY=zynax.exe
+          cd cmd/zynax
+          GOWORK=off go build -trimpath \
+            -ldflags "-s -w -X github.com/zynax-io/zynax/cmd/zynax/cmd.Version=${VERSION}" \
+            -o "${BINARY}" .
+
+      - name: Package
+        id: pkg
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          NAME="zynax_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          cd cmd/zynax
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip "${NAME}.zip" zynax.exe
+            echo "file=${NAME}.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar czf "${NAME}.tar.gz" zynax
+            echo "file=${NAME}.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cli-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: cmd/zynax/${{ steps.pkg.outputs.file }}
+          retention-days: 7
+
+# ── zynax-ci binary — 4 platforms ────────────────────────────────────────────
+
+  build-zynax-ci:
+    name: zynax-ci — ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - { goos: linux,  goarch: amd64, suffix: linux-amd64  }
+          - { goos: linux,  goarch: arm64, suffix: linux-arm64  }
+          - { goos: darwin, goarch: amd64, suffix: darwin-amd64 }
+          - { goos: darwin, goarch: arm64, suffix: darwin-arm64 }
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version-file: cmd/zynax-ci/go.mod
+          cache: true
+          cache-dependency-path: cmd/zynax-ci/go.sum
+
+      - name: Resolve version
+        id: ver
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        working-directory: cmd/zynax-ci
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          GOWORK=off go build -trimpath \
+            -ldflags "-s -w -X github.com/zynax-io/zynax/cmd/zynax-ci/cmd.Version=${{ steps.ver.outputs.version }}" \
+            -o zynax-ci-${{ matrix.suffix }} .
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zynax-ci-${{ matrix.suffix }}
+          path: cmd/zynax-ci/zynax-ci-${{ matrix.suffix }}
+          retention-days: 7
+
+# ── Service images + CycloneDX SBOMs ─────────────────────────────────────────
+
+  build-push-images:
+    name: Image & SBOM — ${{ matrix.service }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api-gateway, engine-adapter, workflow-compiler, task-broker]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Resolve version
+        id: ver
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Build and push
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ steps.ver.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+
+      - name: Install syft ${{ env.SYFT_VERSION }}
+        run: |
+          curl -sSfL \
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/syft.tar.gz
+          tar -xzf /tmp/syft.tar.gz -C /usr/local/bin syft
+          rm /tmp/syft.tar.gz
+
+      - name: Generate SBOM
+        run: |
+          syft \
+            "${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ steps.ver.outputs.version }}" \
+            -o cyclonedx-json \
+            --file "${{ matrix.service }}-sbom.json"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-${{ matrix.service }}
+          path: ${{ matrix.service }}-sbom.json
+          retention-days: 7
+
+# ── Single GitHub Release ─────────────────────────────────────────────────────
+
+  release:
+    name: Create GitHub Release
+    needs: [build-cli, build-zynax-ci, build-push-images]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Resolve version
+        id: ver
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+          if [[ "${TAG}" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: cli-*
+          merge-multiple: true
+          path: dist/cli/
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: zynax-ci-*
+          merge-multiple: true
+          path: dist/zynax-ci/
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: sbom-*
+          merge-multiple: true
+          path: dist/sboms/
+
+      - name: Generate checksums
+        run: |
+          (cd dist/cli     && sha256sum * > ../checksums-cli.txt)
+          (cd dist/zynax-ci && sha256sum * > ../checksums-zynax-ci.txt)
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: Zynax ${{ steps.ver.outputs.version }}
+          prerelease: ${{ steps.ver.outputs.prerelease == 'true' }}
+          body: |
+            ## Zynax ${{ steps.ver.outputs.version }}
+
+            Declarative AI-workflow control plane — CLI, CI toolchain, and service images.
+
+            ### Install zynax CLI
+
+            **macOS (Apple Silicon):**
+            ```bash
+            curl -L https://github.com/zynax-io/zynax/releases/download/${{ steps.ver.outputs.version }}/zynax_${{ steps.ver.outputs.version }}_darwin_arm64.tar.gz | tar xz && sudo mv zynax /usr/local/bin/
+            ```
+
+            **macOS (Intel):**
+            ```bash
+            curl -L https://github.com/zynax-io/zynax/releases/download/${{ steps.ver.outputs.version }}/zynax_${{ steps.ver.outputs.version }}_darwin_amd64.tar.gz | tar xz && sudo mv zynax /usr/local/bin/
+            ```
+
+            **Linux (amd64):**
+            ```bash
+            curl -L https://github.com/zynax-io/zynax/releases/download/${{ steps.ver.outputs.version }}/zynax_${{ steps.ver.outputs.version }}_linux_amd64.tar.gz | tar xz && sudo mv zynax /usr/local/bin/
+            ```
+
+            **Linux (arm64):**
+            ```bash
+            curl -L https://github.com/zynax-io/zynax/releases/download/${{ steps.ver.outputs.version }}/zynax_${{ steps.ver.outputs.version }}_linux_arm64.tar.gz | tar xz && sudo mv zynax /usr/local/bin/
+            ```
+
+            **Windows (amd64):** download `zynax_${{ steps.ver.outputs.version }}_windows_amd64.zip`
+
+            **Build from source:**
+            ```bash
+            git clone https://github.com/zynax-io/zynax.git && cd zynax/cmd/zynax
+            GOWORK=off go build -o zynax . && sudo mv zynax /usr/local/bin/
+            ```
+
+            **Verify checksums:**
+            ```bash
+            sha256sum -c checksums-cli.txt
+            ```
+
+            ### Install zynax-ci
+
+            ```bash
+            # Linux (amd64)
+            curl -fsSL https://github.com/zynax-io/zynax/releases/download/${{ steps.ver.outputs.version }}/zynax-ci-linux-amd64 \
+              -o ~/bin/zynax-ci && chmod +x ~/bin/zynax-ci
+
+            # macOS (Apple Silicon)
+            curl -fsSL https://github.com/zynax-io/zynax/releases/download/${{ steps.ver.outputs.version }}/zynax-ci-darwin-arm64 \
+              -o ~/bin/zynax-ci && chmod +x ~/bin/zynax-ci
+            ```
+
+            ### Service images (GHCR)
+
+            ```bash
+            docker pull ghcr.io/zynax-io/zynax/api-gateway:${{ steps.ver.outputs.version }}
+            docker pull ghcr.io/zynax-io/zynax/engine-adapter:${{ steps.ver.outputs.version }}
+            docker pull ghcr.io/zynax-io/zynax/workflow-compiler:${{ steps.ver.outputs.version }}
+            docker pull ghcr.io/zynax-io/zynax/task-broker:${{ steps.ver.outputs.version }}
+            ```
+
+            CycloneDX SBOMs for all service images are attached to this release.
+
+            ### What's new
+
+            See [CHANGELOG.md](https://github.com/zynax-io/zynax/blob/main/CHANGELOG.md) for full release notes.
+          files: |
+            dist/cli/*
+            dist/zynax-ci/*
+            dist/sboms/*
+            dist/checksums-cli.txt
+            dist/checksums-zynax-ci.txt

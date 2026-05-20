@@ -1,25 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# CLI Release — builds the zynax binary for five platforms and publishes a
-# GitHub Release with checksums when a v*.*.* tag is pushed.
+# CLI Release — manual trigger only. Tag-triggered releases are handled by
+# release.yml (unified coordinator). Use this for dry-run builds.
 #
-# Trigger:
-#   git tag v0.3.0 && git push origin v0.3.0
-#
-# To also trigger manually:
+# Manual trigger:
 #   Actions → CLI Release → Run workflow → enter tag
 
 name: CLI Release
 
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-*'   # pre-releases: v0.4.0-rc.1
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Version tag to publish (e.g. v0.3.0)'
+        description: 'Version tag to publish (e.g. v0.4.0)'
         required: true
 
 permissions:

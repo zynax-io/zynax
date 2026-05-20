@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 9 — #589 done, #546 done; BATCH 0 only #557+#558 remain)
+**Last updated:** 2026-05-20 (rev 10 — #557 done; BATCH 0 only #558 remains)
 
 ---
 
@@ -83,7 +83,7 @@ PR cycle time from 25 min → 7 min before any code work begins.
 | [#545](https://github.com/zynax-io/zynax/issues/545) | Fix CI concurrency — cancel stale runs per branch | XS | ✅ Done |
 | [#589](https://github.com/zynax-io/zynax/issues/589) | Remove `merge_group` trigger from all workflow files | XS | ✅ Done |
 | [#546](https://github.com/zynax-io/zynax/issues/546) | Remove push-to-main forced-true in change detection | S | ✅ Done |
-| [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition — unified release workflow | M | All install URLs return 404 today |
+| [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition — unified release workflow | M | ✅ Done |
 | [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | No downloadable artifacts exist |
 
 **Engineer profile:** DevOps / GitHub Actions specialist. No Go/Python knowledge required.
@@ -288,7 +288,7 @@ without rewriting the graph).
 ### Child issues (ordered execution plan)
 | Issue | Title | Size | Priority |
 |-------|-------|------|----------|
-| [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition — unified workflow | M | **P0** |
+| [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition — unified workflow | M | ✅ Done |
 | [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | **P0** |
 | [#559](https://github.com/zynax-io/zynax/issues/559) | Add task-broker to service-release matrix | XS | **P0** |
 | [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | P1 |
