@@ -105,6 +105,9 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Allow git to read workspace inside container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Detect proto changes
         id: proto-detect
         run: |
@@ -138,6 +141,9 @@ jobs:
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Allow git to read workspace inside container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Check stubs are not stale
         run: |
