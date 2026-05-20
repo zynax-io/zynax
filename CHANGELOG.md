@@ -12,7 +12,11 @@ Versioning follows [Semantic Versioning](https://semver.org).
 
 ---
 
-## [Unreleased] — M5 (Adapter Library)
+## [Unreleased]
+
+---
+
+## [0.4.0] — M5 (Adapter Library) — 2026-05-20
 
 ### Added
 - `task-broker` service: in-memory `TaskBrokerService` with 5 RPCs (`DispatchTask`, `AcknowledgeTask`, `GetTask`, `ListTasks`, `CancelTask`), hexagonal layout, async dispatch, round-robin agent selection, 92.7% domain coverage (#479 / PRs #520 #522 #523)
@@ -20,17 +24,21 @@ Versioning follows [Semantic Versioning](https://semver.org).
 - X-Request-ID HTTP middleware with gRPC metadata propagation across api-gateway, workflow-compiler, and engine-adapter (#484)
 - Idempotent `zynax apply` — manifest hash derives stable workflow ID; resubmitting the same YAML returns the same `run_id` (#485)
 - HTTP adapter (`agents/adapters/http/`) — REST capability proxy, config-only route mapping, registry client with backoff (#380)
+- Unified release workflow (`release.yml`) — single tag-triggered job fans out to parallel CLI binary, zynax-ci binary, and service image builds, then creates one GitHub Release with all assets (#557)
 
 ### Fixed
 - `resolveTemplate` map-iteration non-determinism in `IRInterpreterWorkflow` — sorted-key iteration ensures Temporal determinism (#475)
 - `CompileWorkflow` now returns the full `CompilationError` list instead of only the first error (#477)
 - SSE `WriteTimeout` extended in api-gateway — `zynax logs` no longer disconnects at 30 s (#478)
 - Event publish errors in engine-adapter now log as `WARN` instead of being silently discarded (#483)
+- Release race condition between three legacy tag-triggered workflows eliminated — replaced by unified coordinator (#557)
 
 ### Changed
 - Docker Compose files consolidated to one canonical `infra/docker-compose/docker-compose.yml`; `ZYNAX_GW_REGISTRY_ADDR` corrected to use service name (#486)
 - CNCF Sandbox Candidate badge removed; replaced with "Built with CNCF-graduated technologies" (#472)
 - CHANGELOG phantom entries removed (Helm charts, argo engine, features that do not exist in git) (#473)
+- CI concurrency fixed — stale runs per branch cancelled; `merge_group` trigger removed (#545 #589)
+- Push-to-main forced-true override removed from change-detection job (#546)
 
 ---
 
