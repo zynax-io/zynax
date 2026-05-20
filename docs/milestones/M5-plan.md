@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 10 — #557 done; BATCH 0 only #558 remains)
+**Last updated:** 2026-05-20 (rev 11 — #558 done; #559 already delivered in #557; BATCH 0 complete)
 
 ---
 
@@ -84,7 +84,7 @@ PR cycle time from 25 min → 7 min before any code work begins.
 | [#589](https://github.com/zynax-io/zynax/issues/589) | Remove `merge_group` trigger from all workflow files | XS | ✅ Done |
 | [#546](https://github.com/zynax-io/zynax/issues/546) | Remove push-to-main forced-true in change detection | S | ✅ Done |
 | [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition — unified release workflow | M | ✅ Done |
-| [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | No downloadable artifacts exist |
+| [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | ✅ Done (CHANGELOG promoted; tag push pending user action) |
 
 **Engineer profile:** DevOps / GitHub Actions specialist. No Go/Python knowledge required.
 Edit `.github/workflows/` YAML and GitHub repository settings only.
@@ -289,8 +289,8 @@ without rewriting the graph).
 | Issue | Title | Size | Priority |
 |-------|-------|------|----------|
 | [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition — unified workflow | M | ✅ Done |
-| [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | **P0** |
-| [#559](https://github.com/zynax-io/zynax/issues/559) | Add task-broker to service-release matrix | XS | **P0** |
+| [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | ✅ Done (CHANGELOG promoted; tag push pending user action) |
+| [#559](https://github.com/zynax-io/zynax/issues/559) | Add task-broker to service-release matrix | XS | ✅ Done (delivered in #557 — task-broker already in release.yml matrix) |
 | [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | P1 |
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | P1 |
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR images publicly readable | XS | P1 |
