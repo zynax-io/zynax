@@ -104,15 +104,13 @@ jobs:
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
 
       - name: Detect proto changes
         id: proto-detect
         run: |
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
-          changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/**/*.proto' | wc -l)
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          git fetch --depth=1 origin "$BASE_REF"
+          changed=$(git diff --name-only FETCH_HEAD HEAD -- 'protos/**/*.proto' | wc -l)
           echo "proto_changed=$changed" >> "$GITHUB_OUTPUT"
 
       - name: buf breaking (compare against base branch)
@@ -140,22 +138,20 @@ jobs:
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
 
       - name: Check stubs are not stale
         run: |
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          git fetch --depth=1 origin "$BASE_REF"
 
-          proto_changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/**/*.proto' | wc -l)
-          stubs_changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/generated/' | wc -l)
+          proto_changed=$(git diff --name-only FETCH_HEAD HEAD -- 'protos/**/*.proto' | wc -l)
+          stubs_changed=$(git diff --name-only FETCH_HEAD HEAD -- 'protos/generated/' | wc -l)
 
           if [ "$proto_changed" -gt 0 ] && [ -d protos/generated ] && [ "$stubs_changed" -eq 0 ]; then
             echo "❌ .proto files changed but generated stubs were not updated."
             echo ""
             echo "Proto files modified:"
-            git diff --name-only "${BASE}..${HEAD}" -- 'protos/**/*.proto'
+            git diff --name-only FETCH_HEAD HEAD -- 'protos/**/*.proto'
             echo ""
             echo "Fix: run  make generate-protos  and commit the updated stubs."
             exit 1
