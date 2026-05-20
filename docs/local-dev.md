@@ -29,7 +29,7 @@ cd cmd/zynax && GOWORK=off go build -o ~/bin/zynax .
 ```bash
 git clone https://github.com/zynax-io/zynax.git
 cd zynax
-make bootstrap    # pulls ghcr.io/zynax-io/zynax-tools:main from GHCR — run once after clone
+make bootstrap    # pulls ghcr.io/zynax-io/zynax/tools:latest from GHCR — run once after clone
 ```
 
 Everything else runs inside containers. No Go, Python, or buf installation needed locally.

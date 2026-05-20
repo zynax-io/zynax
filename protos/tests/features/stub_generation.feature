@@ -89,7 +89,7 @@ Feature: Proto stub generation pipeline
     Given a Makefile exists at the repository root
     When the "generate-protos" target is inspected
     Then it invokes "buf generate" with "protos/buf.gen.yaml"
-    And it runs inside the keel-tools Docker image
+    And it runs inside the zynax/tools Docker image
 
   Scenario: make lint-protos runs buf lint inside Docker
     Given a Makefile exists at the repository root

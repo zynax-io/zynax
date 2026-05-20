@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 20 — #562 ✅; tools-image rebuild in progress; #563 promoted to P1; order: tools-public → #563 → #566)
+**Last updated:** 2026-05-20 (rev 21 — #563 ✅; tools-publish.yml deleted, all zynax-tools refs updated; next: #566 README pull commands)
 
 ---
 
@@ -98,8 +98,8 @@ Edit `.github/workflows/` YAML and GitHub repository settings only.
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | ✅ Done |
 | [#601](https://github.com/zynax-io/zynax/issues/601) | Fix Go builder base image to 1.26.3-alpine in service Dockerfiles | XS | ✅ Done |
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | ✅ Done — 5 service/adapter images public |
-| (admin) | Confirm zynax/tools published + set public | — | ⬜ After tools-image.yml run succeeds |
-| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml + delete zynax-tools | XS | ⬜ After zynax/tools is public |
+| (admin) | Confirm zynax/tools published + set public | — | ✅ Done — tools-image.yml succeeded 2026-05-20; package set public |
+| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml + delete zynax-tools | XS | ✅ Done |
 | [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ After #563 |
 
 **Engineer profile:** DevOps / GitHub Actions specialist.
@@ -299,11 +299,11 @@ without rewriting the graph).
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | ✅ Done |
 | [#601](https://github.com/zynax-io/zynax/issues/601) | Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles | XS | ✅ Done · unblocked #562 |
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR images publicly readable | XS | ✅ Done · unblocked tools+#563+#566 |
-| (admin) | Confirm zynax/tools published + set public | — | ⬜ After tools-image.yml run |
-| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image (remove tools-publish.yml) | XS | ⬜ P1 · after zynax/tools public |
+| (admin) | Confirm zynax/tools published + set public | — | ✅ Done — tools-image.yml succeeded 2026-05-20; package set public |
+| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image (remove tools-publish.yml) | XS | ✅ Done |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 | XS | P2 |
 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | P2 |
-| [#566](https://github.com/zynax-io/zynax/issues/566) | README Docker Images section with pull commands | S | P1 · after zynax/tools public + #563 |
+| [#566](https://github.com/zynax-io/zynax/issues/566) | README Docker Images section with pull commands | S | P1 · ready (after #563) |
 
 **Cross-links:**
 - #601 → #562 → tools-public → #563 → #566: Full chain — service Dockerfiles fixed → images made public → zynax/tools rebuilt and made public → old zynax-tools removed → README documented.

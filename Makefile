@@ -13,10 +13,10 @@ AGENTS        := $(shell find agents/examples -maxdepth 2 -name pyproject.toml -
 COMPOSE          := docker compose -f infra/docker-compose/docker-compose.yml
 COMPOSE_SERVICES := docker compose -f infra/docker-compose/docker-compose.services.yml
 COMPOSE_TOOLS    := docker compose -f infra/docker-compose/docker-compose.tools.yml
-# Override to use a local build: make TOOLS_IMAGE=zynax-tools:local build-tools
-TOOLS_IMAGE   ?= ghcr.io/zynax-io/zynax-tools:main
+# Override to use a local build: make TOOLS_IMAGE=zynax/tools:local build-tools
+TOOLS_IMAGE   ?= ghcr.io/zynax-io/zynax/tools:latest
 REGISTRY      := ghcr.io/zynax-io
-GHCR_TOOLS    := ghcr.io/zynax-io/zynax-tools:main
+GHCR_TOOLS    := ghcr.io/zynax-io/zynax/tools:latest
 TOOLS_RUN     := docker run --rm -v ".:/workspace" -w /workspace --env-file infra/docker/.env.tools \
                    -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/workspace \
                    $(TOOLS_IMAGE)
@@ -39,7 +39,7 @@ check-docker:
 	@docker info >/dev/null 2>&1 || (echo "❌ Docker not running" && exit 1)
 	@echo "✅ Docker $(shell docker version --format '{{.Server.Version}}')"
 
-build-tools: check-docker ## Build zynax-tools:local (golang:1.22-alpine + python:3.12-alpine + all CI tools)
+build-tools: check-docker ## Build zynax/tools:local from source — use when editing Dockerfile.tools
 	docker build -f infra/docker/Dockerfile.tools -t $(TOOLS_IMAGE) .
 	@echo "✅ Tools image: $(TOOLS_IMAGE)"
 
@@ -51,11 +51,11 @@ pull-tools: check-docker ## Pull tools image from GHCR (authenticates via `gh au
 	@echo "   Run targets with: make TOOLS_IMAGE=$(GHCR_TOOLS) <target>"
 
 # Internal prereq used by every tool-backed target.
-# - local image (zynax-tools:local): builds from Dockerfile.tools
+# - local image (zynax/tools:local): builds from Dockerfile.tools
 # - remote image (default GHCR): pulls only when not already cached locally
 .PHONY: ensure-tools
 ensure-tools: check-docker
-ifeq ($(TOOLS_IMAGE),zynax-tools:local)
+ifeq ($(TOOLS_IMAGE),zynax/tools:local)
 	$(MAKE) build-tools
 else
 	@docker image inspect $(TOOLS_IMAGE) >/dev/null 2>&1 \
