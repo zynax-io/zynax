@@ -5,12 +5,13 @@
 # status checks configured on `main`. Never rename a job without updating
 # the branch protection rules first (Settings → Branches → main).
 #
-# Required check names: dco · lint-proto · lint-go · lint-python · test-unit · test-integration · security
+# Required check names: dco · lint-proto · lint-go · lint-python · test-unit · security
+# (test-integration is non-required until real integration tests exist — see #227, #547)
 #
 # Job graph (all gates after dco):
 #   dco → changes → lint-proto ─╮
 #                ├─ lint-go   ──┴──→ test-unit         (skipped if code=false)
-#                │            └──→ test-integration    (skipped if code=false)
+#                │            └──→ test-integration    (non-required; no //go:build integration files yet — #227)
 #                └─ lint-python
 #   dco → security   (independent)
 #
@@ -1115,6 +1116,8 @@ jobs:
 #
 # `if: always()` mirrors test-unit — prevents the cascade-skip when lint-proto
 # and lint-python are skipped on Go-only PRs (same reasoning as above).
+# NOT a required status check: removed from branch protection in #547.
+# Re-add to required checks once real integration tests exist (#227 / M7.C).
   test-integration:
     name: test-integration
     runs-on: ubuntu-24.04
