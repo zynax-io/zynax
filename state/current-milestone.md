@@ -30,8 +30,8 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🔴 Health gate — Release workflow red since #598; **#601** (Go 1.25→1.26.3 Dockerfile fix) must merge first; BATCH 2 complete (#540 ✅) |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🔴 Health gate — **#601** pending (service image builds failing); unblocks #562 → #566 |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — Release workflow fix merged (#601 ✅); BATCH 2 complete (#540 ✅); awaiting #562 → #566 |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — **#601 ✅** merged; next: #562 (make GHCR images public) → #566 (README) |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | In Progress — task-broker code merged; agent-registry pending |
@@ -42,9 +42,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — Health gate + BATCH 1 completion
-
-**Release workflow is red (run [26162881268](https://github.com/zynax-io/zynax/actions/runs/26162881268)) — fix #601 before any other new work.**
+## IMMEDIATE — BATCH 1 completion (wait for #601 images, then #562)
 
 ### BATCH 0 — ✅ All done
 ~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
@@ -54,8 +52,8 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 | Issue | Title | Size | Status |
 |-------|-------|------|--------|
 | ~~[#561](https://github.com/zynax-io/zynax/issues/561)~~ | ~~Push service/adapter images to GHCR on every main merge~~ | S | ✅ Done |
-| **[#601](https://github.com/zynax-io/zynax/issues/601)** | **Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles** | XS | 🔴 **Do first** — health gate |
-| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | ⬜ Blocked on #601 |
+| ~~[#601](https://github.com/zynax-io/zynax/issues/601)~~ | ~~Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles~~ | XS | ✅ Done — confirm GHCR images appear after CI |
+| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | ⬜ Unblocked — wait for GHCR images to appear |
 | [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ Blocked on #562 |
 
 ---
@@ -102,9 +100,8 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 ## Known Blockers
 
-- **🔴 Release workflow (health gate)** — [run 26162881268](https://github.com/zynax-io/zynax/actions/runs/26162881268) failed: service Dockerfiles use `golang:1.25-alpine` but `go.mod` requires `go 1.26.3`. Fix: **[#601](https://github.com/zynax-io/zynax/issues/601)** (XS — bump 4 Dockerfiles). Do first.
-- **GHCR service images absent** — `zynax/api-gateway`, `zynax/engine-adapter`, `zynax/workflow-compiler`, `zynax/task-broker` do not yet exist on GHCR. Blocked on **#601** merging and Release workflow succeeding.
-- **#562 (GHCR public visibility)** — blocked on #601. Cannot set visibility on non-existent packages.
+- **GHCR service images pending** — `zynax/api-gateway`, `zynax/engine-adapter`, `zynax/workflow-compiler`, `zynax/task-broker` will appear on GHCR after **#601** merges and the Release workflow succeeds. Confirm before starting #562.
+- **#562 (GHCR public visibility)** — unblocked by #601; start once GHCR packages exist.
 - **#566 (README pull commands)** — blocked on #562.
 - **agent-registry (#480)** — BDD trim (#526) must merge before domain (#527) begins (ADR-016).
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
