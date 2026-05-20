@@ -28,5 +28,23 @@ Include: description, reproduction steps, impact assessment, and suggested fix i
 ## Security Controls
 
 See `AGENTS.md §7` and `docs/adr/` for the full security architecture.
-Key controls: mTLS between all services, non-root containers, SBOM per release,
-cosign-signed images, Dependabot weekly updates, trivy CVE scanning in CI.
+
+### Current (shipped)
+- Non-root containers — all service images run as `USER zynax` (uid 1001)
+- Bearer-token authentication on all mutating api-gateway endpoints
+- X-Request-ID correlation propagated across all services
+- Structured JSON logging with no sensitive fields
+- Renovate dependency updates (weekly, patch auto-merge)
+- Trivy CVE scanning in release pipeline (#565)
+- `ZYNAX_API_KEY` required at startup — gateway refuses to start without it
+
+### In Progress
+- SBOM per release artifact — tracked by [#235](https://github.com/zynax-io/zynax/issues/235) / [#556](https://github.com/zynax-io/zynax/issues/556)
+- cosign-signed images (SLSA L2) — tracked by [#239](https://github.com/zynax-io/zynax/issues/239) / [#489](https://github.com/zynax-io/zynax/issues/489)
+- Constant-time bearer comparison — tracked by [#567](https://github.com/zynax-io/zynax/issues/567) (to be filed)
+
+### Planned (M6+)
+- mTLS between all platform services — tracked by [#464](https://github.com/zynax-io/zynax/issues/464) / [#488](https://github.com/zynax-io/zynax/issues/488)
+- OIDC/JWT authentication replacing static bearer token
+- Rate limiting on `POST /api/v1/apply`
+- `ReadHeaderTimeout` on all HTTP servers
