@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 27 — #536 ✅ Agent base class unit tests; 100% coverage)
+**Last updated:** 2026-05-21 (rev 28 — #537 ✅ docs update SDK; BATCH 3 M5.A complete)
 
 ---
 
@@ -123,14 +123,13 @@ These can run in parallel with BATCH 0/1.
 
 | Issue | Title | Size | Dependency |
 |-------|-------|------|------------|
-| [#535](https://github.com/zynax-io/zynax/issues/535) | Implement Agent base class (Python SDK) | M | None |
+| [#535](https://github.com/zynax-io/zynax/issues/535) | Implement Agent base class (Python SDK) | M | None | ✅ Done |
 | [#536](https://github.com/zynax-io/zynax/issues/536) | Python SDK unit tests (≥ 85% coverage) | S | After #535 | ✅ Done |
-| [#537](https://github.com/zynax-io/zynax/issues/537) | Docs update — README, ARCHITECTURE.md, AGENTS.md | XS | After #535+#536 |
+| [#537](https://github.com/zynax-io/zynax/issues/537) | Docs update — README, ARCHITECTURE.md, AGENTS.md | XS | After #535+#536 | ✅ Done |
 
 **Engineer profile:** Python engineer with gRPC experience. Read `docs/spdd/474-python-sdk/canvas.md`
 for the full design. Option A (minimal `Agent` base class, no framework lock-in) is the
-chosen approach. The existing `agents/sdk/src/zynax_sdk/__init__.py` is a 3-line placeholder
-that must be replaced with a real implementation following the `AgentRuntime` protocol.
+chosen approach. All three child issues are complete.
 
 ### BATCH 4 — Capability Dispatch E2E (P0 · M5.C, hardest dependency chain)
 
@@ -334,7 +333,7 @@ without rewriting the graph).
 |-------|-------|--------|
 | [#472](https://github.com/zynax-io/zynax/issues/472) | Remove CNCF badge + update milestone status | ✅ Done |
 | [#473](https://github.com/zynax-io/zynax/issues/473) | Audit CHANGELOG for phantom entries | ✅ Done |
-| [#474](https://github.com/zynax-io/zynax/issues/474) | Python SDK decision → implement minimal Agent base class | ⬜ Epic (see BATCH 3) |
+| [#474](https://github.com/zynax-io/zynax/issues/474) | Python SDK decision → implement minimal Agent base class | ✅ Epic complete (BATCH 3) |
 | **NEW** | Fix SECURITY.md — remove mTLS/SBOM/cosign false claims | ✅ Done (2026-05-20) |
 | **NEW** | Add per-service status table to README | ⬜ Open (file as child of #458) |
 
@@ -346,8 +345,8 @@ without rewriting the graph).
 | Issue | Step | Title | Status |
 |-------|------|-------|--------|
 | [#535](https://github.com/zynax-io/zynax/issues/535) | O1 | Implement Agent base class | ✅ Done |
-| [#536](https://github.com/zynax-io/zynax/issues/536) | O2 | Unit tests (≥ 85% coverage) | ⬜ Open (blocked on #535) |
-| [#537](https://github.com/zynax-io/zynax/issues/537) | O3 | Docs update | ⬜ Open (blocked on #535+#536) |
+| [#536](https://github.com/zynax-io/zynax/issues/536) | O2 | Unit tests (≥ 85% coverage) | ✅ Done |
+| [#537](https://github.com/zynax-io/zynax/issues/537) | O3 | Docs update | ✅ Done |
 
 ---
 

@@ -1,22 +1,29 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # agents/sdk — AGENTS.md
 
-> The Zynax Python SDK (`zynax-sdk`). Framework-agnostic core.
+> The Zynax Python SDK (`zynax-sdk`). Minimal `Agent` base class for capability providers.
 > Inherits all rules from root `AGENTS.md` and `agents/AGENTS.md`.
-> Full implementation patterns: `docs/patterns/python-agent-guide.md`.
 
 ---
 
 ## Purpose
 
-The SDK is the **platform adapter layer** for Python agents. It handles:
-- Agent registration and heartbeat with `agent-registry`.
-- Task reception and routing from `task-broker`.
-- Streaming `TaskEvent` updates back to the broker.
-- `AgentContext` construction and injection.
-- Structured logging, OTel tracing, Prometheus metrics bootstrap.
-- Graceful shutdown on `SIGTERM`.
+The SDK provides the **`Agent` base class** — an abstract gRPC servicer that handles
+capability routing and `TaskEvent` streaming, so adapter authors focus on business
+logic rather than gRPC plumbing.
 
-**The SDK never implements task execution logic** — that is the `AgentRuntime`'s job.
+What the SDK handles:
+- Routing incoming `ExecuteCapability` requests to the matching `@capability` handler.
+- Streaming `TaskEvent` responses (`PROGRESS`, `COMPLETED`, `FAILED`) back to the caller.
+- Input validation (`capability_name`, `task_id`, `input_payload` JSON check).
+- `GetCapabilitySchema` stub — returns metadata for a registered capability.
+
+What the SDK does **not** handle (M6+):
+- Agent registration and heartbeat with `agent-registry`.
+- Prometheus metrics, OTel tracing, structured logging bootstrap.
+- Graceful shutdown on `SIGTERM`.
+- Health probes, Dockerfile, or docker-compose wiring.
 
 ---
 
@@ -24,19 +31,76 @@ The SDK is the **platform adapter layer** for Python agents. It handles:
 
 ```
 agents/sdk/src/zynax_sdk/
-├── runtime.py         ← AgentRuntime Protocol, Task, TaskEvent (do not modify)
-├── context.py         ← AgentContext (injected — never constructed by agent)
-├── capability.py      ← @capability decorator
-├── contract.py        ← gRPC service implementation (do not edit)
-├── server.py          ← AgentServer: wires contract → sdk → runtime
-├── platform.py        ← MemoryClient, RegistryClient, BrokerClient
-├── observability.py   ← structlog + OTel + Prometheus bootstrap
-└── runtimes/
-    ├── direct.py      ← DirectRuntime: plain async generator
-    ├── langgraph.py   ← LangGraphRuntime (extras: zynax-sdk[langgraph])
-    ├── autogen.py     ← AutoGenRuntime  (extras: zynax-sdk[autogen])
-    └── crewai.py      ← CrewAIRuntime   (extras: zynax-sdk[crewai])
+├── agent.py       ← Agent base class, @capability decorator, report_* helpers
+└── __init__.py    ← Exports: Agent, capability, __version__
 ```
+
+---
+
+## Quickstart
+
+```python
+from zynax_sdk import Agent, capability
+
+class Summarizer(Agent):
+    @capability("summarize")
+    async def summarize(self, request, context):
+        # request.task_id, request.capability_name, request.input_payload
+        yield self.report_progress(request.task_id, {"step": 1, "status": "processing"})
+        yield self.report_completed(request.task_id, {"summary": "done"})
+```
+
+Then wire `Summarizer` into a `grpc.server`:
+
+```python
+import grpc
+from concurrent import futures
+from zynax.v1 import agent_pb2_grpc
+
+server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+agent_pb2_grpc.add_AgentServiceServicer_to_server(Summarizer(), server)
+server.add_insecure_port("[::]:50051")
+server.start()
+```
+
+---
+
+## API Reference
+
+### `@capability(name: str)`
+
+Decorator. Registers an `async def` method as a named capability handler.
+The decorated method must be an async generator yielding `TaskEvent` objects:
+
+```python
+@capability("my_cap")
+async def my_cap(self, request, context):
+    yield self.report_progress(request.task_id, {...})
+    yield self.report_completed(request.task_id, {...})
+```
+
+### `Agent.report_progress(task_id, payload) -> TaskEvent`
+
+Creates a `TASK_EVENT_TYPE_PROGRESS` event. `payload` is a `dict[str, Any]` serialised to JSON bytes.
+
+### `Agent.report_completed(task_id, payload) -> TaskEvent`
+
+Creates a `TASK_EVENT_TYPE_COMPLETED` terminal event.
+
+### `Agent.report_failed(task_id, code, message) -> TaskEvent`
+
+Creates a `TASK_EVENT_TYPE_FAILED` terminal event with a structured `CapabilityError`.
+
+### `Agent.ExecuteCapability(request, context) -> Generator[TaskEvent]`
+
+gRPC handler (called by the gRPC framework). Routes the request to the registered handler.
+Aborts with `INVALID_ARGUMENT` if `capability_name` or `task_id` is empty, or if
+`input_payload` is not valid JSON. Yields `report_failed` if no handler is registered.
+
+### `Agent.GetCapabilitySchema(request, context) -> GetCapabilitySchemaResponse`
+
+gRPC handler. Returns basic schema metadata for a registered capability. Aborts with
+`NOT_FOUND` if the capability is not registered.
 
 ---
 

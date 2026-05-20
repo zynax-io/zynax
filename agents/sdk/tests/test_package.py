@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Smoke test — verifies the package is importable and version is set.
-# Full BDD test suite is added in M2 alongside the SDK implementation.
+# Unit tests for Agent base class and capability routing live in test_agent.py.
 import zynax_sdk
 
 

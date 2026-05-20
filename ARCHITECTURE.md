@@ -410,7 +410,7 @@ TypeScript API adapter are all equal participants in Layer 3. They implement the
 |-----------|-----------------------------------|
 | Go platform services (internal) | Import from `gen/go/zynax/v1/` via `go.work` workspace |
 | External Go consumers | Import `github.com/zynax-io/zynax/gen/go/zynax/v1` via `go.mod` |
-| Python SDK agents | `zynax-sdk` wraps `protos/generated/python/` — proto is abstracted |
+| Python SDK agents | `zynax-sdk` `Agent` base class + `@capability` routing; uses `protos/generated/python/` |
 | Python raw-stub callers | Import directly from `protos/generated/python/` |
 | Other languages | Run `buf generate` against `protos/zynax/v1/` source |
 | Future BSR consumers | Import from the Buf Schema Registry (planned for M1) |
@@ -430,12 +430,13 @@ eliminate because Go gRPC clients are already minimal. There is no framework
 integration to abstract because Go developers building capabilities implement the
 `AgentService` interface directly — that is the idiomatic Go approach.
 
-The Python SDK exists because the Python gRPC boilerplate for a server-role agent
-(registration, heartbeat, streaming lifecycle, context injection) is meaningful
-friction for developers whose primary skill is AI framework usage, not gRPC server
-implementation. The SDK eliminates that friction. Go developers do not have the same
-friction because implementing a gRPC server interface in Go is already straightforward
-and idiomatic.
+The Python SDK exists because the Python gRPC boilerplate for implementing the
+`AgentService` server contract — routing by capability name, constructing streaming
+`TaskEvent` responses — is meaningful friction for developers whose primary skill is
+AI framework usage, not gRPC server implementation. The SDK eliminates that friction
+through the `Agent` base class and `@capability` decorator. Go developers do not have
+the same friction because implementing a gRPC server interface in Go is already
+straightforward and idiomatic.
 
 ### Interoperability in Practice
 

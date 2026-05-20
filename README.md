@@ -255,7 +255,7 @@ Layer 3 — Platform Services (Go, gRPC-only cross-service)
          │  gRPC: AgentService contract (protos/zynax/v1/agent.proto)
          ▼
 Layer 4 — Agents / SDK (Python execution adapters)
-    agents/sdk/          zynax-sdk — gRPC stub wrapper + base adapter
+    agents/sdk/          zynax-sdk — Agent base class + @capability routing
     agents/examples/     reference agent implementations
 ```
 
