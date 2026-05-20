@@ -30,8 +30,8 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — BATCH 0 complete; BATCH 1 — #560 done; #561+ ready |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #557 #558 #559 #560 done; tag push pending; #561+ ready |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — BATCH 0 complete; BATCH 1 — #560 #561 done; #562+ ready |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #557 #558 #559 #560 #561 done; tag push pending; #562+ ready |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — 3/4 children done; #476 open (#538 done) |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | In Progress — task-broker code merged; agent-registry pending |
@@ -107,7 +107,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
 - **E2E demo** — blocked on #481 fully wired.
-- **CI throughput** — BATCH 0 complete; BATCH 1 started: #560 (http-adapter release matrix) done; #561+ next.
+- **CI throughput** — BATCH 0 complete; BATCH 1: #560 #561 done; #562 (GHCR public visibility) next.
 - **v0.4.0 tag** — CHANGELOG promoted; run `git tag -a v0.4.0 -m "M5 Adapter Library" && git push origin v0.4.0` on main to trigger the release workflow and create GitHub Release assets.
 
 ---

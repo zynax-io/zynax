@@ -19,6 +19,11 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       tag:
@@ -40,6 +45,7 @@ env:
 jobs:
   build-cli:
     name: CLI — ${{ matrix.goos }}/${{ matrix.goarch }}
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -101,6 +107,7 @@ jobs:
 
   build-zynax-ci:
     name: zynax-ci — ${{ matrix.goos }}/${{ matrix.goarch }}
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -165,6 +172,19 @@ jobs:
           TAG="${{ inputs.tag || github.ref_name }}"
           echo "version=${TAG}" >> "$GITHUB_OUTPUT"
 
+      - name: Compute image tags
+        id: img
+        run: |
+          PREFIX="${{ env.IMAGE_PREFIX }}/${{ matrix.service }}"
+          SHA="${{ github.sha }}"
+          if [[ "${{ github.ref_type }}" == "branch" && "${{ github.event_name }}" != "workflow_dispatch" ]]; then
+            echo "tags=${PREFIX}:main,${PREFIX}:main-${SHA:0:8}" >> "$GITHUB_OUTPUT"
+          else
+            TAG="${{ steps.ver.outputs.version }}"
+            echo "tags=${PREFIX}:${TAG},${PREFIX}:latest" >> "$GITHUB_OUTPUT"
+          fi
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Log in to GHCR
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
@@ -182,11 +202,14 @@ jobs:
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ steps.ver.outputs.version }}
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+          tags: ${{ steps.img.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.img.outputs.created }}
 
       - name: Install syft ${{ env.SYFT_VERSION }}
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: |
           curl -sSfL \
             "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
@@ -195,6 +218,7 @@ jobs:
           rm /tmp/syft.tar.gz
 
       - name: Generate SBOM
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: |
           syft \
             "${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ steps.ver.outputs.version }}" \
@@ -202,6 +226,7 @@ jobs:
             --file "${{ matrix.service }}-sbom.json"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         with:
           name: sbom-${{ matrix.service }}
           path: ${{ matrix.service }}-sbom.json
@@ -212,6 +237,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [build-cli, build-zynax-ci, build-push-images]
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - name: Resolve version
