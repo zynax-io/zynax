@@ -1,18 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# Service Image Release — builds multi-arch container images for each platform
-# service that has a Dockerfile, pushes them to GHCR, generates a CycloneDX
-# SBOM with syft for each image, and attaches the SBOMs to a GitHub Release.
+# Service Image Release — manual trigger only. Tag-triggered releases are
+# handled by release.yml (unified coordinator). Use this for dry-run builds.
 #
-# Trigger:
-#   git tag v0.5.0 && git push origin v0.5.0
-#
-# Manual trigger (dry-run / pre-release validation):
+# Manual trigger:
 #   Actions → Service Image Release → Run workflow → enter tag
-#
-# Services built: api-gateway · engine-adapter · workflow-compiler
-# Stub services (agent-registry, task-broker, memory-service, event-bus) are
-# excluded until they have Dockerfiles.
 #
 # Image name convention:
 #   ghcr.io/zynax-io/zynax/<svc>:<version>   (semver — e.g. v0.5.0)
@@ -25,10 +17,6 @@
 name: Service Image Release
 
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-*'   # pre-releases: v0.5.0-rc.1
   workflow_dispatch:
     inputs:
       tag:
