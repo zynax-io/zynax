@@ -56,6 +56,14 @@ infra/docker-compose/
 infra/helm/
 infra/k8s/
 
+# ── Service build allowlist (negations for services/*/Dockerfile) ────────────
+# Service Dockerfiles COPY from these subdirectories using context: repo root.
+# Without negations, the services/ exclusion above strips them from the context.
+!services/api-gateway/
+!services/engine-adapter/
+!services/workflow-compiler/
+!services/task-broker/
+
 # ── Adapter build allowlist (negations for agents/adapters/*/Dockerfile) ──────
 # Adapter Dockerfiles are built from repo root and need their module source
 # plus the generated proto stubs to resolve the workspace replace directive.
