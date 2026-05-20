@@ -149,7 +149,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [api-gateway, engine-adapter, workflow-compiler, task-broker]
+        include:
+          - { service: api-gateway,       dockerfile: services/api-gateway/Dockerfile }
+          - { service: engine-adapter,    dockerfile: services/engine-adapter/Dockerfile }
+          - { service: workflow-compiler, dockerfile: services/workflow-compiler/Dockerfile }
+          - { service: task-broker,       dockerfile: services/task-broker/Dockerfile }
+          - { service: http-adapter,      dockerfile: agents/adapters/http/Dockerfile }
+          # add agent-registry here after #528 Dockerfile is merged
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -173,7 +179,7 @@ jobs:
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
-          file: services/${{ matrix.service }}/Dockerfile
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
@@ -307,9 +313,10 @@ jobs:
             docker pull ghcr.io/zynax-io/zynax/engine-adapter:${{ steps.ver.outputs.version }}
             docker pull ghcr.io/zynax-io/zynax/workflow-compiler:${{ steps.ver.outputs.version }}
             docker pull ghcr.io/zynax-io/zynax/task-broker:${{ steps.ver.outputs.version }}
+            docker pull ghcr.io/zynax-io/zynax/http-adapter:${{ steps.ver.outputs.version }}
             ```
 
-            CycloneDX SBOMs for all service images are attached to this release.
+            CycloneDX SBOMs for all service and adapter images are attached to this release.
 
             ### What's new
 

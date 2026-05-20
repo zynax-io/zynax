@@ -30,8 +30,8 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — BATCH 0 complete; BATCH 1 (#560+) ready |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #557 #558 #559 done; tag push pending; #560+ ready |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — BATCH 0 complete; BATCH 1 — #560 done; #561+ ready |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #557 #558 #559 #560 done; tag push pending; #561+ ready |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — 3/4 children done; #476 open |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | In Progress — task-broker code merged; agent-registry pending |
@@ -57,6 +57,7 @@ Fix the CI pipeline before all other work. These are XS/S admin + YAML changes.
 | ~~[#557](https://github.com/zynax-io/zynax/issues/557)~~ | ~~Fix release race condition~~ | M | ✅ Done |
 | ~~[#558](https://github.com/zynax-io/zynax/issues/558)~~ | ~~Cut v0.4.0 — CHANGELOG promoted~~ | XS | ✅ Done (tag push: see below) |
 | ~~[#559](https://github.com/zynax-io/zynax/issues/559)~~ | ~~Add task-broker to service-release matrix~~ | XS | ✅ Done (delivered in #557) |
+| ~~[#560](https://github.com/zynax-io/zynax/issues/560)~~ | ~~Add http-adapter image to release pipeline~~ | S | ✅ Done (BATCH 1) |
 
 ---
 
@@ -106,7 +107,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
 - **E2E demo** — blocked on #481 fully wired.
-- **CI throughput** — BATCH 0 complete: auto-merge, #545 concurrency, #589 merge_group, #546 push-to-main, #557 release coordinator, #558 CHANGELOG, #559 task-broker matrix — all done.
+- **CI throughput** — BATCH 0 complete; BATCH 1 started: #560 (http-adapter release matrix) done; #561+ next.
 - **v0.4.0 tag** — CHANGELOG promoted; run `git tag -a v0.4.0 -m "M5 Adapter Library" && git push origin v0.4.0` on main to trigger the release workflow and create GitHub Release assets.
 
 ---
