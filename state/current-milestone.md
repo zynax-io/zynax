@@ -50,7 +50,7 @@ Fix the CI pipeline before all other work. These are XS/S admin + YAML changes.
 |-------|-------|------|-----|
 | ~~[#547](https://github.com/zynax-io/zynax/issues/547)~~ | ~~Remove test-integration from required status checks~~ | XS | ✅ Done |
 | ~~[#544](https://github.com/zynax-io/zynax/issues/544)~~ | ~~Enable GitHub Merge Queue + remove strict: true~~ | XS | ✅ Done (workflows updated; admin must enable Merge Queue in GitHub Settings) |
-| [#545](https://github.com/zynax-io/zynax/issues/545) | Fix CI concurrency — cancel stale runs | XS | Redundant runs |
+| ~~[#545](https://github.com/zynax-io/zynax/issues/545)~~ | ~~Fix CI concurrency — cancel stale runs~~ | XS | ✅ Done |
 | [#548](https://github.com/zynax-io/zynax/issues/548) | Enable allow_auto_merge | XS | Self-merge |
 | [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition | M | All install URLs → 404 |
 | [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | No artifacts exist |
