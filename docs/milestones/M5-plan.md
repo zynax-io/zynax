@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 28 — #537 ✅ docs update SDK; BATCH 3 M5.A complete)
+**Last updated:** 2026-05-21 (rev 29 — #530 ✅ task-broker AGENTS.md rewrite)
 
 ---
 
@@ -137,7 +137,7 @@ These must be done strictly in order. Each step is blocked by the previous.
 
 | Issue | Title | Size | Dependency | Engineer profile |
 |-------|-------|------|------------|-----------------|
-| [#530](https://github.com/zynax-io/zynax/issues/530) | Update task-broker AGENTS.md | XS | None (ready) | Any — docs only |
+| [#530](https://github.com/zynax-io/zynax/issues/530) | Update task-broker AGENTS.md | XS | None (ready) | ✅ Done |
 | [#531](https://github.com/zynax-io/zynax/issues/531) | Align task-broker BDD + godog steps | S | None (ready) | Go + godog |
 | [#532](https://github.com/zynax-io/zynax/issues/532) | Handler unit tests for all 5 gRPC methods | S | None (ready) | Go engineer |
 | [#526](https://github.com/zynax-io/zynax/issues/526) | Trim agent-registry BDD to proto scope | XS | None (ready) | Go + godog |
@@ -385,7 +385,7 @@ Implementation merged: PRs #520, #522, #523. Domain coverage: 92.7%.
 
 | Issue | Canvas step | Title | Status |
 |-------|-------------|-------|--------|
-| [#530](https://github.com/zynax-io/zynax/issues/530) | O6 | Update AGENTS.md | ⬜ Open |
+| [#530](https://github.com/zynax-io/zynax/issues/530) | O6 | Update AGENTS.md | ✅ Done |
 | [#531](https://github.com/zynax-io/zynax/issues/531) | O7 | Align service BDD + godog steps | ⬜ Open |
 | [#532](https://github.com/zynax-io/zynax/issues/532) | O8 | Handler unit tests (grpcErr coverage) | ⬜ Open |
 

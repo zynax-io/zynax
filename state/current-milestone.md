@@ -71,7 +71,7 @@ Implementation PRs #520, #522, #523 merged. Domain coverage: 92.7%.
 
 | Issue | Step | Status |
 |-------|------|--------|
-| [#530](https://github.com/zynax-io/zynax/issues/530) | Update AGENTS.md | ready |
+| [#530](https://github.com/zynax-io/zynax/issues/530) | Update AGENTS.md | ✅ Done |
 | [#531](https://github.com/zynax-io/zynax/issues/531) | Align service BDD + godog steps | ready |
 | [#532](https://github.com/zynax-io/zynax/issues/532) | Handler unit tests | ready |
 
