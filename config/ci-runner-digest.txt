@@ -7,5 +7,5 @@
 #   container:
 #     image: ghcr.io/zynax-io/zynax/ci-runner@<digest>
 #
-# Populated after first successful build — placeholder until then.
-sha256:0000000000000000000000000000000000000000000000000000000000000000
+# Digest from last build (update after each tools-image.yml run):
+sha256:e12f828693f89e27fe91c3d9bff0fa862cae2e805da0ea21a39632d5389c1462
