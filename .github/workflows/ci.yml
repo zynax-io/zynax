@@ -357,16 +357,6 @@ jobs:
           echo "has_cli=$cli_count"         >> "$GITHUB_OUTPUT"
           echo "has_go=$total"              >> "$GITHUB_OUTPUT"
 
-      - name: Cache Go modules
-        if: steps.go-detect.outputs.has_go != '0'
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: |
-            /root/go/pkg/mod
-            /root/.cache/go-build
-          key: go-${{ hashFiles('**/go.sum') }}
-          restore-keys: go-
-
       - name: golangci-lint (platform services)
         if: steps.go-detect.outputs.has_services != '0'
         run: |
@@ -535,15 +525,6 @@ jobs:
           echo "has_svc_bdd=$svc_bdd_count" >> "$GITHUB_OUTPUT"
           echo "has_adapters=$adapter_count" >> "$GITHUB_OUTPUT"
           echo "has_cli=$cli_count" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Go modules
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: |
-            /root/go/pkg/mod
-            /root/.cache/go-build
-          key: go-${{ hashFiles('**/go.sum') }}
-          restore-keys: go-
 
       - name: Go service unit tests
         if: steps.go-detect.outputs.has_services != '0'
@@ -1085,16 +1066,6 @@ jobs:
           count=$(grep -rl "//go:build integration" services/ 2>/dev/null | wc -l)
           echo "has_integration=$count" >> "$GITHUB_OUTPUT"
 
-      - name: Cache Go modules
-        if: steps.int-detect.outputs.has_integration != '0'
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: |
-            /root/go/pkg/mod
-            /root/.cache/go-build
-          key: go-${{ hashFiles('**/go.sum') }}
-          restore-keys: go-
-
       - name: Run integration tests
         if: steps.int-detect.outputs.has_integration != '0'
         run: |
@@ -1136,16 +1107,6 @@ jobs:
         run: |
           count=$(find services/ -name "go.mod" 2>/dev/null | wc -l)
           echo "has_go=$count" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Go modules
-        if: steps.go-detect.outputs.has_go != '0'
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: |
-            /root/go/pkg/mod
-            /root/.cache/go-build
-          key: go-${{ hashFiles('**/go.sum') }}
-          restore-keys: go-
 
       - name: govulncheck (all Go services)
         if: steps.go-detect.outputs.has_go != '0'
