@@ -349,8 +349,8 @@ func (s *stubSuite) itInvokesBufGenerateWith(_ string) error {
 	return s.fileContentContains("buf generate")
 }
 
-func (s *stubSuite) itRunsInsideTheKeelToolsDockerImage() error {
-	return s.fileContentContains("zynax-tools")
+func (s *stubSuite) itRunsInsideTheZynaxToolsDockerImage() error {
+	return s.fileContentContains("zynax/tools")
 }
 
 func (s *stubSuite) itInvokesBufLint() error {
@@ -587,7 +587,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a Makefile exists at the repository root$`, s.aMakefileExistsAtTheRepositoryRoot)
 	ctx.Step(`^the "([^"]*)" target is inspected$`, s.theTargetIsInspected)
 	ctx.Step(`^it invokes "buf generate" with "([^"]*)"$`, s.itInvokesBufGenerateWith)
-	ctx.Step(`^it runs inside the keel-tools Docker image$`, s.itRunsInsideTheKeelToolsDockerImage)
+	ctx.Step(`^it runs inside the zynax/tools Docker image$`, s.itRunsInsideTheZynaxToolsDockerImage)
 	ctx.Step(`^it invokes "buf lint"$`, s.itInvokesBufLint)
 	ctx.Step(`^it is included as a dependency of the "lint" target$`, s.itIsIncludedAsADependencyOfTheLintTarget)
 

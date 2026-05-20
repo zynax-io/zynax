@@ -131,35 +131,35 @@ curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax-ci-d
 
 ### Developer tools Docker image
 
-`ghcr.io/zynax-io/zynax-tools:main` is the canonical developer tools image. It ships:
+`ghcr.io/zynax-io/zynax/tools:latest` is the canonical developer tools image. It ships:
 `golangci-lint`, `buf`, `govulncheck`, `godog`, `mockery`, `migrate`,
 `grpc_health_probe`, `protoc-gen-go`, `protoc-gen-go-grpc`, `gitleaks`, `uv`,
 `ruff`, `mypy`, `bandit`, `pip-audit`, `pytest`, and **`zynax-ci`**.
 
 The image is rebuilt and pushed to GHCR automatically on every merge to `main` that
 changes `infra/docker/Dockerfile.tools` (via
-[`.github/workflows/tools-publish.yml`](.github/workflows/tools-publish.yml)).
+[`.github/workflows/tools-image.yml`](.github/workflows/tools-image.yml)).
 
 **Default behaviour — pull from GHCR (recommended):**
 
 `make bootstrap` pulls the published image automatically on first use. No manual step needed:
 ```bash
-make bootstrap   # pulls ghcr.io/zynax-io/zynax-tools:main, installs pre-commit hooks
+make bootstrap   # pulls ghcr.io/zynax-io/zynax/tools:latest, installs pre-commit hooks
 make lint        # uses cached image on all subsequent runs
 ```
 
 **Build locally** (only needed when editing `Dockerfile.tools` itself):
 ```bash
-make TOOLS_IMAGE=zynax-tools:local build-tools   # build once
-make TOOLS_IMAGE=zynax-tools:local lint          # use local image for this run
+make TOOLS_IMAGE=zynax/tools:local build-tools   # build once
+make TOOLS_IMAGE=zynax/tools:local lint          # use local image for this run
 # or export for the whole shell session:
-export TOOLS_IMAGE=zynax-tools:local
+export TOOLS_IMAGE=zynax/tools:local
 make lint test validate-spec
 ```
 
 **Pin to a specific SHA** (for reproducible CI references):
 ```bash
-make TOOLS_IMAGE=ghcr.io/zynax-io/zynax-tools:a205d01 lint
+make TOOLS_IMAGE=ghcr.io/zynax-io/zynax/tools:main-<sha> lint
 ```
 
 ---
@@ -283,7 +283,7 @@ Port map while the stack is running:
 **Prerequisites:** Docker Desktop only (Go, Python, buf are not needed locally).
 
 ```bash
-make bootstrap   # one-time per clone: pulls ghcr.io/zynax-io/zynax-tools:main + installs pre-commit hooks
+make bootstrap   # one-time per clone: pulls ghcr.io/zynax-io/zynax/tools:latest + installs pre-commit hooks
 make lint        # proto + Go + Python lint
 make test        # full suite (unit + BDD + coverage gate)
 ```
@@ -306,8 +306,8 @@ make test        # full suite (unit + BDD + coverage gate)
 | `make validate-spec` | Validate all YAML manifests against JSON schemas (via `zynax-ci`) |
 | `make validate-canvas` | Validate REASONS Canvas files under `docs/spdd/` (via `zynax-ci`) |
 | `make generate-protos` | Regenerate Go + Python stubs from `.proto` files |
-| `make build-tools` | Build `zynax-tools:local` from source — use when editing `Dockerfile.tools` |
-| `make pull-tools` | Pull `ghcr.io/zynax-io/zynax-tools:main` from GHCR explicitly (bootstrap does this automatically) |
+| `make build-tools` | Build `zynax/tools:local` from source — use when editing `Dockerfile.tools` |
+| `make pull-tools` | Pull `ghcr.io/zynax-io/zynax/tools:latest` from GHCR explicitly (bootstrap does this automatically) |
 | `make install-cli` | Build and install `zynax` CLI to `~/bin/zynax` |
 | `make install-ci-tools` | Build and install `zynax-ci` toolchain to `~/bin/zynax-ci` |
 

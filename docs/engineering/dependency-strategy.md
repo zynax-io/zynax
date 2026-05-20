@@ -27,7 +27,7 @@ Renovate `github-actions` group once Renovate is active (see issue #136).
 
 ## Security Scanning Requirements
 
-All scans run inside the `zynax-tools` Docker image — no local tool installs required.
+All scans run inside the `zynax/tools` Docker image — no local tool installs required.
 
 | Scope | Tool | Makefile target | Severity threshold |
 |-------|------|-----------------|--------------------|
