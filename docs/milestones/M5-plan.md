@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 14 — #561 done; push images to GHCR on every main merge)
+**Last updated:** 2026-05-20 (rev 15 — #539 done; guard evaluator test suite + fuzz seed; #538 status corrected in M5.B epic table)
 
 ---
 
@@ -108,7 +108,7 @@ These can run in parallel with BATCH 0/1.
 | Issue | Title | Size | Dependency | Why |
 |-------|-------|------|------------|-----|
 | [#538](https://github.com/zynax-io/zynax/issues/538) | Integrate cel-go as guard evaluator | M | None | ✅ Done |
-| [#539](https://github.com/zynax-io/zynax/issues/539) | Guard evaluator test suite + fuzz seed | S | After #538 | Prevent regression |
+| [#539](https://github.com/zynax-io/zynax/issues/539) | Guard evaluator test suite + fuzz seed | S | After #538 | ✅ Done |
 | [#540](https://github.com/zynax-io/zynax/issues/540) | Remove CEL misrepresentation from AGENTS.md | XS | After #538+#539 | Truth pass |
 
 **Engineer profile:** Go engineer familiar with cel-go library. Read ADR-014 and
@@ -350,8 +350,8 @@ without rewriting the graph).
 
 | Issue | Step | Title | Status |
 |-------|------|-------|--------|
-| [#538](https://github.com/zynax-io/zynax/issues/538) | O1 | Integrate cel-go into evalGuard | ⬜ Open |
-| [#539](https://github.com/zynax-io/zynax/issues/539) | O2 | Test suite + fuzz seed | ⬜ Open (blocked on #538) |
+| [#538](https://github.com/zynax-io/zynax/issues/538) | O1 | Integrate cel-go into evalGuard | ✅ Done |
+| [#539](https://github.com/zynax-io/zynax/issues/539) | O2 | Test suite + fuzz seed | ✅ Done |
 | [#540](https://github.com/zynax-io/zynax/issues/540) | O3 | Remove CEL misrepresentation from docs | ⬜ Open (blocked on #538+#539) |
 
 ---
