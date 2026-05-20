@@ -30,8 +30,8 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — Release workflow fix merged (#601 ✅); BATCH 2 complete (#540 ✅); awaiting #562 → #566 |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — **#601 ✅** merged; next: #562 (make GHCR images public) → #566 (README) |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #562 ✅ images public; next: #566 (README pull commands) |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — **#562 ✅** GHCR images public; next: #566 (README) |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | In Progress — task-broker code merged; agent-registry pending |
@@ -42,7 +42,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — BATCH 1 completion (wait for #601 images, then #562)
+## IMMEDIATE — BATCH 1 completion (#566 next)
 
 ### BATCH 0 — ✅ All done
 ~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
@@ -52,9 +52,9 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 | Issue | Title | Size | Status |
 |-------|-------|------|--------|
 | ~~[#561](https://github.com/zynax-io/zynax/issues/561)~~ | ~~Push service/adapter images to GHCR on every main merge~~ | S | ✅ Done |
-| ~~[#601](https://github.com/zynax-io/zynax/issues/601)~~ | ~~Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles~~ | XS | ✅ Done — confirm GHCR images appear after CI |
-| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | ⬜ Unblocked — wait for GHCR images to appear |
-| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ Blocked on #562 |
+| ~~[#601](https://github.com/zynax-io/zynax/issues/601)~~ | ~~Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles~~ | XS | ✅ Done |
+| ~~[#562](https://github.com/zynax-io/zynax/issues/562)~~ | ~~Make GHCR service/adapter images publicly readable~~ | XS | ✅ Done — all 5 service/adapter images public |
+| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ Unblocked — next |
 
 ---
 
@@ -100,9 +100,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 ## Known Blockers
 
-- **GHCR service images pending** — `zynax/api-gateway`, `zynax/engine-adapter`, `zynax/workflow-compiler`, `zynax/task-broker` will appear on GHCR after **#601** merges and the Release workflow succeeds. Confirm before starting #562.
-- **#562 (GHCR public visibility)** — unblocked by #601; start once GHCR packages exist.
-- **#566 (README pull commands)** — blocked on #562.
+- **#566 (README pull commands)** — unblocked; start next.
 - **agent-registry (#480)** — BDD trim (#526) must merge before domain (#527) begins (ADR-016).
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.

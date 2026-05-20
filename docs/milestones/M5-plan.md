@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 18 — #601 ✅; Go 1.25→1.26.3 Dockerfile fix merged; #562 unblocked)
+**Last updated:** 2026-05-20 (rev 19 — #562 ✅; GHCR packages public; #566 unblocked)
 
 ---
 
@@ -97,8 +97,8 @@ Edit `.github/workflows/` YAML and GitHub repository settings only.
 | [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | ✅ Done |
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | ✅ Done |
 | [#601](https://github.com/zynax-io/zynax/issues/601) | Fix Go builder base image to 1.26.3-alpine in service Dockerfiles | XS | ✅ Done |
-| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | After **#601** (images must exist) |
-| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | After #562 |
+| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | ✅ Done |
+| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ Unblocked — next |
 
 **Engineer profile:** DevOps / GitHub Actions specialist.
 
@@ -296,7 +296,7 @@ without rewriting the graph).
 | [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | ✅ Done |
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | ✅ Done |
 | [#601](https://github.com/zynax-io/zynax/issues/601) | Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles | XS | ✅ Done · unblocked #562 |
-| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR images publicly readable | XS | P1 · blocked on **#601** |
+| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR images publicly readable | XS | ✅ Done · unblocked #566 |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image (remove tools-publish.yml) | XS | P2 |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 | XS | P2 |
 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | P2 |
