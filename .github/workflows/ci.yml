@@ -69,7 +69,7 @@ jobs:
     name: dco
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:b0653d255e0b8b7133b8c7537a8885431f68367bb74ba7851f73e58a3d675d0f
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -122,7 +122,7 @@ jobs:
     name: changes
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:b0653d255e0b8b7133b8c7537a8885431f68367bb74ba7851f73e58a3d675d0f
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
     needs: [dco]
     outputs:
@@ -196,7 +196,7 @@ jobs:
     name: lint-proto
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:b0653d255e0b8b7133b8c7537a8885431f68367bb74ba7851f73e58a3d675d0f
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
     needs: [changes]
     if: needs.changes.outputs.proto == 'true'
@@ -327,7 +327,7 @@ jobs:
     name: lint-go
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:b0653d255e0b8b7133b8c7537a8885431f68367bb74ba7851f73e58a3d675d0f
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
     needs: [changes]
     if: needs.changes.outputs.go == 'true'
@@ -416,7 +416,7 @@ jobs:
     name: lint-python
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:b0653d255e0b8b7133b8c7537a8885431f68367bb74ba7851f73e58a3d675d0f
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
     needs: [changes]
     if: needs.changes.outputs.python == 'true'
@@ -465,7 +465,7 @@ jobs:
     name: test-unit
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:b0653d255e0b8b7133b8c7537a8885431f68367bb74ba7851f73e58a3d675d0f
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
     needs: [changes, lint-go, lint-proto, lint-python]
     # always() prevents cascade-skip when lint lanes are skipped on path-filtered PRs.
@@ -1066,7 +1066,7 @@ jobs:
     name: test-integration
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:b0653d255e0b8b7133b8c7537a8885431f68367bb74ba7851f73e58a3d675d0f
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
     needs: [changes, lint-go, lint-proto, lint-python]
     # Mirrors test-unit: always() breaks cascade-skip; code gate skips on docs-only PRs.
@@ -1122,7 +1122,7 @@ jobs:
     name: security
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:b0653d255e0b8b7133b8c7537a8885431f68367bb74ba7851f73e58a3d675d0f
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
     needs: [dco, changes]
     # PRs: always run (satisfies required check). Push to main: skip on docs-only changes.
@@ -1149,11 +1149,6 @@ jobs:
 
       - name: govulncheck (all Go services)
         if: steps.go-detect.outputs.has_go != '0'
-        # TODO: remove continue-on-error once ci-runner image is rebuilt with
-        # $GOROOT/src (added to Dockerfile.ci-runner). Go 1.21+ compiles stdlib
-        # from src on first use; without src and an empty $GOCACHE the invocation
-        # fails. The Dockerfile fix merges with this PR; image rebuilds on main.
-        continue-on-error: true
         run: |
           failed=false
           for svc in ${{ env.SERVICE_LIST }}; do
