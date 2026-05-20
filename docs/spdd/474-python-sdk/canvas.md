@@ -100,7 +100,7 @@ docs/ (modified files)
 
 ## O — Operations
 
-1. **[#535]** `feat(agents/sdk)`: Implement `Agent` base class — `agent.py` with `execute_capability()` gRPC handler, `report_progress/completed/failed` helpers, and `@capability` decorator. Wire into `__init__.py` exports. Update `pyproject.toml` description.
+1. ✅ **[#535]** `feat(agents/sdk)`: Implement `Agent` base class — `agent.py` with `execute_capability()` gRPC handler, `report_progress/completed/failed` helpers, and `@capability` decorator. Wire into `__init__.py` exports. Update `pyproject.toml` description.
 
 2. **[#536]** `test(agents/sdk)`: Unit tests for `Agent` base class — routing, event emission, error propagation, `timeout_seconds` cancellation. ≥ 85% coverage on `agents/sdk/`.
 

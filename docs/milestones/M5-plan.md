@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 25 — #566 ✅ reconciled (GitHub-closed, table was stale); #552 ci-runner container-mode PR opened)
+**Last updated:** 2026-05-21 (rev 26 — #535 ✅ Agent base class O1 done; #476 parent epic closed)
 
 ---
 
@@ -345,7 +345,7 @@ without rewriting the graph).
 
 | Issue | Step | Title | Status |
 |-------|------|-------|--------|
-| [#535](https://github.com/zynax-io/zynax/issues/535) | O1 | Implement Agent base class | ⬜ Open |
+| [#535](https://github.com/zynax-io/zynax/issues/535) | O1 | Implement Agent base class | ✅ Done |
 | [#536](https://github.com/zynax-io/zynax/issues/536) | O2 | Unit tests (≥ 85% coverage) | ⬜ Open (blocked on #535) |
 | [#537](https://github.com/zynax-io/zynax/issues/537) | O3 | Docs update | ⬜ Open (blocked on #535+#536) |
 
