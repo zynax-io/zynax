@@ -8,17 +8,21 @@
 # Image:  ghcr.io/zynax-io/zynax/ci-runner
 #
 # ── Pinned tool versions ─────────────────────────────────────────────────────
-# golangci-lint  v2.11.4   (must match ci.yml GOLANGCI_VERSION)
+# golangci-lint  v2.12.2   (must match ci.yml GOLANGCI_VERSION)
 # govulncheck    v1.1.4    (must match ci.yml GOVULNCHECK_VERSION)
-# buf            1.47.2    (must match ci.yml BUF_VERSION)
-# gitleaks       v8.21.2   (must match .pre-commit-config.yaml rev:)
-# godog          v0.14.1
+# buf            1.69.0    (must match ci.yml BUF_VERSION)
+# gitleaks       v8.30.1   (must match .pre-commit-config.yaml rev:)
+# godog          v0.15.1
 # mockery        v2.53.6
-# actionlint     v1.7.7
-# uv             0.11.8
+# actionlint     v1.7.12
+# uv             0.11.15
 #
 # Tools intentionally excluded (dev-only or release-pipeline-only):
 #   migrate, grpc-health-probe, syft, protoc-gen-go, protoc-gen-go-grpc
+#
+# Size notes:
+#   Only /usr/local/go/bin + pkg + lib are copied to the final stage.
+#   src/, test/, api/, doc/ are builder-only — not needed for go test/build.
 
 # ── Stage 1: builder — has curl; downloads / builds all binaries ─────────────
 ARG GO_VERSION=1.26.3
@@ -26,10 +30,9 @@ FROM golang:${GO_VERSION}-alpine AS builder
 
 RUN apk add --no-cache git curl ca-certificates
 
-# golangci-lint
+# golangci-lint — compiled from source so it embeds Go 1.26.3 stdlib
 # renovate: datasource=github-releases depName=golangci/golangci-lint
-RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-    | sh -s -- -b /usr/local/bin v2.11.4
+RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 
 # govulncheck — CVE scanner for Go modules
 # renovate: datasource=github-releases depName=golang/vuln
@@ -37,41 +40,32 @@ RUN go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
 
 # godog — BDD test runner for Go contract tests
 # renovate: datasource=github-releases depName=cucumber/godog
-RUN go install github.com/cucumber/godog/cmd/godog@v0.14.1
+RUN go install github.com/cucumber/godog/cmd/godog@v0.15.1
 
 # mockery — Go interface mock generator
 # renovate: datasource=github-releases depName=vektra/mockery
 RUN go install github.com/vektra/mockery/v2@v2.53.6
 
-# buf — proto linter and codegen orchestrator
+# gitleaks — secret scanner; compiled from source so it embeds Go 1.26.3 stdlib
+# (version must match .pre-commit-config.yaml rev:)
+# renovate: datasource=github-releases depName=gitleaks/gitleaks
+RUN go install github.com/zricethezav/gitleaks/v8@v8.30.1
+
+# actionlint — GitHub Actions workflow linter; compiled from source with Go 1.26.3
+# renovate: datasource=github-releases depName=rhysd/actionlint
+RUN go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+# buf — proto linter and codegen orchestrator (no go install; complex plugin deps)
 # renovate: datasource=github-releases depName=bufbuild/buf
-ARG BUF_VERSION=1.47.2
+ARG BUF_VERSION=1.69.0
 RUN curl -fsSL \
       "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64" \
       -o /usr/local/bin/buf \
     && chmod +x /usr/local/bin/buf
 
-# gitleaks — secret scanner (version must match .pre-commit-config.yaml rev:)
-# renovate: datasource=github-releases depName=gitleaks/gitleaks
-RUN GITLEAKS_VERSION=v8.21.2 && \
-    curl -fsSL \
-      "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION#v}_linux_x64.tar.gz" \
-      -o /tmp/gitleaks.tar.gz \
-    && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks \
-    && rm /tmp/gitleaks.tar.gz
-
-# actionlint — GitHub Actions workflow linter
-# renovate: datasource=github-releases depName=rhysd/actionlint
-RUN ACTIONLINT_VERSION=v1.7.7 && \
-    curl -fsSL \
-      "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz" \
-      -o /tmp/actionlint.tar.gz \
-    && tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin actionlint \
-    && rm /tmp/actionlint.tar.gz
-
 # zynax-ci — CI validation toolchain
 COPY cmd/zynax-ci/ /src/zynax-ci/
-RUN cd /src/zynax-ci && GOWORK=off go build -trimpath -o /usr/local/bin/zynax-ci .
+RUN cd /src/zynax-ci && GOWORK=off go build -trimpath -o /go/bin/zynax-ci .
 
 # ── Stage 2: ci-runner — clean Alpine, NO curl ───────────────────────────────
 FROM alpine:3.21 AS ci-runner
@@ -83,23 +77,27 @@ LABEL org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
 # Alpine system deps — curl intentionally absent from this stage
 RUN apk add --no-cache git bash ca-certificates python3 py3-pip libstdc++ libgcc
 
-# ── Go toolchain ──────────────────────────────────────────────────────────────
-COPY --from=builder /usr/local/go /usr/local/go
+# ── Go toolchain — bin + compiled stdlib only; src/test/api stripped (~185 MB) ─
+COPY --from=builder /usr/local/go/bin /usr/local/go/bin
+COPY --from=builder /usr/local/go/pkg /usr/local/go/pkg
+COPY --from=builder /usr/local/go/lib /usr/local/go/lib
 
-# ── Go tool binaries ──────────────────────────────────────────────────────────
-COPY --from=builder /usr/local/bin/golangci-lint /usr/local/bin/
-COPY --from=builder /usr/local/bin/buf           /usr/local/bin/
-COPY --from=builder /usr/local/bin/gitleaks      /usr/local/bin/
-COPY --from=builder /usr/local/bin/actionlint    /usr/local/bin/
-COPY --from=builder /usr/local/bin/zynax-ci      /usr/local/bin/
-COPY --from=builder /go/bin/govulncheck          /usr/local/bin/
-COPY --from=builder /go/bin/godog                /usr/local/bin/
-COPY --from=builder /go/bin/mockery              /usr/local/bin/
+# ── Go tool binaries (all compiled with Go 1.26.3) ────────────────────────────
+COPY --from=builder /go/bin/golangci-lint /usr/local/bin/
+COPY --from=builder /go/bin/govulncheck   /usr/local/bin/
+COPY --from=builder /go/bin/godog         /usr/local/bin/
+COPY --from=builder /go/bin/mockery       /usr/local/bin/
+COPY --from=builder /go/bin/gitleaks      /usr/local/bin/
+COPY --from=builder /go/bin/actionlint    /usr/local/bin/
+COPY --from=builder /go/bin/zynax-ci      /usr/local/bin/
+
+# ── buf (pre-built binary — no Go source available for go install) ────────────
+COPY --from=builder /usr/local/bin/buf /usr/local/bin/
 
 # ── uv — Python package manager (no curl: copied from official image) ─────────
 # renovate: datasource=github-releases depName=astral-sh/uv
-COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv  /usr/local/bin/uv
-COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uvx /usr/local/bin/uvx
+COPY --from=ghcr.io/astral-sh/uv:0.11.15 /uv  /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.15 /uvx /usr/local/bin/uvx
 
 # ── Python CI tools ───────────────────────────────────────────────────────────
 RUN uv tool install ruff \
@@ -116,6 +114,7 @@ RUN uv tool install ruff \
 ENV PATH="/usr/local/go/bin:/usr/local/bin:/root/.local/bin:${PATH}" \
     GOPATH=/root/go \
     GOCACHE=/root/.cache/go-build \
+    GOROOT=/usr/local/go \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_CACHE_DIR=/root/.cache/uv \
