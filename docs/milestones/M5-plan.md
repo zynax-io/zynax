@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 26 — #535 ✅ Agent base class O1 done; #476 parent epic closed)
+**Last updated:** 2026-05-21 (rev 27 — #536 ✅ Agent base class unit tests; 100% coverage)
 
 ---
 
@@ -124,7 +124,7 @@ These can run in parallel with BATCH 0/1.
 | Issue | Title | Size | Dependency |
 |-------|-------|------|------------|
 | [#535](https://github.com/zynax-io/zynax/issues/535) | Implement Agent base class (Python SDK) | M | None |
-| [#536](https://github.com/zynax-io/zynax/issues/536) | Python SDK unit tests (≥ 85% coverage) | S | After #535 |
+| [#536](https://github.com/zynax-io/zynax/issues/536) | Python SDK unit tests (≥ 85% coverage) | S | After #535 | ✅ Done |
 | [#537](https://github.com/zynax-io/zynax/issues/537) | Docs update — README, ARCHITECTURE.md, AGENTS.md | XS | After #535+#536 |
 
 **Engineer profile:** Python engineer with gRPC experience. Read `docs/spdd/474-python-sdk/canvas.md`

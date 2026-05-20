@@ -102,7 +102,7 @@ docs/ (modified files)
 
 1. ✅ **[#535]** `feat(agents/sdk)`: Implement `Agent` base class — `agent.py` with `execute_capability()` gRPC handler, `report_progress/completed/failed` helpers, and `@capability` decorator. Wire into `__init__.py` exports. Update `pyproject.toml` description.
 
-2. **[#536]** `test(agents/sdk)`: Unit tests for `Agent` base class — routing, event emission, error propagation, `timeout_seconds` cancellation. ≥ 85% coverage on `agents/sdk/`.
+2. ✅ **[#536]** `test(agents/sdk)`: Unit tests for `Agent` base class — routing, event emission, error propagation, `timeout_seconds` cancellation. ≥ 85% coverage on `agents/sdk/`.
 
 3. **[#537]** `docs(agents/sdk)`: Update SDK status — rewrite `agents/sdk/AGENTS.md`; update SDK sections in README and ARCHITECTURE.md to describe the delivered `Agent` base class. Remove placeholder language.
 
