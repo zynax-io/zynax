@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 6 — #545 done: fix CI concurrency group to use github.ref, cancel stale runs)
+**Last updated:** 2026-05-20 (rev 7 — #545 done, #548 done via API, #589 created; merge queue removed, auto-merge + strict: true enabled)
 
 ---
 
@@ -39,9 +39,13 @@ Fix CI first (#542 M5.F) ──► Complete M5.C dispatch (#460) ──► Compl
    GHCR images public          compose wired (#481)          cel-go (#476) done
 ```
 
-**Why CI first:** Every subsequent PR in M5 takes 25+ minutes to merge today. Fixing merge
-queue, concurrency, and change-detection (#544, #545, #546, #547) cuts the feedback loop by
-3–4× before any adapter code is written. This accelerates everything else.
+**Why CI first:** Every subsequent PR in M5 takes 25+ minutes to merge today. Fixing
+concurrency, change-detection, and the release pipeline (#545, #546, #547) cuts the feedback
+loop by 3–4× before any adapter code is written. This accelerates everything else.
+
+**Merge strategy:** No merge queue. Auto-merge (`allow_auto_merge: true`) with `strict: true`
+branch protection — the branch must be up-to-date with main before merging. Rebasing is
+the developer's responsibility; auto-merge fires automatically once all checks pass.
 
 ---
 
@@ -74,9 +78,10 @@ PR cycle time from 25 min → 7 min before any code work begins.
 | Issue | Title | Size | Why first |
 |-------|-------|------|-----------|
 | [#547](https://github.com/zynax-io/zynax/issues/547) | Remove `test-integration` from required status checks | XS | ✅ Done |
-| [#544](https://github.com/zynax-io/zynax/issues/544) | Enable GitHub Merge Queue + remove `strict: true` | XS | ✅ Done |
+| [#544](https://github.com/zynax-io/zynax/issues/544) | Enable GitHub Merge Queue + remove `strict: true` | XS | ✅ Done (superseded — merge queue removed; strict: true + allow_auto_merge enabled via API — see #589) |
+| [#548](https://github.com/zynax-io/zynax/issues/548) | Enable `allow_auto_merge` on repository | XS | ✅ Done via API |
 | [#545](https://github.com/zynax-io/zynax/issues/545) | Fix CI concurrency — cancel stale runs per branch | XS | ✅ Done |
-| [#548](https://github.com/zynax-io/zynax/issues/548) | Enable `allow_auto_merge` on repository | XS | Self-merge once all checks pass |
+| [#589](https://github.com/zynax-io/zynax/issues/589) | Remove `merge_group` trigger from all workflow files | XS | Ready |
 | [#546](https://github.com/zynax-io/zynax/issues/546) | Remove push-to-main forced-true in change detection | S | Every PR runs all jobs regardless of changes |
 | [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition — unified release workflow | M | All install URLs return 404 today |
 | [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | No downloadable artifacts exist |
@@ -228,15 +233,17 @@ without rewriting the graph).
 ## M5.F — CI/CD Performance Sprint (#542)
 
 **Canvas:** SPDD exempt (ci/chore type per ADR-019)
-**Goal:** Cut PR cycle time from ~25 min to ~7 min. Enable merge queue. Fix all broken release pipelines.
+**Goal:** Cut PR cycle time from ~25 min to ~7 min. Auto-merge + strict branch protection. Fix all broken release pipelines.
+**Merge strategy:** No merge queue — auto-merge (`allow_auto_merge: true`, set via API) with `strict: true` branch protection. Developer rebases; auto-merge fires when all checks pass.
 
 ### Group A — Branch protection, concurrency, force-run (P0/P1)
 | Issue | Title | Size | Priority |
 |-------|-------|------|----------|
-| [#544](https://github.com/zynax-io/zynax/issues/544) | Enable GitHub Merge Queue + remove `strict: true` | XS | ✅ Done |
+| [#544](https://github.com/zynax-io/zynax/issues/544) | Enable GitHub Merge Queue + remove `strict: true` | XS | ✅ Done (merge queue removed; strict: true + allow_auto_merge re-enabled via API — see #589) |
 | [#547](https://github.com/zynax-io/zynax/issues/547) | Remove `test-integration` from required status checks | XS | ✅ Done |
-| [#548](https://github.com/zynax-io/zynax/issues/548) | Enable `allow_auto_merge` | XS | P1 |
+| [#548](https://github.com/zynax-io/zynax/issues/548) | Enable `allow_auto_merge` | XS | ✅ Done via API |
 | [#545](https://github.com/zynax-io/zynax/issues/545) | Fix CI concurrency — cancel stale runs per branch | XS | ✅ Done |
+| [#589](https://github.com/zynax-io/zynax/issues/589) | Remove `merge_group` trigger from all workflow files | XS | P1 |
 | [#546](https://github.com/zynax-io/zynax/issues/546) | Remove push-to-main forced-true override | S | P1 |
 | [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | P1 |
 

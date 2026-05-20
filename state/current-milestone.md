@@ -49,9 +49,10 @@ Fix the CI pipeline before all other work. These are XS/S admin + YAML changes.
 | Issue | Title | Size | Why |
 |-------|-------|------|-----|
 | ~~[#547](https://github.com/zynax-io/zynax/issues/547)~~ | ~~Remove test-integration from required status checks~~ | XS | ✅ Done |
-| ~~[#544](https://github.com/zynax-io/zynax/issues/544)~~ | ~~Enable GitHub Merge Queue + remove strict: true~~ | XS | ✅ Done (workflows updated; admin must enable Merge Queue in GitHub Settings) |
+| ~~[#544](https://github.com/zynax-io/zynax/issues/544)~~ | ~~Enable GitHub Merge Queue~~ | XS | ✅ Done (superseded — merge queue removed; strict: true + allow_auto_merge enabled via API — see #589) |
+| ~~[#548](https://github.com/zynax-io/zynax/issues/548)~~ | ~~Enable allow_auto_merge~~ | XS | ✅ Done via API |
 | ~~[#545](https://github.com/zynax-io/zynax/issues/545)~~ | ~~Fix CI concurrency — cancel stale runs~~ | XS | ✅ Done |
-| [#548](https://github.com/zynax-io/zynax/issues/548) | Enable allow_auto_merge | XS | Self-merge |
+| [#589](https://github.com/zynax-io/zynax/issues/589) | Remove merge_group trigger from workflow files | XS | Ready |
 | [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition | M | All install URLs → 404 |
 | [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | No artifacts exist |
 
@@ -103,7 +104,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
 - **E2E demo** — blocked on #481 fully wired.
-- **CI throughput** — merge_group trigger added (#547 ✅ #544 ✅); admin must enable Merge Queue in GitHub Settings to activate.
+- **CI throughput** — auto-merge enabled (`allow_auto_merge: true`), `strict: true` branch protection set via API. Merge queue removed — developer rebases. Remaining: #545 concurrency fix (PR #588), #589 remove merge_group triggers, #546 push-to-main override.
 - **v0.4.0 release** — blocked on #557 (release race condition fix) then #558 (tag).
 
 ---
