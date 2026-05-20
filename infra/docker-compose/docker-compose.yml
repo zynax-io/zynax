@@ -13,7 +13,7 @@
 #   7088  → Temporal Web UI        http://localhost:7088
 #   7422  → NATS client            (optional direct access)
 #
-# Not included yet (unimplemented stubs awaiting M5):
+# Not included yet (pending M5.C compose wiring #481):
 #   agent-registry, task-broker, memory-service, event-bus
 
 services:
@@ -87,6 +87,7 @@ services:
   # ── Platform services ───────────────────────────────────────────────────
 
   workflow-compiler:
+    image: ghcr.io/zynax-io/zynax/workflow-compiler:main
     build:
       context: ../..
       dockerfile: services/workflow-compiler/Dockerfile
@@ -102,6 +103,7 @@ services:
       start_period: 10s
 
   engine-adapter:
+    image: ghcr.io/zynax-io/zynax/engine-adapter:main
     build:
       context: ../..
       dockerfile: services/engine-adapter/Dockerfile
@@ -124,6 +126,7 @@ services:
       start_period: 15s
 
   api-gateway:
+    image: ghcr.io/zynax-io/zynax/api-gateway:main
     build:
       context: ../..
       dockerfile: services/api-gateway/Dockerfile

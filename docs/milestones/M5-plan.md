@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 21 — #563 ✅; tools-publish.yml deleted, all zynax-tools refs updated; next: #566 README pull commands)
+**Last updated:** 2026-05-20 (rev 22 — #566 ✅; Docker Images section added to README, GHCR image refs in docker-compose; BATCH 1 complete)
 
 ---
 
@@ -165,7 +165,7 @@ after 2 min without ping). Reference: `services/task-broker/internal/domain/` fo
 | [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner (Alpine, minimal) | S | None |
 | [#552](https://github.com/zynax-io/zynax/issues/552) | Switch GH Actions jobs to ci-runner container mode | M | After #551 |
 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L | After #552 |
-| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml | XS | None |
+| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml | XS | ✅ Done |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS | None |
 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | After #561 |
 
@@ -303,7 +303,7 @@ without rewriting the graph).
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image (remove tools-publish.yml) | XS | ✅ Done |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 | XS | P2 |
 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | P2 |
-| [#566](https://github.com/zynax-io/zynax/issues/566) | README Docker Images section with pull commands | S | P1 · ready (after #563) |
+| [#566](https://github.com/zynax-io/zynax/issues/566) | README Docker Images section with pull commands | S | ✅ Done |
 
 **Cross-links:**
 - #601 → #562 → tools-public → #563 → #566: Full chain — service Dockerfiles fixed → images made public → zynax/tools rebuilt and made public → old zynax-tools removed → README documented.
