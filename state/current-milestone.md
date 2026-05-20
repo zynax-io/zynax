@@ -92,7 +92,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 | Issue | Track | Title | Status |
 |-------|-------|-------|--------|
-| [#474](https://github.com/zynax-io/zynax/issues/474) | M5.A | Python SDK Agent base class | in progress — #535 ✅ impl done; #536 tests pending; #537 docs pending |
+| [#474](https://github.com/zynax-io/zynax/issues/474) | M5.A | Python SDK Agent base class | in progress — #535 ✅ impl done; #536 ✅ tests done (100% cov); #537 docs pending |
 | [#476](https://github.com/zynax-io/zynax/issues/476) | M5.B | Guard parser (cel-go) | ✅ closed — all 3 children merged |
 | [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | open (#399 BDD done; #400+ pending, wait for #481) |
 | [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open (#404 BDD done; #405+ pending, wait for #481) |
