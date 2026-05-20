@@ -1,19 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
-# Zynax — Developer Tools Image
+# Zynax — Developer Tools + CI Runner Images
 #
-# Builds infra/docker/Dockerfile.tools and pushes to GHCR on every merge
-# to main that touches the tools image or zynax-ci source. Also triggered
-# on version tags so pinned image digests are available for production use.
+# Builds and pushes two images to GHCR on every merge to main that touches
+# the relevant Dockerfiles or zynax-ci source. Also triggered on version tags.
 #
-# Image: ghcr.io/zynax-io/zynax/tools
-# Tags:  :latest  (always points to the newest main build)
-#        :main-<sha>  (immutable per-commit tag)
-#        :v*.*.*  (on version tag pushes)
+# Images:
+#   ghcr.io/zynax-io/zynax/tools      — developer tools for local `make` commands
+#   ghcr.io/zynax-io/zynax/ci-runner  — pre-baked CI environment for GH Actions container: mode
 #
-# Usage in local Makefile (after GHCR publish):
-#   TOOLS_IMAGE := ghcr.io/zynax-io/zynax/tools:latest
-# Usage in Dockerfiles:
-#   FROM ghcr.io/zynax-io/zynax/tools:latest AS ci-tools
+# Tags (both images):
+#   :latest      (always points to the newest main build)
+#   :main-<sha>  (immutable per-commit tag)
+#   :v*.*.*      (on version tag pushes)
+#
+# Digest for ci-runner is recorded in config/ci-runner-digest.txt after each build.
 
 name: tools-image
 
@@ -22,6 +22,7 @@ on:
     branches: [main]
     paths:
       - 'infra/docker/Dockerfile.tools'
+      - 'infra/docker/Dockerfile.ci-runner'
       - 'cmd/zynax-ci/**'
     tags:
       - 'v*.*.*'
@@ -72,8 +73,51 @@ jobs:
           file: infra/docker/Dockerfile.tools
           push: true
           tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=tools
+          cache-to: type=gha,mode=max,scope=tools
           labels: |
             org.opencontainers.image.source=https://github.com/zynax-io/zynax
             org.opencontainers.image.revision=${{ github.sha }}
+
+  build-push-ci-runner:
+    name: Build and push ci-runner image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ${{ env.REGISTRY }}/zynax-io/zynax/ci-runner
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=main-,format=long
+            type=semver,pattern={{version}}
+
+      - name: Build and push ci-runner
+        id: build
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: infra/docker/Dockerfile.ci-runner
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha,scope=ci-runner
+          cache-to: type=gha,mode=max,scope=ci-runner
+          labels: |
+            org.opencontainers.image.source=https://github.com/zynax-io/zynax
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Output ci-runner digest
+        run: echo "ci-runner digest ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"

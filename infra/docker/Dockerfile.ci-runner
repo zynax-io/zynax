@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — CI Runner Image
+#
+# Purpose-built two-stage Alpine image for GitHub Actions container: jobs.
+# All CI tools are pre-baked; zero runtime downloads in CI steps.
+#
+# Build:  docker build -f infra/docker/Dockerfile.ci-runner -t ci-runner:local .
+# Image:  ghcr.io/zynax-io/zynax/ci-runner
+#
+# ── Pinned tool versions ─────────────────────────────────────────────────────
+# golangci-lint  v2.11.4   (must match ci.yml GOLANGCI_VERSION)
+# govulncheck    v1.1.4    (must match ci.yml GOVULNCHECK_VERSION)
+# buf            1.47.2    (must match ci.yml BUF_VERSION)
+# gitleaks       v8.21.2   (must match .pre-commit-config.yaml rev:)
+# godog          v0.14.1
+# mockery        v2.53.6
+# actionlint     v1.7.7
+# uv             0.11.8
+#
+# Tools intentionally excluded (dev-only or release-pipeline-only):
+#   migrate, grpc-health-probe, syft, protoc-gen-go, protoc-gen-go-grpc
+
+# ── Stage 1: builder — has curl; downloads / builds all binaries ─────────────
+ARG GO_VERSION=1.26.3
+FROM golang:${GO_VERSION}-alpine AS builder
+
+RUN apk add --no-cache git curl ca-certificates
+
+# golangci-lint
+# renovate: datasource=github-releases depName=golangci/golangci-lint
+RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+    | sh -s -- -b /usr/local/bin v2.11.4
+
+# govulncheck — CVE scanner for Go modules
+# renovate: datasource=github-releases depName=golang/vuln
+RUN go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+
+# godog — BDD test runner for Go contract tests
+# renovate: datasource=github-releases depName=cucumber/godog
+RUN go install github.com/cucumber/godog/cmd/godog@v0.14.1
+
+# mockery — Go interface mock generator
+# renovate: datasource=github-releases depName=vektra/mockery
+RUN go install github.com/vektra/mockery/v2@v2.53.6
+
+# buf — proto linter and codegen orchestrator
+# renovate: datasource=github-releases depName=bufbuild/buf
+ARG BUF_VERSION=1.47.2
+RUN curl -fsSL \
+      "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64" \
+      -o /usr/local/bin/buf \
+    && chmod +x /usr/local/bin/buf
+
+# gitleaks — secret scanner (version must match .pre-commit-config.yaml rev:)
+# renovate: datasource=github-releases depName=gitleaks/gitleaks
+RUN GITLEAKS_VERSION=v8.21.2 && \
+    curl -fsSL \
+      "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION#v}_linux_x64.tar.gz" \
+      -o /tmp/gitleaks.tar.gz \
+    && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks \
+    && rm /tmp/gitleaks.tar.gz
+
+# actionlint — GitHub Actions workflow linter
+# renovate: datasource=github-releases depName=rhysd/actionlint
+RUN ACTIONLINT_VERSION=v1.7.7 && \
+    curl -fsSL \
+      "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz" \
+      -o /tmp/actionlint.tar.gz \
+    && tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin actionlint \
+    && rm /tmp/actionlint.tar.gz
+
+# zynax-ci — CI validation toolchain
+COPY cmd/zynax-ci/ /src/zynax-ci/
+RUN cd /src/zynax-ci && GOWORK=off go build -trimpath -o /usr/local/bin/zynax-ci .
+
+# ── Stage 2: ci-runner — clean Alpine, NO curl ───────────────────────────────
+FROM alpine:3.21 AS ci-runner
+
+LABEL org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.description="Zynax CI Runner — GitHub Actions container mode" \
+      org.opencontainers.image.licenses="Apache-2.0"
+
+# Alpine system deps — curl intentionally absent from this stage
+RUN apk add --no-cache git bash ca-certificates python3 py3-pip libstdc++ libgcc
+
+# ── Go toolchain ──────────────────────────────────────────────────────────────
+COPY --from=builder /usr/local/go /usr/local/go
+
+# ── Go tool binaries ──────────────────────────────────────────────────────────
+COPY --from=builder /usr/local/bin/golangci-lint /usr/local/bin/
+COPY --from=builder /usr/local/bin/buf           /usr/local/bin/
+COPY --from=builder /usr/local/bin/gitleaks      /usr/local/bin/
+COPY --from=builder /usr/local/bin/actionlint    /usr/local/bin/
+COPY --from=builder /usr/local/bin/zynax-ci      /usr/local/bin/
+COPY --from=builder /go/bin/govulncheck          /usr/local/bin/
+COPY --from=builder /go/bin/godog                /usr/local/bin/
+COPY --from=builder /go/bin/mockery              /usr/local/bin/
+
+# ── uv — Python package manager (no curl: copied from official image) ─────────
+# renovate: datasource=github-releases depName=astral-sh/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv  /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uvx /usr/local/bin/uvx
+
+# ── Python CI tools ───────────────────────────────────────────────────────────
+RUN uv tool install ruff \
+    && uv tool install mypy \
+    && uv tool install bandit \
+    && uv tool install pip-audit \
+    && uv tool install pytest \
+         --with pytest-bdd \
+         --with pytest-cov \
+         --with grpcio \
+         --with grpcio-tools
+
+# ── Environment ───────────────────────────────────────────────────────────────
+ENV PATH="/usr/local/go/bin:/usr/local/bin:/root/.local/bin:${PATH}" \
+    GOPATH=/root/go \
+    GOCACHE=/root/.cache/go-build \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_CACHE_DIR=/root/.cache/uv \
+    DO_NOT_TRACK=1
+
+WORKDIR /workspace
+CMD ["/bin/bash"]

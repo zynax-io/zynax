@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 23 — #566 ✅ BATCH 1 complete; #551/#552 promoted to P0 next; self-contained ci-runner requirement added; BATCH 5 reordered)
+**Last updated:** 2026-05-20 (rev 24 — #551 ✅ Dockerfile.ci-runner created, tools-image.yml updated with ci-runner build job)
 
 ---
 
@@ -157,10 +157,9 @@ after 2 min without ping). Reference: `services/task-broker/internal/domain/` fo
 
 ### BATCH 5 — CI DX improvements (P0 first pair · then P1 · M5.F Group B/C/E, after BATCH 0)
 
-**Do #551 → #552 first.** Every subsequent PR pays the ubuntu-24.04 cold-start tax until these
-land. Once #552 merges, all jobs run inside the pre-baked Alpine ci-runner container and no CI
-step downloads packages from the internet (other than code-level dependency installs such as
-`go mod download` or `uv sync`).
+**#551 ✅ done. Do #552 next.** Once #552 merges, all jobs run inside the pre-baked Alpine
+ci-runner container and no CI step downloads packages from the internet (other than
+code-level dependency installs such as `go mod download` or `uv sync`).
 
 **Self-contained requirement for #551:** `Dockerfile.ci-runner` must bake in every tool the CI
 pipeline calls — Go 1.26.3, golangci-lint, govulncheck, godog, mockery, buf,
@@ -172,8 +171,8 @@ of tooling at run time. The image is rebuilt and published to
 
 | Issue | Title | Size | Dependency | Priority |
 |-------|-------|------|------------|----------|
-| [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner — self-contained Alpine image | S | None | **P0 — do next** |
-| [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner container mode | M | After #551 | **P0 — do after #551** |
+| [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner — self-contained Alpine image | S | ✅ Done | — |
+| [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner container mode | M | After #551 | **P0 — do next** |
 | [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | After #552 | P1 |
 | [#549](https://github.com/zynax-io/zynax/issues/549) | Extend changes job per-service module granularity | M | After #552 | P1 |
 | [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M | After #549 | P1 |
@@ -273,7 +272,7 @@ without rewriting the graph).
 ### Group C — Alpine CI runner sub-epic (#543)
 | Issue | Title | Size |
 |-------|-------|------|
-| [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner | S |
+| [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner | S | ✅ Done |
 | [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner | M |
 | [#358](https://github.com/zynax-io/zynax/issues/358) | Publish tools image to public GHCR securely | S |
 
