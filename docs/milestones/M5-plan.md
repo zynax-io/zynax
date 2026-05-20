@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 19 — #562 ✅; GHCR packages public; #566 unblocked)
+**Last updated:** 2026-05-20 (rev 20 — #562 ✅; tools-image rebuild in progress; #563 promoted to P1; order: tools-public → #563 → #566)
 
 ---
 
@@ -97,8 +97,10 @@ Edit `.github/workflows/` YAML and GitHub repository settings only.
 | [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | ✅ Done |
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | ✅ Done |
 | [#601](https://github.com/zynax-io/zynax/issues/601) | Fix Go builder base image to 1.26.3-alpine in service Dockerfiles | XS | ✅ Done |
-| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | ✅ Done |
-| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ Unblocked — next |
+| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | ✅ Done — 5 service/adapter images public |
+| (admin) | Confirm zynax/tools published + set public | — | ⬜ After tools-image.yml run succeeds |
+| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml + delete zynax-tools | XS | ⬜ After zynax/tools is public |
+| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ After #563 |
 
 **Engineer profile:** DevOps / GitHub Actions specialist.
 
@@ -296,15 +298,16 @@ without rewriting the graph).
 | [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | ✅ Done |
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | ✅ Done |
 | [#601](https://github.com/zynax-io/zynax/issues/601) | Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles | XS | ✅ Done · unblocked #562 |
-| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR images publicly readable | XS | ✅ Done · unblocked #566 |
-| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image (remove tools-publish.yml) | XS | P2 |
+| [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR images publicly readable | XS | ✅ Done · unblocked tools+#563+#566 |
+| (admin) | Confirm zynax/tools published + set public | — | ⬜ After tools-image.yml run |
+| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image (remove tools-publish.yml) | XS | ⬜ P1 · after zynax/tools public |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 | XS | P2 |
 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | P2 |
-| [#566](https://github.com/zynax-io/zynax/issues/566) | README Docker Images section with pull commands | S | P1 · blocked on #562 |
+| [#566](https://github.com/zynax-io/zynax/issues/566) | README Docker Images section with pull commands | S | P1 · after zynax/tools public + #563 |
 
 **Cross-links:**
-- #601 → #562 → #566: Strict chain — service images must build (#601) before they can be made public (#562) before they can be documented (#566).
-- #358 ↔ #562: Same admin action for two different image sets. Do in same org-settings session.
+- #601 → #562 → tools-public → #563 → #566: Full chain — service Dockerfiles fixed → images made public → zynax/tools rebuilt and made public → old zynax-tools removed → README documented.
+- #358 ↔ #563: #358 (publish tools image securely) is superseded by #563 (deduplication); close #358 when #563 merges.
 - #235 → #489/#465: #235 (standalone SBOM) superseded by M6.C child #489; close #235 when M6 goes active.
 - #239 → #489/#465: Same supersession pattern.
 - #565 ↔ #236: Complementary; #565 = trivy in release, #236 = trivy in security CI.

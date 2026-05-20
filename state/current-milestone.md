@@ -42,7 +42,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — BATCH 1 completion (#566 next)
+## IMMEDIATE — BATCH 1 completion (tools visibility → #563 → #566)
 
 ### BATCH 0 — ✅ All done
 ~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
@@ -53,8 +53,11 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 |-------|-------|------|--------|
 | ~~[#561](https://github.com/zynax-io/zynax/issues/561)~~ | ~~Push service/adapter images to GHCR on every main merge~~ | S | ✅ Done |
 | ~~[#601](https://github.com/zynax-io/zynax/issues/601)~~ | ~~Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles~~ | XS | ✅ Done |
-| ~~[#562](https://github.com/zynax-io/zynax/issues/562)~~ | ~~Make GHCR service/adapter images publicly readable~~ | XS | ✅ Done — all 5 service/adapter images public |
-| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ Unblocked — next |
+| ~~[#562](https://github.com/zynax-io/zynax/issues/562)~~ | ~~Make GHCR service/adapter images publicly readable~~ | XS | ✅ Done — 5 service/adapter images public; zynax/tools deleted (see below) |
+| (admin) | **Confirm zynax/tools published** — tools-image.yml workflow_dispatch triggered 2026-05-20; wait for run to succeed | — | 🔄 In progress — run queued |
+| (admin) | **Set zynax/tools to public** — org visibility policy now allows it; same UI step as #562 | — | ⬜ Blocked on image publish |
+| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml + delete old zynax-tools package | XS | ⬜ After zynax/tools is public |
+| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ⬜ After #563 (so tools pull command is accurate) |
 
 ---
 
@@ -100,7 +103,9 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 ## Known Blockers
 
-- **#566 (README pull commands)** — unblocked; start next.
+- **zynax/tools image** — deleted during #562 UI work; tools-image.yml workflow_dispatch triggered 2026-05-20, run in progress. Once published, set package to public (org visibility policy now allows it).
+- **#563 (deduplicate tools)** — remove tools-publish.yml + delete old zynax-tools package; start after zynax/tools is public.
+- **#566 (README pull commands)** — start after #563 so the tools image pull command is accurate and zynax-tools is gone.
 - **agent-registry (#480)** — BDD trim (#526) must merge before domain (#527) begins (ADR-016).
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
