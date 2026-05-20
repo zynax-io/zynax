@@ -21,20 +21,16 @@ jobs:
   count:
     name: Count AI context lines
     runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:b0653d255e0b8b7133b8c7537a8885431f68367bb74ba7851f73e58a3d675d0f
+      options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
-        with:
-          go-version-file: cmd/zynax-ci/go.mod
-          cache: true
-          cache-dependency-path: cmd/zynax-ci/go.sum
 
       - name: Count AI context lines
         id: count
         run: |
-          (cd cmd/zynax-ci && GOWORK=off go build -o /tmp/zynax-ci .)
-          OUTPUT=$(/tmp/zynax-ci check ai-context)
+          OUTPUT=$(zynax-ci check ai-context)
           echo "$OUTPUT"
           {
             echo "## AI Context Budget"
