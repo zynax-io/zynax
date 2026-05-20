@@ -104,7 +104,7 @@ docs/ (modified files)
 
 2. ✅ **[#536]** `test(agents/sdk)`: Unit tests for `Agent` base class — routing, event emission, error propagation, `timeout_seconds` cancellation. ≥ 85% coverage on `agents/sdk/`.
 
-3. **[#537]** `docs(agents/sdk)`: Update SDK status — rewrite `agents/sdk/AGENTS.md`; update SDK sections in README and ARCHITECTURE.md to describe the delivered `Agent` base class. Remove placeholder language.
+3. ✅ **[#537]** `docs(agents/sdk)`: Update SDK status — rewrite `agents/sdk/AGENTS.md`; update SDK sections in README and ARCHITECTURE.md to describe the delivered `Agent` base class. Remove placeholder language.
 
 ---
 
