@@ -30,7 +30,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — BATCH 1 complete; next: BATCH 5 CI DX (#554, #549, …) |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🔴 **Next: #551 ci-runner Dockerfile → #552 switch all jobs** — every PR pays ubuntu cold-start until these land |
 | **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟢 BATCH 1 complete — #566 ✅ Docker Images in README; GHCR image refs in docker-compose |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
@@ -42,7 +42,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — BATCH 5 CI DX improvements (next after BATCH 1 complete)
+## IMMEDIATE — Alpine ci-runner (#551 → #552) — P0, do before all other BATCH 5 work
 
 ### BATCH 0 — ✅ All done
 ~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
@@ -102,7 +102,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 ## Known Blockers
 
-- **BATCH 1 complete** — all release pipeline issues done; next focus is BATCH 5 CI DX and BATCH 4 capability dispatch.
+- **#551 (Dockerfile.ci-runner) → #552 (switch all jobs)** — highest CI priority. Image must bake in every tool (Go 1.26.3, golangci-lint, govulncheck, buf, Python+uv, ruff, mypy, bandit, pip-audit, gitleaks, zynax-ci, etc.) so no CI step downloads tooling at run time. Reference: `infra/docker/Dockerfile.tools`. Publish to `ghcr.io/zynax-io/zynax/ci-runner:latest` on every Dockerfile change.
 - **agent-registry (#480)** — BDD trim (#526) must merge before domain (#527) begins (ADR-016).
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
