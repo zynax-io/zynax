@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 4 — #547 done: test-integration removed from required checks)
+**Last updated:** 2026-05-20 (rev 5 — #544 done: merge_group trigger added to ci/pr-checks/pr-size workflows)
 
 ---
 
@@ -74,7 +74,7 @@ PR cycle time from 25 min → 7 min before any code work begins.
 | Issue | Title | Size | Why first |
 |-------|-------|------|-----------|
 | [#547](https://github.com/zynax-io/zynax/issues/547) | Remove `test-integration` from required status checks | XS | ✅ Done |
-| [#544](https://github.com/zynax-io/zynax/issues/544) | Enable GitHub Merge Queue + remove `strict: true` | XS | Eliminates mandatory rebase overhead |
+| [#544](https://github.com/zynax-io/zynax/issues/544) | Enable GitHub Merge Queue + remove `strict: true` | XS | ✅ Done |
 | [#545](https://github.com/zynax-io/zynax/issues/545) | Fix CI concurrency — cancel stale runs per branch | XS | Prevents redundant runs eating quota |
 | [#548](https://github.com/zynax-io/zynax/issues/548) | Enable `allow_auto_merge` on repository | XS | Self-merge once all checks pass |
 | [#546](https://github.com/zynax-io/zynax/issues/546) | Remove push-to-main forced-true in change detection | S | Every PR runs all jobs regardless of changes |
@@ -233,7 +233,7 @@ without rewriting the graph).
 ### Group A — Branch protection, concurrency, force-run (P0/P1)
 | Issue | Title | Size | Priority |
 |-------|-------|------|----------|
-| [#544](https://github.com/zynax-io/zynax/issues/544) | Enable GitHub Merge Queue + remove `strict: true` | XS | **P0** |
+| [#544](https://github.com/zynax-io/zynax/issues/544) | Enable GitHub Merge Queue + remove `strict: true` | XS | ✅ Done |
 | [#547](https://github.com/zynax-io/zynax/issues/547) | Remove `test-integration` from required status checks | XS | ✅ Done |
 | [#548](https://github.com/zynax-io/zynax/issues/548) | Enable `allow_auto_merge` | XS | P1 |
 | [#545](https://github.com/zynax-io/zynax/issues/545) | Fix CI concurrency — cancel stale runs per branch | XS | P1 |

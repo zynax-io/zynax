@@ -49,7 +49,7 @@ Fix the CI pipeline before all other work. These are XS/S admin + YAML changes.
 | Issue | Title | Size | Why |
 |-------|-------|------|-----|
 | ~~[#547](https://github.com/zynax-io/zynax/issues/547)~~ | ~~Remove test-integration from required status checks~~ | XS | ✅ Done |
-| [#544](https://github.com/zynax-io/zynax/issues/544) | Enable GitHub Merge Queue + remove strict: true | XS | Eliminates forced rebase |
+| ~~[#544](https://github.com/zynax-io/zynax/issues/544)~~ | ~~Enable GitHub Merge Queue + remove strict: true~~ | XS | ✅ Done (workflows updated; admin must enable Merge Queue in GitHub Settings) |
 | [#545](https://github.com/zynax-io/zynax/issues/545) | Fix CI concurrency — cancel stale runs | XS | Redundant runs |
 | [#548](https://github.com/zynax-io/zynax/issues/548) | Enable allow_auto_merge | XS | Self-merge |
 | [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition | M | All install URLs → 404 |
@@ -103,7 +103,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
 - **E2E demo** — blocked on #481 fully wired.
-- **CI throughput** — all PRs take 25+ minutes until #544/#547 land.
+- **CI throughput** — merge_group trigger added (#547 ✅ #544 ✅); admin must enable Merge Queue in GitHub Settings to activate.
 - **v0.4.0 release** — blocked on #557 (release race condition fix) then #558 (tag).
 
 ---
