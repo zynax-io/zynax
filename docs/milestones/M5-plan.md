@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 11 — #558 done; #559 already delivered in #557; BATCH 0 complete)
+**Last updated:** 2026-05-20 (rev 12 — #560 done; http-adapter added to release matrix)
 
 ---
 
@@ -93,8 +93,8 @@ Edit `.github/workflows/` YAML and GitHub repository settings only.
 
 | Issue | Title | Size | Dependency |
 |-------|-------|------|------------|
-| [#559](https://github.com/zynax-io/zynax/issues/559) | Add task-broker to service-release matrix | XS | After #557 |
-| [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | After #557 |
+| [#559](https://github.com/zynax-io/zynax/issues/559) | Add task-broker to service-release matrix | XS | ✅ Done (delivered in #557) |
+| [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | ✅ Done |
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | After #559+#560 |
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR service/adapter images publicly readable | XS | After #561 |
 | [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | After #562 |
@@ -291,7 +291,7 @@ without rewriting the graph).
 | [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition — unified workflow | M | ✅ Done |
 | [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | ✅ Done (CHANGELOG promoted; tag push pending user action) |
 | [#559](https://github.com/zynax-io/zynax/issues/559) | Add task-broker to service-release matrix | XS | ✅ Done (delivered in #557 — task-broker already in release.yml matrix) |
-| [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | P1 |
+| [#560](https://github.com/zynax-io/zynax/issues/560) | Add http-adapter image to release pipeline | S | ✅ Done |
 | [#561](https://github.com/zynax-io/zynax/issues/561) | Push service/adapter images to GHCR on every main merge | S | P1 |
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR images publicly readable | XS | P1 |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image (remove tools-publish.yml) | XS | P2 |
