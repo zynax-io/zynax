@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 7 — #545 done, #548 done via API, #589 created; merge queue removed, auto-merge + strict: true enabled)
+**Last updated:** 2026-05-20 (rev 8 — #589 done; merge_group triggers removed from ci.yml, pr-checks.yml, pr-size.yml)
 
 ---
 
@@ -81,7 +81,7 @@ PR cycle time from 25 min → 7 min before any code work begins.
 | [#544](https://github.com/zynax-io/zynax/issues/544) | Enable GitHub Merge Queue + remove `strict: true` | XS | ✅ Done (superseded — merge queue removed; strict: true + allow_auto_merge enabled via API — see #589) |
 | [#548](https://github.com/zynax-io/zynax/issues/548) | Enable `allow_auto_merge` on repository | XS | ✅ Done via API |
 | [#545](https://github.com/zynax-io/zynax/issues/545) | Fix CI concurrency — cancel stale runs per branch | XS | ✅ Done |
-| [#589](https://github.com/zynax-io/zynax/issues/589) | Remove `merge_group` trigger from all workflow files | XS | Ready |
+| [#589](https://github.com/zynax-io/zynax/issues/589) | Remove `merge_group` trigger from all workflow files | XS | ✅ Done |
 | [#546](https://github.com/zynax-io/zynax/issues/546) | Remove push-to-main forced-true in change detection | S | Every PR runs all jobs regardless of changes |
 | [#557](https://github.com/zynax-io/zynax/issues/557) | Fix release race condition — unified release workflow | M | All install URLs return 404 today |
 | [#558](https://github.com/zynax-io/zynax/issues/558) | Cut v0.4.0 — first versioned release tag | XS | No downloadable artifacts exist |
@@ -243,7 +243,7 @@ without rewriting the graph).
 | [#547](https://github.com/zynax-io/zynax/issues/547) | Remove `test-integration` from required status checks | XS | ✅ Done |
 | [#548](https://github.com/zynax-io/zynax/issues/548) | Enable `allow_auto_merge` | XS | ✅ Done via API |
 | [#545](https://github.com/zynax-io/zynax/issues/545) | Fix CI concurrency — cancel stale runs per branch | XS | ✅ Done |
-| [#589](https://github.com/zynax-io/zynax/issues/589) | Remove `merge_group` trigger from all workflow files | XS | P1 |
+| [#589](https://github.com/zynax-io/zynax/issues/589) | Remove `merge_group` trigger from all workflow files | XS | ✅ Done |
 | [#546](https://github.com/zynax-io/zynax/issues/546) | Remove push-to-main forced-true override | S | P1 |
 | [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | P1 |
 

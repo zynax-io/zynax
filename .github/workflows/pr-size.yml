@@ -15,7 +15,6 @@ name: PR Size
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  merge_group:
 
 concurrency:
   group: pr-size-${{ github.ref }}
