@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-20 (rev 12 — #560 done; http-adapter added to release matrix)
+**Last updated:** 2026-05-20 (rev 13 — #538 done; cel-go guard evaluator integrated, fail-closed)
 
 ---
 
@@ -107,7 +107,7 @@ These can run in parallel with BATCH 0/1.
 
 | Issue | Title | Size | Dependency | Why |
 |-------|-------|------|------------|-----|
-| [#538](https://github.com/zynax-io/zynax/issues/538) | Integrate cel-go as guard evaluator | M | None | Current evaluator is fail-open — correctness bug |
+| [#538](https://github.com/zynax-io/zynax/issues/538) | Integrate cel-go as guard evaluator | M | None | ✅ Done |
 | [#539](https://github.com/zynax-io/zynax/issues/539) | Guard evaluator test suite + fuzz seed | S | After #538 | Prevent regression |
 | [#540](https://github.com/zynax-io/zynax/issues/540) | Remove CEL misrepresentation from AGENTS.md | XS | After #538+#539 | Truth pass |
 

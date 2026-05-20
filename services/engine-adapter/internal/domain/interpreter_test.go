@@ -297,20 +297,6 @@ func TestEvalGuard_Inequality(t *testing.T) {
 	}
 }
 
-func TestResolveOperand_Literal(t *testing.T) {
-	ctx := map[string]string{}
-	if got := resolveOperand(`"hello"`, ctx); got != "hello" {
-		t.Errorf("resolveOperand literal = %q; want %q", got, "hello")
-	}
-}
-
-func TestResolveOperand_CtxKey(t *testing.T) {
-	ctx := map[string]string{"status": "ok"}
-	if got := resolveOperand("ctx.status", ctx); got != "ok" {
-		t.Errorf("resolveOperand ctx key = %q; want %q", got, "ok")
-	}
-}
-
 func TestEvalGuard_LiteralLhsEquality(t *testing.T) {
 	ctx := map[string]string{}
 	if !evalGuard(`"approved" == "approved"`, ctx) {
@@ -318,9 +304,80 @@ func TestEvalGuard_LiteralLhsEquality(t *testing.T) {
 	}
 }
 
-func TestEvalGuard_Unrecognised_FailOpen(t *testing.T) {
-	if !evalGuard("ctx.score >= 80", map[string]string{}) {
-		t.Error("unrecognised expression should fail-open")
+func TestEvalGuard_FailClosed_EmptyExpr(t *testing.T) {
+	if evalGuard("", map[string]string{}) {
+		t.Error("empty expression should be fail-closed (false)")
+	}
+}
+
+func TestEvalGuard_FailClosed_ParseError(t *testing.T) {
+	// Garbage expression cannot compile → fail-closed.
+	if evalGuard("unknown garbage !@#", map[string]string{}) {
+		t.Error("unparseable expression should be fail-closed (false)")
+	}
+}
+
+func TestEvalGuard_FailClosed_TypeMismatch(t *testing.T) {
+	// ctx.score is a string; 80 is an int → CEL type error at compile → fail-closed.
+	if evalGuard("ctx.score >= 80", map[string]string{"score": "90"}) {
+		t.Error("type-mismatched expression should be fail-closed (false)")
+	}
+}
+
+func TestEvalGuard_FailClosed_MissingKey(t *testing.T) {
+	// Key not in map → CEL eval error → fail-closed.
+	if evalGuard(`ctx.missing_key == "x"`, map[string]string{}) {
+		t.Error("missing ctx key should be fail-closed (false)")
+	}
+}
+
+func TestEvalGuard_ProgCacheHit(t *testing.T) {
+	// Evaluate the same expression twice to exercise the sync.Map cache path.
+	ctx := map[string]string{"status": "ok"}
+	expr := `ctx.status == "ok"`
+	if !evalGuard(expr, ctx) {
+		t.Error("first eval: expected true")
+	}
+	if !evalGuard(expr, ctx) {
+		t.Error("second eval (cache hit): expected true")
+	}
+}
+
+func TestEvalGuard_FailClosed_NonBoolResult(t *testing.T) {
+	// ctx.status selects a string from the map; string is not bool → fail-closed.
+	if evalGuard("ctx.status", map[string]string{"status": "ok"}) {
+		t.Error("non-bool CEL result should be fail-closed (false)")
+	}
+}
+
+func TestMergePayload_InvalidJSON(t *testing.T) {
+	ctx := map[string]string{}
+	mergePayload(ctx, []byte("not json"))
+	if len(ctx) != 0 {
+		t.Error("invalid JSON payload should leave ctx unchanged")
+	}
+}
+
+// errorPublisher fails with an error for a specific event type; all others succeed.
+type errorPublisher struct{ failOn string }
+
+func (p *errorPublisher) Publish(_ context.Context, eventType, _, _ string) error {
+	if eventType == p.failOn {
+		return errors.New("publish failed")
+	}
+	return nil
+}
+
+func TestIRInterpreter_StateEnteredPublishError(t *testing.T) {
+	ir := buildIR("wf-entered-err", "s1",
+		normal("s1", []*zynaxv1.ActionIR{action("cap")},
+			[]*zynaxv1.TransitionIR{transition("", "done", nil)}),
+		terminal("done"),
+	)
+	pub := &errorPublisher{failOn: "zynax.workflow.state.entered"}
+	err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub)
+	if err == nil || !containsMsg(err, "publish state.entered") {
+		t.Errorf("expected state.entered error, got: %v", err)
 	}
 }
 

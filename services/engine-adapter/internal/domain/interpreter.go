@@ -12,7 +12,9 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 
+	"github.com/google/cel-go/cel"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 )
 
@@ -161,37 +163,75 @@ func guardsMatch(conditions map[string]string, ctx map[string]string) bool {
 	return true
 }
 
-// evalGuard evaluates a single CEL-like guard against ctx.
-// M3 supports equality operators only ("==" and "!=").
-// Operands: ctx.<key> references the ctx map; bare strings are treated as literals.
-// Unrecognised expressions are fail-open (return true) so unknown guards do not block.
-func evalGuard(expr string, ctx map[string]string) bool {
-	expr = strings.TrimSpace(expr)
-	for _, op := range []string{"!=", "=="} {
-		idx := strings.Index(expr, op)
-		if idx < 0 {
-			continue
+// cel-go environment and program cache — created once, shared across all evalGuard calls.
+// Programs are deterministic pure functions; caching is safe for Temporal workflow replays.
+var (
+	celEnvOnce sync.Once
+	celEnv     *cel.Env
+	celEnvErr  error
+	progCache  sync.Map // map[string]cel.Program
+)
+
+func celEnvironment() (*cel.Env, error) {
+	celEnvOnce.Do(func() {
+		env, err := cel.NewEnv(
+			cel.Variable("ctx", cel.MapType(cel.StringType, cel.StringType)),
+		)
+		if err != nil {
+			celEnvErr = fmt.Errorf("cel.NewEnv: %w", err)
+			return
 		}
-		lhs := strings.TrimSpace(expr[:idx])
-		rhs := strings.TrimSpace(expr[idx+len(op):])
-		lval := resolveOperand(lhs, ctx)
-		rval := strings.Trim(rhs, `"`)
-		switch op {
-		case "==":
-			return lval == rval
-		case "!=":
-			return lval != rval
-		}
-	}
-	return true // fail-open for unrecognised expressions
+		celEnv = env
+	})
+	return celEnv, celEnvErr
 }
 
-// resolveOperand resolves a CEL operand: ctx.<key> → ctx map lookup; anything else → literal.
-func resolveOperand(expr string, ctx map[string]string) string {
-	if strings.HasPrefix(expr, "ctx.") {
-		return ctx[strings.TrimPrefix(expr, "ctx.")]
+// evalGuard evaluates a CEL expression against ctx using cel-go (github.com/google/cel-go).
+// Returns false (fail-closed) on empty expression, compile error, eval error, or non-bool result.
+// The cel.Environment is initialised once at process startup; cel.Programs are cached per
+// unique expression string in a sync.Map to avoid recompilation on repeated evaluations.
+// ctx map field access uses CEL select syntax: ctx.key is equivalent to ctx["key"].
+func evalGuard(expr string, ctx map[string]string) bool {
+	expr = strings.TrimSpace(expr)
+	if expr == "" {
+		return false
 	}
-	return strings.Trim(expr, `"`)
+
+	env, err := celEnvironment()
+	if err != nil {
+		slog.Warn("evalGuard: cel env init failed", "err", err)
+		return false
+	}
+
+	var prog cel.Program
+	if cached, ok := progCache.Load(expr); ok {
+		prog = cached.(cel.Program)
+	} else {
+		ast, issues := env.Compile(expr)
+		if issues != nil && issues.Err() != nil {
+			slog.Warn("evalGuard: compile error", "expr", expr, "err", issues.Err())
+			return false
+		}
+		compiled, err := env.Program(ast)
+		if err != nil {
+			slog.Warn("evalGuard: program build failed", "expr", expr, "err", err)
+			return false
+		}
+		progCache.Store(expr, compiled)
+		prog = compiled
+	}
+
+	out, _, err := prog.Eval(map[string]interface{}{"ctx": ctx})
+	if err != nil {
+		slog.Warn("evalGuard: eval error", "expr", expr, "err", err)
+		return false
+	}
+	b, ok := out.Value().(bool)
+	if !ok {
+		slog.Warn("evalGuard: non-bool result", "expr", expr)
+		return false
+	}
+	return b
 }
 
 // resolveTemplate substitutes {{ .ctx.<key> }} placeholders in the JSON template
