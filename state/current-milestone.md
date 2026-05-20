@@ -30,10 +30,10 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — BATCH 0 complete; BATCH 1 — #560 #561 done; #562+ ready |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — BATCH 0 complete; BATCH 1 — #560 #561 done; #562 pending (packages not yet public); BATCH 2 complete (#540 ✅) |
 | **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #557 #558 #559 #560 #561 done; tag push pending; #562+ ready |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
-| M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — 3/4 children done; #476 open (#538 done) |
+| M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | In Progress — task-broker code merged; agent-registry pending |
 | M5.D Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete (closed) |
 | M5.E DX Polish | [#462](https://github.com/zynax-io/zynax/issues/462) | ✅ Complete (closed) |
@@ -93,7 +93,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 | Issue | Track | Title | Status |
 |-------|-------|-------|--------|
 | [#474](https://github.com/zynax-io/zynax/issues/474) | M5.A | Python SDK Agent base class | open — Option A chosen, impl pending |
-| [#476](https://github.com/zynax-io/zynax/issues/476) | M5.B | Guard parser (cel-go) | open — #538 done; #539 done; #540 (docs update) next |
+| [#476](https://github.com/zynax-io/zynax/issues/476) | M5.B | Guard parser (cel-go) | open — #538 ✅ #539 ✅ #540 ✅; pending #476 parent close |
 | [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | open (#399 BDD done; #400+ pending, wait for #481) |
 | [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open (#404 BDD done; #405+ pending, wait for #481) |
 | [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open (#409 BDD done; #410+ pending, wait for #481) |

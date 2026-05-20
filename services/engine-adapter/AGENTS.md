@@ -52,6 +52,40 @@ only in config. All dispatch goes through the `WorkflowEngine` interface (ADR-01
 
 ---
 
+## Guard expressions
+
+Transition conditions use **full [CEL](https://cel.dev) syntax** evaluated by
+[`github.com/google/cel-go`](https://github.com/google/cel-go). All CEL
+operators, macros, and built-ins are available — not a restricted subset.
+
+**Variable binding.** A single variable `ctx` of type `map<string,string>` is
+available in every expression. Workflow context entries set by agent payloads are
+accessible as `ctx.key` (CEL select syntax, equivalent to `ctx["key"]`).
+
+**Fail-closed.** `evalGuard` returns `false` for any of:
+- empty expression string
+- compile error (invalid CEL syntax)
+- runtime evaluation error
+- non-bool result type
+
+No exception is raised — the interpreter logs a `slog.Warn` and treats the
+condition as unmet, so the transition is skipped.
+
+**Performance.** `cel.Program` objects are compiled once and cached per unique
+expression string in a `sync.Map`. Safe for Temporal workflow replays (programs
+are deterministic pure functions with no side effects).
+
+**Example expressions:**
+
+```cel
+ctx.status == "approved"
+ctx.score >= "90"
+ctx.env == "prod" && ctx.feature_flag == "enabled"
+has(ctx.error_code)
+```
+
+---
+
 ## Running Tests
 
 ```bash
