@@ -276,6 +276,12 @@ Layer 1 YAML is never imported by Go services. Cross-service reads always go thr
 
 **Prerequisites:** Docker Desktop + the `zynax` CLI (see [Install](#install-the-zynax-cli) above).
 
+> **M5 status note:** The current `make run-local` stack runs api-gateway, workflow-compiler,
+> engine-adapter, Temporal, and NATS. Workflows will submit and produce state-transition logs.
+> **Capability dispatch (actions that call external adapters) is not yet wired** — task-broker
+> is not in the compose stack and agent-registry is not yet implemented (#460 / #481).
+> Full E2E dispatch will work once M5.C is complete.
+
 ```bash
 git clone https://github.com/zynax-io/zynax.git
 cd zynax
@@ -292,7 +298,7 @@ zynax status workflow wf-<hex>
 # status: Running   current_state: review
 
 zynax logs wf-<hex>
-# streams state-transition events
+# streams state-transition events (capability dispatch pending M5.C)
 
 # Stop the stack when done
 make stop-local
@@ -367,14 +373,14 @@ target, and reference workflow YAML examples. Coverage gate ≥ 90% on all domai
 **M3** delivered the Temporal execution engine — the first live runtime: `WorkflowEngine`
 Go interface decoupling the gRPC layer from any engine backend, `TemporalEngine` wrapping
 the Temporal Go SDK, `IRInterpreterWorkflow` state machine interpreter driving
-`DispatchCapabilityActivity` → `TaskBrokerService` gRPC, CEL guard evaluation, CloudEvents
-lifecycle publishing (`zynax.workflow.state.entered/exited/completed/failed`), and all 5
+`DispatchCapabilityActivity` → `TaskBrokerService` gRPC, cel-go guard evaluation, and all 5
 `EngineAdapterService` gRPC methods (`Submit`, `Signal`, `Cancel`, `GetWorkflowStatus`,
-`WatchWorkflow`) wired end-to-end.
+`WatchWorkflow`). **Partial:** CloudEvents lifecycle events are a log-stub (NATS not yet wired);
+task-broker was not delivered in M3 (delivered in M5.C).
 
 **M4** delivered the YAML system and CLI: api-gateway HTTP REST layer
 (`POST /api/v1/apply`, `GET /api/v1/workflows/{id}`, `DELETE /api/v1/workflows/{id}`),
-`kind: AgentDef` routing via `AgentRegistryService`, the `zynax` CLI (`apply`, `get`,
+the `zynax` CLI (`apply`, `get`,
 `delete`, `status`, `logs`), local Docker Compose runner (`make run-local`),
 pre-built CLI binaries published to GitHub Releases for five platforms, and GitOps integration.
 Canvas: `docs/spdd/314-yaml-system-cli/canvas.md`.

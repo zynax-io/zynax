@@ -27,7 +27,7 @@ Include: description, reproduction steps, impact assessment, and suggested fix i
 
 ## Security Controls
 
-See `AGENTS.md §7` and `docs/adr/` for the full security architecture.
+See `AGENTS.md`, `docs/adr/ADR-001`, `ADR-008` and `docs/reviews/04-architecture-gaps.md` for the full security posture.
 
 ### Current (shipped)
 - Non-root containers — all service images run as `USER zynax` (uid 1001)
