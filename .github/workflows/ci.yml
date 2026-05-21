@@ -233,7 +233,11 @@ jobs:
             echo "has_changes=1" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "has_changes=$(echo "$files" | grep -c . || echo 0)" >> "$GITHUB_OUTPUT"
+          if [ -n "$files" ]; then
+            echo "has_changes=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=0" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Scan AI context files for secrets and PII
         if: steps.ai-detect.outputs.has_changes != '0'
@@ -266,10 +270,10 @@ jobs:
             exit 0
           fi
           # Only run buf checks when proto/gen files actually changed in this PR
-          changed=$(git diff --name-only origin/main...HEAD -- \
+          changed_protos=$(git diff --name-only origin/main...HEAD -- \
             'protos/' 2>/dev/null \
-            | grep -cE '\.proto$|buf\.(yaml|gen\.yaml)$' || echo 0)
-          if [ "$changed" -gt 0 ]; then
+            | grep -E '\.proto$|buf\.(yaml|gen\.yaml)$' || true)
+          if [ -n "$changed_protos" ]; then
             echo "has_protos=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_protos=0" >> "$GITHUB_OUTPUT"
@@ -332,9 +336,9 @@ jobs:
             exit 0
           fi
           # Only validate spec when spec files actually changed in this PR
-          changed=$(git diff --name-only origin/main...HEAD -- \
-            'spec/' 2>/dev/null | grep -c . || echo 0)
-          if [ "$changed" -gt 0 ]; then
+          changed_spec=$(git diff --name-only origin/main...HEAD -- \
+            'spec/' 2>/dev/null | grep . || true)
+          if [ -n "$changed_spec" ]; then
             echo "has_spec=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_spec=0" >> "$GITHUB_OUTPUT"
