@@ -7,10 +7,14 @@ COPY services/api-gateway/go.mod services/api-gateway/go.sum ./services/api-gate
 RUN cd services/api-gateway && GOWORK=off go mod download
 COPY protos/generated/go/ ./protos/generated/go/
 COPY services/api-gateway/ ./services/api-gateway/
+COPY tools/healthcheck/ ./tools/healthcheck/
 RUN cd services/api-gateway && CGO_ENABLED=0 GOWORK=off \
     go build -trimpath -ldflags "-s -w" -o /api-gateway ./cmd/api-gateway/
+RUN cd tools/healthcheck && CGO_ENABLED=0 GOWORK=off \
+    go build -trimpath -ldflags "-s -w" -o /healthcheck .
 
 # renovate: datasource=docker depName=gcr.io/distroless/static
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /api-gateway /api-gateway
+COPY --from=builder /healthcheck /healthcheck
 ENTRYPOINT ["/api-gateway"]

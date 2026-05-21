@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-22 (rev 41 — distroless regression documented; #655 #656 filed; compose override added)
+**Last updated:** 2026-05-22 (rev 42 — #655 ✅ healthcheck binary merged; compose override removed)
 
 ---
 
@@ -201,16 +201,8 @@ of tooling at run time. The image is rebuilt and published to
 
 | Issue | Title | Size | Dependency |
 |-------|-------|------|------------|
-| [#655](https://github.com/zynax-io/zynax/issues/655) | Add static healthcheck binary to distroless Dockerfiles + fix compose | M | **P0 — do first** |
+| ~~[#655](https://github.com/zynax-io/zynax/issues/655)~~ | ~~Add static healthcheck binary to distroless Dockerfiles + fix compose~~ | M | ✅ Done |
 | [#656](https://github.com/zynax-io/zynax/issues/656) | Implement gRPC Health Checking Protocol in all platform services | L | After #655 · M6 prep |
-
-**Temporary workaround** (until #655 merges):
-```bash
-docker compose \
-  -f infra/docker-compose/docker-compose.yml \
-  -f infra/docker-compose/docker-compose.override.yml \
-  up -d --no-build
-```
 
 ---
 

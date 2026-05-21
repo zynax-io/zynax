@@ -31,7 +31,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 | Track | Epic | Status |
 |-------|------|--------|
 | **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ #552 ✅ #554 ✅ force-full-pipeline; next: **#549** per-service change-detection |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🔴 **REGRESSION** — #642 ✅ #641 ✅ but distroless broke compose healthchecks; **#655 P0** |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #642 ✅ #641 ✅ #655 ✅; next: #549 per-service change-detection |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Compose wired — all 3 services in stack; E2E dispatch pending adapters |
@@ -103,7 +103,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 ## Known Blockers
 
-- **🔴 #655 REGRESSION** — `make run-local` and `docker compose up --no-build` are broken: distroless images have no `wget`/`nc` so compose healthchecks always fail → api-gateway never starts. **Workaround:** `docker-compose.override.yml` (committed). Fix in #655 (P0, do next session).
+- **✅ #655 FIXED** — `tools/healthcheck` static binary added to all 6 distroless Dockerfiles; `docker-compose.yml` migrated from `CMD-SHELL` + `wget`/`nc` to `CMD /healthcheck`; override file removed.
 - **#552 ✅ done** — all jobs now run in ci-runner container mode.
 - **adapter implementations** (#400–#418) — unblocked by #481 ✅; adapters need a live registry to register against.
 - **E2E demo** — compose wired (#481 ✅); needs an adapter registered for capability dispatch.
@@ -148,7 +148,7 @@ Priority gaps to file immediately:
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| **P0** | [#655](https://github.com/zynax-io/zynax/issues/655) | Add healthcheck binary to distroless images + fix compose | M, fix — **regression from #642, do first** |
+| ~~**P0**~~ | ~~[#655](https://github.com/zynax-io/zynax/issues/655)~~ | ~~Add healthcheck binary to distroless images + fix compose~~ | ✅ Done |
 | P1 | [#623](https://github.com/zynax-io/zynax/issues/623) | Refuse to start without ZYNAX_API_KEY (NEW-4) | XS, fix, api-gateway |
 | P1 | [#622](https://github.com/zynax-io/zynax/issues/622) | context.WithTimeout on all gRPC calls (NEW-1) | S, fix, 4 services |
 | P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | Independent |
