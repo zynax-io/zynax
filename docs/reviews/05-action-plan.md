@@ -51,11 +51,11 @@ and dispositioned gaps from the 2026-05-20 principal architect review.
 
 | # | Gap | Action | Milestone |
 |---|---|---|---|
-| NEW-1 | gRPC client has no deadline/timeout on outgoing calls | File new issue | M5 |
-| NEW-4 | `ZYNAX_API_KEY=""` bypasses auth without fatal at startup | File new issue | M5 |
+| NEW-1 | gRPC client has no deadline/timeout on outgoing calls | [#622](https://github.com/zynax-io/zynax/issues/622) filed ✅ | M5 |
+| NEW-4 | `ZYNAX_API_KEY=""` bypasses auth without fatal at startup | [#623](https://github.com/zynax-io/zynax/issues/623) filed ✅ | M5 |
 | NEW-7 | No `read_only: true` rootfs in docker-compose | File new issue | M6 |
-| H2 (promote) | OTel tracing to api-gateway + engine-adapter | Promote #491 M7→M5/M6 | M5/M6 |
-| H1 (promote) | Stateless workflow-compiler | Promote #466 M6→M5 | M5 |
+| H2 (promote) | OTel tracing to api-gateway + engine-adapter | #491 promoted M7→**M6** ✅ | M6 |
+| H1 (promote) | Stateless workflow-compiler | #466 promoted M6→**M5** ✅ | M5 |
 
 ---
 
@@ -250,9 +250,8 @@ No changes to scope. ADR-020 (#240) + ADR-021 (#578) are the anchoring decisions
 
 ### M7 — Full Observability (v0.6.0)
 
-Consider promoting #491 (OTel baseline for api-gateway + engine-adapter) to M5 or M6.
-The 2026-05-20 review rates observability absence as "High" gap. A workflow run is
-untraceable end-to-end today. Recommendation: promote #491 to M6 at minimum.
+#491 (OTel baseline) promoted M7 → **M6** (decision D1, 2026-05-21). M7 scope is
+unchanged; full observability platform (Prometheus, Grafana, alerting) remains M7.
 
 ---
 

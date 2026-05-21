@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 31 — #622 #623 #624 filed; #466 promoted M6→M5; arch overhaul complete)
+**Last updated:** 2026-05-21 (rev 32 — decisions resolved: D1 #491 M7→M6; D3 #626 Postgres repos M6; D4/D5 spec on #622/#623; D6 #358 closed)
 
 ---
 

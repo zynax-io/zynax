@@ -4,113 +4,98 @@
 
 **Date:** 2026-05-21  
 **Context:** Output of the 2026-05-20 principal architect review and 2026-05-21 architecture overhaul.  
-**Purpose:** Items that require a human decision before implementation can proceed.
-
-Items are marked with a recommended default. If the recommendation is acceptable, simply proceed — no formal approval needed unless the item says "requires ADR."
+**Status:** All 6 decisions resolved 2026-05-21.
 
 ---
 
-## D1 — OTel promotion: M7 → M5 or M6? (Milestone planning)
+## ✅ D1 — OTel promotion: M7 → M6
 
-**Issue:** [#491](https://github.com/zynax-io/zynax/issues/491) — OpenTelemetry baseline for api-gateway + engine-adapter  
-**Gap:** H2 from `docs/reviews/04-architecture-gaps.md` — rated **High** by the 2026-05-20 review  
-**Current milestone:** M7
+**Issue:** [#491](https://github.com/zynax-io/zynax/issues/491)  
+**Decision:** Promote to **M6**.  
+**Rationale:** The 2026-05-20 review rated observability absence as "High" gap (H2). A workflow run is completely untraceable end-to-end today. OTel baseline lands alongside K8s deployment work (M6) where structured traces are most needed. v0.4.0 ships on time.
 
-**Context:** Today, a workflow run is completely untraceable end-to-end. api-gateway logs a request ID; engine-adapter logs Temporal IDs; nothing links them. The 2026-05-20 review rates observability absence as "High" — operators cannot diagnose failures in production.
+**Actions taken:**
+- #491 milestone changed M7 → M6 (`gh issue edit 491 --milestone "K8s Production-Ready (M6)"`)
+- Comment added to #491 with rationale and scope
 
-**Options:**
-1. **Promote to M5** — ship before v0.4.0. Adds ~1–2 weeks to M5, already the longest milestone.
-2. **Promote to M6** *(recommended)* — OTel lands alongside the K8s deployment work where structured logs/traces are most needed. Low-risk — v0.4.0 ships on time.
-3. **Leave in M7** — status quo. Acceptable if M6 scope is already large.
-
-**Recommended:** Option 2 (M6). `gh issue edit 491 --milestone "K8s Production-Ready (M6)"`
+**Scope for M6:** api-gateway + engine-adapter export traces to an OTLP collector with `workflow_id` as root span attribute. Pattern: `docs/engineering/best-practices/architecture-patterns.md §OpenTelemetry`.
 
 ---
 
-## D2 — ADR-020: Zero-trust auth design (Security)
+## ✅ D2 — ADR-020: Inter-service gRPC auth model
 
-**Issue:** [#240](https://github.com/zynax-io/zynax/issues/240)  
-**Gap:** H7 from `docs/reviews/04-architecture-gaps.md`
+**Issue:** [#240](https://github.com/zynax-io/zynax/issues/240) (ADR-020 authoring) · [#488](https://github.com/zynax-io/zynax/issues/488) (implementation)  
+**Decision:** **mTLS with cert-manager** for all inter-service gRPC in Kubernetes.
 
-**Context:** Today, inter-service communication has no authentication — any process in the same Docker network can call any gRPC service without a token. Bearer-token auth exists only at the api-gateway HTTP boundary. For K8s deployment (M6), this is the primary security gap.
+**Rationale:** Industry standard for K8s workload identity. Works with existing gRPC client code (add TLS credentials). cert-manager manages certificate lifecycle. Local Docker Compose stays insecure (dev convenience). SPIFFE/SPIRE deferred until CNCF Sandbox (M8).
 
-**Scope of ADR-020:**
-- mTLS for gRPC inter-service (the obvious choice for K8s)
-- SPIFFE/SPIRE for workload identity
-- Token-based with service accounts as an alternative
+**Actions taken:**
+- Comment added to #240 with ADR-020 scope
+- Comment added to #488 noting it implements this decision, blocked on #240
 
-**Decision needed:** Which authentication model for inter-service gRPC in K8s (M6)?
-
-**Recommended starting point:** mTLS with cert-manager for K8s; skip for local Docker Compose (too much overhead for development). This is a one-way door that shapes the entire M6 security work.
-
-**Action:** Author ADR-020 in `docs/adr/ADR-020-zero-trust-auth.md` before starting #488 (mTLS).
-
----
-
-## D3 — ADR-021: Horizontal scale plan (Architecture)
-
-**Issue:** [#578](https://github.com/zynax-io/zynax/issues/578)  
-**Gap:** H8 from `docs/reviews/04-architecture-gaps.md`
-
-**Context:** The 2026-05-20 review scores architecture 7.5/10 but flags no documented answer to: "how does Zynax scale beyond a single-node deployment?" Key questions:
-- workflow-compiler: once #466 (stateless) merges, it scales horizontally. What's the target replica count?
-- task-broker: in-memory repo — multiple replicas diverge. For M6, does this require a Redis-backed repo or Postgres?
-- agent-registry: same in-memory problem as task-broker.
-- api-gateway: stateless today. Scale freely.
-
-**Decision needed:** What is the horizontal scale target for v0.5.0 (M6)?  
-Specifically: does task-broker need a persistence layer in M6, or is single-replica acceptable?
-
-**Action:** Author ADR-021 in `docs/adr/ADR-021-horizontal-scale.md`. Link from #578.
+**ADR-020 must specify:**
+- mTLS for all inter-service gRPC in K8s
+- cert-manager as certificate authority
+- Docker Compose exemption (insecure gRPC for local dev)
+- Per-service identity via certificate SANs
 
 ---
 
-## D4 — `ZYNAX_DEV_INSECURE` env var name (Issue #623)
+## ✅ D3 — ADR-021: Horizontal scale plan
 
-**Issue:** [#623](https://github.com/zynax-io/zynax/issues/623) — startup guard for empty API key  
-**Context:** Issue #623 uses `ZYNAX_DEV_INSECURE` as the flag that allows empty `ZYNAX_GW_API_KEY` in development. This env var name does not currently exist in the codebase.
+**Issue:** [#578](https://github.com/zynax-io/zynax/issues/578) (ADR-021) · [#626](https://github.com/zynax-io/zynax/issues/626) (M6.H epic)  
+**Decision:** **Postgres-backed repositories** for task-broker + agent-registry in M6.
 
-**Options:**
-1. `ZYNAX_DEV_INSECURE=1` *(recommended)* — clear and consistent with the `INSECURE` naming seen in gRPC ecosystem
-2. `ZYNAX_GW_DISABLE_AUTH=1` — gateway-scoped
-3. `ZYNAX_NO_AUTH=1` — shortest
+**Rationale:** Front-loads work required for CNCF Sandbox (M8) anyway. ACID guarantees unlock queryable task history and multi-tenant safety. Enables horizontal scaling before production. Effort: ~4–5 weeks.
 
-**Recommended:** Option 1. Update issue #623 with the chosen name before implementation starts.
+**Actions taken:**
+- Comment added to #578 with ADR-021 scope
+- [#626](https://github.com/zynax-io/zynax/issues/626) — `epic(infra): M6.H — Postgres-backed repositories` created in M6
 
-**Action:** Reply to #623 confirming the env var name. No ADR needed — reversible choice.
-
----
-
-## D5 — gRPC deadline default (Issue #622)
-
-**Issue:** [#622](https://github.com/zynax-io/zynax/issues/622) — add `context.WithTimeout` to all outgoing gRPC calls  
-**Context:** Issue #622 uses 30s as the default deadline. This is a reasonable starting point but may need tuning based on observed latency.
-
-**Options:**
-1. **30s fixed** — hardcoded, simple. Good for M5.
-2. **Configurable per service** *(recommended)* — env var `ZYNAX_GRPC_TIMEOUT_S` with 30s default. Operators can tune without rebuild.
-3. **Per-call timeouts** — finer-grained but complex.
-
-**Recommended:** Option 2. Adds one env var per service, negligible complexity. Update issue #622 if you want this rather than Option 1 before implementation.
-
-**Action:** Confirm preference in a comment on #622. No ADR needed.
+**ADR-021 must specify:**
+- Postgres as persistence layer for task-broker + agent-registry in M6
+- Hexagonal pattern: `infrastructure/postgres/` adapter per service; in-memory retained as test double
+- Postgres in docker-compose + Helm chart
+- Integration tests via testcontainers-go
 
 ---
 
-## D6 — Close or supersede stale M6/M7 issues (Issue hygiene)
+## ✅ D4 — `ZYNAX_DEV_INSECURE` env var name (issue #623)
 
-**Context:** `docs/reviews/05-action-plan.md` lists several issues that may need explicit closure or reclassification:
+**Issue:** [#623](https://github.com/zynax-io/zynax/issues/623)  
+**Decision:** `ZYNAX_DEV_INSECURE=1`.
 
-| Issue | Status | Action needed |
-|-------|--------|---------------|
-| [#358](https://github.com/zynax-io/zynax/issues/358) | Publish tools image (superseded by #563) | Close as superseded? |
-| [#235](https://github.com/zynax-io/zynax/issues/235) | Standalone SBOM (superseded by #489 / M6.C) | Close when M6 goes active? |
-| [#239](https://github.com/zynax-io/zynax/issues/239) | Similar SBOM/cosign item | Same as #235 |
+**Rationale:** Clear intent, consistent with gRPC ecosystem conventions. Prefix matches all other `ZYNAX_` vars. One flag can cover future insecure-mode relaxations.
 
-**Recommended:** Close #358 now (superseded by #563, already merged). Defer #235/#239 until M6 planning.
+**Actions taken:**
+- Comment added to #623 with full implementation spec (startup guard logic)
 
-**Action:** `gh issue close 358 --reason "not planned" --comment "Superseded by #563 (deduplication done)."` — only if you agree.
+**Implementation:** `os.Exit(1)` if `ZYNAX_GW_API_KEY` empty and `ZYNAX_DEV_INSECURE` not set. `WARN` log + continue if `ZYNAX_DEV_INSECURE=1`.
 
 ---
 
-*Update this file as decisions are made. Remove resolved items or mark them ✅ Done.*
+## ✅ D5 — gRPC deadline default (issue #622)
+
+**Issue:** [#622](https://github.com/zynax-io/zynax/issues/622)  
+**Decision:** Configurable via `ZYNAX_GRPC_TIMEOUT_S`, default 30 seconds.
+
+**Rationale:** Zero overhead vs hardcoded but gives production flexibility. Operators tune per deployment without rebuild.
+
+**Actions taken:**
+- Comment added to #622 with full implementation spec (config struct field + `context.WithTimeout` usage)
+
+**Services:** api-gateway (→ compiler, → engine-adapter), engine-adapter (→ task-broker), task-broker (→ agent-registry).
+
+---
+
+## ✅ D6 — Stale issue hygiene
+
+**Decision:** Close #358 now; defer #235 and #239 to M6 planning.
+
+**Actions taken:**
+- #358 closed as "not planned" — superseded by #563 (merged 2026-05-20)
+- #235 and #239 left open; revisit at M6 kickoff when #489/#465 scope is confirmed
+
+---
+
+*All decisions resolved. This file is now a decision log, not a pending list.*
