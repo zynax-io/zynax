@@ -8,11 +8,9 @@ RUN cd services/api-gateway && GOWORK=off go mod download
 COPY protos/generated/go/ ./protos/generated/go/
 COPY services/api-gateway/ ./services/api-gateway/
 RUN cd services/api-gateway && CGO_ENABLED=0 GOWORK=off \
-    go build -trimpath -o /api-gateway ./cmd/api-gateway/
+    go build -trimpath -ldflags "-s -w" -o /api-gateway ./cmd/api-gateway/
 
-FROM alpine:3.20
-RUN apk add --no-cache ca-certificates \
-    && addgroup -S zynax && adduser -S zynax -G zynax
-USER zynax
+# renovate: datasource=docker depName=gcr.io/distroless/static
+FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /api-gateway /api-gateway
 ENTRYPOINT ["/api-gateway"]

@@ -11,15 +11,9 @@ RUN cd agents/adapters/http && GOWORK=off go mod download
 COPY protos/generated/go/ ./protos/generated/go/
 COPY agents/adapters/http/ ./agents/adapters/http/
 RUN cd agents/adapters/http && CGO_ENABLED=0 GOWORK=off \
-    go build -trimpath -o /http-adapter ./cmd/http-adapter/
+    go build -trimpath -ldflags "-s -w" -o /http-adapter ./cmd/http-adapter/
 
-FROM alpine:3.21
-
-RUN apk add --no-cache ca-certificates \
-    && addgroup -S zynax && adduser -S zynax -G zynax
-
+# renovate: datasource=docker depName=gcr.io/distroless/static
+FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /http-adapter /http-adapter
-
-USER zynax
-
 ENTRYPOINT ["/http-adapter"]

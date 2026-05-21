@@ -8,11 +8,9 @@ RUN cd services/task-broker && GOWORK=off go mod download
 COPY protos/generated/go/ ./protos/generated/go/
 COPY services/task-broker/ ./services/task-broker/
 RUN cd services/task-broker && CGO_ENABLED=0 GOWORK=off \
-    go build -trimpath -o /task-broker ./cmd/task-broker/
+    go build -trimpath -ldflags "-s -w" -o /task-broker ./cmd/task-broker/
 
-FROM alpine:3.20
-RUN apk add --no-cache ca-certificates \
-    && addgroup -S zynax && adduser -S zynax -G zynax
-USER zynax
+# renovate: datasource=docker depName=gcr.io/distroless/static
+FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /task-broker /task-broker
 ENTRYPOINT ["/task-broker"]
