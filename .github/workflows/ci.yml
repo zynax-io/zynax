@@ -269,8 +269,8 @@ jobs:
           changed=$(git diff --name-only origin/main...HEAD -- \
             'protos/' 2>/dev/null \
             | grep -E '\.proto$|buf\.(yaml|gen\.yaml)$' \
-            | wc -l || echo 0)
-          if [ "$changed" -gt 0 ]; then
+            | wc -l | tr -d '[:space:]')
+          if [ "${changed:-0}" -gt 0 ] 2>/dev/null; then
             echo "has_protos=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_protos=0" >> "$GITHUB_OUTPUT"
@@ -327,11 +327,19 @@ jobs:
       - name: Detect spec files
         id: spec-detect
         run: |
-          if [ -f spec/asyncapi/zynax-events.yaml ]; then
+          if [ ! -f spec/asyncapi/zynax-events.yaml ]; then
+            echo "has_spec=0" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  spec/asyncapi/zynax-events.yaml not found — spec validation skipped."
+            exit 0
+          fi
+          # Only validate spec when spec files actually changed in this PR
+          changed=$(git diff --name-only origin/main...HEAD -- \
+            'spec/' 2>/dev/null | wc -l | tr -d '[:space:]')
+          if [ "${changed:-0}" -gt 0 ] 2>/dev/null; then
             echo "has_spec=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_spec=0" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  spec/asyncapi/zynax-events.yaml not found — spec validation skipped."
+            echo "ℹ️  No spec files changed — spec validation skipped."
           fi
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
