@@ -224,17 +224,23 @@ jobs:
       - name: Detect AI context file changes
         id: ai-detect
         run: |
-          changed=$(git diff --name-only origin/main...HEAD -- \
+          if ! files=$(git diff --name-only origin/main...HEAD -- \
             'CLAUDE.md' '*/AGENTS.md' 'AGENTS.md' \
-            'docs/ai-assistant-setup.md' '.ai/' '.claude/' 2>/dev/null | wc -l)
-          echo "has_changes=$changed" >> "$GITHUB_OUTPUT"
+            'docs/ai-assistant-setup.md' '.ai/' '.claude/' \
+            2>/tmp/ai-diff-err.txt); then
+            echo "⚠️  git diff failed for AI context scan — enabling scan as fail-safe"
+            cat /tmp/ai-diff-err.txt || true
+            echo "has_changes=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "has_changes=$(echo "$files" | grep -c . || echo 0)" >> "$GITHUB_OUTPUT"
 
       - name: Scan AI context files for secrets and PII
         if: steps.ai-detect.outputs.has_changes != '0'
         run: |
           files=$(git diff --name-only origin/main...HEAD -- \
             'CLAUDE.md' '*/AGENTS.md' 'AGENTS.md' \
-            'docs/ai-assistant-setup.md' '.ai/' '.claude/')
+            'docs/ai-assistant-setup.md' '.ai/' '.claude/' 2>/dev/null || true)
           echo "── scanning AI context files for secrets / PII / local paths"
           echo "$files"
           gitleaks detect --no-git --source . \
