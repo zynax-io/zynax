@@ -34,7 +34,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 | **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟢 BATCH 1 complete; #641 #642 filed (image rebuild filtering + distroless) |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
-| M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | In Progress — task-broker code merged; agent-registry pending |
+| M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Compose wired — all 3 services in stack; E2E dispatch pending adapters |
 | M5.D Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete (closed) |
 | M5.E DX Polish | [#462](https://github.com/zynax-io/zynax/issues/462) | ✅ Complete (closed) |
 | Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | In Progress — http ✅; git/ci/llm/langgraph BDD done, impl pending |
@@ -42,7 +42,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — #481 compose wiring (P0, unblocked by #528 ✅)
+## IMMEDIATE — Adapters (P2, unblocked by #481 ✅)
 
 ### BATCH 0 — ✅ All done
 ~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
@@ -84,7 +84,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 | [#526](https://github.com/zynax-io/zynax/issues/526) | Trim BDD to proto scope | ✅ Done |
 | [#527](https://github.com/zynax-io/zynax/issues/527) | Domain layer | ✅ Done |
 | [#528](https://github.com/zynax-io/zynax/issues/528) | gRPC wiring + go.work | ✅ Done |
-| [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | **ready** (unblocked by #528 ✅) |
+| [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | ✅ Done |
 
 ---
 
@@ -104,10 +104,8 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 ## Known Blockers
 
 - **#552 ✅ done** — all jobs now run in ci-runner container mode.
-- **agent-registry (#480)** — domain (#527) ✅; gRPC wiring (#528) is next.
-- **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
-- **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
-- **E2E demo** — blocked on #481 fully wired.
+- **adapter implementations** (#400–#418) — unblocked by #481 ✅; adapters need a live registry to register against.
+- **E2E demo** — compose wired (#481 ✅); needs an adapter registered for capability dispatch.
 - **v0.4.0 tag** — CHANGELOG promoted; run `git tag -a v0.4.0 -m "M5 Adapter Library" && git push origin v0.4.0` on main to trigger the release workflow and create GitHub Release assets.
 
 ---
@@ -142,8 +140,8 @@ Priority gaps to file immediately:
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P0 | [#528](https://github.com/zynax-io/zynax/issues/528) | agent-registry gRPC wiring | Unblocked by #527 ✅ |
-| P0 | [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | After #528 |
+| P1 | [#567](https://github.com/zynax-io/zynax/issues/567) | Bearer constant-time compare (G1) | XS, fix, api-gateway |
+| P1 | [#568](https://github.com/zynax-io/zynax/issues/568) | ReadHeaderTimeout + MaxBytesReader (G2) | XS, fix, api-gateway |
 | P2 | [#642](https://github.com/zynax-io/zynax/issues/642) | Distroless + `-s -w` (S) | Independent — 5 Dockerfile edits |
 | P2 | [#641](https://github.com/zynax-io/zynax/issues/641) | Per-service image rebuild filtering (M) | After #642 |
 | P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | Independent |

@@ -90,7 +90,7 @@
 
 1. **[#479]** ✅ Implement `services/task-broker/` — 5 RPCs (`DispatchTask`, `AcknowledgeTask`, `GetTask`, `ListTasks`, `CancelTask`). In-memory round-robin assignment by capability name. Domain coverage 92.7%. Child quality issues: #530 (AGENTS.md), #531 (BDD align), #532 (handler tests).
 2. **[#480]** Implement `services/agent-registry/` — BDD feature file trim (#526) first, then domain (#527) then gRPC wiring (#528). `RegisterAgent`, `DeregisterAgent`, `GetAgent`, `ListAgents`, `FindByCapability`. ≥90% domain coverage.
-3. **[#481]** Wire both services into docker-compose; fix `ZYNAX_GW_REGISTRY_ADDR: "localhost:50052"` → `agent-registry:50051`; verify end-to-end path; update README. Depends on #528.
+3. **[#481]** ✅ Wire both services into docker-compose; fix `ZYNAX_GW_REGISTRY_ADDR` → `agent-registry:50052`; update README. Depends on #528.
 
 ---
 
