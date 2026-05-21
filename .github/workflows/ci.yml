@@ -154,7 +154,15 @@ jobs:
             echo "ℹ️  Unknown event '${{ github.event_name }}' — all lanes enabled."
             exit 0
           fi
-          FILES=$(git diff --name-only "${BASE}...${HEAD_SHA}" 2>/dev/null || echo "")
+          if ! FILES=$(git diff --name-only "${BASE}...${HEAD_SHA}" 2>/tmp/git-diff-err.txt); then
+            echo "⚠️  git diff failed — enabling all lanes as fail-safe"
+            cat /tmp/git-diff-err.txt
+            echo "code=true"   >> "$GITHUB_OUTPUT"
+            echo "proto=true"  >> "$GITHUB_OUTPUT"
+            echo "go=true"     >> "$GITHUB_OUTPUT"
+            echo "python=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           code=false proto=false go=false python=false
 
@@ -347,7 +355,15 @@ jobs:
           fi
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.event.pull_request.head.sha }}"
-          CHANGED=$(git diff --name-only "${BASE}...${HEAD}" 2>/dev/null || echo "")
+          if ! CHANGED=$(git diff --name-only "${BASE}...${HEAD}" 2>/tmp/git-diff-err.txt); then
+            echo "⚠️  git diff failed — treating as fully changed (fail-safe)"
+            cat /tmp/git-diff-err.txt
+            echo "has_services=1" >> "$GITHUB_OUTPUT"
+            echo "has_adapters=1" >> "$GITHUB_OUTPUT"
+            echo "has_cli=1"      >> "$GITHUB_OUTPUT"
+            echo "has_go=1"       >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           svc_count=$(echo "$CHANGED"  | grep "^services/"       | wc -l)
           adapter_count=$(echo "$CHANGED" | grep "^agents/adapters/" | wc -l)
           cli_count=$(echo "$CHANGED"  | grep "^cmd/"            | wc -l)
@@ -608,13 +624,18 @@ jobs:
             BASE="HEAD~1"
             HEAD="HEAD"
           fi
-          changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/' 2>/dev/null || true)
-
-          # Shared infra changes → run full suite
-          run_all=false
-          if echo "$changed" | grep -qE "^protos/tests/(go\.(mod|sum)|testserver/)"; then
+          if ! changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/' 2>/tmp/git-diff-err.txt); then
+            echo "⚠️  git diff failed — running full BDD suite as fail-safe"
+            cat /tmp/git-diff-err.txt
             run_all=true
-            echo "ℹ️  Shared test infrastructure changed — running full suite."
+            changed=""
+          else
+            # Shared infra changes → run full suite
+            run_all=false
+            if echo "$changed" | grep -qE "^protos/tests/(go\.(mod|sum)|testserver/)"; then
+              run_all=true
+              echo "ℹ️  Shared test infrastructure changed — running full suite."
+            fi
           fi
 
           # Map changed files to packages
