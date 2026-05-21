@@ -66,10 +66,12 @@ func run(cfg config) error {
 	registerProbes(mux)
 
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.HTTPPort),
-		Handler:      api.RequestIDMiddleware(mux),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
+		Handler:           maxBodyMiddleware(api.RequestIDMiddleware(mux)),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 	return serveUntilShutdown(srv, cfg.HTTPPort)
 }
@@ -100,6 +102,13 @@ func registerProbes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /healthz", ok)
 	mux.HandleFunc("GET /readyz", ok)
 	mux.HandleFunc("GET /startupz", ok)
+}
+
+func maxBodyMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB
+		next.ServeHTTP(w, r)
+	})
 }
 
 func parseLogLevel(level string) slog.Level {
