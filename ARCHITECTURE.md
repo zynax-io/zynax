@@ -1,21 +1,30 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Zynax — Architecture
 
-> This document explains WHY the architecture is designed this way.
-> For WHAT to build and HOW to code it, see `AGENTS.md`.
-> For each service's internal design, see `services/<service>/AGENTS.md`.
+> This document explains the current architecture **as it is today** and **why** it
+> is designed this way. For HOW to code within it, see `AGENTS.md`. For per-service
+> internals, see `services/<service>/AGENTS.md`. For open decisions, see `docs/adr/`.
+>
+> **Authoritative tie-breaker:** `docs/architecture/2026-05-20-principal-architect-review.md`
+> wins over this document on any conflict; reconcile both when updating.
 
 ---
 
 ## Milestone Status
 
-| Milestone | Status | What was built |
-|-----------|--------|---------------|
-| M1 — Contracts Foundation | **Complete** (v0.1.0) | 8 proto contracts, AsyncAPI spec (13 channels), JSON schemas, Go + Python stubs, 140+ BDD scenarios, 5 CI gates |
-| M2 — Workflow IR | **Next** | WorkflowIR structured fields, WorkflowCompilerService skeleton |
-| M3 — Temporal Execution | Planned | Temporal-backed EngineAdapterService |
-| M4 — YAML System + CLI | Planned | `zynaxctl`, YAML validation pipeline |
+| Milestone | Status | Version | What was built |
+|-----------|--------|---------|---------------|
+| M1 — Contracts Foundation | ✅ **Complete** | v0.1.0 | 8 proto contracts, AsyncAPI spec (11 channels), JSON schemas, Go + Python stubs, 140+ BDD scenarios, 5 CI gates |
+| M2 — Workflow IR | ✅ **Complete** | v0.1.0 | YAML parser, WorkflowGraph builder, structural + semantic validators, WorkflowGraph→WorkflowIR serialisation, `CompileWorkflow`/`ValidateManifest`/`GetCompiledWorkflow` gRPC, JSON schemas for Workflow/AgentDef/Policy |
+| M3 — Temporal Execution | ⚠ **Partial** | v0.2.0 | `WorkflowEngine` interface, `TemporalEngine`, `IRInterpreterWorkflow` state machine, `DispatchCapabilityActivity`, cel-go guard evaluation, 5 `EngineAdapterService` gRPC methods. **Not delivered:** task-broker (delivered M5.C) and agent-registry (pending #480). CloudEvents publish is a log stub. |
+| M4 — YAML System + CLI | ⚠ **Partial** | v0.3.0 | api-gateway REST layer, `zynax` CLI, Docker Compose runner, GitOps watch. **Not delivered:** agent-registry routing (#480); capability dispatch fails at first action. |
+| M5 — Adapter Library | 🔄 **In Progress** | v0.4.0 | task-broker in-memory MVP, http-adapter, cel-go guard, Python SDK Agent base class, unified release pipeline, CI runner. **Pending:** agent-registry (#480), compose wiring (#481), adapters (#381–#384). See `docs/milestones/M5-plan.md`. |
+| M6 — K8s Production | 📅 **Planned** | v0.5.0 | TLS/mTLS (ADR-020), SBOM+cosign, persistent stores, rate limiting, OTel baseline, Helm charts |
+| M7 — Full Observability | 📅 **Planned** | v0.6.0 | Benchmarks, load tests, SLOs, Watch polling fix |
+| M8 — CNCF Sandbox | 📅 **Planned** | v1.0.0 | Community traction, second maintainer, trademark policy |
 
-See `ROADMAP.md` for the full milestone timeline.
+See `ROADMAP.md` for the narrative roadmap and `docs/milestones/M5-plan.md` for active execution details.
 
 ---
 
@@ -29,8 +38,8 @@ declarative API.
 
 Zynax does the same for AI workflows:
 
-| Kubernetes | Zynax |
-|-----------|-----------|
+| Kubernetes concept | Zynax equivalent |
+|---|---|
 | Container | Capability |
 | Pod spec | AgentDef YAML |
 | Deployment | Workflow YAML |
@@ -38,35 +47,86 @@ Zynax does the same for AI workflows:
 | etcd | Agent Registry |
 | kube-scheduler | Task Broker |
 
-We don't build workflow engines. We build the control plane that orchestrates them.
+Zynax does NOT build workflow engines. It builds the **control plane** that orchestrates them.
 
----
-
-## 2. The Three-Layer Model
+### Three-Layer Separation (Non-Negotiable)
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │  LAYER 1 — INTENT (YAML)                                 │
-│  Declarative. Versionable. No code.                      │
+│  Declarative · Versionable · No code                     │
+│  spec/workflows/ · spec/schemas/                         │
 │  Inspired by: Kubernetes CRDs, Helm, GitOps              │
-│                                                          │
-│  kind: Workflow | AgentDef | Policy | RoutingRule        │
 ├──────────────────────────────────────────────────────────┤
 │  LAYER 2 — COMMUNICATION (Contracts)                     │
-│  Typed. Multi-language. Source of truth.                 │
-│  Inspired by: gRPC ecosystem, AsyncAPI, CloudEvents      │
-│                                                          │
-│  proto files → sync (gRPC)                              │
-│  AsyncAPI spec → async (NATS JetStream)                 │
+│  Typed · Multi-language · Source of truth                │
+│  protos/zynax/v1/ · spec/asyncapi/                       │
+│  Sync: gRPC   Async: NATS JetStream (AsyncAPI spec)     │
 ├──────────────────────────────────────────────────────────┤
 │  LAYER 3 — EXECUTION (Engines + Adapters)                │
-│  Pluggable. Swappable. Never a hard dependency.          │
-│  Inspired by: Temporal, LangGraph, Argo Workflows        │
-│                                                          │
-│  Temporal adapter | LangGraph adapter | Argo adapter     │
-│  HTTP adapter | LLM adapter | Git adapter                │
+│  Pluggable · Swappable · Never a hard dependency         │
+│  services/engine-adapter/ · agents/adapters/             │
+│  Temporal (default) · LangGraph · Argo (planned)         │
 └──────────────────────────────────────────────────────────┘
 ```
+
+**Layer violations are hard CI failures** (`layer-boundaries` gate).  
+Layer 1 YAML is never imported by Go services.  
+Layer 2 contracts contain no business logic.  
+Layer 3 engines are always behind the `WorkflowEngine` interface.
+
+---
+
+## 2. Runtime Architecture (Current State)
+
+```
+            ┌─────────────────────────┐
+            │  zynax CLI (Go)          │
+            │  apply / get / delete    │
+            └──────────┬──────────────┘
+                       │ HTTP/REST :7080
+            ┌──────────▼──────────────┐
+            │  api-gateway  ✅         │  bearer-token auth (non-const-time ⚠ #567)
+            │  POST /api/v1/apply      │  X-Request-ID propagation
+            │  GET  /api/v1/workflows  │  no ReadHeaderTimeout ⚠ #568
+            └──────┬──────────┬───────┘
+                   │          │ gRPC (insecure ⚠ — no TLS yet)
+          ┌────────▼──────┐ ┌─▼─────────────────┐
+          │ workflow-     │ │ engine-adapter ✅   │
+          │ compiler ✅   │ │ TemporalEngine      │
+          │ ⚠ unbounded   │ │ IRInterpreterWorkflow│
+          │   IR map #466 │ │ ⚠ CloudEvents stub  │
+          └───────────────┘ └─────────┬───────────┘
+                                      │ gRPC: DispatchCapabilityActivity
+                                      ▼
+                            ┌─────────────────────┐
+                            │ task-broker 🟡        │  in-memory only
+                            │ round-robin dispatch  │  NOT in compose (#481)
+                            │ no RetryPolicy ⚠ #569│
+                            └──────────┬────────────┘
+                                       │ FindByCapability + ExecuteCapability gRPC
+                                       ▼
+                  ┌────────────────────────────────────────┐
+                  │ agent-registry  ❌ 0 LoC (#480 pending) │
+                  │ event-bus       ❌ 0 LoC (M6+)          │
+                  │ memory-service  ❌ 0 LoC (M6+)          │
+                  └────────────────────────────────────────┘
+                                       │
+                  ┌────────────────────────────────────────┐
+                  │ Adapters (Layer 4 — Python + Go)        │
+                  │ http-adapter ✅ (Go)                     │
+                  │ git-adapter  🟡 BDD done, impl pending  │
+                  │ ci-adapter   🟡 BDD done, impl pending  │
+                  │ llm-adapter  🟡 BDD done, impl pending  │
+                  │ langgraph    🟡 BDD done, impl pending  │
+                  └────────────────────────────────────────┘
+```
+
+**Legend:** ✅ Implemented · 🟡 Partial / in-progress · ❌ Not yet implemented · ⚠ Known issue with issue link
+
+> **Critical note:** Every workflow with capability actions will fail at the first
+> `DispatchCapabilityActivity` until task-broker is in the compose stack and
+> agent-registry is implemented. This is M5.C tracked by #460 / #481.
 
 ---
 
@@ -79,8 +139,7 @@ Different engines speak different languages:
 - LangGraph: StateGraph + Nodes in Python
 - Argo: YAML DAGs in Kubernetes
 
-A workflow defined for Temporal cannot run on LangGraph. Without IR,
-every engine requires a different workflow definition format.
+Without IR, every engine requires a different workflow definition format.
 
 ### The Solution: Canonical Workflow IR
 
@@ -89,36 +148,22 @@ YAML (user intent)
       ↓
   Workflow Compiler
       ↓
-  Canonical IR         ← engine-agnostic representation
+  Canonical IR         ← engine-agnostic protobuf struct
       ↓
 Engine Adapter         ← translates IR → engine-native format
       ↓
 Temporal / LangGraph / Argo
 ```
 
-The IR is the "LLVM of workflows". It normalises semantics that differ
-across engines: loops, conditional transitions, timeout handling,
-human-in-the-loop signals, event subscriptions.
-
-### IR Proto Schema
-
-The M1 `WorkflowIR` message in `protos/zynax/v1/workflow_compiler.proto` is an
-intentional envelope: it carries an opaque `bytes ir_payload` field alongside
-metadata. This lets the compiler contract exist and be tested before the structured
-IR fields are designed in M2.
-
-**M1 (complete):** `WorkflowIR` is an envelope with `workflow_id`, `version`,
-`target_engine`, and `bytes ir_payload` (opaque blob, not yet structured).
-
-**M2 (next):** The proto gains structured fields. The conceptual target:
+### IR Proto Schema (M2, complete)
 
 ```protobuf
-// protos/zynax/v1/workflow_compiler.proto (M2 additions)
+// protos/zynax/v1/workflow_compiler.proto
 message WorkflowIR {
     string workflow_id   = 1;
     string version       = 2;
     string target_engine = 3;
-    bytes  ir_payload    = 4;  // kept for backward compat; engines can use either
+    bytes  ir_payload    = 4;  // kept for backward compat (M1); prefer structured fields
 
     // M2 structured fields:
     string           initial_state = 5;
@@ -126,29 +171,30 @@ message WorkflowIR {
 }
 
 message StateIR {
-    string              name        = 1;
-    StateType           type        = 2;  // ACTIVE | TERMINAL | WAITING
-    repeated ActionIR   actions     = 3;
-    repeated TransitionIR transitions = 4;
-    int32               timeout_seconds = 5;
+    string               name            = 1;
+    StateType            type            = 2;  // ACTIVE | TERMINAL | WAITING
+    repeated ActionIR    actions         = 3;
+    repeated TransitionIR transitions    = 4;
+    int32                timeout_seconds = 5;
 }
 
 message ActionIR {
     string            capability = 1;
     map<string,string> input_map = 2;
-    map<string,string> output_map = 3;
+    map<string,string> output_map = 3;  // ⚠ parsed but not yet consumed (#581)
     bool              async      = 4;
 }
 
 message TransitionIR {
-    string on_event  = 1;
-    string guard     = 2;  // CEL expression, empty = no guard
+    string on_event   = 1;
+    string guard      = 2;  // CEL expression (cel-go, fail-closed — M5.B #538)
     string goto_state = 3;
 }
 ```
 
-`ir_payload` is kept alongside the structured fields so existing consumers that
-already deserialise the blob are not broken (M1 backward-compat rule).
+> `ir_payload` (field 4) is kept for backward compatibility. Engine adapters should use
+> structured fields (5–6) when `ir_version` is present. Planned for removal by v1.0
+> (see ADR-012 proposed update).
 
 ---
 
@@ -156,31 +202,29 @@ already deserialise the blob are not broken (M1 backward-compat rule).
 
 ### Why State Machines, Not DAGs?
 
-Most workflow engines model workflows as DAGs (directed acyclic graphs).
-DAGs work well for batch processing but fail for real AI workflows:
-
 | Property | DAG | State Machine |
 |---------|-----|--------------|
 | Loops | ❌ Requires workarounds | ✅ Native |
 | Human-in-the-loop | ❌ Breaks the graph | ✅ WAITING state |
-| Long-running (days) | ⚠️ Timeout issues | ✅ Event-driven |
+| Long-running (days) | ⚠ Timeout issues | ✅ Event-driven |
 | Async events | ❌ Complex | ✅ First-class transitions |
 | Error recovery | ❌ Manual | ✅ Via transitions |
 
-Real AI workflows loop. A code review workflow is:
-`review → fix → review → fix → review → merge`
+The code-review workflow naturally loops: `review → fix → review → fix → merge`.
+This cannot be cleanly expressed as a DAG.
 
-This cannot be expressed cleanly as a DAG.
+### Event Pattern Classification (Fowler taxonomy)
 
-### State Machine Semantics
+| Flow | Fowler Pattern | Current status |
+|---|---|---|
+| `zynax.workflow.state.entered/exited/completed/failed` | **Event Notification** | Log stub (#460 / M5.C) |
+| `task.completed` with result payload | **Event-Carried State Transfer** | Log stub (event-bus pending) |
+| Temporal activity history | **Event Sourcing** (Temporal-internal) | ✅ Temporal provides this |
+| `DispatchCapabilityActivity` → task-broker | **Command** (gRPC) | ✅ Correct — not an event |
 
-States have:
-- **Actions**: capabilities to invoke when entering the state
-- **Transitions**: event → next state mappings
-- **Type**: ACTIVE (running) | WAITING (human) | TERMINAL (done)
-
-Events are the only mechanism for state transitions. No polling.
-No timer-based checks. Everything is event-driven.
+The system uses Event Notification for lifecycle events (minimal coupling, consumers call back for
+state) and Event-Carried State Transfer for task results (consumers get payload without calling back).
+This is the right design for a control plane. See `docs/architecture/2026-05-20-principal-architect-review.md §B1`.
 
 ---
 
@@ -188,17 +232,15 @@ No timer-based checks. Everything is event-driven.
 
 ### Why Capabilities, Not Named Agents?
 
-Classical agent systems route tasks to named agents:
-`task → agent:analyst-01`
+```
+Named routing (tight):      task → agent:analyst-01
+Capability routing (loose): task → capability:summarize
+```
 
-Zynax routes tasks to capabilities:
-`task → capability:summarize`
+Named routing breaks when an agent is replaced. Capability routing decouples the workflow
+definition from any specific executor — swap a summarizer, zero workflow changes.
 
-**The difference:**
-- Named routing: tight coupling. Swap an agent = rewrite the workflow.
-- Capability routing: loose coupling. Add a better summarizer = zero workflow changes.
-
-### Capability Resolution Flow
+### Capability Resolution Flow (M5.C target state)
 
 ```
 Workflow YAML:
@@ -209,12 +251,11 @@ Workflow Compiler → IR:
   ActionIR{Capability: "summarize", ...}
 
 Task Broker:
-  1. Query agent-registry: "Who has capability: summarize?"
-  2. Apply routing policy (round-robin, least-loaded, affinity)
-  3. Dispatch to selected agent/adapter
-  4. Stream results back as events
+  1. Query agent-registry: FindByCapability("summarize")
+  2. Apply routing policy (round-robin for M5; least-loaded in M6)
+  3. Dispatch → selected agent/adapter via ExecuteCapability gRPC
 
-Event Bus:
+Event Bus (when implemented):
   emit: task.completed {capability: "summarize", result: ...}
 ```
 
@@ -222,289 +263,222 @@ Event Bus:
 
 ## 6. Engine Adapter Architecture
 
-### The Interface
-
-Every engine adapter implements ONE Go interface:
+### The WorkflowEngine Interface
 
 ```go
 // services/engine-adapter/internal/domain/engine.go
-
 type WorkflowEngine interface {
-    // Submit a workflow IR for execution
     Submit(ctx context.Context, ir WorkflowIR, input map[string]any) (ExecutionID, error)
-
-    // Signal a running workflow (inject an event)
     Signal(ctx context.Context, id ExecutionID, event WorkflowEvent) error
-
-    // Query current state of a workflow execution
-    Query(ctx context.Context, id ExecutionID) (*ExecutionState, error)
-
-    // Cancel a running workflow
+    GetWorkflowStatus(ctx context.Context, id ExecutionID) (*ExecutionState, error)
     Cancel(ctx context.Context, id ExecutionID, reason string) error
-
-    // Watch for execution state changes (server-streaming)
     Watch(ctx context.Context, id ExecutionID) (<-chan ExecutionEvent, error)
-
-    // Name of this engine (for routing decisions)
     Name() string
 }
 ```
 
-### Semantic Translation Challenge
+This 6-method interface is a crown jewel of the architecture — it genuinely decouples the IR
+execution from any engine. Adding `ArgoEngine` or `LangGraphEngine` is ~500 LoC, not a rewrite.
+**Never change the interface shape without an ADR** (ADR-015).
 
-Each engine has different semantics. The adapter is responsible for
-translating IR to engine-native format AND back. Known mismatches:
+### Current Engines
 
-| Semantic | Temporal | LangGraph | Argo |
-|---------|---------|-----------|------|
-| Loop | Recursive workflow | Graph cycle | Loop template |
-| Human signal | `workflow.Signal()` | Interrupt + resume | Suspend + resume |
-| Timeout | `workflow.WithTimeout()` | `interrupt_after` | `activeDeadlineSeconds` |
-| Parallel | `workflow.Go()` | Parallel nodes | DAG tasks |
+| Engine | Status | Notes |
+|---|---|---|
+| `TemporalEngine` | ✅ Implemented | Only production engine today |
+| `LangGraphEngine` | 📅 Planned | canvas: `docs/spdd/384-langgraph-adapter/canvas.md` |
+| `ArgoEngine` | 📅 Planned | Not yet scoped |
 
-Each adapter in `services/engine-adapter/internal/adapters/` handles this translation.
+### Activity RetryPolicy Note
+
+Temporal's default Activity retry is exponential backoff with no max attempts — **this means
+permanent failures (e.g. capability not found) will retry forever**. Explicit `RetryPolicy`
+must be set on `DispatchCapabilityActivity`. Tracked by #569.
 
 ---
 
-## 7. Adapter-Based Integration (No SDK)
-
-### The Problem with SDK-Required Architectures
-
-If Zynax requires an SDK, adoption is:
-- Language-limited (only SDK languages work)
-- Framework-coupled (upgrade SDK = upgrade all agents)
-- High-friction (non-engineering teams can't participate)
-
-### The Adapter Solution
+## 7. Adapter-Based Integration (No SDK Required)
 
 Any system becomes a capability by deploying an adapter that:
-1. Implements the `AgentService` gRPC contract
-2. Registers capabilities in `agent-registry`
+1. Implements the `AgentService` gRPC contract (`protos/zynax/v1/agent.proto`)
+2. Registers capabilities in `agent-registry` via heartbeat
 3. Handles `ExecuteCapability` RPCs
 
 ```
-Existing system           Adapter                Zynax
-─────────────────         ──────────────         ─────────────
-Bedrock API      →   llm-adapter        →   capability: summarize
-GitHub API       →   git-adapter        →   capability: open_mr
-Jenkins API      →   ci-adapter         →   capability: run_tests
-Internal API     →   http-adapter       →   capability: call_payments
-LangGraph app    →   langgraph-adapter  →   capability: research_topic
+Existing system    Adapter          Capability name
+───────────────    ──────────────   ──────────────
+Bedrock API    →   llm-adapter   →  chat_completion
+GitHub API     →   git-adapter   →  open_pr / get_diff
+Jenkins API    →   ci-adapter    →  trigger_workflow
+Internal API   →   http-adapter  →  (any name)
+LangGraph app  →   langgraph-adapter → (graph node names)
 ```
 
-Adapters are thin. They translate between Zynax contracts and
-the external system's native protocol. They contain no business logic.
+The Python SDK (`agents/sdk/`) provides an optional `Agent` base class and `@capability`
+decorator for Python adapters. Go and non-Python adapters implement `AgentService` directly.
 
 ---
 
 ## 8. Communication Architecture
 
-### Sync Path (gRPC)
-- Task execution requests
-- Capability invocations
-- State queries
-- Config/manifest applies
+### Synchronous Path (gRPC — implemented)
 
-### Async Path (NATS JetStream + AsyncAPI)
-- Workflow state change events
-- Task lifecycle events
-- Agent heartbeats
-- System signals (human-in-the-loop)
-- CI/CD event integrations
+```
+zynax CLI → api-gateway → workflow-compiler  (compile)
+zynax CLI → api-gateway → engine-adapter    (submit/status/cancel)
+engine-adapter → task-broker                (dispatch capability)
+task-broker → agent-registry               (find capability)
+task-broker → adapter                       (execute capability)
+```
 
-### AsyncAPI Spec
-Every async event is documented in `spec/asyncapi/`. The AsyncAPI spec is:
-- The contract for all async communication
-- Validated in CI (asyncapi-cli lint)
-- Generated into Go event types (analogous to proto → Go stubs)
+All gRPC currently uses `insecure.NewCredentials()`. TLS-by-default is planned for M6
+(ADR-020 / #488). The `ZYNAX_DEV_INSECURE=1` environment variable will gate plain-text
+in development once TLS is implemented.
+
+### Asynchronous Path (NATS JetStream — stub)
+
+```
+engine-adapter → NATS (event-bus) → subscribers
+```
+
+11 AsyncAPI event channels are defined in `spec/asyncapi/`. NATS is in the compose stack.
+`PublishLifecycleEventActivity` currently emits a WARN log and returns nil — no events
+are actually published. Event bus implementation is planned for M6.
 
 ---
 
-## 9. Runtime Abstraction
+## 9. Hexagonal Service Architecture (Internal)
 
-Kubernetes is optional. Zynax supports:
+Every implemented service follows the same internal structure:
 
-| Runtime | Use Case |
-|---------|---------|
-| Local (Docker Compose) | Development, testing |
-| Kubernetes | Production, scale |
-| Cloud APIs (ECS, Cloud Run) | Serverless deployment |
+```
+services/<service>/
+  internal/
+    api/           ← gRPC handler layer (receives calls, delegates to domain)
+    domain/        ← business logic (ZERO gRPC/proto imports)
+    infrastructure/ ← concrete implementations (DB, gRPC clients, Temporal SDK)
+  cmd/<service>/   ← main.go — wire everything up
+```
 
-The `api-gateway` exposes `zynax apply` which accepts YAML manifests
-regardless of the underlying runtime. Local dev and production accept
-identical YAML — the compiler and runtime layer handle the difference.
+**The domain package has zero proto imports.** This is verified by the `layer-boundaries` CI gate
+and confirmed by the 2026-05-20 review. The `IRInterpreter`'s `Run()` method depends only on
+two domain interfaces (`ActivityExecutor`, `EventPublisher`). The Temporal SDK appears only in
+`internal/infrastructure/`. This is textbook hexagonal architecture.
 
 ---
 
-## 10. Data Flows
+## 10. Service LoC Inventory (as of 2026-05-21)
 
-### Workflow Execution Flow
+| Service | Code LoC | Test LoC | Status |
+|---|---:|---:|---|
+| workflow-compiler | ~1,390 | ~1,855 | ✅ Implemented |
+| engine-adapter | ~1,143 | ~1,209 | ✅ Implemented |
+| api-gateway | ~1,047 | ~1,071 | ✅ Implemented |
+| task-broker | ~905 | ~455 | 🟡 In-memory MVP |
+| agent-registry | 0 | 0 | ❌ Stub (BDD files only) |
+| event-bus | 0 | 0 | ❌ Stub |
+| memory-service | 0 | 0 | ❌ Stub |
+| cmd/zynax | ~1,470 | ~1,200 | ✅ Implemented |
+| cmd/zynax-ci | ~854 | ~729 | ✅ Implemented |
 
-```
-1. User: zynax apply workflow.yaml
-2. API Gateway: validate auth → forward to Workflow Compiler
-3. Workflow Compiler: parse YAML → validate schema → compile to IR → select engine
-4. Engine Adapter: translate IR → Temporal workflow → submit to Temporal
-5. Temporal: executes workflow, calls capabilities via Task Broker
-6. Task Broker: route capability call → dispatch to registered adapter
-7. Adapter: execute (LLM call, API call, git op) → stream results
-8. Event Bus: workflow emits state change events
-9. Memory Service: adapters store/retrieve context
-10. Observability: all steps traced, metered, logged
-```
-
-### Event Flow
-
-```
-External event (GitHub push) → git-adapter → Event Bus
-Event Bus → Workflow Compiler (matches event to workflow trigger)
-Workflow Compiler → signals running workflow via Engine Adapter
-Engine Adapter → Temporal.Signal("push")
-Temporal → transitions workflow state: fix → review
-```
+Test-to-code ratio ~2:1 — excellent. Coverage gate ≥ 90% on all `internal/domain/` packages.
 
 ---
 
 ## 11. Language Interoperability
 
-### The Protocol Is the Contract
+### Language Roles
 
-Every integration point in Zynax is defined in `protos/zynax/v1/`. This is not
-an implementation detail — it is a deliberate architectural guarantee. The proto
-contract is the only thing that two systems need to agree on to work together.
-Neither system needs to know what language, framework, or runtime the other uses.
+**Go owns the platform** (Layers 1–3). All platform services handle control-plane concerns:
+state management, routing, scheduling, contract validation.
 
-This guarantee scales to every layer of the architecture:
+**Python owns execution** (Layer 4). The AI/ML ecosystem (LangGraph, AutoGen, Transformers)
+is Python-native. Python adapters are where intelligence is applied.
 
-- The Go workflow-compiler sends a compiled IR to the Go engine-adapter using
-  a proto message. A future Rust engine-adapter would receive the identical message.
-- The Go task-broker dispatches an `ExecuteCapabilityRequest` to whatever agent
-  registered that capability. The agent may be Python, Go, TypeScript, or Java —
-  the broker sends the same proto message regardless.
-- A TypeScript web client sends `ApplyWorkflowRequest` to the Go API Gateway.
-  The gateway processes a proto message. Language is invisible.
-
-### Language Roles in the Platform
-
-Go and Python are not equal in this architecture — they play different roles:
-
-**Go owns the platform** (Layers 1 and 2). The workflow compiler, engine adapters,
-task broker, agent registry, memory service, event bus, and API gateway are all Go.
-These components handle control-plane concerns: state management, routing, scheduling,
-contract validation. Go's performance characteristics, concurrency model, and type
-system make it the right choice for this layer.
-
-**Python owns the execution** (Layer 3). The AI/ML ecosystem — LangGraph, AutoGen,
-CrewAI, Transformers, and every major AI framework — is Python-native. Python agents
-and adapters are where intelligence is applied. The SDK provides ergonomic access to
-the platform from this layer.
-
-**Any language can participate in Layer 3**. The proto contract does not care about
-Python. A Go adapter, a Java adapter, a Rust high-performance inference engine, and a
-TypeScript API adapter are all equal participants in Layer 3. They implement the same
-`AgentService` contract and receive the same task dispatch.
+**Any language can participate in Layer 4.** The `AgentService` gRPC contract is language-neutral.
+Go, TypeScript, Java, and Rust adapters are equal participants.
 
 ### The Import Hierarchy
 
-| Component | How it consumes the proto contract |
-|-----------|-----------------------------------|
-| Go platform services (internal) | Import from `gen/go/zynax/v1/` via `go.work` workspace |
-| External Go consumers | Import `github.com/zynax-io/zynax/gen/go/zynax/v1` via `go.mod` |
-| Python SDK agents | `zynax-sdk` `Agent` base class + `@capability` routing; uses `protos/generated/python/` |
-| Python raw-stub callers | Import directly from `protos/generated/python/` |
-| Other languages | Run `buf generate` against `protos/zynax/v1/` source |
-| Future BSR consumers | Import from the Buf Schema Registry (planned for M1) |
+| Consumer | How it uses the proto contracts |
+|---|---|
+| Go platform services (internal) | `gen/go/zynax/v1/` via `go.work` workspace |
+| External Go consumers | `github.com/zynax-io/zynax/gen/go/zynax/v1` via `go.mod` |
+| Python SDK agents | `agents/sdk/` `Agent` base class + `@capability`; uses `protos/generated/python/` |
+| Python raw-stub callers | `protos/generated/python/` directly |
+| Other languages | `buf generate` against `protos/zynax/v1/` |
 
-The generated stubs in `gen/go/` and `protos/generated/python/` are committed to
-the repository. They are regenerated on every proto change by `make generate-protos`.
-They are never edited manually. They change when and only when the proto source changes.
-
-### Why No Go SDK
-
-A question that arises naturally: if Python has a SDK, why not Go?
-
-Go platform services call each other using the generated stubs directly. The gRPC
-interface, the generated client structs, and the Go type system together provide
-everything a higher-level SDK would add. There is no registration boilerplate to
-eliminate because Go gRPC clients are already minimal. There is no framework
-integration to abstract because Go developers building capabilities implement the
-`AgentService` interface directly — that is the idiomatic Go approach.
-
-The Python SDK exists because the Python gRPC boilerplate for implementing the
-`AgentService` server contract — routing by capability name, constructing streaming
-`TaskEvent` responses — is meaningful friction for developers whose primary skill is
-AI framework usage, not gRPC server implementation. The SDK eliminates that friction
-through the `Agent` base class and `@capability` decorator. Go developers do not have
-the same friction because implementing a gRPC server interface in Go is already
-straightforward and idiomatic.
-
-### Interoperability in Practice
-
-A realistic end-to-end capability dispatch crosses languages multiple times:
-
-1. A TypeScript CI dashboard submits a workflow via the API Gateway (TypeScript stubs
-   calling Go service via gRPC).
-2. The Go workflow-compiler compiles the YAML to IR and selects the Temporal engine.
-3. The Go engine-adapter submits the IR to Temporal as a Go workflow.
-4. Temporal executes the workflow and reaches a `summarize` capability action.
-5. The Go engine-adapter calls the Go task-broker's `DispatchCapability` RPC.
-6. The Go task-broker queries the Go agent-registry and finds a Python SDK agent
-   registered with capability `summarize`.
-7. The Go task-broker calls the Python SDK agent's `ExecuteCapability` RPC.
-8. The Python SDK agent runs a LangGraph graph, reads from the Go memory service,
-   and streams `TaskEvent` responses back to the broker.
-9. The broker forwards results to the engine-adapter, which signals Temporal.
-10. Temporal transitions the workflow state and emits an event to the Go event-bus.
-11. The event-bus forwards the event to the TypeScript dashboard via a WebSocket
-    bridge or gRPC stream.
-
-At no point does any component know what language the others are written in.
-The proto contracts are the only visible interfaces.
+Generated stubs in `gen/go/` and `protos/generated/python/` are committed. Regenerated by
+`make generate-protos`. Never edited manually.
 
 ---
 
 ## 12. Contract Test Strategy
 
-Zynax validates every gRPC contract boundary with BDD tests before any service
-implementation exists. This is the M1 strategy and continues through all milestones.
+### How It Works
 
-### How it works
-
-- Each proto service has a corresponding `protos/tests/<service>/` package with
-  godog step definitions and an in-process stub server (`testserver.NewBufconnServer`)
-- Feature files live in `protos/tests/features/` — written before implementation
+- Each proto service has `protos/tests/<service>/` with godog steps and an in-process
+  `testserver.NewBufconnServer` — no network ports, no teardown races, parallel-safe
+- Feature files in `protos/tests/features/` — **written before any implementation** (ADR-016)
 - CI runs all 140+ scenarios on every PR that touches `protos/`
 
-### GOWORK=off requirement
+### GOWORK=off Requirement
 
-`go.work` lists service modules (M2+) that do not exist on disk during M1. Running
-`go test ./...` in `protos/tests/` without disabling the workspace causes resolution
-errors for non-existent modules. Always use:
+**All `go test` and `go build` commands inside `services/*/`, `cmd/zynax/`,
+`cmd/zynax-ci/`, and `protos/tests/` require `GOWORK=off`.**
 
 ```bash
-GOWORK=off go test ./... -v -timeout 60s
+GOWORK=off go test ./... -race -timeout 60s
 ```
 
-See ADR-017 and `protos/tests/AGENTS.md` for the full guide.
-
-### bufconn transport
-
-Tests use an in-memory `bufconn` listener — no network ports, no teardown races,
-parallel-safe. The `testserver` package provides a shared helper used by all eight
-service test suites.
+`go.work` references modules that interact unexpectedly with standalone module directories.
+See ADR-017 and `docs/decisions/004-gowork-off-isolation.md`.
 
 ---
 
-## 13. Milestones
+## 13. Known Architectural Limitations (Open Issues)
 
-See `ROADMAP.md` for the full timeline. Architecture aligns with:
+| Limitation | Severity | Tracked by | Target milestone |
+|---|---|---|---|
+| No E2E capability dispatch (agent-registry missing) | Critical | #460 | M5 |
+| workflow-compiler IR store unbounded in-memory | High | #466 | M5 |
+| All inter-service gRPC insecure (no TLS) | High | #488 / ADR-020 | M6 |
+| Bearer-token compare not constant-time | High | #567 | M5 |
+| No OTel tracing on api-gateway + engine-adapter | High | #491 | M5/M6 |
+| CloudEvents publishing is a log stub | High | #460 | M6 |
+| Temporal Activity with no explicit RetryPolicy | Medium | #569 | M5 |
+| No rate limiting on POST /apply | Medium | #580 | M6 |
+| No SBOM / cosign / SLSA provenance | High | #489 | M6 |
 
-| Milestone | Status | Architecture Component |
-|-----------|--------|----------------------|
-| M1 — Contracts | **Complete** | `protos/` + `spec/asyncapi/` + BDD harness |
-| M2 — Workflow IR | Next | `services/workflow-compiler/` skeleton |
-| M3 — Engine Adapters | Planned | `services/engine-adapter/` + Temporal |
-| M4 — YAML System | Planned | `spec/schemas/` + compiler → IR pipeline |
-| M5 — Adapter Layer | Planned | `agents/adapters/` (http, llm, git) |
-| M6 — Runtime + CLI | Planned | `zynaxctl apply` + local runner |
-| M7 — Observability | Planned | OTel traces across all layers |
+See `docs/reviews/04-architecture-gaps.md` for the full ranked gap list.
+
+---
+
+## 14. Key ADR References
+
+| Decision | ADR |
+|---|---|
+| gRPC as inter-service protocol | ADR-001 |
+| Language strategy (Go/Python) | ADR-009 |
+| No shared databases | ADR-008 |
+| Declarative YAML control plane (Layer 1 isolation) | ADR-011 |
+| Workflow IR as canonical representation | ADR-012 |
+| Pluggable workflow engines (WorkflowEngine interface) | ADR-015 |
+| Layered testing strategy (BDD + unit + buf breaking) | ADR-016 |
+| GOWORK=off contract test isolation | ADR-017 |
+| SPDD prompt governance (Canvas before code) | ADR-019 |
+| Zero-trust intra-service security (proposed) | ADR-020 (pending #240) |
+| Horizontal scale + multi-tenancy (proposed) | ADR-021 (pending #578) |
+
+Full ADR register: `docs/adr/INDEX.md`.
+
+---
+
+## 15. Architecture Review References
+
+| Document | Date | Summary |
+|---|---|---|
+| `docs/architecture/2026-04-30-competitive-analysis.md` | 2026-04-30 | Competitive landscape (Temporal, Dapr, Argo, LangGraph, Kagent) |
+| `docs/architecture/2026-04-30-execution-architecture.md` | 2026-04-30 | Execution architecture deep-dive (engine-adapter + Temporal) |
+| `docs/architecture/2026-05-18-external-architectural-review.md` | 2026-05-18 | External architectural review |
+| `docs/architecture/2026-05-20-principal-architect-review.md` | 2026-05-20 | **Authoritative** — 6.5/10 overall, G1-G24 gap list, 30-day plan |

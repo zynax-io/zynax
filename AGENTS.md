@@ -203,9 +203,9 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Current milestone and active PRs | `state/current-milestone.md` |
 | SPDD workflow guide and REASONS Canvas methodology | `docs/patterns/spdd-guide.md` |
 | REASONS Canvas artifacts (one per `feat:` issue) | `docs/spdd/` |
-| Execution architecture — engine dispatch, event routing, memory, M3 sequence | `docs/architecture/execution-architecture.md` |
-| Competitive analysis and Kestra/Temporal/LangGraph positioning | `docs/architecture/competitive-analysis-2026.md` |
-| External architectural review (2026-05) — scores, weaknesses, prioritised recommendations | `docs/architecture/2026-05-external-architectural-review.md` |
+| Execution architecture — engine dispatch, event routing, memory, M3 sequence | `docs/architecture/2026-04-30-execution-architecture.md` |
+| Competitive analysis and Kestra/Temporal/LangGraph positioning | `docs/architecture/2026-04-30-competitive-analysis.md` |
+| Principal architect review (2026-05-20) — scores, weaknesses, G1-G24 gap list, 30-day plan | `docs/architecture/2026-05-20-principal-architect-review.md` |
 | Dependency version policy, security scanning, upgrade cadence | `docs/engineering/dependency-strategy.md` |
 | Renovate bot CI failure fix procedure (go.sum, go directive) | `docs/engineering/renovate-fix-sop.md` |
 | AI context line counts and budget thresholds (advisory, non-blocking) | `zynax-ci check ai-context` |

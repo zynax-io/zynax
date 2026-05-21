@@ -92,83 +92,105 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 3 — Engine Adapters (Temporal First)
+## Milestone 3 — Engine Adapters ⚠ Partial (v0.2.0)
 
 **Goal:** Workflow IR executes on Temporal. Engine abstraction proven.
 
-> Label: `milestone: M3`
+**Delivered:**
+- [x] `engine-adapter` service: `WorkflowEngine` interface, `TemporalEngine`, `IRInterpreterWorkflow`
+- [x] `DispatchCapabilityActivity`: Temporal Activity → task-broker gRPC
+- [x] All 5 `EngineAdapterService` RPCs (Submit/Signal/Cancel/GetWorkflowStatus/WatchWorkflow)
+- [x] cel-go guard evaluation (bespoke evaluator replaced by #538 in M5.B)
 
-- [ ] `engine-adapter` service: Go implementation
-- [ ] `WorkflowEngine` interface defined and documented
-- [ ] `TemporalEngine` adapter: Submit, Signal, Query, Cancel, Watch
-- [ ] Generic Temporal "state machine worker" that interprets IR at runtime
-- [ ] `DispatchCapabilityActivity`: Temporal Activity that calls task-broker
-- [ ] End-to-end test: YAML → IR → Temporal → capability dispatch → result
+**Not delivered (moved to M5.C):**
+- [ ] `task-broker` service (delivered M5.C #479)
+- [ ] End-to-end capability dispatch (requires agent-registry; pending #480)
+- CloudEvents publishing is a log stub (pending event-bus implementation, M6+)
 
 ---
 
-## Milestone 4 — YAML System + CLI
+## Milestone 4 — YAML System + CLI ⚠ Partial (v0.3.0)
 
 **Goal:** Users can `zynax apply workflow.yaml` and see it run.
 
-> Label: `milestone: M4`
+**Delivered:**
+- [x] `api-gateway`: `POST /api/v1/apply`, `GET /api/v1/workflows/{id}`, `DELETE`, SSE logs
+- [x] `zynax` CLI: `apply`, `get`, `delete`, `status`, `logs`
+- [x] Local Docker Compose runner (`make run-local`)
+- [x] GitOps watch mode (`zynax apply --watch`)
 
-- [ ] `api-gateway` extended with `/api/v1/apply` endpoint (accepts YAML)
-- [ ] `zynax` CLI: `apply`, `get`, `delete`, `logs`, `status` commands
-- [ ] Local runner: Docker Compose-based (no Kubernetes required)
-- [ ] GitOps integration: watch a git repo, apply changes on push
-- [ ] `kind: AgentDef` apply: registers agent in registry + deploys adapter
-- [ ] Validation feedback: clear error messages, line numbers, fix suggestions
+**Not delivered (moved to M5.C):**
+- [ ] `agent-registry` service (#480 — required for `kind: AgentDef` routing)
+- Capability dispatch: workflows submit but actions fail (no registry)
 
 ---
 
-## Milestone 5 — Adapter Library
+## Milestone 5 — Adapter Library 🔄 In Progress (v0.4.0)
 
-**Goal:** Existing systems become capabilities without SDK adoption.
+**Goal:** Existing systems become capabilities without SDK adoption. First green E2E demo.
 
 > Label: `milestone: M5` · Epic: [#377](https://github.com/zynax-io/zynax/issues/377)
 > Execution plan: [docs/milestones/M5-plan.md](docs/milestones/M5-plan.md)
 
-M5 is structured into five parallel tracks, each with a REASONS Canvas and child issues.
+### M5 Definition of Done (7 criteria)
+1. `make run-local && zynax apply code-review.yaml` → real state transitions + ≥1 dispatch
+2. v0.4.0 tag with downloadable CLI + GHCR images
+3. All 5 adapters (http ✅ + git + ci + llm + langgraph) merged
+4. Python SDK `Agent` base class implemented ✅
+5. cel-go replaces bespoke guard evaluator ✅
+6. SECURITY.md matches shipped reality ✅
+7. CI < 10 minutes per PR 🟡
 
 ### M5.A — Truth Pass ([#458](https://github.com/zynax-io/zynax/issues/458))
 
 - [x] Remove CNCF Sandbox Candidate badge (#472)
 - [x] Audit CHANGELOG for phantom entries (#473)
-- [ ] Python SDK decision (#474)
+- [x] Python SDK Agent base class (#474 / #535 #536 #537)
+- [x] Fix SECURITY.md — remove mTLS/SBOM/cosign false claims
+- [ ] Add per-service status table to README (#579)
 
-### M5.B — Engine Correctness Hardening ([#459](https://github.com/zynax-io/zynax/issues/459))
+### M5.B — Engine Correctness Hardening ([#459](https://github.com/zynax-io/zynax/issues/459)) ✅
 
 - [x] Fix `resolveTemplate` map-iteration non-determinism (#475)
-- [ ] Replace bespoke guard parser with `cel-go` (#476)
+- [x] Replace bespoke guard evaluator with `cel-go`, fail-closed (#476 / #538 #539 #540)
 - [x] Return full `CompilationError` list from `CompileWorkflow` (#477)
 - [x] Fix SSE `WriteTimeout` breaking `zynax logs` at 30 s (#478)
 
-### M5.C — Capability Dispatch End-to-End ([#460](https://github.com/zynax-io/zynax/issues/460))
+### M5.C — Capability Dispatch End-to-End ([#460](https://github.com/zynax-io/zynax/issues/460)) 🔴 Critical path
 
-- [x] `task-broker` MVP: in-memory `TaskBrokerService`, 5 RPCs, hexagonal layout (#479 / PRs #520 #522 #523)
-- [ ] `agent-registry` MVP: in-memory `AgentRegistryService`, 5 RPCs (#480 — BDD trim → domain → wiring)
+- [x] `task-broker` MVP: in-memory `TaskBrokerService`, 5 RPCs, 92.7% coverage (#479 / #520 #522 #523)
+- [ ] `agent-registry` MVP: BDD trim (#526) → domain (#527) → gRPC wiring (#528)
 - [ ] Docker Compose wiring: task-broker + agent-registry in `make run-local` (#481)
 
 ### M5.D — Control Plane Security Baseline ([#461](https://github.com/zynax-io/zynax/issues/461)) ✅
 
-- [x] Bearer-token auth middleware for api-gateway (#482)
-- [x] Log event publish failures instead of discarding (#483)
-- [x] X-Request-ID propagation across all services (#484)
-- [x] Idempotent `zynax apply` — manifest hash derives stable workflow ID (#485)
+- [x] Bearer-token auth middleware (#482)
+- [x] Log event publish failures (#483)
+- [x] X-Request-ID propagation (#484)
+- [x] Idempotent `zynax apply` — manifest hash (#485)
 - [x] Consolidate Docker Compose files (#486)
 
 ### M5.E — Developer Experience Polish ([#462](https://github.com/zynax-io/zynax/issues/462)) ✅
 
-- [x] Idempotent apply and compose consolidation (shared with M5.D: #485 #486)
+- [x] Idempotent apply and compose consolidation (#485 #486)
+
+### M5.F — CI/CD Performance Sprint ([#542](https://github.com/zynax-io/zynax/issues/542)) 🟡
+
+- [x] Concurrency + stale-run cancellation (#545)
+- [x] Unified release workflow — fix race condition (#557)
+- [x] v0.4.0 CHANGELOG promoted; tag push pending
+- [x] All service/adapter images public on GHCR (#562)
+- [x] CI runner container image (#551 #552)
+- [ ] Force-full-pipeline trigger (#554)
+- [ ] Per-service change detection (#549 #550)
 
 ### Adapter Library ([#377](https://github.com/zynax-io/zynax/issues/377))
 
-- [x] `http-adapter`: REST API proxy — config-only, no code (#380)
-- [ ] `git-adapter`: GitHub/GitLab operations (`open_pr`, `request_review`, `get_diff`) (#381)
-- [ ] `ci-adapter`: CI pipeline triggers (`trigger_workflow`, `get_run_status`) (#382)
-- [ ] `llm-adapter`: OpenAI / Bedrock / Ollama inference (#383) — Python
-- [ ] `langgraph-adapter`: any LangGraph graph as a named capability (#384) — Python
+- [x] `http-adapter`: REST API proxy — all step issues merged (#380)
+- [ ] `git-adapter`: `open_pr`, `request_review`, `get_diff` (#381 — BDD done, impl pending #481)
+- [ ] `ci-adapter`: `trigger_workflow`, `get_run_status` (#382 — BDD done, impl pending #481)
+- [ ] `llm-adapter`: OpenAI / Bedrock / Ollama `chat_completion` (#383 — BDD done, impl pending #481)
+- [ ] `langgraph-adapter`: LangGraph StateGraph as Zynax capabilities (#384 — BDD done, impl pending #481)
 
 ---
 
