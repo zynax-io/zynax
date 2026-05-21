@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 30 — #531 ✅ task-broker BDD feature file + godog steps)
+**Last updated:** 2026-05-21 (rev 31 — #622 #623 #624 filed; #466 promoted M6→M5; arch overhaul complete)
 
 ---
 
@@ -182,7 +182,26 @@ of tooling at run time. The image is rebuilt and published to
 
 **Engineer profile:** DevOps / GitHub Actions specialist with Docker/Alpine experience.
 
-### BATCH 6 — Adapter implementations (P2 · #377, after M5.C complete)
+### BATCH 6 — Security Hardening (P1 · independent, can be done in any order)
+
+These issues address the security gaps identified in the 2026-05-20 principal architect review
+(`docs/reviews/04-architecture-gaps.md`). All are independent — no dependency between them.
+
+| Issue | Title | Size | Why |
+|-------|-------|------|-----|
+| [#567](https://github.com/zynax-io/zynax/issues/567) | Bearer token constant-time compare | XS | Timing-attack exposure in `auth.go` (G1 from review) |
+| [#568](https://github.com/zynax-io/zynax/issues/568) | ReadHeaderTimeout + MaxBytesReader on HTTP server | XS | Slow-read DoS vector (G2 from review) |
+| [#622](https://github.com/zynax-io/zynax/issues/622) | Add `context.WithTimeout` to all outgoing gRPC calls | S | Cascading hang risk across all services (NEW-1 from review) |
+| [#623](https://github.com/zynax-io/zynax/issues/623) | Refuse to start without `ZYNAX_GW_API_KEY` in production | XS | Silent auth bypass on misconfiguration (NEW-4 from review) |
+
+**Engineer profile:** Go engineer. All four changes are self-contained. Start with #567 and #568
+(smallest), then #623 (startup guard), then #622 (gRPC deadlines — touches 4 services).
+Reference: `docs/engineering/best-practices/go.md` for `crypto/subtle.ConstantTimeCompare`
+and `ReadHeaderTimeout` patterns.
+
+---
+
+### BATCH 7 — Adapter implementations (P2 · #377, after M5.C complete)
 
 These can start once compose wiring (#481) is green — adapters need a working registry to
 register against.
@@ -485,10 +504,14 @@ open issues. File them before or during M5 execution:
 | H8: ADR-021 scale plan | High | [#578](https://github.com/zynax-io/zynax/issues/578) | M6 |
 | H9: Unimplemented gRPC skeletons | Medium | [#574](https://github.com/zynax-io/zynax/issues/574) | M5 |
 | README status table | High | [#579](https://github.com/zynax-io/zynax/issues/579) | M5 |
+| NEW-1: gRPC call deadlines | High | [#622](https://github.com/zynax-io/zynax/issues/622) | M5 |
+| NEW-4: `ZYNAX_GW_API_KEY=""` bypass | High | [#623](https://github.com/zynax-io/zynax/issues/623) | M5 |
+| H1: Stateless workflow-compiler (OOM risk R4) | **High** | [#466](https://github.com/zynax-io/zynax/issues/466) | M5 (**promoted from M6** 2026-05-21) |
+| Architecture overhaul docs (tracking) | — | [#624](https://github.com/zynax-io/zynax/issues/624) | M5 |
 
 ---
 
 ## Blocked / Parking
 
 - **Adapter implementations** (#400+, #405+, #410+, #415+) — wait for compose wiring (#481) to land first so adapters can be tested against the live registry.
-- **M6 items promoted to M5:** #466 (stateless compiler) is being considered for promotion given the OOM risk. Decision pending on milestone assignment.
+- **#466 promoted M6→M5** (2026-05-21) — stateless compiler / drop in-memory IR store. OOM risk R4 from 2026-05-20 review; 3–5 day effort; unblocks horizontal scale before v0.4.0 ships.
