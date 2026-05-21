@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 32 — decisions resolved: D1 #491 M7→M6; D3 #626 Postgres repos M6; D4/D5 spec on #622/#623; D6 #358 closed)
+**Last updated:** 2026-05-21 (rev 33 — #526 ✅ BDD trim; #532 ✅ handler tests; #554 ✅ force-full-pipeline; #527 unblocked)
 
 ---
 
@@ -139,9 +139,9 @@ These must be done strictly in order. Each step is blocked by the previous.
 |-------|-------|------|------------|-----------------|
 | [#530](https://github.com/zynax-io/zynax/issues/530) | Update task-broker AGENTS.md | XS | None (ready) | ✅ Done |
 | [#531](https://github.com/zynax-io/zynax/issues/531) | Align task-broker BDD + godog steps | S | None (ready) | ✅ Done |
-| [#532](https://github.com/zynax-io/zynax/issues/532) | Handler unit tests for all 5 gRPC methods | S | None (ready) | Go engineer |
-| [#526](https://github.com/zynax-io/zynax/issues/526) | Trim agent-registry BDD to proto scope | XS | None (ready) | Go + godog |
-| [#527](https://github.com/zynax-io/zynax/issues/527) | agent-registry domain layer | M | After #526 | Go domain engineer — read `docs/spdd/480-agent-registry/canvas.md` |
+| [#532](https://github.com/zynax-io/zynax/issues/532) | Handler unit tests for all 5 gRPC methods | S | None (ready) | ✅ Done — api 84.9% |
+| [#526](https://github.com/zynax-io/zynax/issues/526) | Trim agent-registry BDD to proto scope | XS | None (ready) | ✅ Done |
+| [#527](https://github.com/zynax-io/zynax/issues/527) | agent-registry domain layer | M | After #526 ✅ | **ready** — Go domain engineer — read `docs/spdd/480-agent-registry/canvas.md` |
 | [#528](https://github.com/zynax-io/zynax/issues/528) | agent-registry gRPC wiring + cmd + go.work | M | After #527 | Go gRPC engineer |
 | [#481](https://github.com/zynax-io/zynax/issues/481) | Add task-broker + agent-registry to docker-compose | S | After #528 | DevOps / Docker |
 
@@ -172,7 +172,7 @@ of tooling at run time. The image is rebuilt and published to
 |-------|-------|------|------------|----------|
 | [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner — self-contained Alpine image | S | ✅ Done | — |
 | [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner container mode | M | ✅ Done | **P0** |
-| [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | After #552 | P1 |
+| [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | After #552 ✅ | ✅ Done |
 | [#549](https://github.com/zynax-io/zynax/issues/549) | Extend changes job per-service module granularity | M | After #552 | P1 |
 | [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M | After #549 | P1 |
 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L | After #552 | P2 |

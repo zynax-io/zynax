@@ -30,7 +30,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ Dockerfile.ci-runner; #552 ✅ container-mode PR merged; next: **#554** force-full-pipeline trigger |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ #552 ✅ #554 ✅ force-full-pipeline; next: **#549** per-service change-detection |
 | **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟢 BATCH 1 complete — #566 ✅ Docker Images in README; GHCR image refs in docker-compose |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
@@ -42,7 +42,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — #554 force-full-pipeline trigger (P1, unblocked by #552 ✅)
+## IMMEDIATE — #527 agent-registry domain layer (P0, unblocked by #526 ✅)
 
 ### BATCH 0 — ✅ All done
 ~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
@@ -73,7 +73,7 @@ Implementation PRs #520, #522, #523 merged. Domain coverage: 92.7%.
 |-------|------|--------|
 | [#530](https://github.com/zynax-io/zynax/issues/530) | Update AGENTS.md | ✅ Done |
 | [#531](https://github.com/zynax-io/zynax/issues/531) | Align service BDD + godog steps | ✅ Done |
-| [#532](https://github.com/zynax-io/zynax/issues/532) | Handler unit tests | ready |
+| [#532](https://github.com/zynax-io/zynax/issues/532) | Handler unit tests | ✅ Done — api 84.9%, domain 92.7% |
 
 ### agent-registry (#480) — pending implementation
 
@@ -81,8 +81,8 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 | Issue | Step | Status |
 |-------|------|--------|
-| [#526](https://github.com/zynax-io/zynax/issues/526) | Trim BDD to proto scope | ready (do first) |
-| [#527](https://github.com/zynax-io/zynax/issues/527) | Domain layer | blocked on #526 |
+| [#526](https://github.com/zynax-io/zynax/issues/526) | Trim BDD to proto scope | ✅ Done |
+| [#527](https://github.com/zynax-io/zynax/issues/527) | Domain layer | **ready** (unblocked by #526 ✅) |
 | [#528](https://github.com/zynax-io/zynax/issues/528) | gRPC wiring + go.work | blocked on #527 |
 | [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | blocked on #528 |
 
