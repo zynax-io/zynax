@@ -30,6 +30,8 @@ a PR against `docs/adr/`.
 | [ADR-017](ADR-017-contract-test-isolation.md) | Contract test isolation — GOWORK=off | Accepted | 2026-04-21 | `protos/tests/`, `services/*/` — all `go test` invocations |
 | [ADR-018](ADR-018-ai-kb-authorization-model.md) | AI knowledge base authorization model | Accepted | 2026-04-24 | `CLAUDE.md`, `AGENTS.md`, `.ai/`, `.claude/` — KB paths |
 | [ADR-019](ADR-019-spdd-prompt-governance.md) | Structured Prompt-Driven Development (SPDD) | Accepted | 2026-04-30 | `feat:` PRs — Canvas before code, `docs/spdd/`, slash commands |
+| [ADR-020](ADR-020-zero-trust-auth.md) | mTLS with cert-manager for inter-service gRPC auth | Accepted | 2026-05-21 | All inter-service gRPC in K8s — #240 #488 |
+| [ADR-021](ADR-021-horizontal-scale.md) | Postgres-backed repositories for horizontal scaling | Accepted | 2026-05-21 | task-broker + agent-registry repos — #578 #626 |
 
 ---
 
