@@ -4,6 +4,10 @@
 # This file is the SPECIFICATION. It is written BEFORE the implementation.
 # It is the source of truth for what the agent-registry service does.
 # See AGENTS.md §6.2 for feature file writing rules.
+#
+# RPCs covered: RegisterAgent, DeregisterAgent, GetAgent, ListAgents, FindByCapability.
+# Phantom RPCs removed in #526: Heartbeat, WatchAgentEvents (not in agent_registry.proto).
+# Phantom fields/values removed: request_id, AGENT_STATUS_ACTIVE, AGENT_STATUS_OFFLINE.
 
 Feature: Agent Registration
   As an orchestrator or autonomous agent
@@ -17,7 +21,7 @@ Feature: Agent Registration
 
   Scenario: Successfully register a new agent
     Given an agent spec with id "analyst-01" and capabilities ["summarize", "search"]
-    When the agent is registered with a valid request_id
+    When the agent is registered
     Then the response contains a non-empty agent_id
     And the agent_id matches the requested id "analyst-01"
     And the response contains a valid registered_at timestamp
@@ -30,20 +34,11 @@ Feature: Agent Registration
     When the agent is registered
     Then the metadata is persisted and retrievable via GetAgent
 
-  # ─── Idempotency ─────────────────────────────────────────────────────────
-
-  Scenario: Registration is idempotent for the same request_id
-    Given an agent spec with id "analyst-02"
-    And a registration was already completed with request_id "req-abc-123"
-    When the same registration is attempted again with request_id "req-abc-123"
-    Then the response is identical to the first registration
-    And no duplicate agent record is created
-
   # ─── Validation failures ─────────────────────────────────────────────────
 
-  Scenario: Reject duplicate agent_id from different request
+  Scenario: Reject duplicate agent_id
     Given an agent with id "existing-agent-01" is already registered
-    When a new agent registration is attempted with id "existing-agent-01" and a different request_id
+    When a new agent registration is attempted with id "existing-agent-01"
     Then the response status is ALREADY_EXISTS
     And the error message contains "existing-agent-01"
 
@@ -65,12 +60,6 @@ Feature: Agent Registration
     Then the response status is INVALID_ARGUMENT
     And the error message mentions valid capability format
 
-  Scenario: Reject agent with missing request_id
-    Given an agent spec with id "no-req-id"
-    When the agent is registered without a request_id
-    Then the response status is INVALID_ARGUMENT
-    And the error message mentions "request_id"
-
 Feature: Agent Discovery
   As an orchestrator or task broker
   I want to discover agents by capability
@@ -79,22 +68,15 @@ Feature: Agent Discovery
   Background:
     Given the agent registry is running and healthy
     And the following agents are registered:
-      | id           | capabilities           | status  |
-      | agent-sum-01 | summarize, search      | ACTIVE  |
-      | agent-sum-02 | summarize              | ACTIVE  |
-      | agent-wri-01 | write, summarize       | ACTIVE  |
-      | agent-off-01 | summarize              | OFFLINE |
+      | id           | capabilities      |
+      | agent-sum-01 | summarize, search |
+      | agent-sum-02 | summarize         |
+      | agent-wri-01 | write, summarize  |
 
-  Scenario: Discover active agents by capability
+  Scenario: Find agents by capability
     When agents are listed by capability "summarize"
     Then the response contains exactly 3 agents
     And the response includes "agent-sum-01", "agent-sum-02", and "agent-wri-01"
-    And the response does NOT include "agent-off-01"
-
-  Scenario: Discovery includes OFFLINE agents when explicitly requested
-    When agents are listed by capability "summarize" with status filter [ACTIVE, OFFLINE]
-    Then the response contains exactly 4 agents
-    And the response includes "agent-off-01"
 
   Scenario: Discovery returns empty list when no matching agents
     When agents are listed by capability "nonexistent-capability"
@@ -112,31 +94,6 @@ Feature: Agent Discovery
     Then the response contains exactly 5 agents
     And the response next_page_token is empty
 
-Feature: Agent Heartbeat
-  As a registered agent
-  I want to send periodic heartbeats
-  So that the registry knows I am alive and can route tasks to me
-
-  Background:
-    Given the agent registry is running and healthy
-    And an agent with id "heartbeat-agent" is registered and ACTIVE
-
-  Scenario: Agent remains ACTIVE after regular heartbeats
-    When the agent sends 5 heartbeats at regular intervals
-    Then the agent status remains ACTIVE
-    And the last_heartbeat_at timestamp is updated after each heartbeat
-
-  Scenario: Agent transitions to OFFLINE after missing heartbeats
-    Given the heartbeat miss threshold is configured to 3
-    When the agent misses 3 consecutive heartbeat windows
-    Then the agent status transitions to OFFLINE
-    And a WatchAgentEvents subscriber receives an AGENT_STATUS_CHANGED event
-
-  Scenario: Agent recovers to ACTIVE after resuming heartbeats
-    Given the agent is currently OFFLINE due to missed heartbeats
-    When the agent sends a heartbeat
-    Then the agent status transitions back to ACTIVE
-
 Feature: Agent Deregistration
   As an agent or orchestrator
   I want to deregister an agent gracefully
@@ -147,7 +104,7 @@ Feature: Agent Deregistration
 
   Scenario: Successfully deregister an existing agent
     Given an agent with id "departing-agent" is registered
-    When the agent is deregistered with a valid request_id
+    When the agent is deregistered
     Then the response contains a deregistered_at timestamp
     And the agent is no longer discoverable by capability
     And GetAgent returns NOT_FOUND for the deregistered id
