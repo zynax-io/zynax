@@ -116,3 +116,4 @@ Never connect to a shared or external service from within a build-tagged test.
 | Integration tests reaching a real DB without `testcontainers` | Use `testcontainers-go` for real DB (ADR-016) |
 | Returning raw `error` from a gRPC handler | `return nil, status.Errorf(codes.InvalidArgument, "…")` |
 | Makefile target that calls `go` or `python` directly on host | Wrap in `$(TOOLS_RUN) sh -c "…"` |
+| Using `distroless/static:nonroot` for a service with `CGO_ENABLED=1` | Only `CGO_ENABLED=0` (fully static) binaries are compatible; use `distroless/cc` or Alpine if CGO is required |

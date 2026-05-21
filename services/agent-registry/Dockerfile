@@ -8,11 +8,9 @@ RUN cd services/agent-registry && GOWORK=off go mod download
 COPY protos/generated/go/ ./protos/generated/go/
 COPY services/agent-registry/ ./services/agent-registry/
 RUN cd services/agent-registry && CGO_ENABLED=0 GOWORK=off \
-    go build -trimpath -o /agent-registry ./cmd/agent-registry/
+    go build -trimpath -ldflags "-s -w" -o /agent-registry ./cmd/agent-registry/
 
-FROM alpine:3.20
-RUN apk add --no-cache ca-certificates \
-    && addgroup -S zynax && adduser -S zynax -G zynax
-USER zynax
+# renovate: datasource=docker depName=gcr.io/distroless/static
+FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /agent-registry /agent-registry
 ENTRYPOINT ["/agent-registry"]
