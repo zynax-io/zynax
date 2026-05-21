@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 33 — #526 ✅ BDD trim; #532 ✅ handler tests; #554 ✅ force-full-pipeline; #527 unblocked)
+**Last updated:** 2026-05-21 (rev 34 — #640 PR open: centralize coverage gates; #641 filed: per-service image rebuild; #642 filed: distroless + -s -w)
 
 ---
 
@@ -179,6 +179,13 @@ of tooling at run time. The image is rebuilt and published to
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml | XS | ✅ Done | — |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS | After #552 | P2 |
 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | After #552 | P2 |
+| [#641](https://github.com/zynax-io/zynax/issues/641) | Per-service change detection for image builds in release.yml | M | After #552 | P2 |
+| [#642](https://github.com/zynax-io/zynax/issues/642) | Switch service Dockerfiles to distroless/static:nonroot + `-ldflags "-s -w"` | S | None | P2 |
+
+**Notes on #641 and #642:**
+- **#641** adds a `changes` job to `release.yml` with per-service path filters (including `protos/generated/go/` as a shared dep), a `resolve-matrix` job that emits only the services that changed, a weekly scheduled rebuild, and a `rebuild_all` workflow_dispatch input. Version tag pushes always build all images unconditionally. See issue body for the `fromJson` matrix pattern. Savings: ~80% fewer image builds on non-release main pushes.
+- **#642** replaces `alpine:3.20/3.21` runtime stages with `gcr.io/distroless/static:nonroot` and adds `-ldflags "-s -w"` to the builder `go build` commands in all 5 service Dockerfiles. No code changes needed — fully static `CGO_ENABLED=0` binaries are drop-in compatible. Removes `adduser`/`addgroup`/`USER zynax` (distroless ships UID 65532). Estimated savings: ≥40% compressed image size per service. `tools` and `ci-runner` images remain Alpine.
+- Both can be done in the same session; #642 (#S) before #641 (#M) since it has no dependency.
 
 **Engineer profile:** DevOps / GitHub Actions specialist with Docker/Alpine experience.
 
@@ -334,6 +341,8 @@ without rewriting the graph).
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 | XS | P2 |
 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | P2 |
 | [#566](https://github.com/zynax-io/zynax/issues/566) | README Docker Images section with pull commands | S | ✅ Done |
+| [#641](https://github.com/zynax-io/zynax/issues/641) | Per-service change detection for image builds — skip unchanged images on main push | M | P2 |
+| [#642](https://github.com/zynax-io/zynax/issues/642) | Switch service Dockerfiles to distroless/static:nonroot + add `-ldflags "-s -w"` | S | P2 |
 
 **Cross-links:**
 - #601 → #562 → tools-public → #563 → #566: Full chain — service Dockerfiles fixed → images made public → zynax/tools rebuilt and made public → old zynax-tools removed → README documented.

@@ -31,7 +31,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 | Track | Epic | Status |
 |-------|------|--------|
 | **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ #552 ✅ #554 ✅ force-full-pipeline; next: **#549** per-service change-detection |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟢 BATCH 1 complete — #566 ✅ Docker Images in README; GHCR image refs in docker-compose |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟢 BATCH 1 complete; #641 #642 filed (image rebuild filtering + distroless) |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | In Progress — task-broker code merged; agent-registry pending |
@@ -42,7 +42,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — #527 agent-registry domain layer (P0, unblocked by #526 ✅)
+## IMMEDIATE — #527 agent-registry domain layer (P0, unblocked by #526 ✅) · #640 coverage gates PR (merge when CI green)
 
 ### BATCH 0 — ✅ All done
 ~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
@@ -103,7 +103,8 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 ## Known Blockers
 
-- **#551 (Dockerfile.ci-runner) → #552 (switch all jobs)** — highest CI priority. Image must bake in every tool (Go 1.26.3, golangci-lint, govulncheck, buf, Python+uv, ruff, mypy, bandit, pip-audit, gitleaks, zynax-ci, etc.) so no CI step downloads tooling at run time. Reference: `infra/docker/Dockerfile.tools`. Publish to `ghcr.io/zynax-io/zynax/ci-runner:latest` on every Dockerfile change.
+- **#552 ✅ done** — all jobs now run in ci-runner container mode.
+- **#640 PR open** — centralize coverage gates in `tools/coverage-gates.env`; fixes false ❌ for `cmd/zynax` at 79.9%. Merge when CI green.
 - **agent-registry (#480)** — BDD trim (#526) must merge before domain (#527) begins (ADR-016).
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
@@ -135,4 +136,17 @@ Priority gaps to file immediately:
 - **#442** — Fully Containerized Makefile: all 4 child issues merged (#443–#446).
 - **#529** — docs(agent-registry): REASONS Canvas for #480.
 - **#533** — docs(task-broker): REASONS Canvas for #479.
+- **#526** — BDD trim (agent-registry), **#532** — handler unit tests (task-broker), **#554** — force-full-pipeline trigger.
 - **SECURITY.md** — false mTLS/SBOM/cosign claims removed (2026-05-20, part of M5.A truth pass).
+
+## Next Session Queue (priority order)
+
+| Priority | Issue | Title | Note |
+|----------|-------|-------|------|
+| P0 | [#527](https://github.com/zynax-io/zynax/issues/527) | agent-registry domain layer | Read `docs/spdd/480-agent-registry/canvas.md` first |
+| P0 | [#640](https://github.com/zynax-io/zynax/issues/640) | Merge coverage gates PR | Wait for CI green |
+| P1 | [#528](https://github.com/zynax-io/zynax/issues/528) | agent-registry gRPC wiring | After #527 |
+| P1 | [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | After #528 |
+| P2 | [#642](https://github.com/zynax-io/zynax/issues/642) | Distroless + `-s -w` (S) | Independent — 5 Dockerfile edits |
+| P2 | [#641](https://github.com/zynax-io/zynax/issues/641) | Per-service image rebuild filtering (M) | After #642 |
+| P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | Parallel with #641 |
