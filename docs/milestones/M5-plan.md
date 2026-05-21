@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 37 — #481 compose wiring ✅; M5.C dispatch chain complete)
+**Last updated:** 2026-05-21 (rev 38 — #567 ✅ #568 ✅; .dockerignore agent-registry allowlist fixed)
 
 ---
 
@@ -196,8 +196,8 @@ These issues address the security gaps identified in the 2026-05-20 principal ar
 
 | Issue | Title | Size | Why |
 |-------|-------|------|-----|
-| [#567](https://github.com/zynax-io/zynax/issues/567) | Bearer token constant-time compare | XS | Timing-attack exposure in `auth.go` (G1 from review) |
-| [#568](https://github.com/zynax-io/zynax/issues/568) | ReadHeaderTimeout + MaxBytesReader on HTTP server | XS | Slow-read DoS vector (G2 from review) |
+| [#567](https://github.com/zynax-io/zynax/issues/567) | Bearer token constant-time compare | XS | ✅ Done — timing-attack exposure in `auth.go` (G1) |
+| [#568](https://github.com/zynax-io/zynax/issues/568) | ReadHeaderTimeout + MaxBytesReader on HTTP server | XS | ✅ Done — slow-read DoS vector (G2) |
 | [#622](https://github.com/zynax-io/zynax/issues/622) | Add `context.WithTimeout` to all outgoing gRPC calls | S | Cascading hang risk across all services (NEW-1 from review) |
 | [#623](https://github.com/zynax-io/zynax/issues/623) | Refuse to start without `ZYNAX_GW_API_KEY` in production | XS | Silent auth bypass on misconfiguration (NEW-4 from review) |
 
