@@ -32,6 +32,8 @@ linters:
     - contextcheck   # context.Context must be first arg
     - goconst        # repeated strings → constants
   settings:
+    goconst:
+      ignore-tests: true
     funlen:
       lines: 80
       statements: 40
