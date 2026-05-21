@@ -197,6 +197,9 @@ func TestWatcher_ApplyFile_ApplyFuncError(t *testing.T) {
 }
 
 func TestWatcher_SaveState_ReadonlyDir(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root bypasses file-permission checks; read-only dir test not meaningful")
+	}
 	dir := t.TempDir()
 	// Make the dir read-only so CreateTemp inside saveState fails.
 	if err := os.Chmod(dir, 0o555); err != nil { //nolint:gosec // 0o555 is intentional: read-only dir to test saveState failure
