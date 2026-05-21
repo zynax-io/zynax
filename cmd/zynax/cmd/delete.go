@@ -14,7 +14,7 @@ var deleteCmd = &cobra.Command{
 }
 
 var deleteWorkflowCmd = &cobra.Command{
-	Use:   "workflow <run-id>",
+	Use:   workflowRunIDUse,
 	Short: "Cancel a running workflow",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

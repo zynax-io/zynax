@@ -13,6 +13,8 @@ import (
 // Version is set at build time via -ldflags "-X ...cmd.Version=v0.3.0".
 var Version = "dev"
 
+const workflowRunIDUse = "workflow <run-id>"
+
 var rootCmd = &cobra.Command{
 	Use:          "zynax",
 	Short:        "Zynax CLI — apply, manage, and monitor Zynax workflows",

@@ -22,7 +22,7 @@ var statusCmd = &cobra.Command{
 }
 
 var statusWorkflowCmd = &cobra.Command{
-	Use:   "workflow <run-id>",
+	Use:   workflowRunIDUse,
 	Short: "Check workflow status (exits 0 if terminal, 2 if still running)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

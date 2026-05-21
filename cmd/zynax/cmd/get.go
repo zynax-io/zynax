@@ -14,7 +14,7 @@ var getCmd = &cobra.Command{
 }
 
 var getWorkflowCmd = &cobra.Command{
-	Use:   "workflow <run-id>",
+	Use:   workflowRunIDUse,
 	Short: "Get the current status of a workflow run",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
