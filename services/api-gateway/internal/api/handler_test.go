@@ -584,6 +584,23 @@ func TestHandler_Auth_DeleteWithKey_Returns401(t *testing.T) {
 	}
 }
 
+// ── Body size enforcement ─────────────────────────────────────────────────
+
+func TestHandler_Apply_OversizedBody_Returns413(t *testing.T) {
+	srv := newServer(&stubCompiler{}, &stubEngine{})
+	defer srv.Close()
+
+	body := make([]byte, 2<<20) // 2 MB — exceeds the 1 MB limit in readBody
+	resp, err := http.Post(srv.URL+"/api/v1/apply", "application/yaml", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Errorf("got %d, want 413", resp.StatusCode)
+	}
+}
+
 func TestHandler_Auth_GetNotProtected(t *testing.T) {
 	// GET endpoints must remain open even when ZYNAX_API_KEY is set.
 	srv := newServerWithAuth(
