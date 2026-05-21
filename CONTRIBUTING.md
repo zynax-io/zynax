@@ -185,6 +185,21 @@ See [`AGENTS.md §Hard Constraints`](AGENTS.md#hard-constraints) and the per-lay
 files `services/AGENTS.md`, `agents/AGENTS.md`, and `protos/AGENTS.md`.
 CI enforces all standards — PRs fail if any check is red.
 
+### Forcing a full CI run
+
+By default, CI skips unaffected lanes (e.g. a docs-only PR does not run Go tests).
+Three opt-in mechanisms force every lint, test, and security lane to run regardless
+of what changed:
+
+| Mechanism | How | When to use |
+|-----------|-----|-------------|
+| `workflow_dispatch` with `force: true` | `gh workflow run ci.yml -f force=true` | Release prep, ad-hoc full validation |
+| PR label `ci: force-full` | Add the label to your PR | Suspect cross-service regression |
+| Commit keyword `[full-ci]` | Include `[full-ci]` in the commit message or PR title | Single commit, targeted need |
+
+When a force signal is active, the run summary shows a warning annotation identifying
+the triggering mechanism.
+
 ---
 
 ## 5. Git Workflow & Commit Hygiene

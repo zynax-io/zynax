@@ -37,6 +37,12 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force full pipeline regardless of changed files'
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -129,10 +135,10 @@ jobs:
       options: --user root
     needs: [dco]
     outputs:
-      code:   ${{ steps.detect.outputs.code }}
-      proto:  ${{ steps.detect.outputs.proto }}
-      go:     ${{ steps.detect.outputs.go }}
-      python: ${{ steps.detect.outputs.python }}
+      code:   ${{ steps.detect.outputs.code   == 'true' || steps.force-detect.outputs.force == 'true' }}
+      proto:  ${{ steps.detect.outputs.proto  == 'true' || steps.force-detect.outputs.force == 'true' }}
+      go:     ${{ steps.detect.outputs.go     == 'true' || steps.force-detect.outputs.force == 'true' }}
+      python: ${{ steps.detect.outputs.python == 'true' || steps.force-detect.outputs.force == 'true' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -140,6 +146,27 @@ jobs:
 
       - name: Trust workspace (git safe.directory for root container)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Detect force-full signal
+        id: force-detect
+        run: |
+          force="false"
+          reason=""
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force }}" == "true" ]]; then
+            force="true"; reason="workflow_dispatch(force=true)"
+          fi
+          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci: force-full') }}" == "true" ]]; then
+            force="true"; reason="label(ci: force-full)"
+          fi
+          if [[ "${{ contains(github.event.head_commit.message, '[full-ci]') }}" == "true" ]] || \
+             [[ "${{ contains(github.event.pull_request.title, '[full-ci]') }}" == "true" ]]; then
+            force="true"; reason="commit-keyword([full-ci])"
+          fi
+          echo "force=$force" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          if [[ "$force" == "true" ]]; then
+            echo "::warning::Full pipeline forced via $reason — all change-detection outputs set to true"
+          fi
 
       - name: Detect changed path groups
         id: detect
