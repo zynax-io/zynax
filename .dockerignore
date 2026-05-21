@@ -63,6 +63,7 @@ infra/k8s/
 !services/engine-adapter/
 !services/workflow-compiler/
 !services/task-broker/
+!services/agent-registry/
 
 # ── Adapter build allowlist (negations for agents/adapters/*/Dockerfile) ──────
 # Adapter Dockerfiles are built from repo root and need their module source
