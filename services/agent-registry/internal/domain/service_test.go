@@ -238,7 +238,7 @@ func TestGetByID_HappyPath(t *testing.T) {
 func TestGetByID_DeregisteredAgentIsRetrievable(t *testing.T) {
 	svc := domain.NewAgentRegistryService(newFakeRepo())
 	seed(t, svc, validAgent("audit-01"))
-	svc.Deregister(context.Background(), "audit-01") //nolint:errcheck
+	svc.Deregister(context.Background(), "audit-01") //nolint:errcheck,gosec
 
 	a, err := svc.GetByID(context.Background(), "audit-01")
 	if err != nil {
@@ -276,7 +276,7 @@ func TestFindByCapability_ReturnsOnlyRegistered(t *testing.T) {
 	seed(t, svc, validAgent("cap-01", "summarize"))
 	seed(t, svc, validAgent("cap-02", "summarize"))
 	a3 := seed(t, svc, validAgent("cap-03", "summarize"))
-	svc.Deregister(context.Background(), a3.ID) //nolint:errcheck
+	svc.Deregister(context.Background(), a3.ID) //nolint:errcheck,gosec
 
 	agents, err := svc.FindByCapability(context.Background(), "summarize")
 	if err != nil {
@@ -326,7 +326,7 @@ func TestList_ExcludesDeregisteredByDefault(t *testing.T) {
 	svc := domain.NewAgentRegistryService(newFakeRepo())
 	seed(t, svc, validAgent("l-active"))
 	a := seed(t, svc, validAgent("l-dereg"))
-	svc.Deregister(context.Background(), a.ID) //nolint:errcheck
+	svc.Deregister(context.Background(), a.ID) //nolint:errcheck,gosec
 
 	res, err := svc.List(context.Background(), domain.ListFilter{})
 	if err != nil {
@@ -341,7 +341,7 @@ func TestList_IncludeDeregistered(t *testing.T) {
 	svc := domain.NewAgentRegistryService(newFakeRepo())
 	seed(t, svc, validAgent("ld-active"))
 	a := seed(t, svc, validAgent("ld-dereg"))
-	svc.Deregister(context.Background(), a.ID) //nolint:errcheck
+	svc.Deregister(context.Background(), a.ID) //nolint:errcheck,gosec
 
 	res, err := svc.List(context.Background(), domain.ListFilter{IncludeDeregistered: true})
 	if err != nil {
