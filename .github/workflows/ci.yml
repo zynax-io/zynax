@@ -299,7 +299,7 @@ jobs:
           fi
 
       - name: Generate stubs and check for drift
-        if: steps.gen-detect.outputs.has_gen == '1'
+        if: steps.gen-detect.outputs.has_gen == '1' && steps.proto-detect.outputs.has_protos == '1'
         working-directory: protos
         run: |
           # First pass: detect committed stubs drift
