@@ -161,8 +161,8 @@ jobs:
           - { service: engine-adapter,    dockerfile: services/engine-adapter/Dockerfile }
           - { service: workflow-compiler, dockerfile: services/workflow-compiler/Dockerfile }
           - { service: task-broker,       dockerfile: services/task-broker/Dockerfile }
+          - { service: agent-registry,    dockerfile: services/agent-registry/Dockerfile }
           - { service: http-adapter,      dockerfile: agents/adapters/http/Dockerfile }
-          # add agent-registry here after #528 Dockerfile is merged
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 

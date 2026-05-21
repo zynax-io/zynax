@@ -276,17 +276,17 @@ Layer 1 YAML is never imported by Go services. Cross-service reads always go thr
 
 **Prerequisites:** Docker Desktop + the `zynax` CLI (see [Install](#install-the-zynax-cli) above).
 
-> **M5 status note:** The current `make run-local` stack runs api-gateway, workflow-compiler,
-> engine-adapter, Temporal, and NATS. Workflows will submit and produce state-transition logs.
-> **Capability dispatch (actions that call external adapters) is not yet wired** — task-broker
-> is not in the compose stack and agent-registry is not yet implemented (#460 / #481).
-> Full E2E dispatch will work once M5.C is complete.
+> **M5 status note:** `make run-local` starts all five platform services: api-gateway,
+> workflow-compiler, engine-adapter, task-broker, and agent-registry, plus Temporal and NATS.
+> Workflows submit, dispatch capabilities to registered agents, and produce state-transition logs.
+> To exercise end-to-end capability dispatch, register an adapter (e.g. http-adapter) with the
+> agent-registry before running `zynax apply`.
 
 ```bash
 git clone https://github.com/zynax-io/zynax.git
 cd zynax
 
-# Start the local stack (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)
+# Start the full local stack (all 5 platform services + Temporal + NATS)
 make run-local
 
 # Apply an example workflow manifest
@@ -356,7 +356,7 @@ make test        # full suite (unit + BDD + coverage gate)
 | **M2 — Workflow IR** | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
 | **M3 — Temporal Execution** | ⚠ **Partial** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) · no task-broker — blocked by M5.C [#460](https://github.com/zynax-io/zynax/issues/460) |
 | **M4 — YAML System + CLI** | ⚠ **Partial** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) · no agent-registry — blocked by M5.C [#460](https://github.com/zynax-io/zynax/issues/460) |
-| **M5 — Adapter Library** | 🔄 **In Progress** | v0.4.0 | [Epic #377](https://github.com/zynax-io/zynax/issues/377) · [Plan](docs/milestones/M5-plan.md) · M5.D ✅ · M5.E ✅ · task-broker ✅ · agent-registry pending |
+| **M5 — Adapter Library** | 🔄 **In Progress** | v0.4.0 | [Epic #377](https://github.com/zynax-io/zynax/issues/377) · [Plan](docs/milestones/M5-plan.md) · M5.C compose wiring ✅ · M5.D ✅ · M5.E ✅ · adapters pending |
 
 **M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
 AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract

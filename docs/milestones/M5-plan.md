@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 36 — #528 agent-registry gRPC wiring ✅)
+**Last updated:** 2026-05-21 (rev 37 — #481 compose wiring ✅; M5.C dispatch chain complete)
 
 ---
 
@@ -143,7 +143,7 @@ These must be done strictly in order. Each step is blocked by the previous.
 | [#526](https://github.com/zynax-io/zynax/issues/526) | Trim agent-registry BDD to proto scope | XS | None (ready) | ✅ Done |
 | [#527](https://github.com/zynax-io/zynax/issues/527) | agent-registry domain layer | M | After #526 ✅ | ✅ Done |
 | [#528](https://github.com/zynax-io/zynax/issues/528) | agent-registry gRPC wiring + cmd + go.work | M | After #527 | ✅ Done |
-| [#481](https://github.com/zynax-io/zynax/issues/481) | Add task-broker + agent-registry to docker-compose | S | After #528 | DevOps / Docker |
+| [#481](https://github.com/zynax-io/zynax/issues/481) | Add task-broker + agent-registry to docker-compose | S | After #528 | ✅ Done |
 
 **E2E exit criterion:** `make run-local && zynax apply spec/workflows/examples/code-review.yaml`
 must produce observable state transitions and at least one capability dispatch with a real

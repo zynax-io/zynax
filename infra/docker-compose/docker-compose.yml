@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Zynax — local development stack
 #
-# Starts the three implemented platform services plus their dependencies.
+# Starts all five platform services plus their dependencies.
 # Usage:
 #   make run-local       # build images + start all services
 #   make stop-local      # stop and remove containers
@@ -13,8 +13,11 @@
 #   7088  → Temporal Web UI        http://localhost:7088
 #   7422  → NATS client            (optional direct access)
 #
-# Not included yet (pending M5.C compose wiring #481):
-#   agent-registry, task-broker, memory-service, event-bus
+# Internal-only (no host port — Docker network only):
+#   agent-registry :50052, task-broker :50053
+#
+# Not included (M6+):
+#   memory-service, event-bus
 
 services:
 
@@ -86,6 +89,40 @@ services:
 
   # ── Platform services ───────────────────────────────────────────────────
 
+  agent-registry:
+    image: ghcr.io/zynax-io/zynax/agent-registry:main
+    build:
+      context: ../..
+      dockerfile: services/agent-registry/Dockerfile
+    environment:
+      ZYNAX_REGISTRY_GRPC_PORT: "50052"
+      ZYNAX_REGISTRY_LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 50052 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  task-broker:
+    image: ghcr.io/zynax-io/zynax/task-broker:main
+    build:
+      context: ../..
+      dockerfile: services/task-broker/Dockerfile
+    environment:
+      ZYNAX_BROKER_GRPC_PORT: "50053"
+      ZYNAX_BROKER_REGISTRY_ADDR: "agent-registry:50052"
+      ZYNAX_BROKER_LOG_LEVEL: info
+    depends_on:
+      agent-registry:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 50053 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
   workflow-compiler:
     image: ghcr.io/zynax-io/zynax/workflow-compiler:main
     build:
@@ -114,9 +151,12 @@ services:
       ZYNAX_ENGINE_ADAPTER_TEMPORAL_HOST_PORT: temporal:7233
       ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE: default
       ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE: engine-adapter
+      ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR: "task-broker:50053"
       ZYNAX_ENGINE_ACTIVE_ENGINE: temporal
     depends_on:
       temporal:
+        condition: service_healthy
+      task-broker:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9095/healthz || exit 1"]
@@ -142,6 +182,8 @@ services:
       workflow-compiler:
         condition: service_healthy
       engine-adapter:
+        condition: service_healthy
+      agent-registry:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1"]
