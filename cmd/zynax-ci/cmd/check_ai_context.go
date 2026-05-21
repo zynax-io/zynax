@@ -22,7 +22,7 @@ Thresholds:
   AGENTS.md (root)          300 lines
   docs/ai-assistant-setup.md 150 lines
   per-directory AGENTS.md   150 lines
-  TOTAL                    2000 lines
+  TOTAL                    2200 lines
 
 Exceeding a threshold emits a WARN but never causes a non-zero exit code.
 This check is advisory only.`,
