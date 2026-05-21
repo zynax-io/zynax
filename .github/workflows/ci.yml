@@ -499,6 +499,8 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
 
       - name: Trust workspace (git safe.directory for root container)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -678,7 +680,7 @@ jobs:
           fi
 
           # Deduplicate
-          pkgs=$(echo "$pkgs" | tr ' ' '\n' | sort -u | grep -v '^$' | tr '\n' ' ')
+          pkgs=$(echo "$pkgs" | tr ' ' '\n' | sort -u | grep -v '^$' | tr '\n' ' ') || true
 
           # Run
           cd protos/tests
