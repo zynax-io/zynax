@@ -118,16 +118,18 @@ Priority gaps to file immediately:
 
 | Gap | Severity |
 |-----|----------|
-| G1: constant-time bearer compare in api-gateway | High |
-| G4: no RetryPolicy on Temporal Activities | Medium |
-| G16: background-context goroutines in task-broker | Medium |
-| G19: competitive positioning doc (Kagent/Dapr) | High |
-| G17: stub services in SERVICE_LIST | Low |
+| ~~G1: constant-time bearer compare~~ | ✅ fixed #567 |
+| ~~G2: ReadHeaderTimeout + MaxBytesReader~~ | ✅ fixed #568 |
+| G4: no RetryPolicy on Temporal Activities (#569) | Medium |
+| G16: background-context goroutines in task-broker (#570) | Medium |
+| G19: competitive positioning doc (Kagent/Dapr) (#575) | High |
+| G17: stub services in SERVICE_LIST (#574) | Low |
 
 ---
 
 ## Recently Closed
 
+- **#567** — Bearer constant-time compare (G1 fix) ✅. **#568** — ReadHeaderTimeout + MaxBytesReader (G2 fix) ✅.
 - **#461 M5.D** — Control Plane Security Baseline: all 5 child issues merged (#482–#486).
 - **#462 M5.E** — Developer Experience Polish: all child issues merged (#485–#486).
 - **#442** — Fully Containerized Makefile: all 4 child issues merged (#443–#446).
@@ -140,8 +142,8 @@ Priority gaps to file immediately:
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P1 | [#567](https://github.com/zynax-io/zynax/issues/567) | Bearer constant-time compare (G1) | XS, fix, api-gateway |
-| P1 | [#568](https://github.com/zynax-io/zynax/issues/568) | ReadHeaderTimeout + MaxBytesReader (G2) | XS, fix, api-gateway |
+| P1 | [#623](https://github.com/zynax-io/zynax/issues/623) | Refuse to start without ZYNAX_API_KEY (NEW-4) | XS, fix, api-gateway |
+| P1 | [#622](https://github.com/zynax-io/zynax/issues/622) | context.WithTimeout on all gRPC calls (NEW-1) | S, fix, 4 services |
 | P2 | [#642](https://github.com/zynax-io/zynax/issues/642) | Distroless + `-s -w` (S) | Independent — 5 Dockerfile edits |
 | P2 | [#641](https://github.com/zynax-io/zynax/issues/641) | Per-service image rebuild filtering (M) | After #642 |
 | P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | Independent |
