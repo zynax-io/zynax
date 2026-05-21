@@ -1,47 +1,34 @@
 # SPDX-License-Identifier: Apache-2.0
-# Task Broker BDD Feature — written before implementation
-# Step definitions: tests/unit/task_broker_test.go (godog)
+# Task Broker service-level BDD — exercises real TaskService + memoryRepo via bufconn.
+# Proto-contract shape is tested separately in protos/tests/task_broker_service/.
 
-Feature: Task Scheduling and Assignment
+Feature: Task Broker service-level behaviour
 
   Background:
-    Given the task broker is running
+    Given the task broker service is running
 
-  Scenario: Submit task returns task_id immediately
-    When a task with capability "summarize" and priority NORMAL is submitted
-    Then the response contains a valid task_id
-    And the task state is PENDING
+  Scenario: Dispatch task creates task in PENDING state
+    Given agent "agent-a" handles capability "summarize"
+    And the repo holds updates until released
+    When I dispatch a task with capability "summarize" for workflow "wf-bdd-01"
+    Then the response contains a non-empty task_id
+    And GetTask returns status PENDING
 
-  Scenario: Task assigned to eligible agent
-    Given agent "a1" is ACTIVE with capability "summarize"
-    And a PENDING task with capability "summarize" exists
-    When the broker runs an assignment cycle
-    Then the task state becomes ASSIGNED
-    And the assigned_agent_id is "a1"
+  Scenario: Acknowledge COMPLETED transitions task to COMPLETED
+    Given a task "task-ack-01" in DISPATCHED state for workflow "wf-bdd-02"
+    When AcknowledgeTask is called with status COMPLETED and a valid result for task "task-ack-01"
+    Then GetTask for "task-ack-01" returns status COMPLETED
 
-  Scenario: Task stays PENDING when no eligible agent
-    Given no ACTIVE agents with capability "rare-skill" exist
-    When a task with capability "rare-skill" is submitted
-    Then after the assignment cycle the task state is still PENDING
-    And no error is returned
+  Scenario: Acknowledge FAILED with retries remaining transitions task to RETRYING
+    Given a task "task-retry-01" in DISPATCHED state for workflow "wf-bdd-03" with max_retries 2
+    When AcknowledgeTask is called with status FAILED for task "task-retry-01"
+    Then GetTask for "task-retry-01" returns status RETRYING
 
-  Scenario: Failed task is retried
-    Given a task with max_retries=3 is FAILED with attempt_count=1
-    When the retry cycle runs
-    Then the task state becomes PENDING again
+  Scenario: Cancel a PENDING task transitions it to CANCELLED
+    Given a task "task-cancel-01" in PENDING state for workflow "wf-bdd-04"
+    When CancelTask is called for task "task-cancel-01"
+    Then GetTask for "task-cancel-01" returns status CANCELLED
 
-  Scenario: Task permanently FAILED after exhausting retries
-    Given a task with max_retries=3 is FAILED with attempt_count=3
-    When the task is marked FAILED again
-    Then the task state is FAILED permanently
-    And no further retry is scheduled
-
-  Scenario: WatchTask delivers state transitions in order
-    Given a client watches task "t-123"
-    When the task transitions PENDING→ASSIGNED→RUNNING→SUCCEEDED
-    Then the stream delivers those 4 events in order
-
-  Scenario: High priority task assigned before low priority
-    Given LOW priority task T1 and HIGH priority task T2 are both PENDING with capability "write"
-    When one assignment cycle runs
-    Then T2 is assigned and T1 remains PENDING
+  Scenario: GetTask for an unknown task_id returns NOT_FOUND
+    When GetTask is called for task_id "no-such-task-bdd"
+    Then the error code is NOT_FOUND
