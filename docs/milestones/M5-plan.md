@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 40 — #642 ✅ #641 ✅ distroless + per-service image filter)
+**Last updated:** 2026-05-22 (rev 41 — distroless regression documented; #655 #656 filed; compose override added)
 
 ---
 
@@ -188,6 +188,162 @@ of tooling at run time. The image is rebuilt and published to
 - Both can be done in the same session; #642 (#S) before #641 (#M) since it has no dependency.
 
 **Engineer profile:** DevOps / GitHub Actions specialist with Docker/Alpine experience.
+
+### BATCH 5 — Addendum: Distroless healthcheck regression (P0 · fix before anything else)
+
+> **⚠️ Regression introduced by #642 / PR #653 (merged 2026-05-21)**
+>
+> `docker-compose.yml` healthchecks use `wget` and `nc` which are not present in
+> `gcr.io/distroless/static:nonroot`. Both `make run-local` and `docker compose up --no-build`
+> are broken — api-gateway never starts because the cascade of `service_healthy` dependencies
+> fails. A temporary override (`infra/docker-compose/docker-compose.override.yml`) exists as a
+> workaround until #655 is merged.
+
+| Issue | Title | Size | Dependency |
+|-------|-------|------|------------|
+| [#655](https://github.com/zynax-io/zynax/issues/655) | Add static healthcheck binary to distroless Dockerfiles + fix compose | M | **P0 — do first** |
+| [#656](https://github.com/zynax-io/zynax/issues/656) | Implement gRPC Health Checking Protocol in all platform services | L | After #655 · M6 prep |
+
+**Temporary workaround** (until #655 merges):
+```bash
+docker compose \
+  -f infra/docker-compose/docker-compose.yml \
+  -f infra/docker-compose/docker-compose.override.yml \
+  up -d --no-build
+```
+
+---
+
+#### Architecture decision: how to add health probes to distroless images
+
+Docker `HEALTHCHECK` instructions execute **inside the container**. `distroless/static` has no
+shell (`sh`/`bash`), no POSIX utilities (`wget`, `nc`, `curl`). This section documents the
+options evaluated, their trade-offs, and the chosen approach.
+
+##### Option A — Custom static Go health-probe binary ✅ CHOSEN FOR #655
+
+Build a minimal Go binary (`tools/healthcheck/`) in the existing builder stage. No new
+Go dependencies — uses `net/http` and `net` from the stdlib. Binary is ~3–4 MB compressed.
+Handles two URL schemes:
+
+```
+/healthcheck http://localhost:8080/healthz   → HTTP GET; exits 0 if 2xx
+/healthcheck tcp://localhost:50052           → TCP dial; exits 0 if port accepts
+```
+
+**Pros:**
+- Zero external dependencies — same Go toolchain, same builder stage, no new pinned SHAs
+- ~3 MB binary (vs ~13 MB for grpc-health-probe)
+- Works for all 5 service types (HTTP `/healthz` + bare TCP gRPC) without application code changes
+- 100% auditable — < 80 lines of stdlib Go
+- Handles both `docker-compose` and future `kubectl exec` debugging
+
+**Cons:**
+- Not the CNCF-standard approach (grpc-health-probe is more widely recognised in the ecosystem)
+- We own the ~80-line binary (very low maintenance burden)
+- TCP probe verifies port is open, not that gRPC service is _serving_ — acceptable for M5,
+  superseded by Option D in M6 when services implement gRPC Health Checking Protocol
+
+**Trade-off verdict:** Correct for M5. Fastest path to unblocking `make run-local` without
+requiring application code changes or external binaries in the build.
+
+##### Option B — grpc-health-probe (CNCF standard, v0.4.50 as of May 2026)
+
+Download the pre-built static binary (~13 MB) from `ghcr.io/grpc-ecosystem/grpc-health-probe`.
+Requires services to implement `grpc.health.v1.Health/Check`.
+
+**Pros:** Battle-tested, multi-arch, maintained by grpc-ecosystem (CNCF), supports TLS/mTLS.
+Standard tooling for CNCF-style projects.
+
+**Cons:**
+- +13 MB per image (vs +3 MB for custom binary)
+- Requires `grpc_health_v1.RegisterHealthServer` in all 5 services — **not implemented today**
+- External binary to download in `docker build` — fragile (network dependency, SHA rotation)
+- Still needs a separate HTTP probe for api-gateway, workflow-compiler, engine-adapter `/healthz`
+- Blocks on #656 (application code changes) before it can be used
+
+**Trade-off verdict:** Right for M6+ once #656 lands. Not suitable for the immediate regression
+fix because it requires application-level changes across all services.
+
+##### Option C — Revert services to Alpine for local dev
+
+Use `ARG BASE=gcr.io/distroless/static:nonroot` with `--build-arg BASE=alpine:3.21` locally.
+
+**Pros:** No Dockerfile complexity; wget and nc are available in Alpine.
+
+**Cons:**
+- Production (GHCR) and local dev run **different runtimes** — bugs reproducible in only one
+  environment; defeats the purpose of distroless. Local-prod parity is non-negotiable.
+
+**Trade-off verdict:** Rejected.
+
+##### Option D — Kubernetes-native gRPC probes (K8s 1.24+) · Deferred to #656
+
+Implement `grpc.health.v1` in each service; Kubernetes uses `livenessProbe.grpc` natively.
+No binary in the image, no exec probe. Correct long-term production approach.
+
+**Cons:** Does nothing for `docker-compose` (K8s probes don't run inside containers).
+Tracked by #656, deferred to M6+.
+
+##### Option E — Disable healthchecks + restart: on-failure (current workaround)
+
+No code changes; compose retries crashed containers.
+
+**Cons:** No health signal; startup ordering is non-deterministic; poor developer experience.
+Workaround only — `docker-compose.override.yml` is committed for this purpose.
+
+---
+
+#### Implementation plan for #655
+
+```
+tools/healthcheck/
+├── go.mod    (module github.com/zynax-io/zynax/tools/healthcheck; go 1.26; no deps)
+└── main.go   (~70 lines; CGO_ENABLED=0; HTTP GET + TCP dial; 5s timeout)
+```
+
+**Each Dockerfile change (6 files):**
+
+In builder stage, after the service binary is built:
+```dockerfile
+COPY tools/healthcheck/ ./tools/healthcheck/
+RUN cd tools/healthcheck && CGO_ENABLED=0 GOWORK=off \
+    go build -trimpath -ldflags "-s -w" -o /healthcheck .
+```
+
+In runtime stage, before ENTRYPOINT:
+```dockerfile
+COPY --from=builder /healthcheck /healthcheck
+```
+
+**docker-compose.yml healthcheck replacement (per service):**
+
+| Service | Before | After |
+|---------|--------|-------|
+| agent-registry | `nc -z localhost 50052` | `CMD ["/healthcheck", "tcp://localhost:50052"]` |
+| task-broker | `nc -z localhost 50053` | `CMD ["/healthcheck", "tcp://localhost:50053"]` |
+| workflow-compiler | `wget .../healthz (9094)` | `CMD ["/healthcheck", "http://localhost:9094/healthz"]` |
+| engine-adapter | `wget .../healthz (9095)` | `CMD ["/healthcheck", "http://localhost:9095/healthz"]` |
+| api-gateway | `wget .../healthz (8080)` | `CMD ["/healthcheck", "http://localhost:8080/healthz"]` |
+
+All use exec form (`CMD`, not `CMD-SHELL`) — no shell required.
+
+---
+
+#### Future path: #656 (M6)
+
+Once #656 lands (gRPC Health Checking Protocol in all services), the gRPC service
+healthchecks (agent-registry, task-broker) can optionally switch to `grpc-health-probe`
+for richer semantic checking. The custom HTTP binary is retained for HTTP services.
+In M6, Kubernetes Helm chart probes will use `livenessProbe.grpc` natively — no binary needed.
+
+**Engineer profile for #655:** Go engineer. Read `agents/adapters/http/` as a reference
+Go module and `services/api-gateway/Dockerfile` for the builder pattern.
+
+**Engineer profile for #656:** Go engineer familiar with gRPC interceptors. Read
+`google.golang.org/grpc/health/grpc_health_v1` — the implementation is ~5 lines per service.
+
+---
 
 ### BATCH 6 — Security Hardening (P1 · independent, can be done in any order)
 

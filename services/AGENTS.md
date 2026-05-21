@@ -117,3 +117,5 @@ Never connect to a shared or external service from within a build-tagged test.
 | Returning raw `error` from a gRPC handler | `return nil, status.Errorf(codes.InvalidArgument, "…")` |
 | Makefile target that calls `go` or `python` directly on host | Wrap in `$(TOOLS_RUN) sh -c "…"` |
 | Using `distroless/static:nonroot` for a service with `CGO_ENABLED=1` | Only `CGO_ENABLED=0` (fully static) binaries are compatible; use `distroless/cc` or Alpine if CGO is required |
+| Adding `wget`/`nc`/`curl` healthchecks to distroless Dockerfile or compose | Distroless has no shell tools — use `CMD ["/healthcheck", "url"]` with the static probe binary from `tools/healthcheck/` (built in the builder stage, COPY'd to runtime); see #655 |
+| Implementing gRPC server without `grpc_health_v1.RegisterHealthServer` | Register the gRPC Health Checking Protocol on every gRPC server for Kubernetes-native probes and grpc-health-probe compatibility; see #656 |
