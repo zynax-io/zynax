@@ -10,10 +10,14 @@ RUN cd agents/adapters/http && GOWORK=off go mod download
 
 COPY protos/generated/go/ ./protos/generated/go/
 COPY agents/adapters/http/ ./agents/adapters/http/
+COPY tools/healthcheck/ ./tools/healthcheck/
 RUN cd agents/adapters/http && CGO_ENABLED=0 GOWORK=off \
     go build -trimpath -ldflags "-s -w" -o /http-adapter ./cmd/http-adapter/
+RUN cd tools/healthcheck && CGO_ENABLED=0 GOWORK=off \
+    go build -trimpath -ldflags "-s -w" -o /healthcheck .
 
 # renovate: datasource=docker depName=gcr.io/distroless/static
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /http-adapter /http-adapter
+COPY --from=builder /healthcheck /healthcheck
 ENTRYPOINT ["/http-adapter"]

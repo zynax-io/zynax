@@ -98,11 +98,11 @@ services:
       ZYNAX_REGISTRY_GRPC_PORT: "50052"
       ZYNAX_REGISTRY_LOG_LEVEL: info
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50052 || exit 1"]
+      test: ["CMD", "/healthcheck", "tcp://localhost:50052"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 5s
+      start_period: 15s
 
   task-broker:
     image: ghcr.io/zynax-io/zynax/task-broker:main
@@ -117,11 +117,11 @@ services:
       agent-registry:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50053 || exit 1"]
+      test: ["CMD", "/healthcheck", "tcp://localhost:50053"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 5s
+      start_period: 15s
 
   workflow-compiler:
     image: ghcr.io/zynax-io/zynax/workflow-compiler:main
@@ -133,11 +133,11 @@ services:
       ZYNAX_WC_METRICS_PORT: "9094"
       ZYNAX_WC_LOG_LEVEL: info
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9094/healthz || exit 1"]
+      test: ["CMD", "/healthcheck", "http://localhost:9094/healthz"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 10s
+      start_period: 15s
 
   engine-adapter:
     image: ghcr.io/zynax-io/zynax/engine-adapter:main
@@ -159,7 +159,7 @@ services:
       task-broker:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9095/healthz || exit 1"]
+      test: ["CMD", "/healthcheck", "http://localhost:9095/healthz"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -186,7 +186,7 @@ services:
       agent-registry:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1"]
+      test: ["CMD", "/healthcheck", "http://localhost:8080/healthz"]
       interval: 10s
       timeout: 5s
       retries: 10

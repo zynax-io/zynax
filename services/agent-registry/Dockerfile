@@ -7,10 +7,14 @@ COPY services/agent-registry/go.mod services/agent-registry/go.sum ./services/ag
 RUN cd services/agent-registry && GOWORK=off go mod download
 COPY protos/generated/go/ ./protos/generated/go/
 COPY services/agent-registry/ ./services/agent-registry/
+COPY tools/healthcheck/ ./tools/healthcheck/
 RUN cd services/agent-registry && CGO_ENABLED=0 GOWORK=off \
     go build -trimpath -ldflags "-s -w" -o /agent-registry ./cmd/agent-registry/
+RUN cd tools/healthcheck && CGO_ENABLED=0 GOWORK=off \
+    go build -trimpath -ldflags "-s -w" -o /healthcheck .
 
 # renovate: datasource=docker depName=gcr.io/distroless/static
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /agent-registry /agent-registry
+COPY --from=builder /healthcheck /healthcheck
 ENTRYPOINT ["/agent-registry"]
