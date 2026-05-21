@@ -29,6 +29,19 @@ type config struct {
 	RegistryAddr string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
 	LogLevel     string `envconfig:"LOG_LEVEL" default:"info"`
 	APIKey       string `envconfig:"API_KEY"`
+	DevInsecure  bool   `envconfig:"DEV_INSECURE"`
+}
+
+// validateConfig rejects an empty API key unless ZYNAX_GW_DEV_INSECURE=1 is set.
+// Keeps production deployments from silently accepting all requests on misconfiguration.
+func validateConfig(cfg config) error {
+	if cfg.APIKey == "" && !cfg.DevInsecure {
+		return fmt.Errorf(
+			"ZYNAX_GW_API_KEY is not set; refusing to start " +
+				"(set ZYNAX_GW_DEV_INSECURE=1 to allow an empty key in development)",
+		)
+	}
+	return nil
 }
 
 func main() {
@@ -40,6 +53,13 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: parseLogLevel(cfg.LogLevel),
 	})))
+	if err := validateConfig(cfg); err != nil {
+		slog.Error("startup validation failed", "err", err)
+		os.Exit(1)
+	}
+	if cfg.APIKey == "" {
+		slog.Warn("ZYNAX_GW_API_KEY not set — auth disabled (dev-insecure mode)")
+	}
 	if err := run(cfg); err != nil {
 		slog.Error("fatal error", "err", err)
 		os.Exit(1)
@@ -53,10 +73,6 @@ func run(cfg config) error {
 		return fmt.Errorf("gateway clients: %w", err)
 	}
 	defer cleanup()
-
-	if cfg.APIKey == "" {
-		slog.Warn("api_key not set — auth disabled")
-	}
 
 	svc := domain.NewApplyService(clients, clients, clients)
 	handler := api.NewHandler(svc, cfg.APIKey)

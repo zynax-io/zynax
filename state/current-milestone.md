@@ -149,7 +149,7 @@ Priority gaps to file immediately:
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
 | ~~**P0**~~ | ~~[#655](https://github.com/zynax-io/zynax/issues/655)~~ | ~~Add healthcheck binary to distroless images + fix compose~~ | ✅ Done |
-| P1 | [#623](https://github.com/zynax-io/zynax/issues/623) | Refuse to start without ZYNAX_API_KEY (NEW-4) | XS, fix, api-gateway |
+| ~~P1~~ | ~~[#623](https://github.com/zynax-io/zynax/issues/623)~~ | ~~Refuse to start without ZYNAX_API_KEY (NEW-4)~~ | ✅ Done |
 | P1 | [#622](https://github.com/zynax-io/zynax/issues/622) | context.WithTimeout on all gRPC calls (NEW-1) | S, fix, 4 services |
 | P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | Independent |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred — enables K8s native probes |
