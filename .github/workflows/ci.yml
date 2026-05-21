@@ -245,6 +245,7 @@ jobs:
           echo "$files"
           gitleaks detect --no-git --source . \
             --config tools/gitleaks-ai-context.toml \
+            --baseline-path tools/gitleaks-baseline.json \
             --report-format json \
             --report-path /tmp/gitleaks-report.json 2>/dev/null || {
             echo "❌ Sensitive content detected in AI context files:"
@@ -259,11 +260,20 @@ jobs:
       - name: Detect proto workspace
         id: proto-detect
         run: |
-          if [ -f protos/buf.yaml ]; then
+          if [ ! -f protos/buf.yaml ]; then
+            echo "has_protos=0" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  protos/buf.yaml not found — buf lint skipped."
+            exit 0
+          fi
+          # Only run buf checks when proto/gen files actually changed in this PR
+          changed=$(git diff --name-only origin/main...HEAD -- \
+            'protos/' 2>/dev/null \
+            | grep -cE '\.proto$|buf\.(yaml|gen\.yaml)$' || echo 0)
+          if [ "$changed" -gt 0 ]; then
             echo "has_protos=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_protos=0" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  protos/buf.yaml not found — buf lint skipped until proto branch merges."
+            echo "ℹ️  No proto files changed — buf lint/format/stubs checks skipped."
           fi
 
       - name: buf lint (proto syntax and style)
@@ -288,7 +298,7 @@ jobs:
           fi
 
       - name: Generate stubs and check for drift
-        if: steps.gen-detect.outputs.has_gen == '1'
+        if: steps.gen-detect.outputs.has_gen == '1' && steps.proto-detect.outputs.has_protos == '1'
         working-directory: protos
         run: |
           # First pass: detect committed stubs drift
@@ -316,11 +326,19 @@ jobs:
       - name: Detect spec files
         id: spec-detect
         run: |
-          if [ -f spec/asyncapi/zynax-events.yaml ]; then
+          if [ ! -f spec/asyncapi/zynax-events.yaml ]; then
+            echo "has_spec=0" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  spec/asyncapi/zynax-events.yaml not found — spec validation skipped."
+            exit 0
+          fi
+          # Only validate spec when spec files actually changed in this PR
+          changed=$(git diff --name-only origin/main...HEAD -- \
+            'spec/' 2>/dev/null | grep -c . || echo 0)
+          if [ "$changed" -gt 0 ]; then
             echo "has_spec=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_spec=0" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  spec/asyncapi/zynax-events.yaml not found — spec validation skipped."
+            echo "ℹ️  No spec files changed — spec validation skipped."
           fi
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6

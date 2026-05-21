@@ -23,8 +23,8 @@ layer with CompileWorkflow / ValidateManifest / GetCompiledWorkflow (#87), BDD c
 steps (#154), coverage gate ≥90% + make test pipeline (#155, #142).
 
 M3 delivered: `WorkflowEngine` interface + `TemporalEngine`, `IRInterpreterWorkflow` state machine,
-`DispatchCapabilityActivity`, CEL guards, CloudEvents, all 5 `EngineAdapterService` gRPC methods.
-Step issues #301–#305. [Epic #214](https://github.com/zynax-io/zynax/issues/214).
+`DispatchCapabilityActivity`, cel-go guards, all 5 `EngineAdapterService` gRPC methods.
+CloudEvents is a log stub (NATS not wired). Step issues #301–#305. [Epic #214](https://github.com/zynax-io/zynax/issues/214).
 
 M4 delivered: api-gateway REST (`/api/v1/apply`, `/api/v1/workflows/{id}`), `zynax` CLI
 (apply/get/delete/status/logs), Docker Compose local runner, GitOps watch.
