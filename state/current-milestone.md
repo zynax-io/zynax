@@ -42,7 +42,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — #527 agent-registry domain layer (P0, unblocked by #526 ✅) · #640 coverage gates PR (merge when CI green)
+## IMMEDIATE — #528 agent-registry gRPC wiring (P0, unblocked by #527 ✅)
 
 ### BATCH 0 — ✅ All done
 ~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
@@ -82,8 +82,8 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 | Issue | Step | Status |
 |-------|------|--------|
 | [#526](https://github.com/zynax-io/zynax/issues/526) | Trim BDD to proto scope | ✅ Done |
-| [#527](https://github.com/zynax-io/zynax/issues/527) | Domain layer | **ready** (unblocked by #526 ✅) |
-| [#528](https://github.com/zynax-io/zynax/issues/528) | gRPC wiring + go.work | blocked on #527 |
+| [#527](https://github.com/zynax-io/zynax/issues/527) | Domain layer | ✅ Done |
+| [#528](https://github.com/zynax-io/zynax/issues/528) | gRPC wiring + go.work | **ready** (unblocked by #527 ✅) |
 | [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | blocked on #528 |
 
 ---
@@ -104,8 +104,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 ## Known Blockers
 
 - **#552 ✅ done** — all jobs now run in ci-runner container mode.
-- **#640 PR open** — centralize coverage gates in `tools/coverage-gates.env`; fixes false ❌ for `cmd/zynax` at 79.9%. Merge when CI green.
-- **agent-registry (#480)** — BDD trim (#526) must merge before domain (#527) begins (ADR-016).
+- **agent-registry (#480)** — domain (#527) ✅; gRPC wiring (#528) is next.
 - **compose wiring (#481)** — depends on #528 (agent-registry gRPC wiring) landing first.
 - **adapter implementations** — wait for #481 (compose wiring) so adapters have a live registry.
 - **E2E demo** — blocked on #481 fully wired.
@@ -143,10 +142,8 @@ Priority gaps to file immediately:
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P0 | [#527](https://github.com/zynax-io/zynax/issues/527) | agent-registry domain layer | Read `docs/spdd/480-agent-registry/canvas.md` first |
-| P0 | [#640](https://github.com/zynax-io/zynax/issues/640) | Merge coverage gates PR | Wait for CI green |
-| P1 | [#528](https://github.com/zynax-io/zynax/issues/528) | agent-registry gRPC wiring | After #527 |
-| P1 | [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | After #528 |
+| P0 | [#528](https://github.com/zynax-io/zynax/issues/528) | agent-registry gRPC wiring | Unblocked by #527 ✅ |
+| P0 | [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | After #528 |
 | P2 | [#642](https://github.com/zynax-io/zynax/issues/642) | Distroless + `-s -w` (S) | Independent — 5 Dockerfile edits |
 | P2 | [#641](https://github.com/zynax-io/zynax/issues/641) | Per-service image rebuild filtering (M) | After #642 |
-| P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | Parallel with #641 |
+| P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | Independent |

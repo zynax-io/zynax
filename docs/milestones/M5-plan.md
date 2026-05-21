@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 34 — #640 PR open: centralize coverage gates; #641 filed: per-service image rebuild; #642 filed: distroless + -s -w)
+**Last updated:** 2026-05-21 (rev 35 — #640 ✅ merged; #644 CI hotfix merged; #527 agent-registry domain layer ✅)
 
 ---
 
@@ -141,7 +141,7 @@ These must be done strictly in order. Each step is blocked by the previous.
 | [#531](https://github.com/zynax-io/zynax/issues/531) | Align task-broker BDD + godog steps | S | None (ready) | ✅ Done |
 | [#532](https://github.com/zynax-io/zynax/issues/532) | Handler unit tests for all 5 gRPC methods | S | None (ready) | ✅ Done — api 84.9% |
 | [#526](https://github.com/zynax-io/zynax/issues/526) | Trim agent-registry BDD to proto scope | XS | None (ready) | ✅ Done |
-| [#527](https://github.com/zynax-io/zynax/issues/527) | agent-registry domain layer | M | After #526 ✅ | **ready** — Go domain engineer — read `docs/spdd/480-agent-registry/canvas.md` |
+| [#527](https://github.com/zynax-io/zynax/issues/527) | agent-registry domain layer | M | After #526 ✅ | ✅ Done |
 | [#528](https://github.com/zynax-io/zynax/issues/528) | agent-registry gRPC wiring + cmd + go.work | M | After #527 | Go gRPC engineer |
 | [#481](https://github.com/zynax-io/zynax/issues/481) | Add task-broker + agent-registry to docker-compose | S | After #528 | DevOps / Docker |
 

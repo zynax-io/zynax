@@ -145,7 +145,7 @@ services/agent-registry/
    `ACTIVE`/`OFFLINE` status references, and `WatchAgentEvents` mention. Commit alone;
    CI must be green before step 2 begins.
 
-2. **[#527]** `feat(agent-registry)`: Domain layer — `Agent` model, `AgentRepository`
+2. ✅ **[#527]** `feat(agent-registry)`: Domain layer — `Agent` model, `AgentRepository`
    port, `AgentRegistryService` domain service, `ErrAgentNotFound` / `ErrAgentAlreadyExists`
    errors, domain unit tests. ≥ 90% domain coverage. No imports from `api/` or
    `infrastructure/`.
