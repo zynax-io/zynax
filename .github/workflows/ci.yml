@@ -586,7 +586,7 @@ jobs:
                 -covermode=atomic 2>/dev/null || true
               if [ -f domain-coverage.out ]; then
                 pct=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
-                      | grep "^total:" | awk '{print $3}' | tr -d '%')
+                      | grep "^total:" | awk '{print $3}' | tr -d '%') || true
                 [ -n "$pct" ] && echo "service|${svc}|internal/domain|${pct}" >> /tmp/coverage-results.txt
               fi
               cd ../..
@@ -739,7 +739,7 @@ jobs:
                 -coverprofile=coverage.out -covermode=atomic || failed=true
               if [ -f coverage.out ]; then
                 pct=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
-                      | grep "^total:" | awk '{print $3}' | tr -d '%')
+                      | grep "^total:" | awk '{print $3}' | tr -d '%') || true
                 [ -n "$pct" ] && echo "adapter|${adapter}||${pct}" >> /tmp/coverage-results.txt
               fi
               cd ../../..
@@ -786,7 +786,7 @@ jobs:
                 -coverprofile=coverage.out -covermode=atomic || failed=true
               if [ -f coverage.out ]; then
                 pct=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
-                      | grep "^total:" | awk '{print $3}' | tr -d '%')
+                      | grep "^total:" | awk '{print $3}' | tr -d '%') || true
                 [ -n "$pct" ] && echo "cli|${cli}||${pct}" >> /tmp/coverage-results.txt
               fi
               cd ../..
