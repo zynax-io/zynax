@@ -268,9 +268,8 @@ jobs:
           # Only run buf checks when proto/gen files actually changed in this PR
           changed=$(git diff --name-only origin/main...HEAD -- \
             'protos/' 2>/dev/null \
-            | grep -E '\.proto$|buf\.(yaml|gen\.yaml)$' \
-            | wc -l | tr -d '[:space:]')
-          if [ "${changed:-0}" -gt 0 ] 2>/dev/null; then
+            | grep -cE '\.proto$|buf\.(yaml|gen\.yaml)$' || echo 0)
+          if [ "$changed" -gt 0 ]; then
             echo "has_protos=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_protos=0" >> "$GITHUB_OUTPUT"
@@ -334,8 +333,8 @@ jobs:
           fi
           # Only validate spec when spec files actually changed in this PR
           changed=$(git diff --name-only origin/main...HEAD -- \
-            'spec/' 2>/dev/null | wc -l | tr -d '[:space:]')
-          if [ "${changed:-0}" -gt 0 ] 2>/dev/null; then
+            'spec/' 2>/dev/null | grep -c . || echo 0)
+          if [ "$changed" -gt 0 ]; then
             echo "has_spec=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_spec=0" >> "$GITHUB_OUTPUT"
