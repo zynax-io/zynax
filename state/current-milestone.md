@@ -42,7 +42,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ---
 
-## IMMEDIATE — #528 agent-registry gRPC wiring (P0, unblocked by #527 ✅)
+## IMMEDIATE — #481 compose wiring (P0, unblocked by #528 ✅)
 
 ### BATCH 0 — ✅ All done
 ~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
@@ -83,8 +83,8 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 |-------|------|--------|
 | [#526](https://github.com/zynax-io/zynax/issues/526) | Trim BDD to proto scope | ✅ Done |
 | [#527](https://github.com/zynax-io/zynax/issues/527) | Domain layer | ✅ Done |
-| [#528](https://github.com/zynax-io/zynax/issues/528) | gRPC wiring + go.work | **ready** (unblocked by #527 ✅) |
-| [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | blocked on #528 |
+| [#528](https://github.com/zynax-io/zynax/issues/528) | gRPC wiring + go.work | ✅ Done |
+| [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | **ready** (unblocked by #528 ✅) |
 
 ---
 

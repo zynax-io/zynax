@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-21 (rev 35 — #640 ✅ merged; #644 CI hotfix merged; #527 agent-registry domain layer ✅)
+**Last updated:** 2026-05-21 (rev 36 — #528 agent-registry gRPC wiring ✅)
 
 ---
 
@@ -142,7 +142,7 @@ These must be done strictly in order. Each step is blocked by the previous.
 | [#532](https://github.com/zynax-io/zynax/issues/532) | Handler unit tests for all 5 gRPC methods | S | None (ready) | ✅ Done — api 84.9% |
 | [#526](https://github.com/zynax-io/zynax/issues/526) | Trim agent-registry BDD to proto scope | XS | None (ready) | ✅ Done |
 | [#527](https://github.com/zynax-io/zynax/issues/527) | agent-registry domain layer | M | After #526 ✅ | ✅ Done |
-| [#528](https://github.com/zynax-io/zynax/issues/528) | agent-registry gRPC wiring + cmd + go.work | M | After #527 | Go gRPC engineer |
+| [#528](https://github.com/zynax-io/zynax/issues/528) | agent-registry gRPC wiring + cmd + go.work | M | After #527 | ✅ Done |
 | [#481](https://github.com/zynax-io/zynax/issues/481) | Add task-broker + agent-registry to docker-compose | S | After #528 | DevOps / Docker |
 
 **E2E exit criterion:** `make run-local && zynax apply spec/workflows/examples/code-review.yaml`
