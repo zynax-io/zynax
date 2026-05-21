@@ -203,9 +203,22 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Current milestone and active PRs | `state/current-milestone.md` |
 | SPDD workflow guide and REASONS Canvas methodology | `docs/patterns/spdd-guide.md` |
 | REASONS Canvas artifacts (one per `feat:` issue) | `docs/spdd/` |
-| Execution architecture — engine dispatch, event routing, memory, M3 sequence | `docs/architecture/execution-architecture.md` |
-| Competitive analysis and Kestra/Temporal/LangGraph positioning | `docs/architecture/competitive-analysis-2026.md` |
-| External architectural review (2026-05) — scores, weaknesses, prioritised recommendations | `docs/architecture/2026-05-external-architectural-review.md` |
+| Execution architecture — engine dispatch, event routing, memory, M3 sequence | `docs/architecture/2026-04-30-execution-architecture.md` |
+| Competitive analysis and Kestra/Temporal/LangGraph positioning | `docs/architecture/2026-04-30-competitive-analysis.md` |
+| Principal architect review (2026-05-20) — scores, weaknesses, G1-G24 gap list, 30-day plan | `docs/architecture/2026-05-20-principal-architect-review.md` |
+| M5 architecture review — 2026-05-21 reality-vs-review, repo inventory, decision ledger | `docs/reviews/` (00–05) |
+| Repo inventory (CI workflows, doc artifacts, AI context census, 10 discrepancies D1–D10) | `docs/reviews/00-inventory.md` |
+| Decision ledger — all 19 ADRs with code-reflects evidence and rejected directions | `docs/reviews/01-decision-ledger.md` |
+| Reality-vs-docs — 23 items (4 critical, 8 high, 6 medium, 5 low) with fix status | `docs/reviews/02-reality-vs-docs.md` |
+| M5 state snapshot — DoD criteria, track status, critical-path chain (#526→#528→#481) | `docs/reviews/03-m5-state.md` |
+| Architecture gaps — G1-G24/H1-H9/R1-R9 verified against HEAD; 7 new gaps; ranked P0-P4 | `docs/reviews/04-architecture-gaps.md` |
+| Action plan — gaps→issues reconciliation, new issues A3/A4, milestone re-plan | `docs/reviews/05-action-plan.md` |
+| M5 engineering review (live status, DoD progress, exit criteria checklist) | `docs/milestones/M5-engineering-review.md` |
+| Go best practices — service layout, context, `crypto/subtle`, `ReadHeaderTimeout`, gRPC deadlines | `docs/engineering/best-practices/go.md` |
+| Python best practices — mypy strict, Agent base class, Pydantic Settings, async gRPC, bandit | `docs/engineering/best-practices/python.md` |
+| Dockerfile best practices — multi-stage, distroless, HEALTHCHECK, version pinning | `docs/engineering/best-practices/dockerfiles.md` |
+| GitHub CI best practices — SHA-pinned actions, least-privilege, concurrency, ci-runner usage | `docs/engineering/best-practices/github-ci.md` |
+| Architecture patterns — hexagonal, WorkflowEngine strategy, Fowler event taxonomy, outbox | `docs/engineering/best-practices/architecture-patterns.md` |
 | Dependency version policy, security scanning, upgrade cadence | `docs/engineering/dependency-strategy.md` |
 | Renovate bot CI failure fix procedure (go.sum, go directive) | `docs/engineering/renovate-fix-sop.md` |
 | AI context line counts and budget thresholds (advisory, non-blocking) | `zynax-ci check ai-context` |
