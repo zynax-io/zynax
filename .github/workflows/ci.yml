@@ -76,6 +76,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Trust workspace (git safe.directory for root container)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Verify Signed-off-by on every commit
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then
@@ -134,6 +137,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Trust workspace (git safe.directory for root container)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Detect changed path groups
         id: detect
@@ -210,6 +216,9 @@ jobs:
     if: needs.changes.outputs.proto == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Trust workspace (git safe.directory for root container)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # ── Security: AI context file scan ──────────────────────────────────
       - name: Detect AI context file changes
@@ -341,6 +350,9 @@ jobs:
     if: needs.changes.outputs.go == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Trust workspace (git safe.directory for root container)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Detect Go code
         id: go-detect
@@ -487,6 +499,9 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Trust workspace (git safe.directory for root container)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # Shared file written by test steps; read by the coverage comment step.
       # Format per line: type|name|pkg_label|pct  (pct is a bare number, e.g. 91.2)
