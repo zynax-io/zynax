@@ -260,11 +260,21 @@ jobs:
       - name: Detect proto workspace
         id: proto-detect
         run: |
-          if [ -f protos/buf.yaml ]; then
+          if [ ! -f protos/buf.yaml ]; then
+            echo "has_protos=0" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  protos/buf.yaml not found — buf lint skipped."
+            exit 0
+          fi
+          # Only run buf checks when proto/gen files actually changed in this PR
+          changed=$(git diff --name-only origin/main...HEAD -- \
+            'protos/' 2>/dev/null \
+            | grep -E '\.proto$|buf\.(yaml|gen\.yaml)$' \
+            | wc -l || echo 0)
+          if [ "$changed" -gt 0 ]; then
             echo "has_protos=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_protos=0" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  protos/buf.yaml not found — buf lint skipped until proto branch merges."
+            echo "ℹ️  No proto files changed — buf lint/format/stubs checks skipped."
           fi
 
       - name: buf lint (proto syntax and style)
