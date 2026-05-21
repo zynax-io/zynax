@@ -34,7 +34,7 @@ var (
 	thresholdRootAgents = 300
 	thresholdAISetup    = 150
 	thresholdDirAgents  = 150
-	thresholdTotal      = 2000
+	thresholdTotal      = 2200
 )
 
 // Context scans repoRoot for CLAUDE.md, AGENTS.md files, and

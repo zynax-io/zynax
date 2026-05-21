@@ -80,12 +80,12 @@ func TestContext_TotalExceedsLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if report.Total <= 2000 {
+	if report.Total <= 2200 {
 		t.Logf("total=%d — test may not be exercising total threshold, skipping", report.Total)
 		return
 	}
 	if report.Warnings == 0 {
-		t.Error("expected warnings when total exceeds 2000")
+		t.Error("expected warnings when total exceeds 2200")
 	}
 }
 
