@@ -24,11 +24,17 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
+  schedule:
+    - cron: '0 3 * * 1'    # Monday 03:00 UTC — weekly base-image CVE safety net
   workflow_dispatch:
     inputs:
       tag:
         description: 'Version tag (e.g. v0.4.0)'
-        required: true
+        required: false
+      rebuild_all:
+        description: 'Force rebuild all service images regardless of changes'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -148,21 +154,107 @@ jobs:
           path: cmd/zynax-ci/zynax-ci-${{ matrix.suffix }}
           retention-days: 7
 
+# ── Per-service change detection ─────────────────────────────────────────────
+# On branch pushes: detect which services changed (git diff HEAD^1..HEAD).
+# On tag push, schedule, or workflow_dispatch: resolve-matrix forces all services.
+
+  changes:
+    name: Detect changed services
+    runs-on: ubuntu-24.04
+    outputs:
+      api_gateway:       ${{ steps.detect.outputs.api_gateway }}
+      engine_adapter:    ${{ steps.detect.outputs.engine_adapter }}
+      workflow_compiler: ${{ steps.detect.outputs.workflow_compiler }}
+      task_broker:       ${{ steps.detect.outputs.task_broker }}
+      agent_registry:    ${{ steps.detect.outputs.agent_registry }}
+      http_adapter:      ${{ steps.detect.outputs.http_adapter }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 2
+
+      - name: Detect per-service file changes
+        id: detect
+        run: |
+          api_gateway=false engine_adapter=false workflow_compiler=false
+          task_broker=false agent_registry=false http_adapter=false
+
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_type }}" = "branch" ]; then
+            if ! FILES=$(git diff --name-only HEAD^1...HEAD 2>/tmp/git-diff-err.txt); then
+              echo "⚠️  git diff failed — enabling all services as fail-safe"
+              cat /tmp/git-diff-err.txt
+              api_gateway=true engine_adapter=true workflow_compiler=true
+              task_broker=true agent_registry=true http_adapter=true
+            else
+              while IFS= read -r f; do
+                [ -z "$f" ] && continue
+                echo "$f" | grep -qE '^(services/api-gateway/|protos/generated/go/)'      && api_gateway=true
+                echo "$f" | grep -qE '^(services/engine-adapter/|protos/generated/go/)'   && engine_adapter=true
+                echo "$f" | grep -qE '^(services/workflow-compiler/|protos/generated/go/)' && workflow_compiler=true
+                echo "$f" | grep -qE '^(services/task-broker/|protos/generated/go/)'      && task_broker=true
+                echo "$f" | grep -qE '^(services/agent-registry/|protos/generated/go/)'   && agent_registry=true
+                echo "$f" | grep -qE '^(agents/adapters/http/|protos/generated/go/)'      && http_adapter=true
+              done <<< "$FILES"
+            fi
+          else
+            echo "ℹ️  event='${{ github.event_name }}' ref_type='${{ github.ref_type }}' — resolve-matrix will decide"
+          fi
+
+          {
+            echo "api_gateway=$api_gateway"
+            echo "engine_adapter=$engine_adapter"
+            echo "workflow_compiler=$workflow_compiler"
+            echo "task_broker=$task_broker"
+            echo "agent_registry=$agent_registry"
+            echo "http_adapter=$http_adapter"
+          } >> "$GITHUB_OUTPUT"
+
+  resolve-matrix:
+    name: Resolve image build matrix
+    needs: [changes]
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
+      any:    ${{ steps.build.outputs.any }}
+    steps:
+      - id: build
+        run: |
+          force="false"
+          [[ "${{ github.ref_type }}" == "tag" ]]                     && force="true"
+          [[ "${{ github.event_name }}" == "schedule" ]]              && force="true"
+          [[ "${{ github.event_name }}" == "workflow_dispatch" ]]     && force="true"
+          [[ "${{ inputs.rebuild_all }}" == "true" ]]                 && force="true"
+
+          svc() { printf '{"service":"%s","dockerfile":"%s"}' "$1" "$2"; }
+          entries=()
+          [[ "$force" == "true" || "${{ needs.changes.outputs.api_gateway }}"       == "true" ]] && entries+=("$(svc api-gateway services/api-gateway/Dockerfile)")
+          [[ "$force" == "true" || "${{ needs.changes.outputs.engine_adapter }}"    == "true" ]] && entries+=("$(svc engine-adapter services/engine-adapter/Dockerfile)")
+          [[ "$force" == "true" || "${{ needs.changes.outputs.workflow_compiler }}" == "true" ]] && entries+=("$(svc workflow-compiler services/workflow-compiler/Dockerfile)")
+          [[ "$force" == "true" || "${{ needs.changes.outputs.task_broker }}"       == "true" ]] && entries+=("$(svc task-broker services/task-broker/Dockerfile)")
+          [[ "$force" == "true" || "${{ needs.changes.outputs.agent_registry }}"    == "true" ]] && entries+=("$(svc agent-registry services/agent-registry/Dockerfile)")
+          [[ "$force" == "true" || "${{ needs.changes.outputs.http_adapter }}"      == "true" ]] && entries+=("$(svc http-adapter agents/adapters/http/Dockerfile)")
+
+          if [[ ${#entries[@]} -eq 0 ]]; then
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+            echo 'any=false' >> "$GITHUB_OUTPUT"
+            echo "ℹ️  No service images changed — build skipped."
+          else
+            printf -v joined '%s,' "${entries[@]}"
+            echo "matrix={\"include\":[${joined%,}]}" >> "$GITHUB_OUTPUT"
+            echo 'any=true' >> "$GITHUB_OUTPUT"
+            echo "✓ Building ${#entries[@]} service(s)"
+          fi
+
 # ── Service images + CycloneDX SBOMs ─────────────────────────────────────────
 
   build-push-images:
     name: Image & SBOM — ${{ matrix.service }}
+    needs: [resolve-matrix]
+    if: needs.resolve-matrix.outputs.any == 'true'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { service: api-gateway,       dockerfile: services/api-gateway/Dockerfile }
-          - { service: engine-adapter,    dockerfile: services/engine-adapter/Dockerfile }
-          - { service: workflow-compiler, dockerfile: services/workflow-compiler/Dockerfile }
-          - { service: task-broker,       dockerfile: services/task-broker/Dockerfile }
-          - { service: agent-registry,    dockerfile: services/agent-registry/Dockerfile }
-          - { service: http-adapter,      dockerfile: agents/adapters/http/Dockerfile }
+      matrix: ${{ fromJson(needs.resolve-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
