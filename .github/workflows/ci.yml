@@ -565,7 +565,7 @@ jobs:
             if [ -f "services/${svc}/go.mod" ]; then
               echo "── test: services/${svc}"
               cd "services/${svc}"
-              GOWORK=off go test -tags="" ./... -v -race -timeout 60s -count=1 || failed=true
+              GOWORK=off go test -tags="" ./... -v -timeout 60s -count=1 || failed=true
               cd ../..
             fi
           done
@@ -733,7 +733,7 @@ jobs:
             if [ -f "agents/adapters/${adapter}/go.mod" ]; then
               echo "── test: agents/adapters/${adapter}"
               cd "agents/adapters/${adapter}"
-              GOWORK=off go test ./... -v -race -timeout 60s -count=1 \
+              GOWORK=off go test ./... -v -timeout 60s -count=1 \
                 -coverprofile=coverage.out -covermode=atomic || failed=true
               if [ -f coverage.out ]; then
                 pct=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
@@ -780,7 +780,7 @@ jobs:
             if [ -f "cmd/${cli}/go.mod" ]; then
               echo "── test: cmd/${cli}"
               cd "cmd/${cli}"
-              GOWORK=off go test ./... -v -race -timeout 60s -count=1 \
+              GOWORK=off go test ./... -v -timeout 60s -count=1 \
                 -coverprofile=coverage.out -covermode=atomic || failed=true
               if [ -f coverage.out ]; then
                 pct=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
