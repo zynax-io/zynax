@@ -31,7 +31,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 | Track | Epic | Status |
 |-------|------|--------|
 | **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ #552 ✅ #554 ✅ force-full-pipeline; next: **#549** per-service change-detection |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟢 BATCH 1 complete; #642 ✅ #641 ✅ distroless + per-service filter |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🔴 **REGRESSION** — #642 ✅ #641 ✅ but distroless broke compose healthchecks; **#655 P0** |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Compose wired — all 3 services in stack; E2E dispatch pending adapters |
@@ -103,6 +103,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 ## Known Blockers
 
+- **🔴 #655 REGRESSION** — `make run-local` and `docker compose up --no-build` are broken: distroless images have no `wget`/`nc` so compose healthchecks always fail → api-gateway never starts. **Workaround:** `docker-compose.override.yml` (committed). Fix in #655 (P0, do next session).
 - **#552 ✅ done** — all jobs now run in ci-runner container mode.
 - **adapter implementations** (#400–#418) — unblocked by #481 ✅; adapters need a live registry to register against.
 - **E2E demo** — compose wired (#481 ✅); needs an adapter registered for capability dispatch.
@@ -138,12 +139,17 @@ Priority gaps to file immediately:
 - **#526** — BDD trim (agent-registry), **#532** — handler unit tests (task-broker), **#554** — force-full-pipeline trigger.
 - **SECURITY.md** — false mTLS/SBOM/cosign claims removed (2026-05-20, part of M5.A truth pass).
 
+## Recently Closed (this session)
+
+- **#642** — distroless Dockerfiles + `-ldflags "-s -w"` (PR #653 ✅)
+- **#641** — per-service change detection in release.yml (PR #654 ✅)
+
 ## Next Session Queue (priority order)
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
+| **P0** | [#655](https://github.com/zynax-io/zynax/issues/655) | Add healthcheck binary to distroless images + fix compose | M, fix — **regression from #642, do first** |
 | P1 | [#623](https://github.com/zynax-io/zynax/issues/623) | Refuse to start without ZYNAX_API_KEY (NEW-4) | XS, fix, api-gateway |
 | P1 | [#622](https://github.com/zynax-io/zynax/issues/622) | context.WithTimeout on all gRPC calls (NEW-1) | S, fix, 4 services |
-| ~~P2~~ | ~~[#642](https://github.com/zynax-io/zynax/issues/642)~~ | ~~Distroless + `-s -w`~~ | ✅ Done |
-| ~~P2~~ | ~~[#641](https://github.com/zynax-io/zynax/issues/641)~~ | ~~Per-service image rebuild filtering~~ | ✅ Done |
 | P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | Independent |
+| M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred — enables K8s native probes |
