@@ -122,7 +122,7 @@ jobs:
 # ── Change Detection ──────────────────────────────────────────────────────────
 # Detects which path groups changed so downstream lanes can be skipped.
 # Outputs:
-#   code   — true when any file outside docs/ or root *.md changes; gates test-unit
+#   code   — true when services/, agents/, cmd/, protos/, or go.work change; gates test-unit
 #   proto  — true when protos/, spec/, or AI context files change
 #   go     — true when any Go code changes (services/, cmd/, Go adapters)
 #   python — true when Python agents change
@@ -202,9 +202,9 @@ jobs:
           while IFS= read -r f; do
             [ -z "$f" ] && continue
 
-            # code=true for anything that is not pure documentation or root metadata.
-            # Docs-only paths: docs/ directory and root-level *.md / LICENSE / CODEOWNERS.
-            if ! echo "$f" | grep -qE '^(docs/|[^/]+\.md$|LICENSE$|CODEOWNERS$)'; then
+            # code=true only for paths that have tests in test-unit.
+            # Everything else (docs, state, infra, .github, tools, spec) skips the test job.
+            if echo "$f" | grep -qE '^(services/|agents/|cmd/|protos/|go\.work(\.sum)?$)'; then
               code=true
             fi
 
