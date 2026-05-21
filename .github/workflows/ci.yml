@@ -565,6 +565,15 @@ jobs:
       - name: Initialize coverage results file
         run: echo "" > /tmp/coverage-results.txt
 
+      # Gate thresholds live in tools/coverage-gates.env — one edit updates both
+      # the enforcement steps below and the PR comment report.
+      - name: Load coverage gates
+        run: |
+          while IFS='=' read -r key value; do
+            [[ -z "$key" || "$key" =~ ^# ]] && continue
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done < tools/coverage-gates.env
+
       # ── BDD contract spec: scenario count summary ────────────────────────
       - name: Report BDD contract scenario counts
         run: |
@@ -664,11 +673,11 @@ jobs:
                 continue
               fi
               echo "── domain coverage: services/${svc}  ${total}%"
-              if awk "BEGIN{exit !(${total} < 90)}"; then
-                echo "  ❌ ${total}% < 90% — domain coverage gate failed for services/${svc}"
+              if awk "BEGIN{exit !(${total} < ${COVERAGE_DOMAIN_GATE:-90})}"; then
+                echo "  ❌ ${total}% < ${COVERAGE_DOMAIN_GATE:-90}% — domain coverage gate failed for services/${svc}"
                 failed=true
               else
-                echo "  ✅ ${total}% ≥ 90% domain coverage for services/${svc}"
+                echo "  ✅ ${total}% ≥ ${COVERAGE_DOMAIN_GATE:-90}% domain coverage for services/${svc}"
               fi
             fi
           done
@@ -818,11 +827,11 @@ jobs:
                 continue
               fi
               echo "── adapter coverage: agents/adapters/${adapter}  ${total}%"
-              if awk "BEGIN{exit !(${total} < 85)}"; then
-                echo "  ❌ ${total}% < 85% — coverage gate failed for agents/adapters/${adapter}"
+              if awk "BEGIN{exit !(${total} < ${COVERAGE_ADAPTER_GATE:-85})}"; then
+                echo "  ❌ ${total}% < ${COVERAGE_ADAPTER_GATE:-85}% — coverage gate failed for agents/adapters/${adapter}"
                 failed=true
               else
-                echo "  ✅ ${total}% ≥ 85% for agents/adapters/${adapter}"
+                echo "  ✅ ${total}% ≥ ${COVERAGE_ADAPTER_GATE:-85}% for agents/adapters/${adapter}"
               fi
             fi
           done
@@ -862,11 +871,11 @@ jobs:
               echo "  ⚠ no coverage total for cmd/zynax — skipping"
             else
               echo "── CLI coverage: cmd/zynax  ${total}%"
-              if awk "BEGIN{exit !(${total} < 79)}"; then
-                echo "  ❌ ${total}% < 79% — coverage gate failed for cmd/zynax"
+              if awk "BEGIN{exit !(${total} < ${COVERAGE_CLI_ZYNAX_GATE:-79})}"; then
+                echo "  ❌ ${total}% < ${COVERAGE_CLI_ZYNAX_GATE:-79}% — coverage gate failed for cmd/zynax"
                 exit 1
               else
-                echo "  ✅ ${total}% ≥ 79% for cmd/zynax"
+                echo "  ✅ ${total}% ≥ ${COVERAGE_CLI_ZYNAX_GATE:-79}% for cmd/zynax"
               fi
             fi
           fi
@@ -884,11 +893,11 @@ jobs:
               echo "  ⚠ no coverage total for cmd/zynax-ci — skipping"
             else
               echo "── CLI coverage: cmd/zynax-ci  ${total}%"
-              if awk "BEGIN{exit !(${total} < 80)}"; then
-                echo "  ❌ ${total}% < 80% — coverage gate failed for cmd/zynax-ci"
+              if awk "BEGIN{exit !(${total} < ${COVERAGE_CLI_ZYNAX_CI_GATE:-80})}"; then
+                echo "  ❌ ${total}% < ${COVERAGE_CLI_ZYNAX_CI_GATE:-80}% — coverage gate failed for cmd/zynax-ci"
                 exit 1
               else
-                echo "  ✅ ${total}% ≥ 80% for cmd/zynax-ci"
+                echo "  ✅ ${total}% ≥ ${COVERAGE_CLI_ZYNAX_CI_GATE:-80}% for cmd/zynax-ci"
               fi
             fi
           fi
@@ -979,7 +988,7 @@ jobs:
               --cov=src \
               --cov-report=term-missing \
               --cov-report=json:coverage.json \
-              --cov-fail-under=90 \
+              --cov-fail-under=${COVERAGE_PYTHON_GATE:-90} \
               -v \
               --tb=short || failed=true
             if [ -f coverage.json ]; then
@@ -999,7 +1008,7 @@ jobs:
                 --cov=src \
                 --cov-report=term-missing \
                 --cov-report=json:coverage.json \
-                --cov-fail-under=90 \
+                --cov-fail-under=${COVERAGE_PYTHON_GATE:-90} \
                 -v \
                 --tb=short || failed=true
               if [ -f coverage.json ]; then
@@ -1030,12 +1039,12 @@ jobs:
 
             # ── Go services ────────────────────────────────────────────────
             if grep -q "^service|" "$RESULTS" 2>/dev/null; then
-              echo "### Go services — \`internal/domain\` (gate ≥ 90%)"
+              echo "### Go services — \`internal/domain\` (gate ≥ ${COVERAGE_DOMAIN_GATE:-90}%)"
               echo ""
               echo "| Service | Coverage | Gate |"
               echo "|---------|---------|------|"
               grep "^service|" "$RESULTS" | while IFS='|' read -r _ name _pkg pct; do
-                gate=$(awk -v p="${pct:-0}" 'BEGIN{print (p+0 >= 90) ? "✅" : "❌"}')
+                gate=$(awk -v p="${pct:-0}" -v g="${COVERAGE_DOMAIN_GATE:-90}" 'BEGIN{print (p+0 >= g+0) ? "✅" : "❌"}')
                 echo "| \`services/${name}\` | **${pct}%** | ${gate} |"
               done
               echo ""
@@ -1043,12 +1052,12 @@ jobs:
 
             # ── Go adapters ────────────────────────────────────────────────
             if grep -q "^adapter|" "$RESULTS" 2>/dev/null; then
-              echo "### Go adapters (gate ≥ 85%)"
+              echo "### Go adapters (gate ≥ ${COVERAGE_ADAPTER_GATE:-85}%)"
               echo ""
               echo "| Adapter | Coverage | Gate |"
               echo "|---------|---------|------|"
               grep "^adapter|" "$RESULTS" | while IFS='|' read -r _ name _ pct; do
-                gate=$(awk -v p="${pct:-0}" 'BEGIN{print (p+0 >= 85) ? "✅" : "❌"}')
+                gate=$(awk -v p="${pct:-0}" -v g="${COVERAGE_ADAPTER_GATE:-85}" 'BEGIN{print (p+0 >= g+0) ? "✅" : "❌"}')
                 echo "| \`agents/adapters/${name}\` | **${pct}%** | ${gate} |"
               done
               echo ""
@@ -1056,12 +1065,17 @@ jobs:
 
             # ── CLI tools ──────────────────────────────────────────────────
             if grep -q "^cli|" "$RESULTS" 2>/dev/null; then
-              echo "### CLI tools (gate ≥ 79% zynax / 80% zynax-ci)"
+              echo "### CLI tools (gate ≥ ${COVERAGE_CLI_ZYNAX_GATE:-79}% zynax / ${COVERAGE_CLI_ZYNAX_CI_GATE:-80}% zynax-ci)"
               echo ""
               echo "| Tool | Coverage | Gate |"
               echo "|------|---------|------|"
               grep "^cli|" "$RESULTS" | while IFS='|' read -r _ name _ pct; do
-                gate=$(awk -v p="${pct:-0}" 'BEGIN{print (p+0 >= 80) ? "✅" : "❌"}')
+                if [[ "$name" == "zynax" ]]; then
+                  g="${COVERAGE_CLI_ZYNAX_GATE:-79}"
+                else
+                  g="${COVERAGE_CLI_ZYNAX_CI_GATE:-80}"
+                fi
+                gate=$(awk -v p="${pct:-0}" -v g="$g" 'BEGIN{print (p+0 >= g+0) ? "✅" : "❌"}')
                 echo "| \`cmd/${name}\` | **${pct}%** | ${gate} |"
               done
               echo ""
@@ -1069,12 +1083,12 @@ jobs:
 
             # ── Python ─────────────────────────────────────────────────────
             if grep -q "^python|" "$RESULTS" 2>/dev/null; then
-              echo "### Python (gate ≥ 90%)"
+              echo "### Python (gate ≥ ${COVERAGE_PYTHON_GATE:-90}%)"
               echo ""
               echo "| Module | Coverage | Gate |"
               echo "|--------|---------|------|"
               grep "^python|" "$RESULTS" | while IFS='|' read -r _ name _ pct; do
-                gate=$(awk -v p="${pct:-0}" 'BEGIN{print (p+0 >= 90) ? "✅" : "❌"}')
+                gate=$(awk -v p="${pct:-0}" -v g="${COVERAGE_PYTHON_GATE:-90}" 'BEGIN{print (p+0 >= g+0) ? "✅" : "❌"}')
                 echo "| \`agents/${name}\` | **${pct}%** | ${gate} |"
               done
               echo ""
