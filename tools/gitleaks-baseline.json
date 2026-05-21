@@ -24,8 +24,8 @@
  },
  {
   "Description": "Email address — must not appear in public AI context files",
-  "StartLine": 55,
-  "EndLine": 55,
+  "StartLine": 56,
+  "EndLine": 56,
   "StartColumn": 39,
   "EndColumn": 61,
   "Match": "ogomezmanresa@gmail.com",
@@ -43,6 +43,6 @@
    "email"
   ],
   "RuleID": "email-address",
-  "Fingerprint": "CLAUDE.md:email-address:55"
+  "Fingerprint": "CLAUDE.md:email-address:56"
  }
 ]
