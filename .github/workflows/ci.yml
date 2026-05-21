@@ -245,6 +245,7 @@ jobs:
           echo "$files"
           gitleaks detect --no-git --source . \
             --config tools/gitleaks-ai-context.toml \
+            --baseline-path tools/gitleaks-baseline.json \
             --report-format json \
             --report-path /tmp/gitleaks-report.json 2>/dev/null || {
             echo "❌ Sensitive content detected in AI context files:"
