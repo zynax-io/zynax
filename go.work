@@ -7,6 +7,7 @@ go 1.26.3
 use (
 	./agents/adapters/http
 	./protos/generated/go
+	./services/agent-registry
 	./services/api-gateway
 	./services/engine-adapter
 	./services/task-broker

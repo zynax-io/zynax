@@ -150,7 +150,7 @@ services/agent-registry/
    errors, domain unit tests. ≥ 90% domain coverage. No imports from `api/` or
    `infrastructure/`.
 
-3. **[#528]** `feat(agent-registry)`: gRPC handler, in-memory repository, composition
+3. ✅ **[#528]** `feat(agent-registry)`: gRPC handler, in-memory repository, composition
    root (`main.go`), `Dockerfile`, `go.mod`. Add `./services/agent-registry` to `go.work`.
    Update `AGENTS.md` to reflect in-memory layout. All CI checks green.
 
