@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-22 (rev 43 — #655 ✅ #623 ✅)
+**Last updated:** 2026-05-22 (rev 44 — platform-engineering review: 9 issues filed #661–#669)
 
 ---
 
@@ -334,6 +334,26 @@ Go module and `services/api-gateway/Dockerfile` for the builder pattern.
 
 **Engineer profile for #656:** Go engineer familiar with gRPC interceptors. Read
 `google.golang.org/grpc/health/grpc_health_v1` — the implementation is ~5 lines per service.
+
+---
+
+### BATCH 5B — Platform Engineering Quick Wins (P1 · independent, no code dependencies)
+
+These issues were identified in the 2026-05-22 platform-engineering review
+(`docs/architecture/2026-05-22-platform-engineering-review.md`). All are independent,
+all are XS, and none require a SPDD canvas (`fix:` / `chore:` / `docs:` types).
+
+| Issue | Title | Size | Why |
+|-------|-------|------|-----|
+| [#661](https://github.com/zynax-io/zynax/issues/661) | Fix stale `COMPILER_ADDR` default (`50051` → `50054`) | XS | Latent connection failure outside compose (PE-1) |
+| [#662](https://github.com/zynax-io/zynax/issues/662) | Repair `sbom` + `scan-image` Makefile targets | XS | Both targets always fail — wrong build context (PE-2) |
+| [#665](https://github.com/zynax-io/zynax/issues/665) | Fix http-adapter `registry_endpoint` port (`9091` → `50052`) | XS | Dev compose profile wires adapter to a port nothing listens on (PE-5) |
+| [#663](https://github.com/zynax-io/zynax/issues/663) | Derive `GO_SERVICES` from `go.work` | XS | Hardcoded list includes unimplemented stubs (PE-3) |
+| [#666](https://github.com/zynax-io/zynax/issues/666) | Align `ZYNAX_ENGINE_ACTIVE_ENGINE` to full-prefix convention | XS | Off-grammar env var invisible in `env \| grep ZYNAX_ENGINE_ADAPTER_` (PE-6) |
+| [#664](https://github.com/zynax-io/zynax/issues/664) | Correct Go 1.25+ claim and Helm chart claim in README | XS | Doc/reality drifts erode operator trust (PE-4) |
+
+**Engineer profile:** any Go engineer. Work in priority order (top to bottom) — #661 and #662
+are most impactful. Each is a standalone PR with no dependencies on the others.
 
 ---
 
@@ -665,6 +685,13 @@ open issues. File them before or during M5 execution:
 | NEW-4: `ZYNAX_GW_API_KEY=""` bypass | High | [#623](https://github.com/zynax-io/zynax/issues/623) | M5 |
 | H1: Stateless workflow-compiler (OOM risk R4) | **High** | [#466](https://github.com/zynax-io/zynax/issues/466) | M5 (**promoted from M6** 2026-05-21) |
 | Architecture overhaul docs (tracking) | — | [#624](https://github.com/zynax-io/zynax/issues/624) | M5 |
+| PE-1: Stale `COMPILER_ADDR` default (`50051` vs actual `50054`) | **High** | [#661](https://github.com/zynax-io/zynax/issues/661) | M5 |
+| PE-2: `sbom` + `scan-image` Makefile targets broken (wrong build context) | **High** | [#662](https://github.com/zynax-io/zynax/issues/662) | M5 |
+| PE-3: `GO_SERVICES` hardcoded — includes stub-only services | Low | [#663](https://github.com/zynax-io/zynax/issues/663) | M5 |
+| PE-4: README Go 1.25+ / Helm chart doc drifts | Low | [#664](https://github.com/zynax-io/zynax/issues/664) | M5 |
+| PE-5: http-adapter `registry_endpoint` port wrong (`9091` vs `50052`) | **High** | [#665](https://github.com/zynax-io/zynax/issues/665) | M5 |
+| PE-6: `ZYNAX_ENGINE_ACTIVE_ENGINE` breaks full-prefix convention | Low | [#666](https://github.com/zynax-io/zynax/issues/666) | M5 |
+| PE-7–9: Platform config convergence (shared config lib + Dockerfile template + dep gate) | **High** | [#670](https://github.com/zynax-io/zynax/issues/670) epic · [#667](https://github.com/zynax-io/zynax/issues/667) [#668](https://github.com/zynax-io/zynax/issues/668) [#669](https://github.com/zynax-io/zynax/issues/669) | M6 |
 
 ---
 

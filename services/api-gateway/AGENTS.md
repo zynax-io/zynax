@@ -1,6 +1,6 @@
 # services/api-gateway — AGENTS.md
 
-> Go 1.25+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
+> Go 1.26.3+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
 > **Status: M4 in progress** — HTTP REST layer implemented; auth/rate-limit deferred to M5.
 
 ---
