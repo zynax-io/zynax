@@ -51,7 +51,7 @@ No container may run as root or with elevated privileges.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ZYNAX_GW_HTTP_PORT` | `8080` | HTTP listen port |
-| `ZYNAX_GW_COMPILER_ADDR` | `localhost:50051` | WorkflowCompilerService address |
+| `ZYNAX_GW_COMPILER_ADDR` | `localhost:50054` | WorkflowCompilerService address |
 | `ZYNAX_GW_ENGINE_ADDR` | `localhost:50055` | EngineAdapterService address |
 | `ZYNAX_GW_REGISTRY_ADDR` | `localhost:50052` | AgentRegistryService address |
 | `ZYNAX_GW_LOG_LEVEL` | `info` | Log level (`debug`/`info`/`warn`/`error`) |

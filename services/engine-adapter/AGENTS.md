@@ -18,6 +18,7 @@ selectable at deploy time.
 - Publishes `zynax.workflow.state.entered/exited/completed/failed` CloudEvents.
 - Streams execution state via `WatchWorkflow` gRPC server-streaming.
 - Active engine selected via `ZYNAX_ENGINE_ACTIVE_ENGINE` env var (default: `temporal`).
+  **Note:** this name breaks the full-prefix convention; tracked in [#666](https://github.com/zynax-io/zynax/issues/666) for rename to `ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE`.
 
 Does NOT: compile YAML (workflow-compiler) · route capabilities (task-broker) · decide which engine to use (workflow-compiler).
 
@@ -41,7 +42,7 @@ services/engine-adapter/
 └── Dockerfile
 ```
 
-Config env prefix: `ZYNAX_ENGINE_` · gRPC port: 50056
+Config env prefix: `ZYNAX_ENGINE_ADAPTER_` · gRPC port: 50055
 
 ---
 
