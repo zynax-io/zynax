@@ -141,15 +141,17 @@ Priority gaps to file immediately:
 
 ## Recently Closed (this session)
 
-- **#642** — distroless Dockerfiles + `-ldflags "-s -w"` (PR #653 ✅)
-- **#641** — per-service change detection in release.yml (PR #654 ✅)
+- **#661** — COMPILER_ADDR default 50051→50054 in api-gateway (PR #675 ✅)
+- **#662** — Makefile scan-image/sbom/build-svc repo-root context (PR #676 ✅)
+- **#665** — http-adapter registry_endpoint port 9091→50052 (PR #677 ✅)
 
 ## Next Session Queue (priority order)
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| ~~**P0**~~ | ~~[#655](https://github.com/zynax-io/zynax/issues/655)~~ | ~~Add healthcheck binary to distroless images + fix compose~~ | ✅ Done |
-| ~~P1~~ | ~~[#623](https://github.com/zynax-io/zynax/issues/623)~~ | ~~Refuse to start without ZYNAX_API_KEY (NEW-4)~~ | ✅ Done |
 | P1 | [#622](https://github.com/zynax-io/zynax/issues/622) | context.WithTimeout on all gRPC calls (NEW-1) | S, fix, 4 services |
-| P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | Independent |
-| M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred — enables K8s native probes |
+| P1 | [#663](https://github.com/zynax-io/zynax/issues/663) | Derive GO_SERVICES from go.work | XS, chore — hardcoded list includes stubs |
+| P1 | [#666](https://github.com/zynax-io/zynax/issues/666) | Align ZYNAX_ENGINE_ACTIVE_ENGINE to full-prefix | XS, fix |
+| P1 | [#664](https://github.com/zynax-io/zynax/issues/664) | Correct Go 1.25+ / Helm chart claims in README | XS, docs |
+| P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | M, ci |
+| M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |
