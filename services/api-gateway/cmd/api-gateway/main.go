@@ -24,7 +24,7 @@ import (
 
 type config struct {
 	HTTPPort     int    `envconfig:"HTTP_PORT" default:"8080"`
-	CompilerAddr string `envconfig:"COMPILER_ADDR" default:"localhost:50051"`
+	CompilerAddr string `envconfig:"COMPILER_ADDR" default:"localhost:50054"`
 	EngineAddr   string `envconfig:"ENGINE_ADDR" default:"localhost:50055"`
 	RegistryAddr string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
 	LogLevel     string `envconfig:"LOG_LEVEL" default:"info"`
