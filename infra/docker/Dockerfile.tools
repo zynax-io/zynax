@@ -25,12 +25,20 @@
 #   syft                v1.44.0
 #   uv                  0.5.10
 
-# ── Stage 1: Go binaries ────────────────────────────────────────────────────
-# GO_VERSION is the single source of truth for the Go toolchain.
-# Override at build time: docker build --build-arg GO_VERSION=1.26.3 ...
-# Default must match go.work `go` directive.
+# ── Base image digests ──────────────────────────────────────────────────────
+# Pinned for supply-chain integrity. To update a digest:
+#   docker manifest inspect golang:1.26.3-alpine --verbose | jq '.Descriptor.digest'
+# Override at build time:  --build-arg GO_ALPINE_DIGEST=sha256:<new>
+#
+# renovate: datasource=docker depName=golang versioning=docker
 ARG GO_VERSION=1.26.3
-FROM golang:${GO_VERSION}-alpine AS go-tools
+ARG GO_ALPINE_DIGEST=sha256:f44b851aa23dfa219d18db6eab743203245429d355cb619cf96a2ffe2a84ba7a
+# renovate: datasource=docker depName=python versioning=docker
+ARG PYTHON_VERSION=3.14
+ARG PYTHON_ALPINE_DIGEST=sha256:1aba322febb2d47185eb4db4934a1d7ce942cf3a469be8908dbce95aa513419b
+
+# ── Stage 1: Go binaries ────────────────────────────────────────────────────
+FROM golang:${GO_VERSION}-alpine@${GO_ALPINE_DIGEST} AS go-tools
 
 RUN apk add --no-cache git curl
 
@@ -100,7 +108,7 @@ COPY cmd/zynax-ci/ /src/zynax-ci/
 RUN cd /src/zynax-ci && GOWORK=off go build -trimpath -o /usr/local/bin/zynax-ci .
 
 # ── Stage 2: Final image (python:3.12-alpine) ───────────────────────────────
-FROM python:3.14-alpine AS tools
+FROM python:${PYTHON_VERSION}-alpine@${PYTHON_ALPINE_DIGEST} AS tools
 
 # Minimal Alpine system deps only — no build toolchain in the final image
 RUN apk add --no-cache git curl ca-certificates libstdc++ libgcc
