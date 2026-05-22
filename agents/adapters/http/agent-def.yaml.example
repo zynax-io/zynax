@@ -23,7 +23,7 @@ description: Wraps the internal payments REST API as a Zynax capability.
 endpoint: "0.0.0.0:9090"
 
 # gRPC address of the AgentRegistryService.
-registry_endpoint: "agent-registry:9091"
+registry_endpoint: "agent-registry:50052"
 
 # capabilities — one entry per Zynax capability exposed by this adapter.
 # Each entry maps a capability name to a static HTTP route.
