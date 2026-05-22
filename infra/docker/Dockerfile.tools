@@ -32,7 +32,7 @@
 #
 # renovate: datasource=docker depName=golang versioning=docker
 ARG GO_VERSION=1.26.3
-ARG GO_ALPINE_DIGEST=sha256:f44b851aa23dfa219d18db6eab743203245429d355cb619cf96a2ffe2a84ba7a
+ARG GO_ALPINE_DIGEST=sha256:91eda9776261207ea25fd06b5b7fed8d397dd2c0a283e77f2ab6e91bfa71079d
 # renovate: datasource=docker depName=python versioning=docker
 ARG PYTHON_VERSION=3.14
 ARG PYTHON_ALPINE_DIGEST=sha256:1aba322febb2d47185eb4db4934a1d7ce942cf3a469be8908dbce95aa513419b
@@ -42,10 +42,9 @@ FROM golang:${GO_VERSION}-alpine@${GO_ALPINE_DIGEST} AS go-tools
 
 RUN apk add --no-cache git curl
 
-# golangci-lint
+# golangci-lint — compiled from source; avoids install.sh checksum variance
 # renovate: datasource=github-releases depName=golangci/golangci-lint
-RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-    | sh -s -- -b /usr/local/bin v2.12.2
+RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 
 # govulncheck — CVE scanner for Go modules
 # renovate: datasource=github-releases depName=golang/vuln
@@ -115,7 +114,7 @@ RUN apk add --no-cache git curl ca-certificates libstdc++ libgcc
 
 # ── Copy all Go binaries from go-tools stage ──────────────────────────────
 COPY --from=go-tools /usr/local/go              /usr/local/go
-COPY --from=go-tools /usr/local/bin/golangci-lint     /usr/local/bin/
+COPY --from=go-tools /go/bin/golangci-lint            /usr/local/bin/
 COPY --from=go-tools /usr/local/bin/grpc_health_probe /usr/local/bin/
 COPY --from=go-tools /usr/local/bin/buf               /usr/local/bin/
 COPY --from=go-tools /go/bin/govulncheck         /usr/local/bin/
