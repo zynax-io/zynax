@@ -176,6 +176,7 @@ services:
       ZYNAX_GW_ENGINE_ADDR: engine-adapter:50055
       ZYNAX_GW_REGISTRY_ADDR: "agent-registry:50052"
       ZYNAX_GW_LOG_LEVEL: info
+      ZYNAX_GW_DEV_INSECURE: "1"
     ports:
       - "7080:8080"
     depends_on:
