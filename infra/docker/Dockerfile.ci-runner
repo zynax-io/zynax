@@ -24,9 +24,20 @@
 #   Only /usr/local/go/bin + pkg + lib are copied to the final stage.
 #   src/, test/, api/, doc/ are builder-only — not needed for go test/build.
 
-# ── Stage 1: builder — has curl; downloads / builds all binaries ─────────────
+# ── Base image digests ─────────────────────────────────────────────────────
+# Pinned for supply-chain integrity. To update a digest:
+#   docker manifest inspect golang:1.26.3-alpine --verbose | jq '.Descriptor.digest'
+# Override at build time:  --build-arg GO_ALPINE_DIGEST=sha256:<new>
+#
+# renovate: datasource=docker depName=golang versioning=docker
 ARG GO_VERSION=1.26.3
-FROM golang:${GO_VERSION}-alpine AS builder
+ARG GO_ALPINE_DIGEST=sha256:f44b851aa23dfa219d18db6eab743203245429d355cb619cf96a2ffe2a84ba7a
+# renovate: datasource=docker depName=alpine versioning=docker
+ARG ALPINE_VERSION=3.21
+ARG ALPINE_DIGEST=sha256:f27cad9117495d32d067133afff942cb2dc745dfe9163e949f6bfe8a6a245339
+
+# ── Stage 1: builder — has curl; downloads / builds all binaries ─────────────
+FROM golang:${GO_VERSION}-alpine@${GO_ALPINE_DIGEST} AS builder
 
 RUN apk add --no-cache git curl ca-certificates
 
@@ -68,7 +79,7 @@ COPY cmd/zynax-ci/ /src/zynax-ci/
 RUN cd /src/zynax-ci && GOWORK=off go build -trimpath -o /go/bin/zynax-ci .
 
 # ── Stage 2: ci-runner — clean Alpine, NO curl ───────────────────────────────
-FROM alpine:3.21 AS ci-runner
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS ci-runner
 
 LABEL org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
       org.opencontainers.image.description="Zynax CI Runner — GitHub Actions container mode" \

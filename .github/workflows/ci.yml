@@ -57,8 +57,8 @@ defaults:
 
 env:
   PYTHON_VERSION: "3.12"
-  BUF_VERSION: "1.47.2"
-  GOLANGCI_VERSION: "v2.11.4"
+  BUF_VERSION: "1.69.0"
+  GOLANGCI_VERSION: "v2.12.2"
   GOVULNCHECK_VERSION: "v1.1.4"
   SERVICE_LIST: "agent-registry task-broker memory-service event-bus api-gateway workflow-compiler engine-adapter"
   GO_ADAPTER_LIST: "http"

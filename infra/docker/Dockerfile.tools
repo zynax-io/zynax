@@ -12,9 +12,9 @@
 # Update a version here and in ci.yml together. Comment format is Renovate-
 # compatible so bot PRs keep them in sync automatically.
 #
-#   buf                 1.47.2   (ci.yml BUF_VERSION must match)
-#   golangci-lint       v2.11.4  (ci.yml GOLANGCI_VERSION must match)
-#   godog               v0.14.1
+#   buf                 1.69.0   (ci.yml BUF_VERSION must match)
+#   golangci-lint       v2.12.2  (ci.yml GOLANGCI_VERSION must match)
+#   godog               v0.15.1
 #   protoc-gen-go       v1.36.5
 #   protoc-gen-go-grpc  v1.5.1
 #   govulncheck         latest stable from golang.org/x/vuln
@@ -25,19 +25,27 @@
 #   syft                v1.44.0
 #   uv                  0.5.10
 
-# ── Stage 1: Go binaries ────────────────────────────────────────────────────
-# GO_VERSION is the single source of truth for the Go toolchain.
-# Override at build time: docker build --build-arg GO_VERSION=1.26.3 ...
-# Default must match go.work `go` directive.
+# ── Base image digests ──────────────────────────────────────────────────────
+# Pinned for supply-chain integrity. To update a digest:
+#   docker manifest inspect golang:1.26.3-alpine --verbose | jq '.Descriptor.digest'
+# Override at build time:  --build-arg GO_ALPINE_DIGEST=sha256:<new>
+#
+# renovate: datasource=docker depName=golang versioning=docker
 ARG GO_VERSION=1.26.3
-FROM golang:${GO_VERSION}-alpine AS go-tools
+ARG GO_ALPINE_DIGEST=sha256:f44b851aa23dfa219d18db6eab743203245429d355cb619cf96a2ffe2a84ba7a
+# renovate: datasource=docker depName=python versioning=docker
+ARG PYTHON_VERSION=3.14
+ARG PYTHON_ALPINE_DIGEST=sha256:1aba322febb2d47185eb4db4934a1d7ce942cf3a469be8908dbce95aa513419b
+
+# ── Stage 1: Go binaries ────────────────────────────────────────────────────
+FROM golang:${GO_VERSION}-alpine@${GO_ALPINE_DIGEST} AS go-tools
 
 RUN apk add --no-cache git curl
 
 # golangci-lint
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-    | sh -s -- -b /usr/local/bin v2.11.4
+    | sh -s -- -b /usr/local/bin v2.12.2
 
 # govulncheck — CVE scanner for Go modules
 # renovate: datasource=github-releases depName=golang/vuln
@@ -51,7 +59,7 @@ RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 
 # godog — BDD test runner for Go contract tests
 # renovate: datasource=github-releases depName=cucumber/godog
-RUN go install github.com/cucumber/godog/cmd/godog@v0.14.1
+RUN go install github.com/cucumber/godog/cmd/godog@v0.15.1
 
 # mockery — Go interface mock generator
 # renovate: datasource=github-releases depName=vektra/mockery
@@ -71,7 +79,7 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.4.26 && \
 
 # buf — proto linter and codegen orchestrator
 # renovate: datasource=github-releases depName=bufbuild/buf
-ARG BUF_VERSION=1.47.2
+ARG BUF_VERSION=1.69.0
 RUN curl -fsSL \
       "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64" \
       -o /usr/local/bin/buf \
@@ -100,7 +108,7 @@ COPY cmd/zynax-ci/ /src/zynax-ci/
 RUN cd /src/zynax-ci && GOWORK=off go build -trimpath -o /usr/local/bin/zynax-ci .
 
 # ── Stage 2: Final image (python:3.12-alpine) ───────────────────────────────
-FROM python:3.14-alpine AS tools
+FROM python:${PYTHON_VERSION}-alpine@${PYTHON_ALPINE_DIGEST} AS tools
 
 # Minimal Alpine system deps only — no build toolchain in the final image
 RUN apk add --no-cache git curl ca-certificates libstdc++ libgcc
