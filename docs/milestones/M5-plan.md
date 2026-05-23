@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-23 (rev 46 — BATCH 5B: #661 ✅ #662 ✅ #665 ✅ #663 ✅)
+**Last updated:** 2026-05-23 (rev 47 — BATCH 5B: #661 ✅ #662 ✅ #665 ✅ #663 ✅ #664 ✅)
 
 ---
 
@@ -350,7 +350,7 @@ all are XS, and none require a SPDD canvas (`fix:` / `chore:` / `docs:` types).
 | [#665](https://github.com/zynax-io/zynax/issues/665) | Fix http-adapter `registry_endpoint` port (`9091` → `50052`) | XS | ✅ Done |
 | [#663](https://github.com/zynax-io/zynax/issues/663) | Derive `GO_SERVICES` from `go.work` | XS | ✅ Done |
 | [#666](https://github.com/zynax-io/zynax/issues/666) | Align `ZYNAX_ENGINE_ACTIVE_ENGINE` to full-prefix convention | XS | Off-grammar env var invisible in `env \| grep ZYNAX_ENGINE_ADAPTER_` (PE-6) |
-| [#664](https://github.com/zynax-io/zynax/issues/664) | Correct Go 1.25+ claim and Helm chart claim in README | XS | Doc/reality drifts erode operator trust (PE-4) |
+| [#664](https://github.com/zynax-io/zynax/issues/664) | Correct Go 1.25+ claim and Helm chart claim in README | XS | ✅ Done |
 | [#679](https://github.com/zynax-io/zynax/issues/679) | Translate Temporal NotFound → domain.ErrExecutionNotFound | S | GetStatus/Signal/Cancel return INTERNAL instead of NOT_FOUND |
 
 **Engineer profile:** any Go engineer. Work in priority order (top to bottom) — #661 and #662
