@@ -95,7 +95,7 @@ Download from the [latest GitHub Release](https://github.com/zynax-io/zynax/rele
 | Linux (amd64) | `curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_amd64.tar.gz \| tar xz && sudo mv zynax /usr/local/bin/` |
 | Linux (arm64) | `curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_arm64.tar.gz \| tar xz && sudo mv zynax /usr/local/bin/` |
 
-**From source** (requires Go 1.25+): `cd cmd/zynax && GOWORK=off go build -o ~/bin/zynax .`
+**From source** (requires Go 1.26.3): `cd cmd/zynax && GOWORK=off go build -o ~/bin/zynax .`
 **Makefile shortcut:** `make install-cli`
 
 Verify: `zynax --version`
@@ -124,7 +124,7 @@ curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax-ci-d
   -o ~/bin/zynax-ci && chmod +x ~/bin/zynax-ci
 ```
 
-**From source** (requires Go 1.25+): `cd cmd/zynax-ci && GOWORK=off go build -o ~/bin/zynax-ci .`
+**From source** (requires Go 1.26.3): `cd cmd/zynax-ci && GOWORK=off go build -o ~/bin/zynax-ci .`
 **Makefile shortcut:** `make install-ci-tools`
 
 ---
@@ -420,7 +420,7 @@ cmd/zynax-ci/        zynax-ci CI toolchain — validate canvas/schema/manifests,
 agents/              Python execution adapters + zynax-sdk
 protos/              gRPC contracts (Go + Python stubs generated)
 protos/tests/        BDD contract test suites (godog)
-infra/               Docker-first dev environment + Helm charts
+infra/               Docker-first dev environment · Helm charts (planned, #241)
 docs/adr/            Architecture Decision Records (ADR-001 – ADR-019)
 docs/milestones/     Per-milestone engineering reviews and release notes
 docs/spdd/           REASONS Canvas artifacts — one canvas.md per feat: issue
