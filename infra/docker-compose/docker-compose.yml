@@ -152,7 +152,7 @@ services:
       ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE: default
       ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE: engine-adapter
       ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR: "task-broker:50053"
-      ZYNAX_ENGINE_ACTIVE_ENGINE: temporal
+      ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE: temporal
     depends_on:
       temporal:
         condition: service_healthy

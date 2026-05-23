@@ -17,8 +17,7 @@ selectable at deploy time.
 - `DispatchCapabilityActivity` (Temporal activity) calls `TaskBrokerService.DispatchTask` gRPC.
 - Publishes `zynax.workflow.state.entered/exited/completed/failed` CloudEvents.
 - Streams execution state via `WatchWorkflow` gRPC server-streaming.
-- Active engine selected via `ZYNAX_ENGINE_ACTIVE_ENGINE` env var (default: `temporal`).
-  **Note:** this name breaks the full-prefix convention; tracked in [#666](https://github.com/zynax-io/zynax/issues/666) for rename to `ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE`.
+- Active engine selected via `ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE` env var (default: `temporal`).
 
 Does NOT: compile YAML (workflow-compiler) · route capabilities (task-broker) · decide which engine to use (workflow-compiler).
 

@@ -52,7 +52,7 @@ func loadConfig() config {
 		TemporalNamespace: getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE", "default"),
 		TemporalTaskQueue: getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE", "engine-adapter"),
 		TaskBrokerAddr:    getEnv("ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR", "localhost:50053"),
-		ActiveEngine:      getEnv("ZYNAX_ENGINE_ACTIVE_ENGINE", "temporal"),
+		ActiveEngine:      getEnv("ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE", "temporal"),
 	}
 }
 

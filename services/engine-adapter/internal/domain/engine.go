@@ -13,7 +13,7 @@ import (
 // WorkflowEngine is the port that every execution backend must satisfy.
 // The gRPC handler injects a concrete engine at startup; all other domain
 // code depends only on this interface — never on engine-specific packages.
-// Engine selection is process-wide via ZYNAX_ENGINE_ACTIVE_ENGINE (ADR-015).
+// Engine selection is process-wide via ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE (ADR-015).
 type WorkflowEngine interface {
 	// Submit starts execution of a compiled workflow and returns the
 	// adapter-assigned run identifier. The caller must not supply a run_id.

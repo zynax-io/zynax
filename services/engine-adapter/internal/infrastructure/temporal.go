@@ -34,7 +34,7 @@ type temporalClient interface {
 }
 
 // TemporalEngine implements domain.WorkflowEngine backed by the Temporal Go SDK.
-// Selected when ZYNAX_ENGINE_ACTIVE_ENGINE=temporal (ADR-015).
+// Selected when ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE=temporal (ADR-015).
 type TemporalEngine struct {
 	client       temporalClient
 	taskQueue    string
