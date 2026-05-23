@@ -151,7 +151,7 @@ Priority gaps to file immediately:
 |----------|-------|-------|------|
 | P1 | [#622](https://github.com/zynax-io/zynax/issues/622) | context.WithTimeout on all gRPC calls (NEW-1) | S, fix, 4 services |
 | ~~P1~~ | ~~[#663](https://github.com/zynax-io/zynax/issues/663)~~ | ~~Derive GO_SERVICES from go.work~~ | ✅ Done |
-| P1 | [#666](https://github.com/zynax-io/zynax/issues/666) | Align ZYNAX_ENGINE_ACTIVE_ENGINE to full-prefix | XS, fix |
+| ~~P1~~ | ~~[#666](https://github.com/zynax-io/zynax/issues/666)~~ | ~~Align ZYNAX_ENGINE_ACTIVE_ENGINE to full-prefix~~ | ✅ Done |
 | ~~P1~~ | ~~[#664](https://github.com/zynax-io/zynax/issues/664)~~ | ~~Correct Go 1.25+ / Helm chart claims in README~~ | ✅ Done |
 | P1 | [#679](https://github.com/zynax-io/zynax/issues/679) | Translate Temporal NotFound → domain.ErrExecutionNotFound | S, fix — GetStatus/Signal/Cancel return INTERNAL instead of NOT_FOUND |
 | P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | M, ci |
