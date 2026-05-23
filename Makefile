@@ -5,7 +5,7 @@
 
 .DEFAULT_GOAL := help
 SHELL         := /bin/bash
-GO_SERVICES   := agent-registry task-broker memory-service event-bus api-gateway workflow-compiler engine-adapter
+GO_SERVICES   := $(shell grep -E '^\s+\./services/' go.work | sed 's|.*services/||' | tr -d '\t ' | sort)
 # Auto-discovered from go.work — no manual update needed when adding a new adapter module under agents/adapters/.
 GO_ADAPTERS   := $(shell grep -E '^\s+\./agents/adapters/' go.work | sed 's|.*agents/adapters/||' | tr -d '\t ' | sort)
 # Auto-discovered from agents/examples/*/pyproject.toml — no manual update needed when adding a new agent.
