@@ -143,6 +143,7 @@ Priority gaps to file immediately:
 
 - **#679** — Temporal NotFound → domain.ErrExecutionNotFound in engine-adapter (BATCH 5B)
 - **#622** — context.WithTimeout on all outgoing gRPC calls across 4 services (BATCH 6)
+- **#689** — Thread gRPC call timeout from config env vars; remove package-level globals
 
 ## Next Session Queue (priority order)
 

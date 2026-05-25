@@ -35,11 +35,7 @@ func (b *blockingRegistryClient) ListAgents(_ context.Context, _ *zynaxv1.ListAg
 }
 
 func TestFindByCapability_DeadlineExceeded(t *testing.T) {
-	old := grpcCallTimeout
-	grpcCallTimeout = 50 * time.Millisecond
-	defer func() { grpcCallTimeout = old }()
-
-	r := &registryClient{client: &blockingRegistryClient{}}
+	r := &registryClient{client: &blockingRegistryClient{}, callTimeout: 50 * time.Millisecond}
 	_, err := r.FindByCapability(context.Background(), "summarize")
 	if err == nil {
 		t.Fatal("expected error when registry hangs past deadline")

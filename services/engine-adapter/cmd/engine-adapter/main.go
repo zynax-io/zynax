@@ -41,6 +41,7 @@ type config struct {
 	TemporalTaskQueue string
 	TaskBrokerAddr    string
 	ActiveEngine      string
+	GRPCCallTimeoutS  int
 }
 
 func loadConfig() config {
@@ -53,6 +54,7 @@ func loadConfig() config {
 		TemporalTaskQueue: getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE", "engine-adapter"),
 		TaskBrokerAddr:    getEnv("ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR", "localhost:50053"),
 		ActiveEngine:      getEnv("ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE", "temporal"),
+		GRPCCallTimeoutS:  getEnvInt("ZYNAX_ENGINE_ADAPTER_GRPC_CALL_TIMEOUT_S", 30),
 	}
 }
 
@@ -129,7 +131,8 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), error) {
 		return nil, func() {}, fmt.Errorf("task-broker dial: %w", err)
 	}
 
-	dispatcher := domain.NewCapabilityDispatcher(zynaxv1.NewTaskBrokerServiceClient(brokerConn))
+	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
+	dispatcher := domain.NewCapabilityDispatcher(zynaxv1.NewTaskBrokerServiceClient(brokerConn), callTimeout)
 
 	w := worker.New(tc, cfg.TemporalTaskQueue, worker.Options{})
 	w.RegisterWorkflow(infrastructure.IRInterpreterWorkflow)

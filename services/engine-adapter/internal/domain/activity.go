@@ -27,20 +27,19 @@ type ActivityResult struct {
 	Payload   []byte
 }
 
-// grpcCallTimeout is the per-call deadline for outgoing gRPC requests to task-broker.
-var grpcCallTimeout = 30 * time.Second
-
 // CapabilityDispatcher dispatches capability activities to the task broker.
 // It is a plain Go struct — Temporal registers it as an activity source in
 // the infrastructure layer; no Temporal SDK is imported here (ADR-015).
 type CapabilityDispatcher struct {
 	broker       zynaxv1.TaskBrokerServiceClient
 	pollInterval time.Duration
+	callTimeout  time.Duration
 }
 
 // NewCapabilityDispatcher constructs a dispatcher backed by the given broker client.
-func NewCapabilityDispatcher(broker zynaxv1.TaskBrokerServiceClient) *CapabilityDispatcher {
-	return &CapabilityDispatcher{broker: broker, pollInterval: 500 * time.Millisecond}
+// callTimeout is applied as a per-call deadline on every outgoing gRPC request.
+func NewCapabilityDispatcher(broker zynaxv1.TaskBrokerServiceClient, callTimeout time.Duration) *CapabilityDispatcher {
+	return &CapabilityDispatcher{broker: broker, pollInterval: 500 * time.Millisecond, callTimeout: callTimeout}
 }
 
 // DispatchCapabilityActivity submits a task to the broker and polls until terminal.
@@ -54,7 +53,7 @@ func (d *CapabilityDispatcher) DispatchCapabilityActivity(ctx context.Context, i
 }
 
 func (d *CapabilityDispatcher) dispatch(ctx context.Context, in ActivityInput) (string, error) {
-	callCtx, cancel := context.WithTimeout(ctx, grpcCallTimeout)
+	callCtx, cancel := context.WithTimeout(ctx, d.callTimeout)
 	defer cancel()
 	resp, err := d.broker.DispatchTask(callCtx, &zynaxv1.DispatchTaskRequest{
 		Task: &zynaxv1.WorkflowTask{
@@ -78,7 +77,7 @@ func (d *CapabilityDispatcher) poll(ctx context.Context, taskID, capabilityName 
 		case <-time.After(d.pollInterval):
 		}
 
-		callCtx, callCancel := context.WithTimeout(ctx, grpcCallTimeout)
+		callCtx, callCancel := context.WithTimeout(ctx, d.callTimeout)
 		task, err := d.broker.GetTask(callCtx, &zynaxv1.GetTaskRequest{TaskId: taskID})
 		callCancel()
 		if err != nil {

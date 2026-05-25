@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-26 (rev 49 — BATCH 5B: #679 ✅; BATCH 6: #622 ✅)
+**Last updated:** 2026-05-26 (rev 50 — BATCH 5B: #679 ✅; BATCH 6: #622 ✅ #689 ✅)
 
 ---
 
