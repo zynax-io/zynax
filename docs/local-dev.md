@@ -17,7 +17,7 @@ sudo mv zynax /usr/local/bin/
 curl -L https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_amd64.tar.gz | tar xz
 sudo mv zynax /usr/local/bin/
 
-# Or build from source (requires Go 1.25 installed locally):
+# Or build from source (requires Go 1.26.3 installed locally):
 cd cmd/zynax && GOWORK=off go build -o ~/bin/zynax .
 # or: make install-cli
 ```
