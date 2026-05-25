@@ -5,6 +5,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -12,6 +13,9 @@ import (
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/task-broker/internal/domain"
 )
+
+// grpcCallTimeout is the per-call deadline for outgoing gRPC requests to agent-registry.
+var grpcCallTimeout = 30 * time.Second
 
 type registryClient struct {
 	client zynaxv1.AgentRegistryServiceClient
@@ -32,7 +36,9 @@ func NewRegistryClient(addr string) (domain.AgentFinder, func(), error) {
 }
 
 func (r *registryClient) FindByCapability(ctx context.Context, capabilityName string) ([]domain.AgentInfo, error) {
-	resp, err := r.client.FindByCapability(ctx, &zynaxv1.FindByCapabilityRequest{
+	callCtx, cancel := context.WithTimeout(ctx, grpcCallTimeout)
+	defer cancel()
+	resp, err := r.client.FindByCapability(callCtx, &zynaxv1.FindByCapabilityRequest{
 		CapabilityName: capabilityName,
 	})
 	if err != nil {

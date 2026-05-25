@@ -7,6 +7,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,28 @@ import (
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/grpc"
 )
+
+// blockingBroker blocks DispatchTask until the context is cancelled, simulating
+// a hanging task-broker to exercise the grpcCallTimeout deadline.
+type blockingBroker struct{}
+
+func (b *blockingBroker) DispatchTask(ctx context.Context, _ *zynaxv1.DispatchTaskRequest, _ ...grpc.CallOption) (*zynaxv1.DispatchTaskResponse, error) {
+	<-ctx.Done()
+	return nil, fmt.Errorf("blocking broker: %w", ctx.Err())
+}
+
+func (b *blockingBroker) GetTask(_ context.Context, _ *zynaxv1.GetTaskRequest, _ ...grpc.CallOption) (*zynaxv1.WorkflowTask, error) {
+	return nil, nil
+}
+func (b *blockingBroker) AcknowledgeTask(_ context.Context, _ *zynaxv1.AcknowledgeTaskRequest, _ ...grpc.CallOption) (*zynaxv1.AcknowledgeTaskResponse, error) {
+	return nil, nil
+}
+func (b *blockingBroker) CancelTask(_ context.Context, _ *zynaxv1.CancelTaskRequest, _ ...grpc.CallOption) (*zynaxv1.CancelTaskResponse, error) {
+	return nil, nil
+}
+func (b *blockingBroker) ListTasks(_ context.Context, _ *zynaxv1.ListTasksRequest, _ ...grpc.CallOption) (*zynaxv1.ListTasksResponse, error) {
+	return nil, nil
+}
 
 // stubBroker is a hand-written mock of TaskBrokerServiceClient.
 // It is unexported; it covers only the two methods used by CapabilityDispatcher.
@@ -215,6 +238,24 @@ func TestHandleStatus_Cancelled(t *testing.T) {
 	}
 	if err == nil || !strings.Contains(err.Error(), "cancelled") {
 		t.Errorf("expected cancelled error, got %v", err)
+	}
+}
+
+func TestDispatch_BrokerTimeout(t *testing.T) {
+	old := grpcCallTimeout
+	grpcCallTimeout = 50 * time.Millisecond
+	defer func() { grpcCallTimeout = old }()
+
+	d := NewCapabilityDispatcher(&blockingBroker{})
+	_, err := d.DispatchCapabilityActivity(context.Background(), ActivityInput{
+		CapabilityName: "summarize",
+		WorkflowID:     "wf-timeout",
+	})
+	if err == nil {
+		t.Fatal("expected error when broker hangs past deadline")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected DeadlineExceeded in chain, got: %v", err)
 	}
 }
 
