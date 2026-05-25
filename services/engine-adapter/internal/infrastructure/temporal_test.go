@@ -12,6 +12,7 @@ import (
 	"time"
 
 	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 	workflowpb "go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
@@ -229,6 +230,30 @@ func TestTemporalEngine_Watch_ContextCancelled(t *testing.T) {
 	}
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled in chain, got: %v", err)
+	}
+}
+
+func TestTemporalEngine_GetStatus_NotFound(t *testing.T) {
+	stub := &stubTemporalClient{descErr: &serviceerror.NotFound{Message: "workflow not found"}}
+	_, err := newTestEngine(stub).GetStatus(context.Background(), "wf-missing")
+	if !errors.Is(err, domain.ErrExecutionNotFound) {
+		t.Errorf("expected ErrExecutionNotFound, got: %v", err)
+	}
+}
+
+func TestTemporalEngine_Signal_NotFound(t *testing.T) {
+	stub := &stubTemporalClient{signalErr: &serviceerror.NotFound{Message: "workflow not found"}}
+	err := newTestEngine(stub).Signal(context.Background(), "wf-missing", "evt", nil)
+	if !errors.Is(err, domain.ErrExecutionNotFound) {
+		t.Errorf("expected ErrExecutionNotFound, got: %v", err)
+	}
+}
+
+func TestTemporalEngine_Cancel_NotFound(t *testing.T) {
+	stub := &stubTemporalClient{cancelErr: &serviceerror.NotFound{Message: "workflow not found"}}
+	err := newTestEngine(stub).Cancel(context.Background(), "wf-missing", "")
+	if !errors.Is(err, domain.ErrExecutionNotFound) {
+		t.Errorf("expected ErrExecutionNotFound, got: %v", err)
 	}
 }
 
