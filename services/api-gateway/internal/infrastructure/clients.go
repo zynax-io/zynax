@@ -22,6 +22,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// grpcCallTimeout is the per-call deadline for all outgoing unary gRPC requests.
+// Streaming calls (WatchWorkflow) are excluded — they are bounded by the HTTP
+// request context instead.
+var grpcCallTimeout = 30 * time.Second
+
 // GatewayClients implements domain.CompilerPort, domain.EnginePort, and
 // domain.RegistryPort using gRPC connections to downstream services.
 type GatewayClients struct {
@@ -66,7 +71,9 @@ func NewGatewayClients(compilerAddr, engineAddr, registryAddr string) (*GatewayC
 // When the compiler returns codes.InvalidArgument the gRPC error message is
 // surfaced as a CompileError so the handler can return a structured 422.
 func (c *GatewayClients) CompileWorkflow(ctx context.Context, manifestYAML []byte, namespace string, dryRun bool) (domain.CompileResult, error) {
-	resp, err := c.compiler.CompileWorkflow(ctx, &zynaxv1.CompileWorkflowRequest{
+	callCtx, cancel := context.WithTimeout(ctx, grpcCallTimeout)
+	defer cancel()
+	resp, err := c.compiler.CompileWorkflow(callCtx, &zynaxv1.CompileWorkflowRequest{
 		ManifestYaml: manifestYAML,
 		Namespace:    namespace,
 		DryRun:       dryRun,
@@ -86,7 +93,9 @@ func (c *GatewayClients) SubmitWorkflow(ctx context.Context, irBytes []byte, eng
 		return "", fmt.Errorf("api-gateway: unmarshal IR: %w", err)
 	}
 	ir.WorkflowId = workflowID
-	resp, err := c.engine.SubmitWorkflow(ctx, &zynaxv1.SubmitWorkflowRequest{
+	callCtx, cancel := context.WithTimeout(ctx, grpcCallTimeout)
+	defer cancel()
+	resp, err := c.engine.SubmitWorkflow(callCtx, &zynaxv1.SubmitWorkflowRequest{
 		WorkflowIr: ir,
 		EngineHint: engineHint,
 	})
@@ -98,7 +107,9 @@ func (c *GatewayClients) SubmitWorkflow(ctx context.Context, irBytes []byte, eng
 
 // GetWorkflowStatus implements domain.EnginePort.
 func (c *GatewayClients) GetWorkflowStatus(ctx context.Context, runID string) (domain.WorkflowRunSummary, error) {
-	run, err := c.engine.GetWorkflowStatus(ctx, &zynaxv1.GetWorkflowStatusRequest{RunId: runID})
+	callCtx, cancel := context.WithTimeout(ctx, grpcCallTimeout)
+	defer cancel()
+	run, err := c.engine.GetWorkflowStatus(callCtx, &zynaxv1.GetWorkflowStatusRequest{RunId: runID})
 	if err != nil {
 		return domain.WorkflowRunSummary{}, mapEngineGRPCError(err)
 	}
@@ -112,7 +123,9 @@ func (c *GatewayClients) GetWorkflowStatus(ctx context.Context, runID string) (d
 
 // CancelWorkflow implements domain.EnginePort.
 func (c *GatewayClients) CancelWorkflow(ctx context.Context, runID string) error {
-	_, err := c.engine.CancelWorkflow(ctx, &zynaxv1.CancelWorkflowRequest{RunId: runID})
+	callCtx, cancel := context.WithTimeout(ctx, grpcCallTimeout)
+	defer cancel()
+	_, err := c.engine.CancelWorkflow(callCtx, &zynaxv1.CancelWorkflowRequest{RunId: runID})
 	if err != nil {
 		return mapEngineGRPCError(err)
 	}
@@ -172,7 +185,9 @@ func (c *GatewayClients) RegisterAgent(ctx context.Context, manifestYAML []byte,
 			Labels:       m.Metadata.Labels,
 		},
 	}
-	resp, err := c.registry.RegisterAgent(ctx, req)
+	callCtx, cancel := context.WithTimeout(ctx, grpcCallTimeout)
+	defer cancel()
+	resp, err := c.registry.RegisterAgent(callCtx, req)
 	if err != nil {
 		return domain.AgentRegistration{}, mapRegistryGRPCError(err)
 	}
