@@ -1281,18 +1281,34 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       # ── Go: govulncheck ───────────────────────────────────────────────────
+      # Per-service gating: each service in SERVICE_LIST is only scanned when
+      # its per-service output from the changes job is 'true'. The env vars
+      # below map service names to change outputs using bash indirect expansion
+      # (${!var}). When adding a new service, add it to SERVICE_LIST and add
+      # a matching <SERVICE_UPPER>_CHANGED env var pointing to its changes output.
       - name: Detect Go services
         id: go-detect
         run: |
           count=$(find services/ -name "go.mod" 2>/dev/null | wc -l)
           echo "has_go=$count" >> "$GITHUB_OUTPUT"
 
-      - name: govulncheck (all Go services)
+      - name: govulncheck (changed Go services)
         if: steps.go-detect.outputs.has_go != '0'
+        env:
+          ENGINE_ADAPTER_CHANGED:    ${{ needs.changes.outputs.engine_adapter }}
+          WORKFLOW_COMPILER_CHANGED: ${{ needs.changes.outputs.workflow_compiler }}
+          API_GATEWAY_CHANGED:       ${{ needs.changes.outputs.api_gateway }}
+          TASK_BROKER_CHANGED:       ${{ needs.changes.outputs.task_broker }}
+          AGENT_REGISTRY_CHANGED:    ${{ needs.changes.outputs.agent_registry }}
         run: |
           failed=false
           for svc in ${{ env.SERVICE_LIST }}; do
             if [ -f "services/${svc}/go.mod" ]; then
+              var="$(echo "$svc" | tr '-' '_' | tr '[:lower:]' '[:upper:]')_CHANGED"
+              if [ "${!var:-false}" != "true" ]; then
+                echo "── govulncheck: services/${svc} [SKIPPED — not changed]"
+                continue
+              fi
               echo "── govulncheck: services/${svc}"
               cd "services/${svc}"
               GOWORK=off govulncheck ./... || failed=true
@@ -1309,7 +1325,7 @@ jobs:
           echo "has_py=$count" >> "$GITHUB_OUTPUT"
 
       - name: bandit + pip-audit (SDK + all Python agents)
-        if: steps.py-detect.outputs.has_py != '0'
+        if: steps.py-detect.outputs.has_py != '0' && needs.changes.outputs.python == 'true'
         run: |
           failed=false
 
