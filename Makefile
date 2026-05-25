@@ -93,11 +93,11 @@ stop-local: ## Stop and remove local stack containers
 logs-local: ## Tail all local stack logs
 	$(COMPOSE) logs -f
 
-install-cli: ## Build and install zynax CLI to ~/bin/zynax (requires Go 1.25)
+install-cli: ## Build and install zynax CLI to ~/bin/zynax (requires Go 1.26.3)
 	cd cmd/zynax && GOWORK=off go build -trimpath -o ~/bin/zynax .
 	@echo "✅ zynax installed → ~/bin/zynax  (ensure ~/bin is on your PATH)"
 
-install-ci-tools: ## Build and install zynax-ci toolchain to ~/bin/zynax-ci (requires Go 1.25)
+install-ci-tools: ## Build and install zynax-ci toolchain to ~/bin/zynax-ci (requires Go 1.26.3)
 	cd cmd/zynax-ci && GOWORK=off go build -trimpath -o ~/bin/zynax-ci .
 	@echo "✅ zynax-ci installed → ~/bin/zynax-ci  (ensure ~/bin is on your PATH)"
 
