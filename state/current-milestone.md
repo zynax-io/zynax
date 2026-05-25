@@ -141,18 +141,14 @@ Priority gaps to file immediately:
 
 ## Recently Closed (this session)
 
-- **#661** — COMPILER_ADDR default 50051→50054 in api-gateway (PR #675 ✅)
-- **#662** — Makefile scan-image/sbom/build-svc repo-root context (PR #676 ✅)
-- **#665** — http-adapter registry_endpoint port 9091→50052 (PR #677 ✅)
+- **#679** — Temporal NotFound → domain.ErrExecutionNotFound in engine-adapter (BATCH 5B)
+- **#622** — context.WithTimeout on all outgoing gRPC calls across 4 services (BATCH 6)
 
 ## Next Session Queue (priority order)
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P1 | [#622](https://github.com/zynax-io/zynax/issues/622) | context.WithTimeout on all gRPC calls (NEW-1) | S, fix, 4 services |
-| ~~P1~~ | ~~[#663](https://github.com/zynax-io/zynax/issues/663)~~ | ~~Derive GO_SERVICES from go.work~~ | ✅ Done |
-| ~~P1~~ | ~~[#666](https://github.com/zynax-io/zynax/issues/666)~~ | ~~Align ZYNAX_ENGINE_ACTIVE_ENGINE to full-prefix~~ | ✅ Done |
-| ~~P1~~ | ~~[#664](https://github.com/zynax-io/zynax/issues/664)~~ | ~~Correct Go 1.25+ / Helm chart claims in README~~ | ✅ Done |
-| P1 | [#679](https://github.com/zynax-io/zynax/issues/679) | Translate Temporal NotFound → domain.ErrExecutionNotFound | S, fix — GetStatus/Signal/Cancel return INTERNAL instead of NOT_FOUND |
+| ~~P1~~ | ~~[#679](https://github.com/zynax-io/zynax/issues/679)~~ | ~~Translate Temporal NotFound → domain.ErrExecutionNotFound~~ | ✅ Done |
+| ~~P1~~ | ~~[#622](https://github.com/zynax-io/zynax/issues/622)~~ | ~~context.WithTimeout on all gRPC calls~~ | ✅ Done |
 | P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | M, ci |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |

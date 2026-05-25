@@ -7,10 +7,12 @@ package infrastructure
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 
@@ -82,6 +84,10 @@ func (e *TemporalEngine) Submit(ctx context.Context, ir *zynaxv1.WorkflowIR, lab
 // Signal delivers a named event to a running workflow via a Temporal signal.
 func (e *TemporalEngine) Signal(ctx context.Context, runID, eventType string, payload []byte) error {
 	if err := e.client.SignalWorkflow(ctx, runID, "", eventType, payload); err != nil {
+		var nf *serviceerror.NotFound
+		if errors.As(err, &nf) {
+			return domain.ErrExecutionNotFound
+		}
 		return fmt.Errorf("engine-adapter: signal workflow %q: %w", runID, err)
 	}
 	return nil
@@ -90,6 +96,10 @@ func (e *TemporalEngine) Signal(ctx context.Context, runID, eventType string, pa
 // Cancel requests graceful cancellation of a running workflow.
 func (e *TemporalEngine) Cancel(ctx context.Context, runID, _ string) error {
 	if err := e.client.CancelWorkflow(ctx, runID, ""); err != nil {
+		var nf *serviceerror.NotFound
+		if errors.As(err, &nf) {
+			return domain.ErrExecutionNotFound
+		}
 		return fmt.Errorf("engine-adapter: cancel workflow %q: %w", runID, err)
 	}
 	return nil
@@ -99,6 +109,10 @@ func (e *TemporalEngine) Cancel(ctx context.Context, runID, _ string) error {
 func (e *TemporalEngine) GetStatus(ctx context.Context, runID string) (*domain.WorkflowRun, error) {
 	resp, err := e.client.DescribeWorkflowExecution(ctx, runID, "")
 	if err != nil {
+		var nf *serviceerror.NotFound
+		if errors.As(err, &nf) {
+			return nil, domain.ErrExecutionNotFound
+		}
 		return nil, fmt.Errorf("engine-adapter: describe workflow %q: %w", runID, err)
 	}
 	return describeToWorkflowRun(resp, runID, e.namespace), nil
