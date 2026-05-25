@@ -14,29 +14,29 @@ import (
 	"github.com/zynax-io/zynax/services/task-broker/internal/domain"
 )
 
-// grpcCallTimeout is the per-call deadline for outgoing gRPC requests to agent-registry.
-var grpcCallTimeout = 30 * time.Second
-
 type registryClient struct {
-	client zynaxv1.AgentRegistryServiceClient
-	conn   *grpc.ClientConn
+	client      zynaxv1.AgentRegistryServiceClient
+	conn        *grpc.ClientConn
+	callTimeout time.Duration
 }
 
 // NewRegistryClient dials the agent registry and returns an AgentFinder.
+// callTimeout is applied as a per-call deadline on every outgoing gRPC request.
 // The returned cleanup function closes the connection and must be deferred by the caller.
-func NewRegistryClient(addr string) (domain.AgentFinder, func(), error) {
+func NewRegistryClient(addr string, callTimeout time.Duration) (domain.AgentFinder, func(), error) {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("task-broker: registry dial: %w", err)
 	}
 	return &registryClient{
-		client: zynaxv1.NewAgentRegistryServiceClient(conn),
-		conn:   conn,
+		client:      zynaxv1.NewAgentRegistryServiceClient(conn),
+		conn:        conn,
+		callTimeout: callTimeout,
 	}, func() { _ = conn.Close() }, nil
 }
 
 func (r *registryClient) FindByCapability(ctx context.Context, capabilityName string) ([]domain.AgentInfo, error) {
-	callCtx, cancel := context.WithTimeout(ctx, grpcCallTimeout)
+	callCtx, cancel := context.WithTimeout(ctx, r.callTimeout)
 	defer cancel()
 	resp, err := r.client.FindByCapability(callCtx, &zynaxv1.FindByCapabilityRequest{
 		CapabilityName: capabilityName,

@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/kelseyhightower/envconfig"
 	"google.golang.org/grpc"
@@ -27,9 +28,10 @@ import (
 )
 
 type config struct {
-	GRPCPort     int    `envconfig:"GRPC_PORT" default:"50053"`
-	RegistryAddr string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
-	LogLevel     string `envconfig:"LOG_LEVEL" default:"info"`
+	GRPCPort         int    `envconfig:"GRPC_PORT" default:"50053"`
+	RegistryAddr     string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
+	LogLevel         string `envconfig:"LOG_LEVEL" default:"info"`
+	GRPCCallTimeoutS int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
 }
 
 func main() {
@@ -48,7 +50,8 @@ func main() {
 }
 
 func run(cfg config) error {
-	finder, finderCleanup, err := infrastructure.NewRegistryClient(cfg.RegistryAddr)
+	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
+	finder, finderCleanup, err := infrastructure.NewRegistryClient(cfg.RegistryAddr, callTimeout)
 	if err != nil {
 		return fmt.Errorf("task-broker: registry client: %w", err)
 	}

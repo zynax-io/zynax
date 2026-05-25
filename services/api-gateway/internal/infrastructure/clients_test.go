@@ -28,16 +28,12 @@ func (b *blockingCompiler) GetCompiledWorkflow(_ context.Context, _ *zynaxv1.Get
 	return nil, nil
 }
 
-func newTestGatewayClients(compiler zynaxv1.WorkflowCompilerServiceClient) *GatewayClients {
-	return &GatewayClients{compiler: compiler}
+func newTestGatewayClients(compiler zynaxv1.WorkflowCompilerServiceClient, callTimeout time.Duration) *GatewayClients {
+	return &GatewayClients{compiler: compiler, callTimeout: callTimeout}
 }
 
 func TestCompileWorkflow_DeadlineExceeded(t *testing.T) {
-	old := grpcCallTimeout
-	grpcCallTimeout = 50 * time.Millisecond
-	defer func() { grpcCallTimeout = old }()
-
-	c := newTestGatewayClients(&blockingCompiler{})
+	c := newTestGatewayClients(&blockingCompiler{}, 50*time.Millisecond)
 	_, err := c.CompileWorkflow(context.Background(), []byte("manifest: {}"), "default", false)
 	if err == nil {
 		t.Fatal("expected error when compiler hangs past deadline")

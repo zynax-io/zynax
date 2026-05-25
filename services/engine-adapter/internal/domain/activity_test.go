@@ -78,7 +78,7 @@ func (s *stubBroker) ListTasks(_ context.Context, _ *zynaxv1.ListTasksRequest, _
 }
 
 func newDispatcher(broker *stubBroker) *CapabilityDispatcher {
-	d := NewCapabilityDispatcher(broker)
+	d := NewCapabilityDispatcher(broker, 30*time.Second)
 	d.pollInterval = time.Millisecond
 	return d
 }
@@ -242,11 +242,7 @@ func TestHandleStatus_Cancelled(t *testing.T) {
 }
 
 func TestDispatch_BrokerTimeout(t *testing.T) {
-	old := grpcCallTimeout
-	grpcCallTimeout = 50 * time.Millisecond
-	defer func() { grpcCallTimeout = old }()
-
-	d := NewCapabilityDispatcher(&blockingBroker{})
+	d := NewCapabilityDispatcher(&blockingBroker{}, 50*time.Millisecond)
 	_, err := d.DispatchCapabilityActivity(context.Background(), ActivityInput{
 		CapabilityName: "summarize",
 		WorkflowID:     "wf-timeout",

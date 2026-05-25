@@ -23,13 +23,14 @@ import (
 )
 
 type config struct {
-	HTTPPort     int    `envconfig:"HTTP_PORT" default:"8080"`
-	CompilerAddr string `envconfig:"COMPILER_ADDR" default:"localhost:50054"`
-	EngineAddr   string `envconfig:"ENGINE_ADDR" default:"localhost:50055"`
-	RegistryAddr string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
-	LogLevel     string `envconfig:"LOG_LEVEL" default:"info"`
-	APIKey       string `envconfig:"API_KEY"`
-	DevInsecure  bool   `envconfig:"DEV_INSECURE"`
+	HTTPPort         int    `envconfig:"HTTP_PORT" default:"8080"`
+	CompilerAddr     string `envconfig:"COMPILER_ADDR" default:"localhost:50054"`
+	EngineAddr       string `envconfig:"ENGINE_ADDR" default:"localhost:50055"`
+	RegistryAddr     string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
+	LogLevel         string `envconfig:"LOG_LEVEL" default:"info"`
+	APIKey           string `envconfig:"API_KEY"`
+	DevInsecure      bool   `envconfig:"DEV_INSECURE"`
+	GRPCCallTimeoutS int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
 }
 
 // validateConfig rejects an empty API key unless ZYNAX_GW_DEV_INSECURE=1 is set.
@@ -68,7 +69,8 @@ func main() {
 
 // run contains the service lifecycle. Deferred cleanups execute before returning.
 func run(cfg config) error {
-	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr)
+	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
+	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, callTimeout)
 	if err != nil {
 		return fmt.Errorf("gateway clients: %w", err)
 	}
