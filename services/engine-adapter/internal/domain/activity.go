@@ -27,6 +27,9 @@ type ActivityResult struct {
 	Payload   []byte
 }
 
+// grpcCallTimeout is the per-call deadline for outgoing gRPC requests to task-broker.
+var grpcCallTimeout = 30 * time.Second
+
 // CapabilityDispatcher dispatches capability activities to the task broker.
 // It is a plain Go struct — Temporal registers it as an activity source in
 // the infrastructure layer; no Temporal SDK is imported here (ADR-015).
@@ -51,7 +54,9 @@ func (d *CapabilityDispatcher) DispatchCapabilityActivity(ctx context.Context, i
 }
 
 func (d *CapabilityDispatcher) dispatch(ctx context.Context, in ActivityInput) (string, error) {
-	resp, err := d.broker.DispatchTask(ctx, &zynaxv1.DispatchTaskRequest{
+	callCtx, cancel := context.WithTimeout(ctx, grpcCallTimeout)
+	defer cancel()
+	resp, err := d.broker.DispatchTask(callCtx, &zynaxv1.DispatchTaskRequest{
 		Task: &zynaxv1.WorkflowTask{
 			WorkflowId:     in.WorkflowID,
 			CapabilityName: in.CapabilityName,
@@ -73,7 +78,9 @@ func (d *CapabilityDispatcher) poll(ctx context.Context, taskID, capabilityName 
 		case <-time.After(d.pollInterval):
 		}
 
-		task, err := d.broker.GetTask(ctx, &zynaxv1.GetTaskRequest{TaskId: taskID})
+		callCtx, callCancel := context.WithTimeout(ctx, grpcCallTimeout)
+		task, err := d.broker.GetTask(callCtx, &zynaxv1.GetTaskRequest{TaskId: taskID})
+		callCancel()
 		if err != nil {
 			return nil, fmt.Errorf("engine-adapter: get task %q: %w", taskID, err)
 		}
