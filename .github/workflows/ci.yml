@@ -121,11 +121,14 @@ jobs:
 
 # ── Change Detection ──────────────────────────────────────────────────────────
 # Detects which path groups changed so downstream lanes can be skipped.
-# Outputs:
+# Outputs (coarse-grained, gate entire jobs):
 #   code   — true when services/, agents/, cmd/, protos/, or go.work change; gates test-unit
 #   proto  — true when protos/, spec/, or AI context files change
 #   go     — true when any Go code changes (services/, cmd/, Go adapters)
 #   python — true when Python agents change
+# Outputs (per-service, gate individual steps within lint-go and test-unit):
+#   engine_adapter / workflow_compiler / api_gateway / task_broker / agent_registry
+#   cli / adapters_go / adapters_python
 # On push to main uses git diff HEAD^1 HEAD; on PR uses the PR diff range.
   changes:
     name: changes
@@ -135,10 +138,18 @@ jobs:
       options: --user root
     needs: [dco]
     outputs:
-      code:   ${{ steps.detect.outputs.code   == 'true' || steps.force-detect.outputs.force == 'true' }}
-      proto:  ${{ steps.detect.outputs.proto  == 'true' || steps.force-detect.outputs.force == 'true' }}
-      go:     ${{ steps.detect.outputs.go     == 'true' || steps.force-detect.outputs.force == 'true' }}
-      python: ${{ steps.detect.outputs.python == 'true' || steps.force-detect.outputs.force == 'true' }}
+      code:             ${{ steps.detect.outputs.code             == 'true' || steps.force-detect.outputs.force == 'true' }}
+      proto:            ${{ steps.detect.outputs.proto            == 'true' || steps.force-detect.outputs.force == 'true' }}
+      go:               ${{ steps.detect.outputs.go               == 'true' || steps.force-detect.outputs.force == 'true' }}
+      python:           ${{ steps.detect.outputs.python           == 'true' || steps.force-detect.outputs.force == 'true' }}
+      engine_adapter:   ${{ steps.detect.outputs.engine_adapter   == 'true' || steps.force-detect.outputs.force == 'true' }}
+      workflow_compiler: ${{ steps.detect.outputs.workflow_compiler == 'true' || steps.force-detect.outputs.force == 'true' }}
+      api_gateway:      ${{ steps.detect.outputs.api_gateway      == 'true' || steps.force-detect.outputs.force == 'true' }}
+      task_broker:      ${{ steps.detect.outputs.task_broker      == 'true' || steps.force-detect.outputs.force == 'true' }}
+      agent_registry:   ${{ steps.detect.outputs.agent_registry   == 'true' || steps.force-detect.outputs.force == 'true' }}
+      cli:              ${{ steps.detect.outputs.cli              == 'true' || steps.force-detect.outputs.force == 'true' }}
+      adapters_go:      ${{ steps.detect.outputs.adapters_go      == 'true' || steps.force-detect.outputs.force == 'true' }}
+      adapters_python:  ${{ steps.detect.outputs.adapters_python  == 'true' || steps.force-detect.outputs.force == 'true' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -183,6 +194,14 @@ jobs:
               echo "proto=true"
               echo "go=true"
               echo "python=true"
+              echo "engine_adapter=true"
+              echo "workflow_compiler=true"
+              echo "api_gateway=true"
+              echo "task_broker=true"
+              echo "agent_registry=true"
+              echo "cli=true"
+              echo "adapters_go=true"
+              echo "adapters_python=true"
             } >> "$GITHUB_OUTPUT"
             echo "ℹ️  Unknown event '${{ github.event_name }}' — all lanes enabled."
             exit 0
@@ -190,14 +209,27 @@ jobs:
           if ! FILES=$(git diff --name-only "${BASE}...${HEAD_SHA}" 2>/tmp/git-diff-err.txt); then
             echo "⚠️  git diff failed — enabling all lanes as fail-safe"
             cat /tmp/git-diff-err.txt
-            echo "code=true"   >> "$GITHUB_OUTPUT"
-            echo "proto=true"  >> "$GITHUB_OUTPUT"
-            echo "go=true"     >> "$GITHUB_OUTPUT"
-            echo "python=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "code=true"
+              echo "proto=true"
+              echo "go=true"
+              echo "python=true"
+              echo "engine_adapter=true"
+              echo "workflow_compiler=true"
+              echo "api_gateway=true"
+              echo "task_broker=true"
+              echo "agent_registry=true"
+              echo "cli=true"
+              echo "adapters_go=true"
+              echo "adapters_python=true"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           code=false proto=false go=false python=false
+          engine_adapter=false workflow_compiler=false api_gateway=false
+          task_broker=false agent_registry=false cli=false
+          adapters_go=false adapters_python=false
 
           while IFS= read -r f; do
             [ -z "$f" ] && continue
@@ -219,6 +251,26 @@ jobs:
             if echo "$f" | grep -qE '^agents/' && ! echo "$f" | grep -qE '^agents/adapters/'; then
               python=true
             fi
+
+            # Per-service granularity: sets all service flags when shared deps change.
+            case "$f" in
+              services/engine-adapter/*)    engine_adapter=true ;;
+              services/workflow-compiler/*) workflow_compiler=true ;;
+              services/api-gateway/*)       api_gateway=true ;;
+              services/task-broker/*)       task_broker=true ;;
+              services/agent-registry/*)    agent_registry=true ;;
+              cmd/*)                        cli=true ;;
+              agents/adapters/http/*|agents/adapters/git/*|agents/adapters/ci/*) adapters_go=true ;;
+              agents/adapters/llm/*|agents/adapters/langgraph/*)                 adapters_python=true ;;
+              protos/generated/go/*|go.work|go.work.sum)
+                # Generated stubs and workspace file are imported by all Go services.
+                engine_adapter=true workflow_compiler=true api_gateway=true
+                task_broker=true agent_registry=true cli=true adapters_go=true ;;
+              tools/golangci-lint.yml)
+                # Lint config change requires re-linting every service.
+                engine_adapter=true workflow_compiler=true api_gateway=true
+                task_broker=true agent_registry=true cli=true adapters_go=true ;;
+            esac
           done <<< "$FILES"
 
           {
@@ -226,8 +278,17 @@ jobs:
             echo "proto=$proto"
             echo "go=$go"
             echo "python=$python"
+            echo "engine_adapter=$engine_adapter"
+            echo "workflow_compiler=$workflow_compiler"
+            echo "api_gateway=$api_gateway"
+            echo "task_broker=$task_broker"
+            echo "agent_registry=$agent_registry"
+            echo "cli=$cli"
+            echo "adapters_go=$adapters_go"
+            echo "adapters_python=$adapters_python"
           } >> "$GITHUB_OUTPUT"
           echo "── Changed path groups: code=$code  lint-proto=$proto  lint-go=$go  lint-python=$python"
+          echo "── Per-service: engine-adapter=$engine_adapter  workflow-compiler=$workflow_compiler  api-gateway=$api_gateway  task-broker=$task_broker  agent-registry=$agent_registry  cli=$cli  adapters-go=$adapters_go  adapters-python=$adapters_python"
 
 # ── Lint: Proto, AI context scan, and spec validation ────────────────────────
 # Runs: gitleaks (AI KB files), buf lint/format, stubs freshness,
@@ -409,43 +470,28 @@ jobs:
       - name: Trust workspace (git safe.directory for root container)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Detect Go code
-        id: go-detect
-        run: |
-          # On push to main all lanes run (no reliable base SHA).
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "has_services=1" >> "$GITHUB_OUTPUT"
-            echo "has_adapters=1"  >> "$GITHUB_OUTPUT"
-            echo "has_cli=1"       >> "$GITHUB_OUTPUT"
-            echo "has_go=1"        >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
-          if ! CHANGED=$(git diff --name-only "${BASE}...${HEAD}" 2>/tmp/git-diff-err.txt); then
-            echo "⚠️  git diff failed — treating as fully changed (fail-safe)"
-            cat /tmp/git-diff-err.txt
-            echo "has_services=1" >> "$GITHUB_OUTPUT"
-            echo "has_adapters=1" >> "$GITHUB_OUTPUT"
-            echo "has_cli=1"      >> "$GITHUB_OUTPUT"
-            echo "has_go=1"       >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          svc_count=$(echo "$CHANGED"  | grep "^services/"       | wc -l)
-          adapter_count=$(echo "$CHANGED" | grep "^agents/adapters/" | wc -l)
-          cli_count=$(echo "$CHANGED"  | grep "^cmd/"            | wc -l)
-          total=$((svc_count + adapter_count + cli_count))
-          echo "has_services=$svc_count"   >> "$GITHUB_OUTPUT"
-          echo "has_adapters=$adapter_count" >> "$GITHUB_OUTPUT"
-          echo "has_cli=$cli_count"         >> "$GITHUB_OUTPUT"
-          echo "has_go=$total"              >> "$GITHUB_OUTPUT"
-
       - name: golangci-lint (platform services)
-        if: steps.go-detect.outputs.has_services != '0'
+        if: >-
+          needs.changes.outputs.engine_adapter == 'true' ||
+          needs.changes.outputs.workflow_compiler == 'true' ||
+          needs.changes.outputs.api_gateway == 'true' ||
+          needs.changes.outputs.task_broker == 'true' ||
+          needs.changes.outputs.agent_registry == 'true'
+        env:
+          ENGINE_ADAPTER_CHANGED:   ${{ needs.changes.outputs.engine_adapter }}
+          WORKFLOW_COMPILER_CHANGED: ${{ needs.changes.outputs.workflow_compiler }}
+          API_GATEWAY_CHANGED:      ${{ needs.changes.outputs.api_gateway }}
+          TASK_BROKER_CHANGED:      ${{ needs.changes.outputs.task_broker }}
+          AGENT_REGISTRY_CHANGED:   ${{ needs.changes.outputs.agent_registry }}
         run: |
           failed=false
           for svc in ${{ env.SERVICE_LIST }}; do
             if [ -f "services/${svc}/go.mod" ]; then
+              var="$(echo "$svc" | tr '-' '_' | tr '[:lower:]' '[:upper:]')_CHANGED"
+              if [ "${!var:-false}" != "true" ]; then
+                echo "── lint: services/${svc} [SKIPPED — not changed]"
+                continue
+              fi
               echo "── lint: services/${svc}"
               cd "services/${svc}"
               GOWORK=off golangci-lint run ./... --config "../../tools/golangci-lint.yml" || failed=true
@@ -455,7 +501,7 @@ jobs:
           $failed && exit 1 || echo "✅ Go service lint passed"
 
       - name: golangci-lint (Go adapters)
-        if: steps.go-detect.outputs.has_adapters != '0'
+        if: needs.changes.outputs.adapters_go == 'true'
         run: |
           failed=false
           for adapter in ${{ env.GO_ADAPTER_LIST }}; do
@@ -469,7 +515,7 @@ jobs:
           $failed && exit 1 || echo "✅ Go adapter lint passed"
 
       - name: golangci-lint (CLI tools)
-        if: steps.go-detect.outputs.has_cli != '0'
+        if: needs.changes.outputs.cli == 'true'
         run: |
           failed=false
           for cli in zynax zynax-ci; do
@@ -627,10 +673,21 @@ jobs:
 
       - name: Go service unit tests
         if: steps.go-detect.outputs.has_services != '0'
+        env:
+          ENGINE_ADAPTER_CHANGED:    ${{ needs.changes.outputs.engine_adapter }}
+          WORKFLOW_COMPILER_CHANGED: ${{ needs.changes.outputs.workflow_compiler }}
+          API_GATEWAY_CHANGED:       ${{ needs.changes.outputs.api_gateway }}
+          TASK_BROKER_CHANGED:       ${{ needs.changes.outputs.task_broker }}
+          AGENT_REGISTRY_CHANGED:    ${{ needs.changes.outputs.agent_registry }}
         run: |
           failed=false
           for svc in ${{ env.SERVICE_LIST }}; do
             if [ -f "services/${svc}/go.mod" ]; then
+              var="$(echo "$svc" | tr '-' '_' | tr '[:lower:]' '[:upper:]')_CHANGED"
+              if [ "${!var:-false}" != "true" ]; then
+                echo "── test: services/${svc} [SKIPPED — not changed]"
+                continue
+              fi
               echo "── test: services/${svc}"
               cd "services/${svc}"
               GOWORK=off go test -tags="" ./... -v -timeout 60s -count=1 || failed=true
@@ -641,11 +698,22 @@ jobs:
 
       - name: Go domain coverage measurement
         if: steps.go-detect.outputs.has_services != '0'
+        env:
+          ENGINE_ADAPTER_CHANGED:    ${{ needs.changes.outputs.engine_adapter }}
+          WORKFLOW_COMPILER_CHANGED: ${{ needs.changes.outputs.workflow_compiler }}
+          API_GATEWAY_CHANGED:       ${{ needs.changes.outputs.api_gateway }}
+          TASK_BROKER_CHANGED:       ${{ needs.changes.outputs.task_broker }}
+          AGENT_REGISTRY_CHANGED:    ${{ needs.changes.outputs.agent_registry }}
         run: |
           # Run tests scoped to internal/domain/ only for a clean coverage profile.
           # go tool cover is run from inside the service dir so it resolves go.mod.
           for svc in ${{ env.SERVICE_LIST }}; do
             if [ -f "services/${svc}/go.mod" ] && [ -d "services/${svc}/internal/domain" ]; then
+              var="$(echo "$svc" | tr '-' '_' | tr '[:lower:]' '[:upper:]')_CHANGED"
+              if [ "${!var:-false}" != "true" ]; then
+                echo "── coverage: services/${svc} [SKIPPED — not changed]"
+                continue
+              fi
               cd "services/${svc}"
               GOWORK=off go test -tags="" ./internal/domain/... \
                 -coverprofile=domain-coverage.out \
