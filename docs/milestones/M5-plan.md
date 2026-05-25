@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-26 (rev 50 — BATCH 5B: #679 ✅; BATCH 6: #622 ✅ #689 ✅)
+**Last updated:** 2026-05-26 (rev 51 — BATCH 5: #549 ✅ #550 ✅)
 
 ---
 
@@ -173,8 +173,8 @@ of tooling at run time. The image is rebuilt and published to
 | [#551](https://github.com/zynax-io/zynax/issues/551) | Create Dockerfile.ci-runner — self-contained Alpine image | S | ✅ Done | — |
 | [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner container mode | M | ✅ Done | **P0** |
 | [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | After #552 ✅ | ✅ Done |
-| [#549](https://github.com/zynax-io/zynax/issues/549) | Extend changes job per-service module granularity | M | After #552 | P1 |
-| [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M | After #549 | P1 |
+| [#549](https://github.com/zynax-io/zynax/issues/549) | Extend changes job per-service module granularity | M | After #552 | ✅ Done |
+| [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M | After #549 | ✅ Done |
 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L | After #552 | P2 |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml | XS | ✅ Done | — |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS | After #552 | P2 |

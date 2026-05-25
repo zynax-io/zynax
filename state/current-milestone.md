@@ -30,8 +30,8 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ #552 ✅ #554 ✅ force-full-pipeline; next: **#549** per-service change-detection |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #642 ✅ #641 ✅ #655 ✅; next: #549 per-service change-detection |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ #552 ✅ #554 ✅ #549 ✅ #550 ✅; next: #555 DRY/KISS or #564 digest-pin |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #642 ✅ #641 ✅ #655 ✅ #549 ✅ #550 ✅; next: #555 DRY/KISS or #564 digest-pin |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Compose wired — all 3 services in stack; E2E dispatch pending adapters |
@@ -144,12 +144,14 @@ Priority gaps to file immediately:
 - **#679** — Temporal NotFound → domain.ErrExecutionNotFound in engine-adapter (BATCH 5B)
 - **#622** — context.WithTimeout on all outgoing gRPC calls across 4 services (BATCH 6)
 - **#689** — Thread gRPC call timeout from config env vars; remove package-level globals
+- **#549** — Per-service change detection in `changes` job; removed redundant `go-detect` from `lint-go` (BATCH 5)
+- **#550** — govulncheck per-service scoping in `security` job (BATCH 5)
 
 ## Next Session Queue (priority order)
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| ~~P1~~ | ~~[#679](https://github.com/zynax-io/zynax/issues/679)~~ | ~~Translate Temporal NotFound → domain.ErrExecutionNotFound~~ | ✅ Done |
-| ~~P1~~ | ~~[#622](https://github.com/zynax-io/zynax/issues/622)~~ | ~~context.WithTimeout on all gRPC calls~~ | ✅ Done |
-| P2 | [#549](https://github.com/zynax-io/zynax/issues/549) | Per-service change detection (CI test lanes) | M, ci |
+| P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci |
+| P2 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS, ci |
+| P2 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S, ci |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |
