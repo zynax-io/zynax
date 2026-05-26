@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -116,7 +117,11 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), error) {
 		return nil, func() {}, fmt.Errorf("unsupported engine %q: only \"temporal\" is supported in M3", cfg.ActiveEngine)
 	}
 
-	infrastructure.DefaultActivityMaxAttempts = int32(cfg.MaxActivityAttempts) //nolint:gosec // G115: bounded by env-var with default 3; no overflow risk
+	attempts := cfg.MaxActivityAttempts
+	if attempts > math.MaxInt32 {
+		attempts = math.MaxInt32
+	}
+	infrastructure.DefaultActivityMaxAttempts = int32(attempts) //nolint:gosec // G115: bounded above by MaxInt32 check
 
 	tc, err := client.Dial(client.Options{
 		HostPort:  cfg.TemporalHostPort,
