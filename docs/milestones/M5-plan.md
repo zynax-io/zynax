@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-26 (rev 53 — BATCH 6: #622 ✅ #689 ✅; BATCH 5: #564 ✅ #565 ✅)
+**Last updated:** 2026-05-26 (rev 54 — reconcile M5.C/M5.B/M5.F closed issues)
 
 ---
 
@@ -455,14 +455,14 @@ without rewriting the graph).
 | [#545](https://github.com/zynax-io/zynax/issues/545) | Fix CI concurrency — cancel stale runs per branch | XS | ✅ Done |
 | [#589](https://github.com/zynax-io/zynax/issues/589) | Remove `merge_group` trigger from all workflow files | XS | ✅ Done |
 | [#546](https://github.com/zynax-io/zynax/issues/546) | Remove push-to-main forced-true override | S | ✅ Done |
-| [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | P1 |
+| [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | ✅ Done |
 
 ### Group B — Per-service change detection (P2)
-| Issue | Title | Size |
-|-------|-------|------|
-| [#549](https://github.com/zynax-io/zynax/issues/549) | Extend changes job with per-service granularity | M |
-| [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M |
-| [#220](https://github.com/zynax-io/zynax/issues/220) | Parallel CI job matrix with shared Go module cache | M |
+| Issue | Title | Size | Status |
+|-------|-------|------|--------|
+| [#549](https://github.com/zynax-io/zynax/issues/549) | Extend changes job with per-service granularity | M | ✅ Done |
+| [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M | ✅ Done |
+| [#220](https://github.com/zynax-io/zynax/issues/220) | Parallel CI job matrix with shared Go module cache | M | backlog |
 
 ### Group C — Alpine CI runner sub-epic (#543)
 | Issue | Title | Size |
@@ -508,11 +508,11 @@ without rewriting the graph).
 | [#562](https://github.com/zynax-io/zynax/issues/562) | Make GHCR images publicly readable | XS | ✅ Done · unblocked tools+#563+#566 |
 | (admin) | Confirm zynax/tools published + set public | — | ✅ Done — tools-image.yml succeeded 2026-05-20; package set public |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image (remove tools-publish.yml) | XS | ✅ Done |
-| [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 | XS | P2 |
-| [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | P2 |
+| [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 | XS | ✅ Done |
+| [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | ✅ Done |
 | [#566](https://github.com/zynax-io/zynax/issues/566) | README Docker Images section with pull commands | S | ✅ Done |
-| [#641](https://github.com/zynax-io/zynax/issues/641) | Per-service change detection for image builds — skip unchanged images on main push | M | P2 |
-| [#642](https://github.com/zynax-io/zynax/issues/642) | Switch service Dockerfiles to distroless/static:nonroot + add `-ldflags "-s -w"` | S | P2 |
+| [#641](https://github.com/zynax-io/zynax/issues/641) | Per-service change detection for image builds — skip unchanged images on main push | M | ✅ Done |
+| [#642](https://github.com/zynax-io/zynax/issues/642) | Switch service Dockerfiles to distroless/static:nonroot + add `-ldflags "-s -w"` | S | ✅ Done |
 
 **Cross-links:**
 - #601 → #562 → tools-public → #563 → #566: Full chain — service Dockerfiles fixed → images made public → zynax/tools rebuilt and made public → old zynax-tools removed → README documented.
@@ -533,7 +533,7 @@ without rewriting the graph).
 | [#473](https://github.com/zynax-io/zynax/issues/473) | Audit CHANGELOG for phantom entries | ✅ Done |
 | [#474](https://github.com/zynax-io/zynax/issues/474) | Python SDK decision → implement minimal Agent base class | ✅ Epic complete (BATCH 3) |
 | **NEW** | Fix SECURITY.md — remove mTLS/SBOM/cosign false claims | ✅ Done (2026-05-20) |
-| **NEW** | Add per-service status table to README | ⬜ Open (file as child of #458) |
+| [#579](https://github.com/zynax-io/zynax/issues/579) | Add per-service status table to README | ⬜ Open |
 
 ### Python SDK epic (#474) — promoted
 
@@ -555,7 +555,7 @@ without rewriting the graph).
 | Issue | Title | Status |
 |-------|-------|--------|
 | [#475](https://github.com/zynax-io/zynax/issues/475) | resolveTemplate map-iteration determinism | ✅ Done |
-| [#476](https://github.com/zynax-io/zynax/issues/476) | Guard evaluator — cel-go epic | ⬜ Epic (see BATCH 2) |
+| [#476](https://github.com/zynax-io/zynax/issues/476) | Guard evaluator — cel-go epic | ✅ Done (all child issues merged — see BATCH 2) |
 | [#477](https://github.com/zynax-io/zynax/issues/477) | CompileWorkflow structured error list | ✅ Done |
 | [#478](https://github.com/zynax-io/zynax/issues/478) | SSE WriteTimeout fix | ✅ Done |
 
@@ -585,7 +585,7 @@ Implementation merged: PRs #520, #522, #523. Domain coverage: 92.7%.
 |-------|-------------|-------|--------|
 | [#530](https://github.com/zynax-io/zynax/issues/530) | O6 | Update AGENTS.md | ✅ Done |
 | [#531](https://github.com/zynax-io/zynax/issues/531) | O7 | Align service BDD + godog steps | ✅ Done |
-| [#532](https://github.com/zynax-io/zynax/issues/532) | O8 | Handler unit tests (grpcErr coverage) | ⬜ Open |
+| [#532](https://github.com/zynax-io/zynax/issues/532) | O8 | Handler unit tests (grpcErr coverage) | ✅ Done |
 
 ### agent-registry MVP (#480) — pending
 
@@ -593,15 +593,15 @@ Implementation merged: PRs #520, #522, #523. Domain coverage: 92.7%.
 
 | Issue | Canvas step | Title | Status |
 |-------|-------------|-------|--------|
-| [#526](https://github.com/zynax-io/zynax/issues/526) | O1 | Trim BDD to proto scope | ⬜ Open |
-| [#527](https://github.com/zynax-io/zynax/issues/527) | O2 | Domain layer | ⬜ Open (blocked on #526) |
-| [#528](https://github.com/zynax-io/zynax/issues/528) | O3 | gRPC wiring + cmd + go.work | ⬜ Open (blocked on #527) |
+| [#526](https://github.com/zynax-io/zynax/issues/526) | O1 | Trim BDD to proto scope | ✅ Done |
+| [#527](https://github.com/zynax-io/zynax/issues/527) | O2 | Domain layer | ✅ Done |
+| [#528](https://github.com/zynax-io/zynax/issues/528) | O3 | gRPC wiring + cmd + go.work | ✅ Done |
 
 ### compose wiring (#481)
 
 | Issue | Title | Status |
 |-------|-------|--------|
-| [#481](https://github.com/zynax-io/zynax/issues/481) | Add task-broker + agent-registry to docker-compose | ⬜ Open (blocked on #528) |
+| [#481](https://github.com/zynax-io/zynax/issues/481) | Add task-broker + agent-registry to docker-compose | ✅ Done |
 
 ---
 
