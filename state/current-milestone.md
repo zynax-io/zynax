@@ -121,8 +121,8 @@ Priority gaps to file immediately:
 |-----|----------|
 | ~~G1: constant-time bearer compare~~ | ✅ fixed #567 |
 | ~~G2: ReadHeaderTimeout + MaxBytesReader~~ | ✅ fixed #568 |
-| G4: no RetryPolicy on Temporal Activities (#569) | Medium |
-| G16: background-context goroutines in task-broker (#570) | Medium |
+| ~~G4: no RetryPolicy on Temporal Activities (#569)~~ | ✅ fixed #569 |
+| ~~G16: background-context goroutines in task-broker (#570)~~ | ✅ fixed #570 |
 | G19: competitive positioning doc (Kagent/Dapr) (#575) | High |
 | G17: stub services in SERVICE_LIST (#574) | Low |
 
@@ -141,6 +141,7 @@ Priority gaps to file immediately:
 
 ## Recently Closed (this session)
 
+- **#569** — Add RetryPolicy + nonRetryableErrorTypes to DispatchCapabilityActivity (G4 fix)
 - **#570** — Detached context in task-broker executeAsync goroutine; preserves request-ID via detachedCtx (G16)
 - **#679** — Temporal NotFound → domain.ErrExecutionNotFound in engine-adapter (BATCH 5B)
 - **#622** — context.WithTimeout on all outgoing gRPC calls across 4 services (BATCH 6)
@@ -153,6 +154,4 @@ Priority gaps to file immediately:
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
 | P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci, needs-design |
-| P2 | [#569](https://github.com/zynax-io/zynax/issues/569) | Add RetryPolicy to DispatchCapabilityActivity (G4) | S, fix |
-| P2 | ~~[#570](https://github.com/zynax-io/zynax/issues/570)~~ | ~~Propagate request-ID via detached context (G16)~~ | ✅ Done |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |
