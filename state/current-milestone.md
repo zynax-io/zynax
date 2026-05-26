@@ -78,6 +78,7 @@ All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 | Issue | Track | Title | Status |
 |-------|-------|-------|--------|
 | [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | ✅ Complete — #400 #401 #402 #403 all merged |
+| [#713](https://github.com/zynax-io/zynax/issues/713) | Adapters | git-adapter quality epic (coverage ≥85%) | 🔴 In Progress — #714 (revert, ready) → #715 #716 #717 (tests, parallel) → #718 (re-add) |
 | [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open — #404 BDD done; #405+ next (canvas Aligned) |
 | [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open — #409 BDD done; #410+ pending |
 | [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open — #414 BDD done; #415+ pending |
@@ -86,6 +87,8 @@ All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 
 ## Known Blockers
 
+- **#713 git-adapter coverage (48.7% vs 85% gate)** — #714 must land first (revert git from GO_ADAPTER_LIST) to unblock all other PRs. Then #715 #716 #717 (parallel tests) raise coverage; #718 re-adds git.
+- **#712 blocked by #714** — `chore(ci): remove summarizer phantom` can't auto-merge because git adapter coverage gate fires. Will unblock once #714 lands.
 - **✅ #655 FIXED** — `tools/healthcheck` static binary added to all 6 distroless Dockerfiles; `docker-compose.yml` migrated from `CMD-SHELL` + `wget`/`nc` to `CMD /healthcheck`; override file removed.
 - **#552 ✅ done** — all jobs now run in ci-runner container mode.
 - **adapter implementations** (#401–#418) — unblocked by #481 ✅; git-adapter scaffold #400 ✅; handler and registry steps pending.
@@ -134,6 +137,12 @@ Priority gaps to file immediately:
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
+| **P0** | [#714](https://github.com/zynax-io/zynax/issues/714) | Revert git from GO_ADAPTER_LIST | XS, ci — unblocks #712 |
+| **P0** | [#712](https://github.com/zynax-io/zynax/issues/712) | Remove summarizer phantom (PR open, auto-merge set) | Rebase after #714 merges |
+| P1 | [#715](https://github.com/zynax-io/zynax/issues/715) | Cover requestReview + progressEvent | S, test, parallel with #716/#717 |
+| P1 | [#716](https://github.com/zynax-io/zynax/issues/716) | Cover execute/sanitise/githubErrCode/parsePayload | S, test, parallel |
+| P1 | [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent + isTransient | S, test, parallel |
+| P1 (blocked) | [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | XS, ci — after #715+#716+#717 |
 | P2 | [#405](https://github.com/zynax-io/zynax/issues/405) | ci-adapter Go module scaffold + config layer (O2) | S, feat, canvas Aligned |
 | P2 | [#579](https://github.com/zynax-io/zynax/issues/579) | README per-service status table | S, docs, M5.A |
 | P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci, needs-design |
