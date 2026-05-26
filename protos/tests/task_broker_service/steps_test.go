@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -150,10 +152,13 @@ func (s *brokerStub) GetTask(_ context.Context, req *zynaxv1.GetTaskRequest) (*z
 	return task, nil
 }
 
+const defaultListTasksPageSize = 50
+
 func (s *brokerStub) ListTasks(_ context.Context, req *zynaxv1.ListTasksRequest) (*zynaxv1.ListTasksResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var result []*zynaxv1.WorkflowTask
+
+	var filtered []*zynaxv1.WorkflowTask
 	for _, task := range s.tasks {
 		if req.WorkflowId != "" && task.WorkflowId != req.WorkflowId {
 			continue
@@ -161,9 +166,34 @@ func (s *brokerStub) ListTasks(_ context.Context, req *zynaxv1.ListTasksRequest)
 		if req.Status != zynaxv1.TaskStatus_TASK_STATUS_UNSPECIFIED && task.Status != req.Status {
 			continue
 		}
-		result = append(result, task)
+		filtered = append(filtered, task)
 	}
-	return &zynaxv1.ListTasksResponse{Tasks: result}, nil
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].TaskId < filtered[j].TaskId })
+
+	offset := 0
+	if req.PageToken != "" {
+		if n, err := strconv.Atoi(req.PageToken); err == nil {
+			offset = n
+		}
+	}
+	if offset > len(filtered) {
+		offset = len(filtered)
+	}
+
+	pageSize := int(req.PageSize)
+	if pageSize <= 0 {
+		pageSize = defaultListTasksPageSize
+	}
+
+	end := offset + pageSize
+	var nextToken string
+	if end < len(filtered) {
+		nextToken = strconv.Itoa(end)
+	} else {
+		end = len(filtered)
+	}
+
+	return &zynaxv1.ListTasksResponse{Tasks: filtered[offset:end], NextPageToken: nextToken}, nil
 }
 
 func (s *brokerStub) CancelTask(_ context.Context, req *zynaxv1.CancelTaskRequest) (*zynaxv1.CancelTaskResponse, error) {
@@ -202,6 +232,7 @@ type testCtx struct {
 	ackResp       *zynaxv1.AcknowledgeTaskResponse
 	pendingTask   *zynaxv1.WorkflowTask
 	pendingAckReq *zynaxv1.AcknowledgeTaskRequest
+	pageTokens    map[string]string // symbolic label → actual next_page_token
 }
 
 func newTestCtx() *testCtx {
@@ -250,6 +281,7 @@ func TestFeatures(t *testing.T) {
 
 			sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 				tc = newTestCtx()
+				tc.pageTokens = make(map[string]string)
 				return ctx, nil
 			})
 
@@ -824,6 +856,93 @@ func TestFeatures(t *testing.T) {
 					TaskId:        "task-x",
 					Status:        zynaxv1.TaskStatus_TASK_STATUS_COMPLETED,
 					ResultPayload: nil,
+				}
+				return ctx, nil
+			})
+
+			// ── Pagination steps ─────────────────────────────────────────────────
+
+			sc.Step(`^the gRPC status is OK$`, func(ctx context.Context) (context.Context, error) {
+				if tc.grpcErr != nil {
+					return ctx, fmt.Errorf("expected OK, got: %w", tc.grpcErr)
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^(\d+) tasks exist in workflow "([^"]*)"$`, func(ctx context.Context, n int, wfID string) (context.Context, error) {
+				for i := range n {
+					id := fmt.Sprintf("task-paged-%s-%02d", wfID, i)
+					tc.insertTaskDirectly(id, zynaxv1.TaskStatus_TASK_STATUS_PENDING, "summarize", wfID, 0, 0)
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^ListTasks is called with page_size (\d+) and no page_token$`, func(ctx context.Context, pageSize int) (context.Context, error) {
+				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				resp, err := tc.client.ListTasks(callCtx, &zynaxv1.ListTasksRequest{PageSize: int32(pageSize)}) //nolint:gosec // bounded by test input
+				tc.listResp = resp
+				tc.grpcErr = err
+				return ctx, nil
+			})
+
+			sc.Step(`^ListTasks has been called with page_size (\d+) returning next_page_token "([^"]*)"$`, func(ctx context.Context, pageSize int, tokenLabel string) (context.Context, error) {
+				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				resp, err := tc.client.ListTasks(callCtx, &zynaxv1.ListTasksRequest{PageSize: int32(pageSize)}) //nolint:gosec // bounded by test input
+				if err != nil {
+					return ctx, err //nolint:wrapcheck
+				}
+				tc.pageTokens[tokenLabel] = resp.NextPageToken
+				return ctx, nil
+			})
+
+			sc.Step(`^ListTasks is called with page_size (\d+) and page_token "([^"]*)"$`, func(ctx context.Context, pageSize int, tokenLabel string) (context.Context, error) {
+				token := tc.pageTokens[tokenLabel]
+				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				resp, err := tc.client.ListTasks(callCtx, &zynaxv1.ListTasksRequest{PageSize: int32(pageSize), PageToken: token}) //nolint:gosec // bounded by test input
+				tc.listResp = resp
+				tc.grpcErr = err
+				return ctx, nil
+			})
+
+			sc.Step(`^the response contains exactly (\d+) tasks$`, func(ctx context.Context, n int) (context.Context, error) {
+				if tc.listResp == nil {
+					return ctx, fmt.Errorf("list response is nil")
+				}
+				if len(tc.listResp.Tasks) != n {
+					return ctx, fmt.Errorf("expected exactly %d tasks, got %d", n, len(tc.listResp.Tasks))
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^the response next_page_token is non-empty$`, func(ctx context.Context) (context.Context, error) {
+				if tc.listResp == nil {
+					return ctx, fmt.Errorf("list response is nil")
+				}
+				if tc.listResp.NextPageToken == "" {
+					return ctx, fmt.Errorf("expected non-empty next_page_token")
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^the response next_page_token is empty$`, func(ctx context.Context) (context.Context, error) {
+				if tc.listResp == nil {
+					return ctx, fmt.Errorf("list response is nil")
+				}
+				if tc.listResp.NextPageToken != "" {
+					return ctx, fmt.Errorf("expected empty next_page_token, got %q", tc.listResp.NextPageToken)
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^the response contains at least (\d+) task$`, func(ctx context.Context, n int) (context.Context, error) {
+				if tc.listResp == nil {
+					return ctx, fmt.Errorf("list response is nil")
+				}
+				if len(tc.listResp.Tasks) < n {
+					return ctx, fmt.Errorf("expected at least %d tasks, got %d", n, len(tc.listResp.Tasks))
 				}
 				return ctx, nil
 			})
