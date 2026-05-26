@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -107,22 +109,48 @@ func (s *registryStub) GetAgent(_ context.Context, req *zynaxv1.GetAgentRequest)
 	return ag, nil
 }
 
+const defaultListAgentsPageSize = 50
+
 func (s *registryStub) ListAgents(_ context.Context, req *zynaxv1.ListAgentsRequest) (*zynaxv1.ListAgentsResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var result []*zynaxv1.AgentDef
+
+	var filtered []*zynaxv1.AgentDef
 	for _, ag := range s.agents {
 		if !req.IncludeDeregistered && ag.Status != zynaxv1.AgentStatus_AGENT_STATUS_REGISTERED {
 			continue
 		}
-		if req.LabelSelector != "" {
-			if !matchesLabelSelector(ag.Labels, req.LabelSelector) {
-				continue
-			}
+		if req.LabelSelector != "" && !matchesLabelSelector(ag.Labels, req.LabelSelector) {
+			continue
 		}
-		result = append(result, ag)
+		filtered = append(filtered, ag)
 	}
-	return &zynaxv1.ListAgentsResponse{Agents: result}, nil
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].AgentId < filtered[j].AgentId })
+
+	offset := 0
+	if req.PageToken != "" {
+		if n, err := strconv.Atoi(req.PageToken); err == nil {
+			offset = n
+		}
+	}
+	if offset > len(filtered) {
+		offset = len(filtered)
+	}
+
+	pageSize := int(req.PageSize)
+	if pageSize <= 0 {
+		pageSize = defaultListAgentsPageSize
+	}
+
+	end := offset + pageSize
+	var nextToken string
+	if end < len(filtered) {
+		nextToken = strconv.Itoa(end)
+	} else {
+		end = len(filtered)
+	}
+
+	return &zynaxv1.ListAgentsResponse{Agents: filtered[offset:end], NextPageToken: nextToken}, nil
 }
 
 func (s *registryStub) FindByCapability(_ context.Context, req *zynaxv1.FindByCapabilityRequest) (*zynaxv1.FindByCapabilityResponse, error) {
@@ -173,11 +201,13 @@ type testCtx struct {
 	findResp     *zynaxv1.FindByCapabilityResponse
 	grpcErr      error
 	lastLabels   map[string]string
+	pageTokens   map[string]string // symbolic label → actual next_page_token
 }
 
 func newTestCtx() *testCtx {
 	return &testCtx{
 		lastLabels: make(map[string]string),
+		pageTokens: make(map[string]string),
 	}
 }
 
@@ -698,6 +728,89 @@ func TestFeatures(t *testing.T) {
 						Name:         "cap",
 						OutputSchema: []byte(schema),
 					}},
+				}
+				return ctx, nil
+			})
+
+			// ── Pagination steps ─────────────────────────────────────────────────
+
+			sc.Step(`^(\d+) agents are registered with capability "([^"]*)"$`, func(ctx context.Context, n int, capability string) (context.Context, error) {
+				for i := range n {
+					if err := tc.registerAgent(fmt.Sprintf("agent-bulk-%02d", i), capability, nil); err != nil {
+						return ctx, err //nolint:wrapcheck
+					}
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^ListAgents is called with page_size (\d+) and no page_token$`, func(ctx context.Context, pageSize int) (context.Context, error) {
+				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				resp, err := tc.client.ListAgents(callCtx, &zynaxv1.ListAgentsRequest{PageSize: int32(pageSize)}) //nolint:gosec // bounded by test input
+				tc.listResp = resp
+				tc.grpcErr = err
+				return ctx, nil
+			})
+
+			sc.Step(`^ListAgents has been called with page_size (\d+) returning next_page_token "([^"]*)"$`, func(ctx context.Context, pageSize int, tokenLabel string) (context.Context, error) {
+				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				resp, err := tc.client.ListAgents(callCtx, &zynaxv1.ListAgentsRequest{PageSize: int32(pageSize)}) //nolint:gosec // bounded by test input
+				if err != nil {
+					return ctx, err //nolint:wrapcheck
+				}
+				tc.pageTokens[tokenLabel] = resp.NextPageToken
+				return ctx, nil
+			})
+
+			sc.Step(`^ListAgents is called with page_size (\d+) and page_token "([^"]*)"$`, func(ctx context.Context, pageSize int, tokenLabel string) (context.Context, error) {
+				token := tc.pageTokens[tokenLabel]
+				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				resp, err := tc.client.ListAgents(callCtx, &zynaxv1.ListAgentsRequest{PageSize: int32(pageSize), PageToken: token}) //nolint:gosec // bounded by test input
+				tc.listResp = resp
+				tc.grpcErr = err
+				return ctx, nil
+			})
+
+			sc.Step(`^the response contains exactly (\d+) agents$`, func(ctx context.Context, n int) (context.Context, error) {
+				var agents []*zynaxv1.AgentDef
+				if tc.listResp != nil {
+					agents = tc.listResp.Agents
+				}
+				if len(agents) != n {
+					return ctx, fmt.Errorf("expected exactly %d agents, got %d", n, len(agents))
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^the response next_page_token is non-empty$`, func(ctx context.Context) (context.Context, error) {
+				if tc.listResp == nil {
+					return ctx, fmt.Errorf("list response is nil")
+				}
+				if tc.listResp.NextPageToken == "" {
+					return ctx, fmt.Errorf("expected non-empty next_page_token")
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^the response next_page_token is empty$`, func(ctx context.Context) (context.Context, error) {
+				if tc.listResp == nil {
+					return ctx, fmt.Errorf("list response is nil")
+				}
+				if tc.listResp.NextPageToken != "" {
+					return ctx, fmt.Errorf("expected empty next_page_token, got %q", tc.listResp.NextPageToken)
+				}
+				return ctx, nil
+			})
+
+			sc.Step(`^the response contains at least (\d+) agent$`, func(ctx context.Context, n int) (context.Context, error) {
+				var count int
+				if tc.listResp != nil {
+					count = len(tc.listResp.Agents)
+				}
+				if count < n {
+					return ctx, fmt.Errorf("expected at least %d agents, got %d", n, count)
 				}
 				return ctx, nil
 			})
