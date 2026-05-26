@@ -823,7 +823,7 @@ jobs:
               echo "── BDD: full suite"
               GOWORK=off go test ./... -v -timeout 120s 2>&1 | tee bdd-results.txt
             else
-              pkg_args=$(echo "$pkgs" | tr ' ' '\n' | sed 's|^|./|;s|$|/...|' | tr '\n' ' ')
+              pkg_args=$(echo "$pkgs" | tr ' ' '\n' | grep -v '^$' | sed 's|^|./|;s|$|/...|' | tr '\n' ' ')
               echo "── BDD: selective — $pkgs"
               GOWORK=off go test $pkg_args -v -timeout 120s 2>&1 | tee bdd-results.txt
             fi
