@@ -24,11 +24,18 @@ import (
 
 // ─── YAML manifest types ────────────────────────────────────────────────────
 
+type onTransition struct {
+	Event string                 `yaml:"event"`
+	Goto  string                 `yaml:"goto"`
+	Set   map[string]interface{} `yaml:"set"`
+}
+
 type stateSpec struct {
 	Name        string            `yaml:"name"`
 	Type        string            `yaml:"type"`
 	Initial     bool              `yaml:"initial"`
 	Transitions map[string]string `yaml:"transitions"`
+	On          []onTransition    `yaml:"on"`
 }
 
 type workflowManifest struct {
@@ -250,6 +257,21 @@ func parseAndValidate(raw []byte) ([]*zynaxv1.CompilationError, *workflowManifes
 				Message:   fmt.Sprintf("state %q is never referenced in any transition", st.Name),
 				StateName: st.Name,
 			})
+		}
+	}
+
+	// Non-string set values
+	for _, st := range m.States {
+		for _, t := range st.On {
+			for k, v := range t.Set {
+				if _, ok := v.(string); !ok {
+					errs = append(errs, &zynaxv1.CompilationError{
+						Code:      zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_INVALID_FIELD_VALUE,
+						Message:   fmt.Sprintf("state %q transition %q: set key %q must be a string, got %T", st.Name, t.Event, k, v),
+						StateName: st.Name,
+					})
+				}
+			}
 		}
 	}
 
@@ -562,18 +584,16 @@ kind: Workflow
 metadata:
   name: bad-set
   namespace: default
-spec:
-  initial_state: start
-  states:
-    start:
-      type: normal
-      on:
-        - event: push
-          goto: done
-          set:
-            ctx.count: 1
-    done:
-      type: terminal
+states:
+  - name: start
+    initial: true
+    on:
+      - event: push
+        goto: done
+        set:
+          ctx.count: 1
+  - name: done
+    type: terminal
 `),
 				}
 				return nil
