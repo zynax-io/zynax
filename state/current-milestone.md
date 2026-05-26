@@ -94,7 +94,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 |-------|-------|-------|--------|
 | [#474](https://github.com/zynax-io/zynax/issues/474) | M5.A | Python SDK Agent base class | ✅ Complete — #535 ✅ #536 ✅ #537 ✅; BATCH 3 done |
 | [#476](https://github.com/zynax-io/zynax/issues/476) | M5.B | Guard parser (cel-go) | ✅ closed — all 3 children merged |
-| [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | In Progress — #400 ✅ scaffold; #401 ✅ handler; #402 ✅ registry+bootstrap; #403 Dockerfile pending |
+| [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | ✅ Complete — all 5 steps merged (#400 #401 #402 #403) |
 | [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open (#404 BDD done; #405+ pending, wait for #481) |
 | [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open (#409 BDD done; #410+ pending, wait for #481) |
 | [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open (#414 BDD done; #415+ pending, wait for #481) |
@@ -141,6 +141,7 @@ Priority gaps to file immediately:
 
 ## Recently Closed (this session)
 
+- **#403** — git-adapter Dockerfile, docker-compose service, AGENTS.md (O5); closes #381 git-adapter epic
 - **#569** — Add RetryPolicy + nonRetryableErrorTypes to DispatchCapabilityActivity (G4 fix)
 - **#571** — Reject non-string `.set{}` values at compile time (TransitionSetValidator)
 - **#570** — Detached context in task-broker executeAsync goroutine; preserves request-ID via detachedCtx (G16)
@@ -154,6 +155,6 @@ Priority gaps to file immediately:
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P2 | [#403](https://github.com/zynax-io/zynax/issues/403) | git-adapter Dockerfile + docker-compose (O5) | S, feat, canvas aligned; next after #402 ✅ |
+| P2 | [#405](https://github.com/zynax-io/zynax/issues/405) | ci-adapter Go module scaffold + config layer (O2) | S, feat, canvas needed |
 | P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci, needs-design |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |
