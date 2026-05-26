@@ -1,0 +1,17 @@
+# Trivy configuration for container image scanning in release.yml
+#
+# Applied to: build-push-images job in .github/workflows/release.yml
+# Scanner:    aquasecurity/trivy-action v0.36.0
+#
+# Accepted CVE exceptions live in .trivyignore at the repository root.
+# See that file for instructions on adding new exceptions (requires issue +
+# maintainer approval + re-evaluation date).
+
+vulnerability:
+  # Only block on unfixed CVEs — fixed CVEs that haven't been updated yet
+  # will not block the release. Remove this when base images are regularly
+  # patched in CI (i.e. weekly rebuild schedule is in place).
+  ignore-unfixed: true
+
+# Reference the shared exception list used across all trivy scans
+ignorefile: ../../.trivyignore
