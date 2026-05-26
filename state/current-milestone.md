@@ -94,7 +94,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 |-------|-------|-------|--------|
 | [#474](https://github.com/zynax-io/zynax/issues/474) | M5.A | Python SDK Agent base class | ✅ Complete — #535 ✅ #536 ✅ #537 ✅; BATCH 3 done |
 | [#476](https://github.com/zynax-io/zynax/issues/476) | M5.B | Guard parser (cel-go) | ✅ closed — all 3 children merged |
-| [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | In Progress — #400 ✅ scaffold; #401 handler pending; #402 registry pending |
+| [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | In Progress — #400 ✅ scaffold; #401 ✅ handler; #402 registry pending |
 | [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open (#404 BDD done; #405+ pending, wait for #481) |
 | [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open (#409 BDD done; #410+ pending, wait for #481) |
 | [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open (#414 BDD done; #415+ pending, wait for #481) |
