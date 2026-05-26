@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-26 (rev 54 — reconcile M5.C/M5.B/M5.F closed issues)
+**Last updated:** 2026-05-26 (rev 55 — #400 git-adapter scaffold merged)
 
 ---
 
@@ -386,7 +386,7 @@ register against.
 #### git-adapter (#381)
 | Issue | Step | Title | Status |
 |-------|------|-------|--------|
-| [#400](https://github.com/zynax-io/zynax/issues/400) | O2 | Go module scaffold + config layer | ⬜ Open |
+| [#400](https://github.com/zynax-io/zynax/issues/400) | O2 | Go module scaffold + config layer | ✅ Done |
 | [#401](https://github.com/zynax-io/zynax/issues/401) | O3 | Capability handler (open_pr, request_review, get_diff) | ⬜ Open (blocked on #400) |
 | [#402](https://github.com/zynax-io/zynax/issues/402) | O4 | Registry client + bootstrap | ⬜ Open (blocked on #401) |
 | [#403](https://github.com/zynax-io/zynax/issues/403) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #402) |

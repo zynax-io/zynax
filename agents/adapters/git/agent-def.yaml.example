@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: Apache-2.0
+# git-adapter — example AgentDef YAML
+#
+# Copy this file to agent-def.yaml and set the ADAPTER_CONFIG env var to its path.
+# Set the env var named in git.auth_env to a GitHub PAT with repo scope.
+#
+# SSRF prevention: owner and repo are declared here — never in input_payload.
+
+agent_id: git-adapter
+name: Git Adapter
+description: Wraps GitHub repository operations as Zynax capabilities.
+endpoint: :50060
+registry_endpoint: agent-registry:50052
+
+git:
+  provider: github
+  auth_env: GITHUB_TOKEN  # name of the env var holding the PAT or GitHub App token
+
+capabilities:
+  - name: open_pr
+    owner: my-org
+    repo: my-repo
+    timeout_seconds: 30
+    description: Open a pull request in the configured repository.
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["title", "head", "base"],
+        "properties": {
+          "title":  { "type": "string", "minLength": 1 },
+          "head":   { "type": "string", "minLength": 1 },
+          "base":   { "type": "string", "minLength": 1 },
+          "body":   { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    output_schema_json: |
+      {
+        "type": "object",
+        "properties": {
+          "pr_url":    { "type": "string" },
+          "pr_number": { "type": "integer" }
+        }
+      }
+
+  - name: request_review
+    owner: my-org
+    repo: my-repo
+    timeout_seconds: 60
+    description: Request reviewers on an existing pull request.
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["pr_number", "reviewers"],
+        "properties": {
+          "pr_number": { "type": "integer", "minimum": 1 },
+          "reviewers": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+        },
+        "additionalProperties": false
+      }
+    output_schema_json: |
+      {
+        "type": "object",
+        "properties": {
+          "requested": { "type": "boolean" }
+        }
+      }
+
+  - name: get_diff
+    owner: my-org
+    repo: my-repo
+    timeout_seconds: 30
+    description: Fetch the unified diff for a pull request (truncated at 4 MB).
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["pr_number"],
+        "properties": {
+          "pr_number": { "type": "integer", "minimum": 1 }
+        },
+        "additionalProperties": false
+      }
+    output_schema_json: |
+      {
+        "type": "object",
+        "properties": {
+          "diff":      { "type": "string" },
+          "truncated": { "type": "boolean" }
+        }
+      }
