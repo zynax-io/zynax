@@ -94,7 +94,7 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 |-------|-------|-------|--------|
 | [#474](https://github.com/zynax-io/zynax/issues/474) | M5.A | Python SDK Agent base class | ✅ Complete — #535 ✅ #536 ✅ #537 ✅; BATCH 3 done |
 | [#476](https://github.com/zynax-io/zynax/issues/476) | M5.B | Guard parser (cel-go) | ✅ closed — all 3 children merged |
-| [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | In Progress — #400 ✅ scaffold; #401 ✅ handler; #402 registry pending |
+| [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | In Progress — #400 ✅ scaffold; #401 ✅ handler; #402 ✅ registry+bootstrap; #403 Dockerfile pending |
 | [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open (#404 BDD done; #405+ pending, wait for #481) |
 | [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open (#409 BDD done; #410+ pending, wait for #481) |
 | [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open (#414 BDD done; #415+ pending, wait for #481) |
@@ -154,7 +154,6 @@ Priority gaps to file immediately:
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P2 | [#401](https://github.com/zynax-io/zynax/issues/401) | git-adapter capability handler (O3) | M, feat, canvas aligned; next after #400 ✅ |
-| P2 | [#402](https://github.com/zynax-io/zynax/issues/402) | git-adapter registry client + bootstrap (O4) | M, feat, canvas aligned; next after #401 |
+| P2 | [#403](https://github.com/zynax-io/zynax/issues/403) | git-adapter Dockerfile + docker-compose (O5) | S, feat, canvas aligned; next after #402 ✅ |
 | P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci, needs-design |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |
