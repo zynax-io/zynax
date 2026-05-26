@@ -33,28 +33,30 @@ import (
 )
 
 type config struct {
-	GRPCPort          int
-	MetricsPort       int
-	LogLevel          string
-	TemporalHostPort  string
-	TemporalNamespace string
-	TemporalTaskQueue string
-	TaskBrokerAddr    string
-	ActiveEngine      string
-	GRPCCallTimeoutS  int
+	GRPCPort            int
+	MetricsPort         int
+	LogLevel            string
+	TemporalHostPort    string
+	TemporalNamespace   string
+	TemporalTaskQueue   string
+	TaskBrokerAddr      string
+	ActiveEngine        string
+	GRPCCallTimeoutS    int
+	MaxActivityAttempts int
 }
 
 func loadConfig() config {
 	return config{
-		GRPCPort:          getEnvInt("ZYNAX_ENGINE_ADAPTER_GRPC_PORT", 50055),
-		MetricsPort:       getEnvInt("ZYNAX_ENGINE_ADAPTER_METRICS_PORT", 9095),
-		LogLevel:          getEnv("ZYNAX_ENGINE_ADAPTER_LOG_LEVEL", "info"),
-		TemporalHostPort:  getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_HOST_PORT", "localhost:7233"),
-		TemporalNamespace: getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE", "default"),
-		TemporalTaskQueue: getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE", "engine-adapter"),
-		TaskBrokerAddr:    getEnv("ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR", "localhost:50053"),
-		ActiveEngine:      getEnv("ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE", "temporal"),
-		GRPCCallTimeoutS:  getEnvInt("ZYNAX_ENGINE_ADAPTER_GRPC_CALL_TIMEOUT_S", 30),
+		GRPCPort:            getEnvInt("ZYNAX_ENGINE_ADAPTER_GRPC_PORT", 50055),
+		MetricsPort:         getEnvInt("ZYNAX_ENGINE_ADAPTER_METRICS_PORT", 9095),
+		LogLevel:            getEnv("ZYNAX_ENGINE_ADAPTER_LOG_LEVEL", "info"),
+		TemporalHostPort:    getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_HOST_PORT", "localhost:7233"),
+		TemporalNamespace:   getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE", "default"),
+		TemporalTaskQueue:   getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE", "engine-adapter"),
+		TaskBrokerAddr:      getEnv("ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR", "localhost:50053"),
+		ActiveEngine:        getEnv("ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE", "temporal"),
+		GRPCCallTimeoutS:    getEnvInt("ZYNAX_ENGINE_ADAPTER_GRPC_CALL_TIMEOUT_S", 30),
+		MaxActivityAttempts: getEnvInt("ZYNAX_ENGINE_MAX_ACTIVITY_ATTEMPTS", 3),
 	}
 }
 
@@ -113,6 +115,8 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), error) {
 	if cfg.ActiveEngine != "temporal" {
 		return nil, func() {}, fmt.Errorf("unsupported engine %q: only \"temporal\" is supported in M3", cfg.ActiveEngine)
 	}
+
+	infrastructure.DefaultActivityMaxAttempts = int32(cfg.MaxActivityAttempts) //nolint:gosec // G115: bounded by env-var with default 3; no overflow risk
 
 	tc, err := client.Dial(client.Options{
 		HostPort:  cfg.TemporalHostPort,
