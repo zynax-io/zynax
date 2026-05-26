@@ -112,6 +112,7 @@ Priority gaps to file immediately:
 | G19: competitive positioning doc (Kagent/Dapr) (#575) | High |
 | ~~G17: stub services in SERVICE_LIST (#574)~~ | ✅ fixed |
 | ~~G23: Phantom AGENT_LIST entries (#577)~~ | ✅ fixed |
+| ~~G22: Summarizer phantom (#576)~~ | ✅ fixed |
 
 ---
 

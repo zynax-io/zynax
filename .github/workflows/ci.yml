@@ -62,7 +62,7 @@ env:
   GOVULNCHECK_VERSION: "v1.1.4"
   SERVICE_LIST: "agent-registry task-broker api-gateway workflow-compiler engine-adapter"
   GO_ADAPTER_LIST: "http"
-  AGENT_LIST: "summarizer"
+  AGENT_LIST: ""
   GOPROXY: "https://proxy.golang.org,direct"
   GONOSUMDB: "*"
 
