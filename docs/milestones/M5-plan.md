@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-26 (rev 51 — BATCH 5: #549 ✅ #550 ✅)
+**Last updated:** 2026-05-26 (rev 52 — BATCH 6: #622 ✅ #689 ✅; BATCH 5: #564 ⬜ #565 ⬜)
 
 ---
 
@@ -367,8 +367,9 @@ These issues address the security gaps identified in the 2026-05-20 principal ar
 |-------|-------|------|-----|
 | [#567](https://github.com/zynax-io/zynax/issues/567) | Bearer token constant-time compare | XS | ✅ Done — timing-attack exposure in `auth.go` (G1) |
 | [#568](https://github.com/zynax-io/zynax/issues/568) | ReadHeaderTimeout + MaxBytesReader on HTTP server | XS | ✅ Done — slow-read DoS vector (G2) |
-| [#622](https://github.com/zynax-io/zynax/issues/622) | Add `context.WithTimeout` to all outgoing gRPC calls | S | Cascading hang risk across all services (NEW-1 from review) |
+| ~~[#622](https://github.com/zynax-io/zynax/issues/622)~~ | ~~Add `context.WithTimeout` to all outgoing gRPC calls~~ | S | ✅ Done — all 4 services; deadline from `ZYNAX_GRPC_TIMEOUT_MS` |
 | ~~[#623](https://github.com/zynax-io/zynax/issues/623)~~ | ~~Refuse to start without `ZYNAX_GW_API_KEY` in production~~ | XS | ✅ Done |
+| ~~[#689](https://github.com/zynax-io/zynax/issues/689)~~ | ~~Thread gRPC timeout from config env vars; remove package-level globals~~ | S | ✅ Done — follow-up to #622 |
 
 **Engineer profile:** Go engineer. All four changes are self-contained. Start with #567 and #568
 (smallest), then #623 (startup guard), then #622 (gRPC deadlines — touches 4 services).
@@ -682,7 +683,7 @@ open issues. File them before or during M5 execution:
 | H8: ADR-021 scale plan | High | [#578](https://github.com/zynax-io/zynax/issues/578) | M6 |
 | H9: Unimplemented gRPC skeletons | Medium | [#574](https://github.com/zynax-io/zynax/issues/574) | M5 |
 | README status table | High | [#579](https://github.com/zynax-io/zynax/issues/579) | M5 |
-| NEW-1: gRPC call deadlines | High | [#622](https://github.com/zynax-io/zynax/issues/622) | M5 |
+| ~~NEW-1: gRPC call deadlines~~ | High | ~~[#622](https://github.com/zynax-io/zynax/issues/622)~~ | ✅ Done |
 | NEW-4: `ZYNAX_GW_API_KEY=""` bypass | High | [#623](https://github.com/zynax-io/zynax/issues/623) | M5 |
 | H1: Stateless workflow-compiler (OOM risk R4) | **High** | [#466](https://github.com/zynax-io/zynax/issues/466) | M5 (**promoted from M6** 2026-05-21) |
 | Architecture overhaul docs (tracking) | — | [#624](https://github.com/zynax-io/zynax/issues/624) | M5 |
