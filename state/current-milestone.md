@@ -30,8 +30,8 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ #552 ✅ #554 ✅ #549 ✅ #550 ✅; next: #564 digest-pin, #565 trivy scan |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #642 ✅ #641 ✅ #655 ✅ #549 ✅ #550 ✅; next: #564 digest-pin, #565 trivy scan |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ #552 ✅ #554 ✅ #549 ✅ #550 ✅ #564 ✅ #565 ✅; next: #555 DRY/KISS |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #642 ✅ #641 ✅ #655 ✅ #549 ✅ #550 ✅ #564 ✅ #565 ✅; next: #555 DRY/KISS |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Compose wired — all 3 services in stack; E2E dispatch pending adapters |
@@ -151,7 +151,7 @@ Priority gaps to file immediately:
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P2 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS, ci — in-flight |
-| P2 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S, ci — in-flight |
 | P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci, needs-design |
+| P2 | [#569](https://github.com/zynax-io/zynax/issues/569) | Add RetryPolicy to DispatchCapabilityActivity (G4) | S, fix |
+| P2 | [#570](https://github.com/zynax-io/zynax/issues/570) | Propagate request-ID via detached context (G16) | S, fix |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |

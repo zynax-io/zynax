@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-26 (rev 52 — BATCH 6: #622 ✅ #689 ✅; BATCH 5: #564 ⬜ #565 ⬜)
+**Last updated:** 2026-05-26 (rev 53 — BATCH 6: #622 ✅ #689 ✅; BATCH 5: #564 ✅ #565 ✅)
 
 ---
 
@@ -178,7 +178,7 @@ of tooling at run time. The image is rebuilt and published to
 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L | After #552 | P2 |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml | XS | ✅ Done | — |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS | After #552 | P2 |
-| [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | After #552 | P2 |
+| [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | After #552 | ✅ Done |
 | [#641](https://github.com/zynax-io/zynax/issues/641) | Per-service change detection for image builds in release.yml | M | After #552 | ✅ Done |
 | [#642](https://github.com/zynax-io/zynax/issues/642) | Switch service Dockerfiles to distroless/static:nonroot + `-ldflags "-s -w"` | S | None | ✅ Done |
 
