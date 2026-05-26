@@ -104,6 +104,32 @@ func (NamespaceValidator) Validate(_ context.Context, g *domain.WorkflowGraph) [
 	return nil
 }
 
+// TransitionSetValidator rejects transitions where a .set{} map contains a
+// non-string value. The engine serialises Set entries into context variables at
+// runtime; non-string values cannot be round-tripped through the proto wire
+// format and would silently produce empty strings.
+type TransitionSetValidator struct{}
+
+// Validate implements Validator.
+func (TransitionSetValidator) Validate(_ context.Context, g *domain.WorkflowGraph) []domain.ParseError {
+	var errs []domain.ParseError
+	for stateID, state := range g.States {
+		for _, t := range state.Transitions {
+			for k, v := range t.Set {
+				if _, ok := v.(string); !ok {
+					errs = append(errs, domain.ParseError{
+						Code:      domain.ErrorCodeInvalidFieldValue,
+						Message:   fmt.Sprintf("state %q transition %q: set key %q must be a string, got %T", stateID, t.EventType, k, v),
+						Line:      state.Line,
+						StateName: stateID,
+					})
+				}
+			}
+		}
+	}
+	return errs
+}
+
 // DuplicateTransitionValidator checks that no two transitions from the same
 // state share the same event_type. Duplicate event types create ambiguous
 // routing when the engine receives an event (guards are evaluated at runtime,

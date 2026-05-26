@@ -152,6 +152,68 @@ func TestNamespaceValidator(t *testing.T) {
 	}
 }
 
+// TransitionSetValidator ──────────────────────────────────────────────────────
+
+func TestTransitionSetValidator_StringValuesPass(t *testing.T) {
+	g := graphWith("a", map[string]*domain.State{
+		"a": {
+			ID:   "a",
+			Type: domain.StateTypeNormal,
+			Transitions: []domain.Transition{
+				{EventType: "push", TargetState: "b", Set: map[string]interface{}{"env": "prod", "branch": "main"}},
+			},
+		},
+		"b": terminalState(),
+	})
+	if errs := (validators.TransitionSetValidator{}).Validate(context.Background(), g); len(errs) != 0 {
+		t.Errorf("expected no errors for string set values, got %v", errs)
+	}
+}
+
+func TestTransitionSetValidator_NonStringValueFails(t *testing.T) {
+	cases := []struct {
+		name string
+		val  interface{}
+	}{
+		{"integer", 42},
+		{"bool", true},
+		{"float", 3.14},
+		{"slice", []string{"a", "b"}},
+		{"map", map[string]string{"k": "v"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := graphWith("a", map[string]*domain.State{
+				"a": {
+					ID:   "a",
+					Type: domain.StateTypeNormal,
+					Transitions: []domain.Transition{
+						{EventType: "push", TargetState: "b", Set: map[string]interface{}{"key": tc.val}},
+					},
+				},
+				"b": terminalState(),
+			})
+			errs := (validators.TransitionSetValidator{}).Validate(context.Background(), g)
+			if len(errs) == 0 {
+				t.Errorf("set value %T: expected error, got none", tc.val)
+			}
+			if !hasCode(errs, domain.ErrorCodeInvalidFieldValue) {
+				t.Errorf("set value %T: expected ErrorCodeInvalidFieldValue, got %v", tc.val, errs)
+			}
+		})
+	}
+}
+
+func TestTransitionSetValidator_NilSetPasses(t *testing.T) {
+	g := graphWith("a", map[string]*domain.State{
+		"a": normalState("a", tr("push", "b")),
+		"b": terminalState(),
+	})
+	if errs := (validators.TransitionSetValidator{}).Validate(context.Background(), g); len(errs) != 0 {
+		t.Errorf("expected no errors for nil set, got %v", errs)
+	}
+}
+
 // DuplicateTransitionValidator ────────────────────────────────────────────────
 
 func TestDuplicateTransitionValidator(t *testing.T) {

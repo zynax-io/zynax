@@ -142,6 +142,7 @@ Priority gaps to file immediately:
 ## Recently Closed (this session)
 
 - **#569** — Add RetryPolicy + nonRetryableErrorTypes to DispatchCapabilityActivity (G4 fix)
+- **#571** — Reject non-string `.set{}` values at compile time (TransitionSetValidator)
 - **#570** — Detached context in task-broker executeAsync goroutine; preserves request-ID via detachedCtx (G16)
 - **#679** — Temporal NotFound → domain.ErrExecutionNotFound in engine-adapter (BATCH 5B)
 - **#622** — context.WithTimeout on all outgoing gRPC calls across 4 services (BATCH 6)
