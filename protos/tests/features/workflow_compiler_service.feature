@@ -113,6 +113,12 @@ Feature: WorkflowCompilerService contract — YAML manifest compilation
     Then the gRPC status is OK
     And the response contains a CompilationError with code MULTIPLE_INITIAL_STATES
 
+  Scenario: Manifest with a non-string set value returns errors in response body
+    Given a Workflow YAML where a transition set contains a non-string value
+    When CompileWorkflow is called
+    Then the gRPC status is OK
+    And the response contains a CompilationError with code INVALID_FIELD_VALUE
+
   Scenario: CompilationError includes line_number when YAML is malformed
     Given a Workflow YAML with a syntax error on line 7
     When CompileWorkflow is called

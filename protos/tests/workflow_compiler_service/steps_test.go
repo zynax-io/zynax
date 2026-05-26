@@ -555,6 +555,30 @@ states:
 				return nil
 			})
 
+			sc.Step(`^a Workflow YAML where a transition set contains a non-string value$`, func() error {
+				tc.compileReq = &zynaxv1.CompileWorkflowRequest{
+					ManifestYaml: []byte(`apiVersion: zynax.io/v1alpha1
+kind: Workflow
+metadata:
+  name: bad-set
+  namespace: default
+spec:
+  initial_state: start
+  states:
+    start:
+      type: normal
+      on:
+        - event: push
+          goto: done
+          set:
+            ctx.count: 1
+    done:
+      type: terminal
+`),
+				}
+				return nil
+			})
+
 			sc.Step(`^a Workflow YAML with a syntax error on line 7$`, func() error {
 				// Craft YAML that fails on line 7 with an invalid mapping
 				tc.compileReq = &zynaxv1.CompileWorkflowRequest{
@@ -769,6 +793,7 @@ states:
 				"MULTIPLE_INITIAL_STATES": zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_MULTIPLE_INITIAL_STATES,
 				"UNKNOWN_STATE_REFERENCE": zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_UNKNOWN_STATE_REFERENCE,
 				"YAML_PARSE_ERROR":        zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_YAML_PARSE_ERROR,
+				"INVALID_FIELD_VALUE":     zynaxv1.CompilationErrorCode_COMPILATION_ERROR_CODE_INVALID_FIELD_VALUE,
 			}
 
 			sc.Step(`^the response contains a CompilationError with code (\w+)$`, func(codeName string) error {

@@ -39,5 +39,6 @@ func All() []Validator {
 		CapabilityRefValidator{},
 		EventNameValidator{},
 		NamespaceValidator{},
+		TransitionSetValidator{},
 	}
 }
