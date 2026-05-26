@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-27 (rev 60 — #577 #574 #576 cluster shipped; git-adapter coverage epic #713 opened with child issues #714–#718; BATCH 7.1 added)
+**Last updated:** 2026-05-27 (rev 60 — #577 #574 #576 cluster shipped; git-adapter coverage epic #713 opened with child issues #714–#718; BATCH 7.1 added; #714 ✅ GO_ADAPTER_LIST reverted)
 
 ---
 
@@ -451,7 +451,7 @@ The git-adapter shipped (BATCH 7 above) with 48.7% total coverage — well below
 
 | Issue | Type | Title | Size | Dependency | Status |
 |-------|------|-------|------|------------|--------|
-| [#714](https://github.com/zynax-io/zynax/issues/714) | ci | Revert git from GO_ADAPTER_LIST until coverage gate met | XS | None — do first | ⬜ Open |
+| [#714](https://github.com/zynax-io/zynax/issues/714) | ci | Revert git from GO_ADAPTER_LIST until coverage gate met | XS | None — do first | ✅ Done |
 | [#715](https://github.com/zynax-io/zynax/issues/715) | test | Cover requestReview handler and progressEvent helper | S | None (parallel with #716, #717) | ⬜ Open |
 | [#716](https://github.com/zynax-io/zynax/issues/716) | test | Cover execute/sanitise/githubErrCode/parsePayload gaps | S | None (parallel with #715, #717) | ⬜ Open |
 | [#717](https://github.com/zynax-io/zynax/issues/717) | test | Cover RegisterAgent retry paths and isTransient | S | None (parallel with #715, #716) | ⬜ Open |
@@ -459,8 +459,6 @@ The git-adapter shipped (BATCH 7 above) with 48.7% total coverage — well below
 
 **Exit criterion:** `GOWORK=off go test ./... -coverprofile=coverage.out` in `agents/adapters/git`
 reports **≥85% total** and CI adapter gate passes for all covered packages.
-
-**Blocks:** #712 (remove-summarizer-phantom) cannot auto-merge until #714 lands.
 
 ---
 
