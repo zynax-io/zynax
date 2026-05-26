@@ -223,6 +223,63 @@ func (s *memStub) QueryVector(_ context.Context, req *zynaxv1.QueryVectorRequest
 	return &zynaxv1.QueryVectorResponse{Results: out}, nil
 }
 
+func (s *memStub) MGet(_ context.Context, req *zynaxv1.MGetRequest) (*zynaxv1.MGetResponse, error) {
+	if req.WorkflowId == "" {
+		return nil, status.Error(codes.InvalidArgument, "workflow_id must not be empty")
+	}
+	if len(req.Keys) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "keys must not be empty")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var entries []*zynaxv1.MGetEntry
+	wfMap := s.kv[req.WorkflowId]
+	for _, k := range req.Keys {
+		if wfMap == nil {
+			continue
+		}
+		e, ok := wfMap[k]
+		if !ok || s.isExpired(e) {
+			continue
+		}
+		entries = append(entries, &zynaxv1.MGetEntry{Key: k, Value: e.value})
+	}
+	return &zynaxv1.MGetResponse{Entries: entries}, nil
+}
+
+func (s *memStub) MSet(_ context.Context, req *zynaxv1.MSetRequest) (*zynaxv1.MSetResponse, error) {
+	if req.WorkflowId == "" {
+		return nil, status.Error(codes.InvalidArgument, "workflow_id must not be empty")
+	}
+	if len(req.Entries) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "entries must not be empty")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.kv[req.WorkflowId] == nil {
+		s.kv[req.WorkflowId] = make(map[string]*kvEntry)
+	}
+	for _, entry := range req.Entries {
+		e := &kvEntry{value: entry.Value}
+		if entry.TtlSeconds > 0 {
+			e.expiresAt = time.Now().Add(time.Duration(entry.TtlSeconds) * time.Second)
+		}
+		s.kv[req.WorkflowId][entry.Key] = e
+	}
+	return &zynaxv1.MSetResponse{Count: int32(len(req.Entries)), StoredAt: timestamppb.Now()}, nil //nolint:gosec // len is bounded by request size
+}
+
+func (s *memStub) DeleteNamespace(_ context.Context, req *zynaxv1.DeleteNamespaceRequest) (*zynaxv1.DeleteNamespaceResponse, error) {
+	if req.WorkflowId == "" {
+		return nil, status.Error(codes.InvalidArgument, "workflow_id must not be empty")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	count := int32(len(s.kv[req.WorkflowId])) //nolint:gosec // bounded by number of KV entries
+	delete(s.kv, req.WorkflowId)
+	return &zynaxv1.DeleteNamespaceResponse{DeletedCount: count, DeletedAt: timestamppb.Now()}, nil
+}
+
 func (s *memStub) DeleteVector(_ context.Context, req *zynaxv1.DeleteVectorRequest) (*zynaxv1.DeleteVectorResponse, error) {
 	if req.WorkflowId == "" {
 		return nil, status.Error(codes.InvalidArgument, "workflow_id must not be empty")
@@ -250,11 +307,17 @@ type memCtx struct {
 	listResp     *zynaxv1.ListKeysResponse
 	queryResp    *zynaxv1.QueryVectorResponse
 	storeVecResp *zynaxv1.StoreVectorResponse
+	mgetResp     *zynaxv1.MGetResponse
+	msetResp     *zynaxv1.MSetResponse
+	deleteNsResp *zynaxv1.DeleteNamespaceResponse
 	grpcErr      error
 	// Pending request state for input-validation scenarios
 	pendingSetReq         *zynaxv1.SetRequest
 	pendingStoreVectorReq *zynaxv1.StoreVectorRequest
 	pendingQueryVectorReq *zynaxv1.QueryVectorRequest
+	pendingMGetReq        *zynaxv1.MGetRequest
+	pendingMSetReq        *zynaxv1.MSetRequest
+	pendingDeleteNsReq    *zynaxv1.DeleteNamespaceRequest
 	// Stored vector id for DeleteVector scenario
 	storedVecID string
 }
@@ -292,10 +355,16 @@ func TestFeatures(t *testing.T) {
 				tc.listResp = nil
 				tc.queryResp = nil
 				tc.storeVecResp = nil
+				tc.mgetResp = nil
+				tc.msetResp = nil
+				tc.deleteNsResp = nil
 				tc.grpcErr = nil
 				tc.pendingSetReq = nil
 				tc.pendingStoreVectorReq = nil
 				tc.pendingQueryVectorReq = nil
+				tc.pendingMGetReq = nil
+				tc.pendingMSetReq = nil
+				tc.pendingDeleteNsReq = nil
 				tc.storedVecID = ""
 				// Reset stub store per scenario
 				stub.mu.Lock()
@@ -784,6 +853,183 @@ func TestFeatures(t *testing.T) {
 				}
 				if !strings.Contains(tc.grpcErr.Error(), fragment) {
 					return fmt.Errorf("expected error to mention %q, got: %s", fragment, tc.grpcErr.Error())
+				}
+				return nil
+			})
+
+			// ── MGet steps ──────────────────────────────────────────────────────
+
+			sc.Step(`^keys "([^"]*)" and "([^"]*)" are set for workflow "([^"]*)" with values "([^"]*)" and "([^"]*)"$`, func(k1, k2, wfID, v1, v2 string) error {
+				if _, err := tc.client.Set(context.Background(), &zynaxv1.SetRequest{WorkflowId: wfID, Key: k1, Value: []byte(v1)}); err != nil {
+					return err //nolint:wrapcheck
+				}
+				_, err := tc.client.Set(context.Background(), &zynaxv1.SetRequest{WorkflowId: wfID, Key: k2, Value: []byte(v2)})
+				return err //nolint:wrapcheck
+			})
+
+			sc.Step(`^key "([^"]*)" is set for workflow "([^"]*)" with value "([^"]*)"$`, func(k, wfID, v string) error {
+				_, err := tc.client.Set(context.Background(), &zynaxv1.SetRequest{WorkflowId: wfID, Key: k, Value: []byte(v)})
+				return err //nolint:wrapcheck
+			})
+
+			sc.Step(`^MGet is called for workflow "([^"]*)" with keys \["([^"]*)", "([^"]*)"\]$`, func(wfID, k1, k2 string) error {
+				tc.mgetResp, tc.grpcErr = tc.client.MGet(context.Background(), &zynaxv1.MGetRequest{WorkflowId: wfID, Keys: []string{k1, k2}})
+				return nil
+			})
+
+			sc.Step(`^the response contains entry with key "([^"]*)" and value "([^"]*)"$`, func(key, value string) error {
+				if tc.mgetResp == nil {
+					return fmt.Errorf("mget response is nil")
+				}
+				for _, e := range tc.mgetResp.Entries {
+					if e.Key == key && string(e.Value) == value {
+						return nil
+					}
+				}
+				return fmt.Errorf("entry key=%q value=%q not found", key, value)
+			})
+
+			sc.Step(`^the response contains entry with key "([^"]*)"$`, func(key string) error {
+				if tc.mgetResp == nil {
+					return fmt.Errorf("mget response is nil")
+				}
+				for _, e := range tc.mgetResp.Entries {
+					if e.Key == key {
+						return nil
+					}
+				}
+				return fmt.Errorf("entry with key %q not found", key)
+			})
+
+			sc.Step(`^the response does not contain entry with key "([^"]*)"$`, func(key string) error {
+				if tc.mgetResp == nil {
+					return nil
+				}
+				for _, e := range tc.mgetResp.Entries {
+					if e.Key == key {
+						return fmt.Errorf("entry with key %q should not be present", key)
+					}
+				}
+				return nil
+			})
+
+			sc.Step(`^an MGetRequest with workflow_id set to ""$`, func() error {
+				tc.pendingMGetReq = &zynaxv1.MGetRequest{WorkflowId: "", Keys: []string{"k"}}
+				return nil
+			})
+
+			sc.Step(`^an MGetRequest for workflow "([^"]*)" with no keys$`, func(wfID string) error {
+				tc.pendingMGetReq = &zynaxv1.MGetRequest{WorkflowId: wfID, Keys: nil}
+				return nil
+			})
+
+			sc.Step(`^MGet is called$`, func() error {
+				if tc.pendingMGetReq != nil {
+					tc.mgetResp, tc.grpcErr = tc.client.MGet(context.Background(), tc.pendingMGetReq)
+				}
+				return nil
+			})
+
+			// ── MSet steps ──────────────────────────────────────────────────────
+
+			sc.Step(`^MSet is called for workflow "([^"]*)" with entries key "([^"]*)" value "([^"]*)" and key "([^"]*)" value "([^"]*)"$`, func(wfID, k1, v1, k2, v2 string) error {
+				tc.msetResp, tc.grpcErr = tc.client.MSet(context.Background(), &zynaxv1.MSetRequest{
+					WorkflowId: wfID,
+					Entries: []*zynaxv1.MSetEntry{
+						{Key: k1, Value: []byte(v1)},
+						{Key: k2, Value: []byte(v2)},
+					},
+				})
+				return nil
+			})
+
+			sc.Step(`^the response count is (\d+)$`, func(n int) error {
+				if tc.msetResp == nil {
+					return fmt.Errorf("mset response is nil")
+				}
+				if int(tc.msetResp.Count) != n {
+					return fmt.Errorf("expected count %d, got %d", n, tc.msetResp.Count)
+				}
+				return nil
+			})
+
+			sc.Step(`^Get for workflow "([^"]*)" key "([^"]*)" returns "([^"]*)"$`, func(wfID, key, expected string) error {
+				resp, err := tc.client.Get(context.Background(), &zynaxv1.GetRequest{WorkflowId: wfID, Key: key})
+				if err != nil {
+					return err //nolint:wrapcheck
+				}
+				if string(resp.Value) != expected {
+					return fmt.Errorf("expected value %q, got %q", expected, string(resp.Value))
+				}
+				return nil
+			})
+
+			sc.Step(`^MSet is called for workflow "([^"]*)" with entry key "([^"]*)" value "([^"]*)" ttl (\d+)$`, func(wfID, k, v string, ttl int) error {
+				tc.msetResp, tc.grpcErr = tc.client.MSet(context.Background(), &zynaxv1.MSetRequest{
+					WorkflowId: wfID,
+					Entries:    []*zynaxv1.MSetEntry{{Key: k, Value: []byte(v), TtlSeconds: int32(ttl)}}, //nolint:gosec // TTL bounded by test input
+				})
+				return nil
+			})
+
+			sc.Step(`^an MSetRequest with workflow_id set to ""$`, func() error {
+				tc.pendingMSetReq = &zynaxv1.MSetRequest{WorkflowId: "", Entries: []*zynaxv1.MSetEntry{{Key: "k", Value: []byte("v")}}}
+				return nil
+			})
+
+			sc.Step(`^an MSetRequest for workflow "([^"]*)" with no entries$`, func(wfID string) error {
+				tc.pendingMSetReq = &zynaxv1.MSetRequest{WorkflowId: wfID, Entries: nil}
+				return nil
+			})
+
+			sc.Step(`^MSet is called$`, func() error {
+				if tc.pendingMSetReq != nil {
+					tc.msetResp, tc.grpcErr = tc.client.MSet(context.Background(), tc.pendingMSetReq)
+				}
+				return nil
+			})
+
+			// ── DeleteNamespace steps ────────────────────────────────────────────
+
+			sc.Step(`^keys "([^"]*)" and "([^"]*)" are set for workflow "([^"]*)"$`, func(k1, k2, wfID string) error {
+				if _, err := tc.client.Set(context.Background(), &zynaxv1.SetRequest{WorkflowId: wfID, Key: k1, Value: []byte("v")}); err != nil {
+					return err //nolint:wrapcheck
+				}
+				_, err := tc.client.Set(context.Background(), &zynaxv1.SetRequest{WorkflowId: wfID, Key: k2, Value: []byte("v")})
+				return err //nolint:wrapcheck
+			})
+
+			sc.Step(`^DeleteNamespace is called for workflow "([^"]*)"$`, func(wfID string) error {
+				tc.deleteNsResp, tc.grpcErr = tc.client.DeleteNamespace(context.Background(), &zynaxv1.DeleteNamespaceRequest{WorkflowId: wfID})
+				return nil
+			})
+
+			sc.Step(`^the response deleted_count is (\d+)$`, func(n int) error {
+				if tc.deleteNsResp == nil {
+					return fmt.Errorf("delete_namespace response is nil")
+				}
+				if int(tc.deleteNsResp.DeletedCount) != n {
+					return fmt.Errorf("expected deleted_count %d, got %d", n, tc.deleteNsResp.DeletedCount)
+				}
+				return nil
+			})
+
+			sc.Step(`^Get for workflow "([^"]*)" key "([^"]*)" returns NOT_FOUND$`, func(wfID, key string) error {
+				_, err := tc.client.Get(context.Background(), &zynaxv1.GetRequest{WorkflowId: wfID, Key: key})
+				if s, ok := status.FromError(err); !ok || s.Code() != codes.NotFound {
+					return fmt.Errorf("expected NOT_FOUND, got: %w", err)
+				}
+				return nil
+			})
+
+			sc.Step(`^a DeleteNamespaceRequest with workflow_id set to ""$`, func() error {
+				tc.pendingDeleteNsReq = &zynaxv1.DeleteNamespaceRequest{WorkflowId: ""}
+				return nil
+			})
+
+			sc.Step(`^DeleteNamespace is called$`, func() error {
+				if tc.pendingDeleteNsReq != nil {
+					tc.deleteNsResp, tc.grpcErr = tc.client.DeleteNamespace(context.Background(), tc.pendingDeleteNsReq)
 				}
 				return nil
 			})
