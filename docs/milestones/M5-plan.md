@@ -671,7 +671,7 @@ open issues. File them before or during M5 execution:
 | G12: No fuzz tests | Medium | [#539](https://github.com/zynax-io/zynax/issues/539) (partial) | M5/M7 |
 | G13: No load tests | Medium | M7 backlog | M7 |
 | G14+G15: Manifest hash ADR + YAML canonicalization | Low | [#583](https://github.com/zynax-io/zynax/issues/583) | M6 |
-| G16: Background-context goroutines | Medium | [#570](https://github.com/zynax-io/zynax/issues/570) | M5 |
+| ~~G16: Background-context goroutines~~ | Medium | ~~[#570](https://github.com/zynax-io/zynax/issues/570)~~ ✅ Done | M5 |
 | G17: Stub services in SERVICE_LIST | Low | [#574](https://github.com/zynax-io/zynax/issues/574) | M5 |
 | G18: No community channel | Medium | [#470](https://github.com/zynax-io/zynax/issues/470) | M8 |
 | G19: Kagent positioning | **High** | [#575](https://github.com/zynax-io/zynax/issues/575) | M5 |

@@ -58,11 +58,12 @@ func (s *TaskService) DispatchTask(ctx context.Context, task *Task) (taskID stri
 	}
 
 	s.bg.Add(1)
-	// context.Background() is intentional: the request context expires when the RPC
-	// returns, but task execution must outlive it.
-	go func() { //nolint:contextcheck,gosec // G118: background ctx required for long-running work
+	go func() {
 		defer s.bg.Done()
-		s.executeAsync(context.Background(), task.TaskID, agents)
+		// detach preserves context values (request-ID, trace) without inheriting
+		// the parent's cancellation deadline — the RPC handler returns before the
+		// task finishes, so the goroutine must outlive it.
+		s.executeAsync(detach(ctx), task.TaskID, agents)
 	}()
 
 	return task.TaskID, task.CreatedAt, nil
@@ -211,3 +212,17 @@ func newTaskID() string {
 	}
 	return "task-" + hex.EncodeToString(b)
 }
+
+// detachedCtx carries context values from parent but is never cancelled.
+// This allows async goroutines to outlive the RPC handler that spawned them
+// while still propagating request-ID and trace metadata via Value.
+type detachedCtx struct{ parent context.Context }
+
+func (d detachedCtx) Deadline() (time.Time, bool) { return time.Time{}, false }
+func (d detachedCtx) Done() <-chan struct{}       { return nil }
+func (d detachedCtx) Err() error                  { return nil }
+func (d detachedCtx) Value(key any) any           { return d.parent.Value(key) }
+
+// detach wraps ctx in a detachedCtx. The returned context preserves all
+// values but ignores any cancellation signal from ctx.
+func detach(ctx context.Context) context.Context { return detachedCtx{parent: ctx} }
