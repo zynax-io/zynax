@@ -30,10 +30,10 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #551 ✅ #552 ✅ #554 ✅ #549 ✅ #550 ✅ #564 ✅ #565 ✅; next: #555 DRY/KISS |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | 🟡 In Progress — #642 ✅ #641 ✅ #655 ✅ #549 ✅ #550 ✅ #564 ✅ #565 ✅; next: #555 DRY/KISS |
-| M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — 2/3 children done; #474 open |
-| M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | In Progress — #538 ✅ #539 ✅ #540 ✅; #476 parent open |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — all done except #555 (DRY/KISS L, P2) |
+| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) |
+| M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — #472 ✅ #473 ✅ #474 ✅ #579 ⬜ open |
+| M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 ✅ #476 ✅ #477 ✅ #478 ✅ |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Compose wired — all 3 services in stack; E2E dispatch pending adapters |
 | M5.D Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete (closed) |
 | M5.E DX Polish | [#462](https://github.com/zynax-io/zynax/issues/462) | ✅ Complete (closed) |
@@ -63,28 +63,13 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 ## Active Work (M5.C)
 
-### task-broker (#479) — code complete, quality in progress
+### task-broker (#479) ✅ Complete (closed)
 
-Implementation PRs #520, #522, #523 merged. Domain coverage: 92.7%.
+All steps done: impl PRs #520 #522 #523, quality #530 ✅ #531 ✅ #532 ✅. Domain 92.7%.
 
-**Open cleanup issues (M5.C):**
+### agent-registry (#480) ✅ Complete (closed)
 
-| Issue | Step | Status |
-|-------|------|--------|
-| [#530](https://github.com/zynax-io/zynax/issues/530) | Update AGENTS.md | ✅ Done |
-| [#531](https://github.com/zynax-io/zynax/issues/531) | Align service BDD + godog steps | ✅ Done |
-| [#532](https://github.com/zynax-io/zynax/issues/532) | Handler unit tests | ✅ Done — api 84.9%, domain 92.7% |
-
-### agent-registry (#480) — pending implementation
-
-Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
-
-| Issue | Step | Status |
-|-------|------|--------|
-| [#526](https://github.com/zynax-io/zynax/issues/526) | Trim BDD to proto scope | ✅ Done |
-| [#527](https://github.com/zynax-io/zynax/issues/527) | Domain layer | ✅ Done |
-| [#528](https://github.com/zynax-io/zynax/issues/528) | gRPC wiring + go.work | ✅ Done |
-| [#481](https://github.com/zynax-io/zynax/issues/481) | Compose wiring | ✅ Done |
+All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 
 ---
 
@@ -92,12 +77,10 @@ Canvas aligned. Ordered delivery: #526 → #527 → #528 → #481.
 
 | Issue | Track | Title | Status |
 |-------|-------|-------|--------|
-| [#474](https://github.com/zynax-io/zynax/issues/474) | M5.A | Python SDK Agent base class | ✅ Complete — #535 ✅ #536 ✅ #537 ✅; BATCH 3 done |
-| [#476](https://github.com/zynax-io/zynax/issues/476) | M5.B | Guard parser (cel-go) | ✅ closed — all 3 children merged |
-| [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | ✅ Complete — all 5 steps merged (#400 #401 #402 #403) |
-| [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open (#404 BDD done; #405+ pending, wait for #481) |
-| [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open (#409 BDD done; #410+ pending, wait for #481) |
-| [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open (#414 BDD done; #415+ pending, wait for #481) |
+| [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | ✅ Complete — #400 #401 #402 #403 all merged |
+| [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open — #404 BDD done; #405+ next (canvas Aligned) |
+| [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open — #409 BDD done; #410+ pending |
+| [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open — #414 BDD done; #415+ pending |
 
 ---
 
@@ -141,20 +124,16 @@ Priority gaps to file immediately:
 
 ## Recently Closed (this session)
 
-- **#403** — git-adapter Dockerfile, docker-compose service, AGENTS.md (O5); closes #381 git-adapter epic
-- **#569** — Add RetryPolicy + nonRetryableErrorTypes to DispatchCapabilityActivity (G4 fix)
-- **#571** — Reject non-string `.set{}` values at compile time (TransitionSetValidator)
-- **#570** — Detached context in task-broker executeAsync goroutine; preserves request-ID via detachedCtx (G16)
-- **#679** — Temporal NotFound → domain.ErrExecutionNotFound in engine-adapter (BATCH 5B)
-- **#622** — context.WithTimeout on all outgoing gRPC calls across 4 services (BATCH 6)
-- **#689** — Thread gRPC call timeout from config env vars; remove package-level globals
-- **#549** — Per-service change detection in `changes` job; removed redundant `go-detect` from `lint-go` (BATCH 5)
-- **#550** — govulncheck per-service scoping in `security` job (BATCH 5)
+- **#474** #459 #479 #480 #543 #556 — epics closed; all children had merged prior sessions
+- **#577** — remove phantom researcher/calculator agents from AGENT_LIST
+- **#574** — remove memory-service/event-bus from SERVICE_LIST; add git to GO_ADAPTER_LIST
+- **#576** — remove summarizer phantom; delete agents/examples/summarizer/
 
 ## Next Session Queue (priority order)
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P2 | [#405](https://github.com/zynax-io/zynax/issues/405) | ci-adapter Go module scaffold + config layer (O2) | S, feat, canvas needed |
+| P2 | [#405](https://github.com/zynax-io/zynax/issues/405) | ci-adapter Go module scaffold + config layer (O2) | S, feat, canvas Aligned |
+| P2 | [#579](https://github.com/zynax-io/zynax/issues/579) | README per-service status table | S, docs, M5.A |
 | P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci, needs-design |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |
