@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-26 (rev 58 — #403 git-adapter Dockerfile + docker-compose + AGENTS.md merged; #381 epic complete)
+**Last updated:** 2026-05-27 (rev 59 — epics #459 #474 #479 #480 #543 #556 closed; Track Overview updated; #577 #574 #576 cluster shipped)
 
 ---
 
@@ -53,15 +53,15 @@ the developer's responsibility; auto-merge fires automatically once all checks p
 
 | # | Track | Epic | Status | Priority |
 |---|-------|------|--------|----------|
-| **M5.F** | CI/CD Performance Sprint | [#542](https://github.com/zynax-io/zynax/issues/542) | 🔴 **Do first** | **P0** |
-| **M5.F.R** | Release Pipeline | [#556](https://github.com/zynax-io/zynax/issues/556) | 🔴 **Do first** | **P0** |
-| **M5.C** | Capability Dispatch E2E | [#460](https://github.com/zynax-io/zynax/issues/460) | 🟡 In Progress | **P0** |
-| **M5.B** | Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | 🟡 In Progress (3/4 done) | **P1** |
-| **M5.A** | Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | 🟡 In Progress (2/3 done) | **P1** |
-| **Adapters** | Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | 🟡 In Progress (1/5 done) | **P2** |
-| **M5.D** | Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete | — |
-| **M5.E** | DX Polish | [#462](https://github.com/zynax-io/zynax/issues/462) | ✅ Complete | — |
-| **Tooling** | Containerized Make | [#442](https://github.com/zynax-io/zynax/issues/442) | ✅ Complete | — |
+| **M5.F** | CI/CD Performance Sprint | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #555 (DRY/KISS L) remaining | **P2** |
+| **M5.F.R** | Release Pipeline | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) | — |
+| **M5.C** | Capability Dispatch E2E | [#460](https://github.com/zynax-io/zynax/issues/460) | 🟡 In Progress — dispatch wired; E2E demo pending adapters | **P0** |
+| **M5.B** | Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 #476 #477 #478 all ✅ | — |
+| **M5.A** | Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | 🟡 In Progress — #472 ✅ #473 ✅ #474 ✅; #579 ⬜ | **P1** |
+| **Adapters** | Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | 🟡 In Progress — http ✅ git ✅; ci/llm/langgraph pending | **P2** |
+| **M5.D** | Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete (closed) | — |
+| **M5.E** | DX Polish | [#462](https://github.com/zynax-io/zynax/issues/462) | ✅ Complete (closed) | — |
+| **Tooling** | Containerized Make | [#442](https://github.com/zynax-io/zynax/issues/442) | ✅ Complete (closed) | — |
 
 ---
 
