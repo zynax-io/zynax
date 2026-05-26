@@ -678,7 +678,7 @@ open issues. File them before or during M5 execution:
 | G20: pkg.go.dev module reference | Medium | [#582](https://github.com/zynax-io/zynax/issues/582) | M6 |
 | G21: Python SDK claims v0.1.0, is 3-line placeholder | High | [#474](https://github.com/zynax-io/zynax/issues/474) | M5 |
 | G22: Summarizer phantom | Low | [#576](https://github.com/zynax-io/zynax/issues/576) | M5 |
-| G23: Phantom AGENT_LIST entries | Low | [#577](https://github.com/zynax-io/zynax/issues/577) | M5 |
+| ~~G23: Phantom AGENT_LIST entries~~ | Low | ~~[#577](https://github.com/zynax-io/zynax/issues/577)~~ ✅ Done | M5 |
 | G24: Compose omits task-broker/agent-registry | High | [#481](https://github.com/zynax-io/zynax/issues/481) | M5 |
 | H8: ADR-021 scale plan | High | [#578](https://github.com/zynax-io/zynax/issues/578) | M6 |
 | H9: Unimplemented gRPC skeletons | Medium | [#574](https://github.com/zynax-io/zynax/issues/574) | M5 |

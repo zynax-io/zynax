@@ -108,6 +108,7 @@ Priority gaps to file immediately:
 | ~~G16: background-context goroutines in task-broker (#570)~~ | ✅ fixed #570 |
 | G19: competitive positioning doc (Kagent/Dapr) (#575) | High |
 | ~~G17: stub services in SERVICE_LIST (#574)~~ | ✅ fixed |
+| ~~G23: Phantom AGENT_LIST entries (#577)~~ | ✅ fixed |
 
 ---
 
