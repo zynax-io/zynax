@@ -16,7 +16,7 @@ license = { text = "Apache-2.0" }
 dependencies = [
     "grpcio>=1.80.0",
     "urllib3>=2.7.0",  # CVE-2026-44431, CVE-2026-44432 — pin floor via transitive grpcio dep
-    "protobuf>=7.34.1",
+    "protobuf>=7.35.0",
     "pydantic>=2.7.0",
     "pydantic-settings>=2.3.0",
     "structlog>=24.2.0",
