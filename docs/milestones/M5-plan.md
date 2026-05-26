@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-26 (rev 56 — #401 git-adapter capability handler merged)
+**Last updated:** 2026-05-26 (rev 57 — #402 git-adapter registry client + bootstrap merged)
 
 ---
 
@@ -388,7 +388,7 @@ register against.
 |-------|------|-------|--------|
 | [#400](https://github.com/zynax-io/zynax/issues/400) | O2 | Go module scaffold + config layer | ✅ Done |
 | [#401](https://github.com/zynax-io/zynax/issues/401) | O3 | Capability handler (open_pr, request_review, get_diff) | ✅ Done |
-| [#402](https://github.com/zynax-io/zynax/issues/402) | O4 | Registry client + bootstrap | ⬜ Open (blocked on #401) |
+| [#402](https://github.com/zynax-io/zynax/issues/402) | O4 | Registry client + bootstrap | ✅ Done |
 | [#403](https://github.com/zynax-io/zynax/issues/403) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #402) |
 
 **Engineer profile:** Go engineer with GitHub REST API experience. Read
