@@ -21,7 +21,6 @@ dist/
 coverage.xml
 coverage-html/
 .coverage
-uv.lock
 
 # Secrets
 .env.local
