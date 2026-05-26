@@ -141,6 +141,7 @@ Priority gaps to file immediately:
 
 ## Recently Closed (this session)
 
+- **#570** — Detached context in task-broker executeAsync goroutine; preserves request-ID via detachedCtx (G16)
 - **#679** — Temporal NotFound → domain.ErrExecutionNotFound in engine-adapter (BATCH 5B)
 - **#622** — context.WithTimeout on all outgoing gRPC calls across 4 services (BATCH 6)
 - **#689** — Thread gRPC call timeout from config env vars; remove package-level globals
@@ -153,5 +154,5 @@ Priority gaps to file immediately:
 |----------|-------|-------|------|
 | P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci, needs-design |
 | P2 | [#569](https://github.com/zynax-io/zynax/issues/569) | Add RetryPolicy to DispatchCapabilityActivity (G4) | S, fix |
-| P2 | [#570](https://github.com/zynax-io/zynax/issues/570) | Propagate request-ID via detached context (G16) | S, fix |
+| P2 | ~~[#570](https://github.com/zynax-io/zynax/issues/570)~~ | ~~Propagate request-ID via detached context (G16)~~ | ✅ Done |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |
