@@ -131,7 +131,8 @@ A feature is DONE when **all** are true:
 - No `@mentions` in commit messages — issue refs in footer only (`Closes #123`)
 - No emojis in commit messages
 - Always rebase (`git rebase origin/main`), never merge main into feature branches
-- `Assisted-by: Claude/claude-sonnet-4-6` for AI — never `Co-Authored-By:` for AI
+- `Assisted-by: Claude/<model-id>` for AI — use the exact model ID from the current session (e.g. `claude-sonnet-4-6`); never `Co-Authored-By:` for AI
+- No `🤖 Generated with [Claude Code]` lines in commit messages
 - Every commit needs `Signed-off-by: Oscar Gómez Manresa <ogomezmanresa@gmail.com>`
 
 **PR title (CI-enforced `conventional-commit` check):**
@@ -139,6 +140,7 @@ A feature is DONE when **all** are true:
 - Valid types: `feat` `fix` `refactor` `docs` `test` `ci` `chore`
 - Rejected: `spec:` `proto:` `adr:` `service:` `make:` `security:`
 - Use `docs:` for spec/ADR changes · `chore:` for Makefile/tooling
+- Scope matches the directory: `(workflow-compiler)`, `(engine-adapter)`, `(api-gateway)`, `(protos)`, `(spec)`, `(infra)`, `(agents)`. Omit scope when type is `ci` or `docs`.
 
 **Go services:**
 - Never `panic` in production · never discard errors (`_ = f()`)
@@ -187,6 +189,8 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Opening a `feat:` PR without a REASONS Canvas | Create `docs/spdd/<issue>-<slug>/canvas.md` before writing any code (ADR-019) |
 | Patching AI-generated code for a logic change without updating Canvas | Update Canvas first (prompt-first rule), then patch — or the Canvas drifts from intent |
 | Putting internal hostnames, IPs, or credentials in a Canvas | Canvas is public — Tier 2 context goes in `canvas.private.md` (gitignored) |
+| Mocking the database in integration tests | Use `testcontainers-go` to spin up real backing services (ADR-016) |
+| Adding complexity beyond the current issue scope | Implement exactly what the issue asks; open a follow-up issue for anything extra |
 
 ---
 
@@ -227,4 +231,4 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 
 ---
 
-*Zynax — The control plane for AI-driven systems · Apache 2.0 · CNCF Sandbox Candidate*
+*Zynax — The control plane for AI-driven systems · Apache 2.0*

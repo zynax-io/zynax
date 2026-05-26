@@ -127,7 +127,7 @@ commit slips through, but the PR gate is the primary enforcement point.
 
 ## What AI Tools Must Not Do
 
-These constraints from `AGENTS.md §12` apply to AI-generated output as strictly
+These constraints from `AGENTS.md §AI Anti-patterns` apply to AI-generated output as strictly
 as to hand-written code. Review AI output against these before committing:
 
 - No `panic` in production Go code

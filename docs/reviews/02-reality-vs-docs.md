@@ -203,6 +203,9 @@ These were flagged in the 2026-05-20 review and have since been fixed:
 | `CompileWorkflow` returned only first error | Returns full error list | #477 |
 | GOWORK=off documentation | Added to AGENTS.md, CLAUDE.md | ADR-017 |
 | Non-constant-time bearer compare | Filed as #567 | Open |
+| AGENTS.md footer "CNCF Sandbox Candidate" | Removed (badge dropped in #472, footer not updated) | docs/compress-ai-context |
+| CLAUDE.md Go-1.22-specific anti-patterns | Removed (toolchain is Go 1.26.3) | docs/compress-ai-context |
+| `docs/ai-assistant-setup.md` "AGENTS.md §12" | Fixed to "AGENTS.md §AI Anti-patterns" (§12 never existed) | docs/compress-ai-context |
 
 ---
 
