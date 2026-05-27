@@ -87,11 +87,8 @@ All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 
 ## Known Blockers
 
-- **#713 git-adapter coverage (48.7% vs 85% gate)** — #714 ✅ reverted GO_ADAPTER_LIST → unblocks #712. Now #715 #716 #717 (parallel tests) raise coverage; #718 re-adds git.
-- **#712 unblocked by #714** — `chore(ci): remove summarizer phantom` can now auto-merge after #714 lands. Rebase #712 onto new main.
-- **✅ #655 FIXED** — `tools/healthcheck` static binary added to all 6 distroless Dockerfiles; `docker-compose.yml` migrated from `CMD-SHELL` + `wget`/`nc` to `CMD /healthcheck`; override file removed.
-- **#552 ✅ done** — all jobs now run in ci-runner container mode.
-- **adapter implementations** (#401–#418) — unblocked by #481 ✅; git-adapter scaffold #400 ✅; handler and registry steps pending.
+- **#713 git-adapter coverage (57.2% after #715, target ≥85%)** — #715 ✅ in progress (requestReview+progressEvent); #716 #717 parallel; #718 blocked until all three merge.
+- **adapter implementations** (#405–#418) — unblocked by #481 ✅; git-adapter impl ✅; ci/llm/langgraph pending.
 - **E2E demo** — compose wired (#481 ✅); needs an adapter registered for capability dispatch.
 - **v0.4.0 tag** — CHANGELOG promoted; run `git tag -a v0.4.0 -m "M5 Adapter Library" && git push origin v0.4.0` on main to trigger the release workflow and create GitHub Release assets.
 
@@ -133,15 +130,24 @@ Priority gaps to file immediately:
 - **#577** — remove phantom researcher/calculator agents from AGENT_LIST
 - **#574** — remove memory-service/event-bus from SERVICE_LIST; add git to GO_ADAPTER_LIST
 - **#576** — remove summarizer phantom; delete agents/examples/summarizer/
+- **#712** (PR) — summarizer phantom removal, merged 2026-05-26
+- **#714** — revert git from GO_ADAPTER_LIST until coverage gate met ✅
+
+## Active Work (BATCH 7.1 — git-adapter coverage)
+
+| Issue | Title | Status |
+|-------|-------|--------|
+| [#715](https://github.com/zynax-io/zynax/issues/715) | Cover requestReview + progressEvent | 🟡 In Progress — PR open |
+| [#716](https://github.com/zynax-io/zynax/issues/716) | Cover execute/sanitise/githubErrCode/parsePayload | ⬜ Open |
+| [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent retry + isTransient + cmd | ⬜ Open |
+| [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | ⬜ Blocked on #715+#716+#717 |
 
 ## Next Session Queue (priority order)
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| **P0** | [#712](https://github.com/zynax-io/zynax/issues/712) | Remove summarizer phantom (PR open, auto-merge set) | Rebase after #714 merges; then auto-merges |
-| P1 | [#715](https://github.com/zynax-io/zynax/issues/715) | Cover requestReview + progressEvent | S, test, parallel with #716/#717 |
-| P1 | [#716](https://github.com/zynax-io/zynax/issues/716) | Cover execute/sanitise/githubErrCode/parsePayload | S, test, parallel |
-| P1 | [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent + isTransient | S, test, parallel |
+| P1 | [#716](https://github.com/zynax-io/zynax/issues/716) | Cover execute/sanitise/githubErrCode/parsePayload | S, test, parallel with #715/#717 |
+| P1 | [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent + isTransient + cmd tests | S, test, parallel |
 | P1 (blocked) | [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | XS, ci — after #715+#716+#717 |
 | P2 | [#405](https://github.com/zynax-io/zynax/issues/405) | ci-adapter Go module scaffold + config layer (O2) | S, feat, canvas Aligned |
 | P2 | [#579](https://github.com/zynax-io/zynax/issues/579) | README per-service status table | S, docs, M5.A |
