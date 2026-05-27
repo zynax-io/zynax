@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-27 (rev 61 — #715 ✅ requestReview+progressEvent tests; coverage 48.7%→57.2%)
+**Last updated:** 2026-05-27 (rev 62 — #716 ✅ execute/sanitise/githubErrCode/parsePayload tests)
 
 ---
 
@@ -453,7 +453,7 @@ The git-adapter shipped (BATCH 7 above) with 48.7% total coverage — well below
 |-------|------|-------|------|------------|--------|
 | [#714](https://github.com/zynax-io/zynax/issues/714) | ci | Revert git from GO_ADAPTER_LIST until coverage gate met | XS | None — do first | ✅ Done |
 | [#715](https://github.com/zynax-io/zynax/issues/715) | test | Cover requestReview handler and progressEvent helper | S | None (parallel with #716, #717) | ✅ Done |
-| [#716](https://github.com/zynax-io/zynax/issues/716) | test | Cover execute/sanitise/githubErrCode/parsePayload gaps | S | None (parallel with #715, #717) | ⬜ Open |
+| [#716](https://github.com/zynax-io/zynax/issues/716) | test | Cover execute/sanitise/githubErrCode/parsePayload gaps | S | None (parallel with #715, #717) | ✅ Done |
 | [#717](https://github.com/zynax-io/zynax/issues/717) | test | Cover RegisterAgent retry paths and isTransient | S | None (parallel with #715, #716) | ⬜ Open |
 | [#718](https://github.com/zynax-io/zynax/issues/718) | ci | Re-add git to GO_ADAPTER_LIST after coverage ≥85% | XS | After #715 + #716 + #717 | ⬜ Open (blocked) |
 
