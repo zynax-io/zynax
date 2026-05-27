@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-27 (rev 70 — #408 ✅ ci-adapter Dockerfile + docker-compose + agent-def)
+**Last updated:** 2026-05-27 (rev 71 — #410 ✅ llm-adapter module scaffold + ProviderConfig)
 
 ---
 
@@ -413,7 +413,7 @@ exponential backoff and a configurable max-poll-duration.
 #### llm-adapter (#383) — Python
 | Issue | Step | Title | Status |
 |-------|------|-------|--------|
-| [#410](https://github.com/zynax-io/zynax/issues/410) | O2 | Module scaffold + ProviderConfig | ⬜ Open |
+| [#410](https://github.com/zynax-io/zynax/issues/410) | O2 | Module scaffold + ProviderConfig | ✅ Done |
 | [#411](https://github.com/zynax-io/zynax/issues/411) | O3 | Provider handlers (OpenAI, Bedrock, Ollama) | ⬜ Open (blocked on #410) |
 | [#412](https://github.com/zynax-io/zynax/issues/412) | O4 | Registry client + bootstrap | ⬜ Open (blocked on #411) |
 | [#413](https://github.com/zynax-io/zynax/issues/413) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #412) |
