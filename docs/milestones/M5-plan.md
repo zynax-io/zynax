@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-27 (rev 64 — #718 ✅ re-add git to GO_ADAPTER_LIST; coverage gate live on CI)
+**Last updated:** 2026-05-27 (rev 65 — #572 ✅ workflow-compiler retention contract truth pass)
 
 ---
 
@@ -688,7 +688,7 @@ open issues. File them before or during M5 execution:
 | G7: mergePayload drops non-strings | Low | [#571](https://github.com/zynax-io/zynax/issues/571) | M5 |
 | G8: Action.Output parsed, never mapped | Low | [#581](https://github.com/zynax-io/zynax/issues/581) | M6 |
 | G9: No CODEOWNERS | Low | ~~#573~~ **Closed — file exists** | — |
-| G10: workflow-compiler retention contract violated | Medium | [#572](https://github.com/zynax-io/zynax/issues/572) | M5 |
+| ~~G10: workflow-compiler retention contract violated~~ | Medium | ~~[#572](https://github.com/zynax-io/zynax/issues/572)~~ ✅ Done | M5 |
 | G11: No benchmarks | Medium | [#493](https://github.com/zynax-io/zynax/issues/493) | M7 |
 | G12: No fuzz tests | Medium | [#539](https://github.com/zynax-io/zynax/issues/539) (partial) | M5/M7 |
 | G13: No load tests | Medium | M7 backlog | M7 |
