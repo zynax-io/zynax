@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-27 (rev 71 — #410 ✅ llm-adapter module scaffold + ProviderConfig)
+**Last updated:** 2026-05-27 (rev 72 — #415 ✅ langgraph-adapter module scaffold + GraphMount config)
 
 ---
 
@@ -427,7 +427,7 @@ Streaming response must emit `PROGRESS` task events during generation.
 #### langgraph-adapter (#384) — Python
 | Issue | Step | Title | Status |
 |-------|------|-------|--------|
-| [#415](https://github.com/zynax-io/zynax/issues/415) | O2 | Module scaffold + GraphMount config | ⬜ Open |
+| [#415](https://github.com/zynax-io/zynax/issues/415) | O2 | Module scaffold + GraphMount config | ✅ Done |
 | [#416](https://github.com/zynax-io/zynax/issues/416) | O3 | GraphLoader + LangGraphHandler | ⬜ Open (blocked on #415) |
 | [#417](https://github.com/zynax-io/zynax/issues/417) | O4 | Registry client + bootstrap | ⬜ Open (blocked on #416) |
 | [#418](https://github.com/zynax-io/zynax/issues/418) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #417) |
