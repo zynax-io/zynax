@@ -78,7 +78,7 @@ All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 | Issue | Track | Title | Status |
 |-------|-------|-------|--------|
 | [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | ✅ Complete — #400 #401 #402 #403 all merged |
-| [#713](https://github.com/zynax-io/zynax/issues/713) | Adapters | git-adapter quality epic (coverage ≥85%) | 🟡 In Progress — #714 ✅ #715 ✅ #716 ✅ → #717 (PR #724, this PR) → #718 (blocked) |
+| [#713](https://github.com/zynax-io/zynax/issues/713) | Adapters | git-adapter quality epic (coverage ≥85%) | ✅ Complete — #714 ✅ #715 ✅ #716 ✅ #717 ✅ #718 ✅ all merged |
 | [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open — #404 BDD done; #405+ next (canvas Aligned) |
 | [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open — #409 BDD done; #410+ pending |
 | [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open — #414 BDD done; #415+ pending |
@@ -87,7 +87,7 @@ All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 
 ## Known Blockers
 
-- **#713 git-adapter coverage (target ≥85%)** — #715 ✅ #716 ✅ merged; #717 PR #724 open (this PR); #718 blocked until #717 merges. Combined coverage 85.1% when #717 on main.
+- **git-adapter coverage** — ✅ complete; #714–#718 all merged; coverage ≥85% live on CI; git re-added to GO_ADAPTER_LIST.
 - **adapter implementations** (#405–#418) — unblocked by #481 ✅; git-adapter impl ✅; ci/llm/langgraph pending.
 - **E2E demo** — compose wired (#481 ✅); needs an adapter registered for capability dispatch.
 - **v0.4.0 tag** — CHANGELOG promoted; run `git tag -a v0.4.0 -m "M5 Adapter Library" && git push origin v0.4.0` on main to trigger the release workflow and create GitHub Release assets.
@@ -139,16 +139,14 @@ Priority gaps to file immediately:
 |-------|-------|--------|
 | [#715](https://github.com/zynax-io/zynax/issues/715) | Cover requestReview + progressEvent | ✅ Done — PR #722 merged |
 | [#716](https://github.com/zynax-io/zynax/issues/716) | Cover execute/sanitise/githubErrCode/parsePayload | ✅ Done — PR #723 merged |
-| [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent retry + isTransient + cmd | 🟡 In Progress — PR #724 (this PR) |
-| [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | ⬜ Blocked on #716+#717 |
+| [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent retry + isTransient + cmd | ✅ Done — PR #724 merged |
+| [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | 🟡 In Progress — PR open (this PR) |
 
 ## Next Session Queue (priority order)
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P1 | [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent + isTransient + cmd tests | PR #724 — auto-merge after rebase |
-| P1 (blocked) | [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | XS, ci — after #716+#717 merged |
-| P2 | [#405](https://github.com/zynax-io/zynax/issues/405) | ci-adapter Go module scaffold + config layer (O2) | S, feat, canvas Aligned |
+| P1 | [#405](https://github.com/zynax-io/zynax/issues/405) | ci-adapter Go module scaffold + config layer (O2) | S, feat, canvas Aligned |
 | P2 | [#579](https://github.com/zynax-io/zynax/issues/579) | README per-service status table | S, docs, M5.A |
 | P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci, needs-design |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |
