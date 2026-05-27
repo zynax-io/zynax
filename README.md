@@ -387,6 +387,36 @@ Canvas: `docs/spdd/314-yaml-system-cli/canvas.md`.
 
 ---
 
+## Service Status
+
+Current implementation status per service and adapter (as of M5 v0.4.0):
+
+### Platform Services
+
+| Service | Status | Notes |
+|---------|--------|-------|
+| api-gateway | ✅ Implemented | REST → gRPC translation, bearer auth, context deadline propagation |
+| workflow-compiler | ✅ Implemented | YAML → WorkflowIR; in-memory store (ephemeral — re-compile on restart; durable storage in M6 [#466](https://github.com/zynax-io/zynax/issues/466)) |
+| engine-adapter | ✅ Implemented | Temporal backend; cel-go guard evaluation; CloudEvents = log-only (NATS not wired until M6) |
+| task-broker | 🟡 MVP | In-memory; restart loses in-flight tasks; gRPC wired in compose |
+| agent-registry | 🟡 MVP | In-memory round-robin with heartbeat; gRPC wired in compose |
+| event-bus | 📋 Planned | M6 — NATS JetStream; contract-only today |
+| memory-service | 📋 Planned | M6 — Redis KV + vector; contract-only today |
+
+### Execution Adapters
+
+| Adapter | Language | Status | Notes |
+|---------|----------|--------|-------|
+| http-adapter | Go | ✅ Complete | Generic HTTP capability bridge; SSRF-safe static routing |
+| git-adapter | Go | ✅ Complete | `open_pr`, `request_review`, `get_diff` via GitHub REST API |
+| ci-adapter | Go | 🔄 In Progress | BDD ✅; scaffold + handler pending ([#405](https://github.com/zynax-io/zynax/issues/405)+) |
+| llm-adapter | Python | 🔄 In Progress | BDD ✅; OpenAI/Bedrock/Ollama pending ([#410](https://github.com/zynax-io/zynax/issues/410)+) |
+| langgraph-adapter | Python | 🔄 In Progress | BDD ✅; graph-mount impl pending ([#415](https://github.com/zynax-io/zynax/issues/415)+) |
+
+**Legend:** ✅ Complete · 🟡 MVP (in-memory, ephemeral) · 🔄 In Progress · 📋 Planned
+
+---
+
 ## AI Context Architecture
 
 AI assistants working in this repo load context in layers. Smaller budgets = higher signal density.

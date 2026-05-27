@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-27 (rev 65 — #572 ✅ workflow-compiler retention contract truth pass)
+**Last updated:** 2026-05-27 (rev 66 — #579 ✅ README per-service status table; M5.A truth pass complete)
 
 ---
 
@@ -57,7 +57,7 @@ the developer's responsibility; auto-merge fires automatically once all checks p
 | **M5.F.R** | Release Pipeline | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) | — |
 | **M5.C** | Capability Dispatch E2E | [#460](https://github.com/zynax-io/zynax/issues/460) | 🟡 In Progress — dispatch wired; E2E demo pending adapters | **P0** |
 | **M5.B** | Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 #476 #477 #478 all ✅ | — |
-| **M5.A** | Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | 🟡 In Progress — #472 ✅ #473 ✅ #474 ✅; #579 ⬜ | **P1** |
+| **M5.A** | Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | ✅ Complete — #472 ✅ #473 ✅ #474 ✅ #572 ✅ #579 ✅ | — |
 | **Adapters** | Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | 🟡 In Progress — http ✅ git ✅; ci/llm/langgraph pending | **P2** |
 | **M5.D** | Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete (closed) | — |
 | **M5.E** | DX Polish | [#462](https://github.com/zynax-io/zynax/issues/462) | ✅ Complete (closed) | — |
@@ -555,7 +555,7 @@ reports **≥85% total** and CI adapter gate passes for all covered packages.
 | [#473](https://github.com/zynax-io/zynax/issues/473) | Audit CHANGELOG for phantom entries | ✅ Done |
 | [#474](https://github.com/zynax-io/zynax/issues/474) | Python SDK decision → implement minimal Agent base class | ✅ Epic complete (BATCH 3) |
 | **NEW** | Fix SECURITY.md — remove mTLS/SBOM/cosign false claims | ✅ Done (2026-05-20) |
-| [#579](https://github.com/zynax-io/zynax/issues/579) | Add per-service status table to README | ⬜ Open |
+| [#579](https://github.com/zynax-io/zynax/issues/579) | Add per-service status table to README | ✅ Done |
 
 ### Python SDK epic (#474) — promoted
 
