@@ -20,7 +20,11 @@ import (
 )
 
 // Server implements WorkflowCompilerServiceServer using in-memory IR storage.
-// The in-memory store is appropriate for M2; a persistent backend is deferred.
+// The in-memory store is appropriate for M5; a persistent backend is deferred to M6.
+//
+// WARNING: the store is an unbounded in-memory map with no TTL, no eviction, and no
+// persistence across restarts. GetCompiledWorkflow returns NOT_FOUND after any restart.
+// Durable storage is tracked in issue #466 (M6 — stateless-compiler refactor).
 //
 // Server is not usable at zero value; always construct via New().
 // When future milestones add injectable dependencies (persistent store, tracer),

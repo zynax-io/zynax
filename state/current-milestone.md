@@ -32,7 +32,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 |-------|------|--------|
 | **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — all done except #555 (DRY/KISS L, P2) |
 | **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) |
-| M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — #472 ✅ #473 ✅ #474 ✅ #579 ⬜ open |
+| M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | In Progress — #472 ✅ #473 ✅ #474 ✅ #572 ✅ #579 ⬜ open |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 ✅ #476 ✅ #477 ✅ #478 ✅ |
 | M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Compose wired — all 3 services in stack; E2E dispatch pending adapters |
 | M5.D Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete (closed) |
@@ -146,7 +146,7 @@ Priority gaps to file immediately:
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P1 | [#405](https://github.com/zynax-io/zynax/issues/405) | ci-adapter Go module scaffold + config layer (O2) | S, feat, canvas Aligned |
+| P1 | [#405](https://github.com/zynax-io/zynax/issues/405) | ci-adapter Go module scaffold + config layer (O2) | XS, feat, canvas Aligned |
 | P2 | [#579](https://github.com/zynax-io/zynax/issues/579) | README per-service status table | S, docs, M5.A |
 | P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci, needs-design |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |
