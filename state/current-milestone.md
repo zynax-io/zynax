@@ -79,7 +79,7 @@ All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 |-------|-------|-------|--------|
 | [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | ✅ Complete — #400 #401 #402 #403 all merged |
 | [#713](https://github.com/zynax-io/zynax/issues/713) | Adapters | git-adapter quality epic (coverage ≥85%) | ✅ Complete — #714 ✅ #715 ✅ #716 ✅ #717 ✅ #718 ✅ all merged |
-| [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open — #404 BDD done; #405+ next (canvas Aligned) |
+| [#382](https://github.com/zynax-io/zynax/issues/382) | Adapters | ci-adapter impl | open — #404 BDD done; #405 ✅ scaffold done; #406+ next |
 | [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open — #409 BDD done; #410+ pending |
 | [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open — #414 BDD done; #415+ pending |
 
@@ -146,7 +146,6 @@ Priority gaps to file immediately:
 
 | Priority | Issue | Title | Note |
 |----------|-------|-------|------|
-| P1 | [#405](https://github.com/zynax-io/zynax/issues/405) | ci-adapter Go module scaffold + config layer (O2) | XS, feat, canvas Aligned |
-| P2 | [#579](https://github.com/zynax-io/zynax/issues/579) | README per-service status table | S, docs, M5.A |
+| P1 | [#406](https://github.com/zynax-io/zynax/issues/406) | ci-adapter CIHandler + PollLoop (O3) | M, feat, canvas Aligned, unblocked by #405 ✅ |
 | P2 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L, ci, needs-design |
 | M6 prep | [#656](https://github.com/zynax-io/zynax/issues/656) | gRPC Health Checking Protocol in all services | L, deferred |
