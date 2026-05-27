@@ -66,13 +66,14 @@ type WorkflowCompilerServiceClient interface {
 	ValidateManifest(ctx context.Context, in *ValidateManifestRequest, opts ...grpc.CallOption) (*ValidateManifestResponse, error)
 	// GetCompiledWorkflow retrieves a previously compiled WorkflowIR by workflow_id.
 	//
-	// The compiler persists compiled IRs for a configurable retention window
-	// (default: 30 days). Callers SHOULD NOT rely on indefinite retention —
-	// store the IR returned by CompileWorkflow for long-term use.
+	// M5 implementation note: IRs are stored in an unbounded in-memory map with no
+	// TTL, no eviction, and no persistence across restarts. Callers MUST NOT rely on
+	// durability — re-compile on restart. Durable retention (30-day target) is planned
+	// for M6 via the stateless-compiler refactor (tracked in issue #466).
 	//
 	// Returns NOT_FOUND if:
 	//   - The workflow_id was never compiled by this service instance.
-	//   - The compiled IR has been evicted past the retention window.
+	//   - The service has restarted since the workflow was compiled.
 	//   - dry_run=true was used when compiling (dry-run results are not persisted).
 	GetCompiledWorkflow(ctx context.Context, in *GetCompiledWorkflowRequest, opts ...grpc.CallOption) (*GetCompiledWorkflowResponse, error)
 }
@@ -131,13 +132,14 @@ type WorkflowCompilerServiceServer interface {
 	ValidateManifest(context.Context, *ValidateManifestRequest) (*ValidateManifestResponse, error)
 	// GetCompiledWorkflow retrieves a previously compiled WorkflowIR by workflow_id.
 	//
-	// The compiler persists compiled IRs for a configurable retention window
-	// (default: 30 days). Callers SHOULD NOT rely on indefinite retention —
-	// store the IR returned by CompileWorkflow for long-term use.
+	// M5 implementation note: IRs are stored in an unbounded in-memory map with no
+	// TTL, no eviction, and no persistence across restarts. Callers MUST NOT rely on
+	// durability — re-compile on restart. Durable retention (30-day target) is planned
+	// for M6 via the stateless-compiler refactor (tracked in issue #466).
 	//
 	// Returns NOT_FOUND if:
 	//   - The workflow_id was never compiled by this service instance.
-	//   - The compiled IR has been evicted past the retention window.
+	//   - The service has restarted since the workflow was compiled.
 	//   - dry_run=true was used when compiling (dry-run results are not persisted).
 	GetCompiledWorkflow(context.Context, *GetCompiledWorkflowRequest) (*GetCompiledWorkflowResponse, error)
 	mustEmbedUnimplementedWorkflowCompilerServiceServer()
