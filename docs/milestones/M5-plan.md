@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-27 (rev 69 — #407 ✅ ci-adapter registry client + bootstrap)
+**Last updated:** 2026-05-27 (rev 70 — #408 ✅ ci-adapter Dockerfile + docker-compose + agent-def)
 
 ---
 
@@ -403,7 +403,7 @@ Capabilities: `open_pr` (POST /repos/{owner}/{repo}/pulls), `request_review`
 | [#405](https://github.com/zynax-io/zynax/issues/405) | O2 | Go module scaffold + config layer | ✅ Done |
 | [#406](https://github.com/zynax-io/zynax/issues/406) | O3 | CIHandler + PollLoop (trigger_workflow, get_run_status) | ✅ Done |
 | [#407](https://github.com/zynax-io/zynax/issues/407) | O4 | Registry client + bootstrap | ✅ Done |
-| [#408](https://github.com/zynax-io/zynax/issues/408) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #407) |
+| [#408](https://github.com/zynax-io/zynax/issues/408) | O5 | Dockerfile, docker-compose, AGENTS.md | ✅ Done |
 
 **Engineer profile:** Go engineer with GitHub Actions API experience. Capabilities:
 `trigger_workflow` (POST /repos/{owner}/{repo}/actions/workflows/{id}/dispatches) +

@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: Apache-2.0
+# ci-adapter — example AgentDef YAML
+#
+# Copy this file to agent-def.yaml and set the ADAPTER_CONFIG env var to its path.
+# Set the env var named in ci.token_env to a GitHub PAT with the `actions:read` and
+# `actions:write` scopes (or a fine-grained token with Workflows permission).
+#
+# SSRF prevention: owner, repo, and workflow_id are declared here — never in
+# input_payload. No attacker-controlled values can be interpolated into API URLs.
+
+agent_id: ci-adapter
+name: CI Adapter
+description: Triggers GitHub Actions workflows and polls run status as Zynax capabilities.
+endpoint: :50055
+registry_endpoint: agent-registry:50052
+
+ci:
+  provider: github-actions     # "github-actions" or "jenkins-stub" (stub only in M5)
+  token_env: GITHUB_TOKEN      # name of the env var holding the GitHub PAT — never the value
+
+  # Polling configuration for get_run_status (exponential backoff).
+  poll_interval_seconds: 2          # initial sleep between status polls (default 2)
+  max_poll_interval_seconds: 30     # backoff ceiling (default 30)
+
+  # How long to wait for the dispatched run ID to appear in the runs list.
+  # If the run is not found within this window, trigger_workflow returns TIMEOUT.
+  trigger_poll_timeout_seconds: 10  # default 10
+
+capabilities:
+  - name: trigger_workflow
+    owner: my-org              # GitHub org or user — static; never from input_payload
+    repo: my-repo              # repository name — static; never from input_payload
+    workflow_id: ci.yml        # workflow file name or numeric workflow ID
+    timeout_seconds: 60
+    description: Dispatch a workflow_dispatch event and return the new run ID and URL.
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["ref"],
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "The git ref (branch, tag, or SHA) to run the workflow on.",
+            "minLength": 1
+          },
+          "inputs": {
+            "type": "object",
+            "description": "Workflow input parameters declared in on.workflow_dispatch.inputs.",
+            "additionalProperties": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    output_schema_json: |
+      {
+        "type": "object",
+        "required": ["run_id", "run_url"],
+        "properties": {
+          "run_id":  { "type": "number", "description": "GitHub Actions run ID." },
+          "run_url": { "type": "string", "description": "Link to the Actions run page." }
+        }
+      }
+
+  - name: get_run_status
+    owner: my-org
+    repo: my-repo
+    workflow_id: ci.yml        # informational; not used by get_run_status API calls
+    timeout_seconds: 900       # 15 minutes — typical CI run budget
+    description: >
+      Poll a GitHub Actions run until it reaches a terminal state (completed/failure/
+      cancelled/skipped/timed_out). Emits PROGRESS events per poll cycle with the
+      current run URL and status; emits COMPLETED with conclusion on terminal state.
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["run_id"],
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "description": "GitHub Actions run ID returned by trigger_workflow.",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    output_schema_json: |
+      {
+        "type": "object",
+        "required": ["run_url", "status", "conclusion"],
+        "properties": {
+          "run_url":    { "type": "string", "description": "Link to the Actions run page." },
+          "status":     { "type": "string", "description": "GitHub run status (completed)." },
+          "conclusion": {
+            "type": "string",
+            "description": "Terminal conclusion: success | failure | cancelled | skipped | timed_out | action_required | neutral | stale."
+          }
+        }
+      }
