@@ -5,6 +5,7 @@
 go 1.26.3
 
 use (
+	./agents/adapters/ci
 	./agents/adapters/git
 	./agents/adapters/http
 	./protos/generated/go
