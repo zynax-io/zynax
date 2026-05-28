@@ -17,7 +17,7 @@ LIST="$1"; shift
 if [ "$1" = "--" ]; then shift; fi
 CMD=("$@")
 
-ROOT_DIR="$(git rev-parse --show-toplevel)"
+ROOT_DIR="${GITHUB_WORKSPACE:-$(pwd)}"
 failed=false
 
 for name in $LIST; do
