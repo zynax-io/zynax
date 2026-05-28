@@ -148,9 +148,9 @@ Priority gaps to file immediately:
 |-------|-------|--------|
 | [#412](https://github.com/zynax-io/zynax/issues/412) | llm-adapter registry client + bootstrap | ✅ Done — merged |
 | [#417](https://github.com/zynax-io/zynax/issues/417) | langgraph-adapter registry client + bootstrap | ✅ Done — merged |
-| [#413](https://github.com/zynax-io/zynax/issues/413) | llm-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR in review |
-| [#418](https://github.com/zynax-io/zynax/issues/418) | langgraph-adapter Dockerfile + docker-compose + AGENTS.md | ⬜ Open — in progress |
+| [#413](https://github.com/zynax-io/zynax/issues/413) | llm-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR #742 merged |
+| [#418](https://github.com/zynax-io/zynax/issues/418) | langgraph-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR #743 |
 
 ## Next Session Queue (priority order)
 
-After #413 + #418: close epics #383 #384, then check #377 (Adapter Library) exit criteria.
+After #418 merges: close epics #383 #384, check #377 (Adapter Library) exit criteria.
