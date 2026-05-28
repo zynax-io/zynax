@@ -47,6 +47,9 @@ func New() *Server {
 // CompileWorkflow parses, validates, and compiles a YAML manifest into a WorkflowIR.
 // The compiled IR is stored unless dry_run is true.
 func (s *Server) CompileWorkflow(ctx context.Context, req *zynaxv1.CompileWorkflowRequest) (*zynaxv1.CompileWorkflowResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, status.FromContextError(err).Err()
+	}
 	if len(req.ManifestYaml) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "manifest_yaml must not be empty")
 	}
@@ -103,6 +106,9 @@ func (s *Server) CompileWorkflow(ctx context.Context, req *zynaxv1.CompileWorkfl
 // ValidateManifest checks a manifest for structural correctness without persisting anything.
 // All errors found are returned — not just the first.
 func (s *Server) ValidateManifest(ctx context.Context, req *zynaxv1.ValidateManifestRequest) (*zynaxv1.ValidateManifestResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, status.FromContextError(err).Err()
+	}
 	if len(req.ManifestYaml) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "manifest_yaml must not be empty")
 	}
@@ -131,7 +137,10 @@ func (s *Server) ValidateManifest(ctx context.Context, req *zynaxv1.ValidateMani
 }
 
 // GetCompiledWorkflow retrieves a previously compiled WorkflowIR by workflow_id.
-func (s *Server) GetCompiledWorkflow(_ context.Context, req *zynaxv1.GetCompiledWorkflowRequest) (*zynaxv1.GetCompiledWorkflowResponse, error) {
+func (s *Server) GetCompiledWorkflow(ctx context.Context, req *zynaxv1.GetCompiledWorkflowRequest) (*zynaxv1.GetCompiledWorkflowResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, status.FromContextError(err).Err()
+	}
 	if req.WorkflowId == "" {
 		return nil, status.Error(codes.InvalidArgument, "workflow_id must not be empty")
 	}
