@@ -14,10 +14,11 @@
 | M2 — Workflow IR | ✅ Complete | v0.1.0 |
 | M3 — Temporal Execution | ⚠ Partial | v0.2.0 |
 | M4 — YAML System + CLI | ⚠ Partial | v0.3.0 |
-| **M5 — Adapter Library** | **In Progress** | v0.4.0 |
+| **M5 — Adapter Library** | ✅ **Complete** | **v0.4.0** |
 
 M3/M4 are partial because task-broker and agent-registry were not delivered in those milestones.
-Both are in-progress under M5.C (#460). CloudEvents publishing is log-only (not wired to NATS).
+Both completed under M5.C (#460). CloudEvents publishing is log-only (not wired to NATS).
+v0.4.0 tag pushed 2026-05-29; GitHub Release live at https://github.com/zynax-io/zynax/releases/tag/v0.4.0
 See [docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md).
 
 ---
@@ -90,7 +91,7 @@ All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 - **git-adapter coverage** — ✅ complete; #714–#718 all merged; coverage ≥85% live on CI; git re-added to GO_ADAPTER_LIST.
 - **adapter implementations** (#405–#418) — ✅ all done; git/ci/llm/langgraph all merged.
 - **E2E demo** — ✅ `e2e-demo.yaml` created; langgraph `echo` capability wired; run `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` to observe dispatch + completion in Temporal UI (http://localhost:7088).
-- **v0.4.0 tag** — CHANGELOG promoted; run `git tag -a v0.4.0 -m "M5 Adapter Library" && git push origin v0.4.0` on main to trigger the release workflow and create GitHub Release assets.
+- **v0.4.0 tag** — ✅ pushed 2026-05-29; GitHub Release live with CLI binaries, GHCR service images, and SBOMs.
 
 ---
 
