@@ -54,6 +54,8 @@ while IFS= read -r f; do
   esac
 done <<< "$changed"
 
-# Deduplicate
-pkgs=$(echo "$pkgs" | tr ' ' '\n' | sort -u | grep -v '^$' | tr '\n' ' ' | xargs)
+# Deduplicate — guard avoids grep exiting 1 on empty input (pipefail)
+if [ -n "$pkgs" ]; then
+  pkgs=$(echo "$pkgs" | tr ' ' '\n' | sort -u | grep -v '^$' | tr '\n' ' ' | xargs)
+fi
 echo "${pkgs:-}"
