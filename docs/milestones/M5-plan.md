@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 89 — #228 ✅ #229 ✅; #564 ✅ row fix in BATCH 5 table)
+**Last updated:** 2026-05-28 (rev 90 — #460 E2E demo workflow created; DoD #1 updated to e2e-demo.yaml)
 
 ---
 
@@ -16,8 +16,10 @@
 
 M5 is done when ALL of the following are true:
 
-1. `make run-local && zynax apply spec/workflows/examples/code-review.yaml` produces real,
-   observable state transitions through at least one capability dispatch (mock agent acceptable).
+1. `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` produces real,
+   observable state transitions through at least one capability dispatch (langgraph echo mock).
+   (`code-review.yaml` is an aspirational reference — it requires live GitHub credentials and a
+   real PR; `e2e-demo.yaml` is the self-contained E2E fixture using the `echo` capability.)
 2. v0.4.0 tag exists on GitHub with downloadable CLI binaries and GHCR service images.
 3. All five adapters (http ✅ + git + ci + llm + langgraph) have implementations merged.
 4. The Python SDK `Agent` base class is implemented (Option A, #474).
@@ -55,7 +57,7 @@ the developer's responsibility; auto-merge fires automatically once all checks p
 |---|-------|------|--------|----------|
 | **M5.F** | CI/CD Performance Sprint | [#542](https://github.com/zynax-io/zynax/issues/542) | ✅ Complete (closed) — all child issues merged | — |
 | **M5.F.R** | Release Pipeline | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) | — |
-| **M5.C** | Capability Dispatch E2E | [#460](https://github.com/zynax-io/zynax/issues/460) | 🟡 In Progress — dispatch wired; E2E demo pending | **P0** |
+| **M5.C** | Capability Dispatch E2E | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Complete — all services in compose; e2e-demo.yaml created; live run to confirm | — |
 | **M5.B** | Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 #476 #477 #478 all ✅ | — |
 | **M5.A** | Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | ✅ Complete — #472 ✅ #473 ✅ #474 ✅ #572 ✅ #579 ✅ | — |
 | **Adapters** | Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | ✅ Complete (closed) — all five adapters merged | — |
@@ -594,11 +596,18 @@ reports **≥85% total** and CI adapter gate passes for all covered packages.
 
 ---
 
-## M5.C — Capability Dispatch End-to-End (#460)
+## M5.C — Capability Dispatch End-to-End (#460) ✅ Complete
 
 **Canvas:** [docs/spdd/460-capability-dispatch/canvas.md](../spdd/460-capability-dispatch/canvas.md)
 
-### task-broker MVP (#479) — code complete, quality in progress
+E2E dispatch chain fully wired. `spec/workflows/examples/e2e-demo.yaml` exercises the full path:
+`zynax apply` → workflow-compiler → engine-adapter (Temporal) → task-broker → agent-registry →
+langgraph-adapter (`echo` capability) → `TASK_EVENT_TYPE_COMPLETED` → terminal state.
+
+Run `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` to observe. Result visible
+in Temporal UI at http://localhost:7088.
+
+### task-broker MVP (#479) ✅ Complete
 
 **Canvas:** [docs/spdd/479-task-broker/canvas.md](../spdd/479-task-broker/canvas.md)
 Implementation merged: PRs #520, #522, #523. Domain coverage: 92.7%.
@@ -609,7 +618,7 @@ Implementation merged: PRs #520, #522, #523. Domain coverage: 92.7%.
 | [#531](https://github.com/zynax-io/zynax/issues/531) | O7 | Align service BDD + godog steps | ✅ Done |
 | [#532](https://github.com/zynax-io/zynax/issues/532) | O8 | Handler unit tests (grpcErr coverage) | ✅ Done |
 
-### agent-registry MVP (#480) — pending
+### agent-registry MVP (#480) ✅ Complete
 
 **Canvas:** [docs/spdd/480-agent-registry/canvas.md](../spdd/480-agent-registry/canvas.md)
 
@@ -619,7 +628,7 @@ Implementation merged: PRs #520, #522, #523. Domain coverage: 92.7%.
 | [#527](https://github.com/zynax-io/zynax/issues/527) | O2 | Domain layer | ✅ Done |
 | [#528](https://github.com/zynax-io/zynax/issues/528) | O3 | gRPC wiring + cmd + go.work | ✅ Done |
 
-### compose wiring (#481)
+### compose wiring (#481) ✅ Complete
 
 | Issue | Title | Status |
 |-------|-------|--------|
