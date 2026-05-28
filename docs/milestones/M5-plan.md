@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 79 — all 5 adapters ✅; epics #377 #458 closed; ARCHITECTURE.md M5 row updated)
+**Last updated:** 2026-05-28 (rev 80 — G19 competitive positioning ✅ #575)
 
 ---
 
@@ -696,7 +696,7 @@ open issues. File them before or during M5 execution:
 | ~~G16: Background-context goroutines~~ | Medium | ~~[#570](https://github.com/zynax-io/zynax/issues/570)~~ ✅ Done | M5 |
 | ~~G17: Stub services in SERVICE_LIST~~ | Low | ~~[#574](https://github.com/zynax-io/zynax/issues/574)~~ ✅ Done | M5 |
 | G18: No community channel | Medium | [#470](https://github.com/zynax-io/zynax/issues/470) | M8 |
-| G19: Kagent positioning | **High** | [#575](https://github.com/zynax-io/zynax/issues/575) | M5 |
+| ~~G19: Kagent positioning~~ | **High** | ~~[#575](https://github.com/zynax-io/zynax/issues/575)~~ ✅ Done | M5 |
 | G20: pkg.go.dev module reference | Medium | [#582](https://github.com/zynax-io/zynax/issues/582) | M6 |
 | G21: Python SDK claims v0.1.0, is 3-line placeholder | High | [#474](https://github.com/zynax-io/zynax/issues/474) | M5 |
 | ~~G22: Summarizer phantom~~ | Low | ~~[#576](https://github.com/zynax-io/zynax/issues/576)~~ ✅ Done | M5 |

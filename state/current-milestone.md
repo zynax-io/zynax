@@ -106,7 +106,7 @@ Priority gaps to file immediately:
 | ~~G2: ReadHeaderTimeout + MaxBytesReader~~ | ✅ fixed #568 |
 | ~~G4: no RetryPolicy on Temporal Activities (#569)~~ | ✅ fixed #569 |
 | ~~G16: background-context goroutines in task-broker (#570)~~ | ✅ fixed #570 |
-| G19: competitive positioning doc (Kagent/Dapr) (#575) | High |
+| ~~G19: competitive positioning doc (Kagent/Dapr) (#575)~~ | ✅ fixed |
 | ~~G17: stub services in SERVICE_LIST (#574)~~ | ✅ fixed |
 | ~~G23: Phantom AGENT_LIST entries (#577)~~ | ✅ fixed |
 | ~~G22: Summarizer phantom (#576)~~ | ✅ fixed |
