@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 85 — #555 ✅; BATCH 5 Group E complete)
+**Last updated:** 2026-05-28 (rev 86 — #232 ✅; BATCH 9 added)
 
 ---
 
@@ -728,6 +728,24 @@ Standalone quality improvements that don't fit earlier batches. All are XS, SPDD
 | [#373](https://github.com/zynax-io/zynax/issues/373) | refactor | Thread ctx in workflow-compiler gRPC handlers | XS | ✅ Done |
 | [#374](https://github.com/zynax-io/zynax/issues/374) | docs | ctx-first mandate in services/AGENTS.md + Temporal comment | XS | ✅ Done |
 | [#375](https://github.com/zynax-io/zynax/issues/375) | ci | Enable ruff D (Google docstrings) in agents/sdk | XS | ✅ Done |
+
+---
+
+### BATCH 9 — Documentation Quality (P1/P2 · independent, no code dependencies)
+
+Open M5 milestone issues not previously tracked in this plan. All are SPDD-exempt (`docs:` / `refactor:` types).
+
+| Issue | Type | Title | Size | Status |
+|-------|------|-------|------|--------|
+| [#228](https://github.com/zynax-io/zynax/issues/228) | docs | Google-style docstrings on all public symbols in agents/sdk | S | ⬜ |
+| [#229](https://github.com/zynax-io/zynax/issues/229) | refactor | Strip explanatory comments in agents/sdk + agents/examples | S | ⬜ |
+| [#232](https://github.com/zynax-io/zynax/issues/232) | docs | Architecture fitness functions — document all CI gates | XS | ✅ Done |
+| [#248](https://github.com/zynax-io/zynax/issues/248) | docs | AI-output review checklist in PR template + ai-review-guide | S | ⬜ |
+| [#376](https://github.com/zynax-io/zynax/issues/376) | docs | Google-style docstrings — step 2 (blocked on SDK modules) | M | ⬜ blocked |
+
+**Notes:**
+- #235 (SBOM) and #239 (SLSA provenance) are superseded by M6.C child #489 — close when M6 goes active.
+- #376 is blocked until SDK runtime/context/capability modules are implemented (beyond M5 scope).
 
 ---
 
