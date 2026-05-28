@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 81 — #624 ✅ ARCHITECTURE.md M3/M4/M5 rows updated)
+**Last updated:** 2026-05-28 (rev 82 — #373 ✅ workflow-compiler ctx threading; BATCH 8 added)
 
 ---
 
@@ -716,6 +716,18 @@ open issues. File them before or during M5 execution:
 | PE-5: http-adapter `registry_endpoint` port wrong (`9091` vs `50052`) | **High** | [#665](https://github.com/zynax-io/zynax/issues/665) | M5 |
 | PE-6: `ZYNAX_ENGINE_ACTIVE_ENGINE` breaks full-prefix convention | Low | [#666](https://github.com/zynax-io/zynax/issues/666) | M5 |
 | PE-7–9: Platform config convergence (shared config lib + Dockerfile template + dep gate) | **High** | [#670](https://github.com/zynax-io/zynax/issues/670) epic · [#667](https://github.com/zynax-io/zynax/issues/667) [#668](https://github.com/zynax-io/zynax/issues/668) [#669](https://github.com/zynax-io/zynax/issues/669) | M6 |
+
+---
+
+### BATCH 8 — Code Quality / Context Plumbing (P2 · independent, no code dependencies)
+
+Standalone quality improvements that don't fit earlier batches. All are XS, SPDD-exempt.
+
+| Issue | Type | Title | Size | Status |
+|-------|------|-------|------|--------|
+| [#373](https://github.com/zynax-io/zynax/issues/373) | refactor | Thread ctx in workflow-compiler gRPC handlers | XS | ✅ Done |
+| [#374](https://github.com/zynax-io/zynax/issues/374) | docs | ctx-first mandate in services/AGENTS.md + Temporal comment | XS | ⬜ |
+| [#375](https://github.com/zynax-io/zynax/issues/375) | ci | Enable ruff D (Google docstrings) in agents/sdk | XS | ⬜ |
 
 ---
 

@@ -151,10 +151,18 @@ Priority gaps to file immediately:
 | [#413](https://github.com/zynax-io/zynax/issues/413) | llm-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR #742 merged |
 | [#418](https://github.com/zynax-io/zynax/issues/418) | langgraph-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR #743 merged |
 
+## Active Work (BATCH 8 — Code Quality)
+
+| Issue | Title | Status |
+|-------|-------|--------|
+| [#373](https://github.com/zynax-io/zynax/issues/373) | Thread ctx in workflow-compiler gRPC handlers | ✅ Done |
+| [#374](https://github.com/zynax-io/zynax/issues/374) | ctx-first mandate in services/AGENTS.md + Temporal comment | ⬜ Ready |
+| [#375](https://github.com/zynax-io/zynax/issues/375) | Enable ruff D (Google docstrings) in agents/sdk | ⬜ Ready |
+
 ## Next Session Queue (priority order)
 
-Remaining open M5 non-epic issues (after #377 #458 closed):
-- **#575** (docs: competitive positioning, S) — Zynax vs Kagent/Dapr comparison; G19 High
-- **#624** (docs: architecture overhaul, M) — update ARCHITECTURE.md M5 row + remaining gaps
+Remaining open M5 non-epic issues:
+- **#374** (docs: ctx-first mandate, XS) — in BATCH 8
+- **#375** (ci: ruff docstring gate, XS) — in BATCH 8
 - **#555** (ci: DRY/KISS refactor, L) — BATCH 5 Group E; reserve for dedicated session
 - **#656** (feat: gRPC Health Checking, L) — M6 prep; defer to M6

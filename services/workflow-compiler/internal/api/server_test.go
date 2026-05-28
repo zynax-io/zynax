@@ -323,3 +323,40 @@ func TestGetCompiledWorkflow_IDsAreUnique(t *testing.T) {
 		t.Error("successive compiles must generate unique workflow IDs")
 	}
 }
+
+// Context cancellation ─────────────────────────────────────────────────────────
+
+func TestCompileWorkflow_CancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before the call
+	_, err := newServer().CompileWorkflow(ctx, &zynaxv1.CompileWorkflowRequest{
+		ManifestYaml: validYAML,
+	})
+	if grpcCode(err) != codes.Canceled {
+		t.Errorf("expected Canceled, got %v", err)
+	}
+}
+
+func TestValidateManifest_CancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := newServer().ValidateManifest(ctx, &zynaxv1.ValidateManifestRequest{
+		ManifestYaml: validYAML,
+	})
+	if grpcCode(err) != codes.Canceled {
+		t.Errorf("expected Canceled, got %v", err)
+	}
+}
+
+func TestGetCompiledWorkflow_CancelledContext(t *testing.T) {
+	s := newServer()
+	compiled := compile(t, s, validYAML)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := s.GetCompiledWorkflow(ctx, &zynaxv1.GetCompiledWorkflowRequest{
+		WorkflowId: compiled.WorkflowIr.WorkflowId,
+	})
+	if grpcCode(err) != codes.Canceled {
+		t.Errorf("expected Canceled, got %v", err)
+	}
+}
