@@ -157,12 +157,10 @@ Priority gaps to file immediately:
 |-------|-------|--------|
 | [#373](https://github.com/zynax-io/zynax/issues/373) | Thread ctx in workflow-compiler gRPC handlers | ✅ Done |
 | [#374](https://github.com/zynax-io/zynax/issues/374) | ctx-first mandate in services/AGENTS.md + Temporal comment | ✅ Done |
-| [#375](https://github.com/zynax-io/zynax/issues/375) | Enable ruff D (Google docstrings) in agents/sdk | ⬜ Ready |
+| [#375](https://github.com/zynax-io/zynax/issues/375) | Enable ruff D (Google docstrings) in agents/sdk | ✅ Done |
 
 ## Next Session Queue (priority order)
 
 Remaining open M5 non-epic issues:
-- **#375** (ci: ruff docstring gate, XS) — in BATCH 8 (next)
-- **#375** (ci: ruff docstring gate, XS) — in BATCH 8
 - **#555** (ci: DRY/KISS refactor, L) — BATCH 5 Group E; reserve for dedicated session
 - **#656** (feat: gRPC Health Checking, L) — M6 prep; defer to M6
