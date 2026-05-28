@@ -34,7 +34,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 | **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | ✅ Complete — #472 ✅ #473 ✅ #474 ✅ #572 ✅ #579 ✅ |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 ✅ #476 ✅ #477 ✅ #478 ✅ |
-| M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Compose wired — all 3 services in stack; E2E dispatch pending |
+| M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Complete — e2e-demo.yaml created; run `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` |
 | M5.D Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete (closed) |
 | M5.E DX Polish | [#462](https://github.com/zynax-io/zynax/issues/462) | ✅ Complete (closed) |
 | Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | ✅ Complete (closed) — all five adapters merged |
@@ -89,7 +89,7 @@ All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 
 - **git-adapter coverage** — ✅ complete; #714–#718 all merged; coverage ≥85% live on CI; git re-added to GO_ADAPTER_LIST.
 - **adapter implementations** (#405–#418) — ✅ all done; git/ci/llm/langgraph all merged.
-- **E2E demo** — compose wired (#481 ✅); needs an adapter registered for capability dispatch.
+- **E2E demo** — ✅ `e2e-demo.yaml` created; langgraph `echo` capability wired; run `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` to observe dispatch + completion in Temporal UI (http://localhost:7088).
 - **v0.4.0 tag** — CHANGELOG promoted; run `git tag -a v0.4.0 -m "M5 Adapter Library" && git push origin v0.4.0` on main to trigger the release workflow and create GitHub Release assets.
 
 ---
