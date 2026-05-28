@@ -34,10 +34,10 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 | **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | ✅ Complete — #472 ✅ #473 ✅ #474 ✅ #572 ✅ #579 ✅ |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 ✅ #476 ✅ #477 ✅ #478 ✅ |
-| M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Compose wired — all 3 services in stack; E2E dispatch pending adapters |
+| M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Compose wired — all 3 services in stack; E2E dispatch pending |
 | M5.D Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete (closed) |
 | M5.E DX Polish | [#462](https://github.com/zynax-io/zynax/issues/462) | ✅ Complete (closed) |
-| Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | In Progress — http ✅; git/ci/llm/langgraph BDD done, impl pending |
+| Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | ✅ Complete (closed) — all five adapters merged |
 | Containerized Make | [#442](https://github.com/zynax-io/zynax/issues/442) | ✅ Complete (closed) |
 
 ---
@@ -80,15 +80,15 @@ All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 | [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | ✅ Complete — #400 #401 #402 #403 all merged |
 | [#713](https://github.com/zynax-io/zynax/issues/713) | Adapters | git-adapter quality epic (coverage ≥85%) | ✅ Complete — #714 ✅ #715 ✅ #716 ✅ #717 ✅ #718 ✅ all merged |
 | ~~[#382](https://github.com/zynax-io/zynax/issues/382)~~ | Adapters | ci-adapter impl | ✅ Closed — all steps done (#404–#408) |
-| [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open — #409 BDD ✅; #410 ✅ scaffold+config; #411 ✅ providers+handler+router+server; #412 ✅ registry+bootstrap; #413 pending |
-| [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open — #414 BDD ✅; #415 ✅ scaffold+config; #416 ✅ GraphLoader+handler+router+server; #417 ✅ registry+bootstrap; #418 pending |
+| ~~[#383](https://github.com/zynax-io/zynax/issues/383)~~ | Adapters | llm-adapter impl | ✅ Closed — #409 BDD #410 #411 #412 #413 (PR #742) all merged |
+| ~~[#384](https://github.com/zynax-io/zynax/issues/384)~~ | Adapters | langgraph-adapter impl | ✅ Closed — #414 BDD #415 #416 #417 #418 (PR #743) all merged |
 
 ---
 
 ## Known Blockers
 
 - **git-adapter coverage** — ✅ complete; #714–#718 all merged; coverage ≥85% live on CI; git re-added to GO_ADAPTER_LIST.
-- **adapter implementations** (#405–#418) — unblocked by #481 ✅; git-adapter impl ✅; ci/llm/langgraph pending.
+- **adapter implementations** (#405–#418) — ✅ all done; git/ci/llm/langgraph all merged.
 - **E2E demo** — compose wired (#481 ✅); needs an adapter registered for capability dispatch.
 - **v0.4.0 tag** — CHANGELOG promoted; run `git tag -a v0.4.0 -m "M5 Adapter Library" && git push origin v0.4.0` on main to trigger the release workflow and create GitHub Release assets.
 
@@ -142,15 +142,19 @@ Priority gaps to file immediately:
 | [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent retry + isTransient + cmd | ✅ Done — PR #724 merged |
 | [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | ✅ Done — PR #725 merged |
 
-## Active Work (BATCH 7 — adapter O5 step)
+## Active Work (BATCH 7 — adapter O5 step) — ✅ COMPLETE
 
 | Issue | Title | Status |
 |-------|-------|--------|
 | [#412](https://github.com/zynax-io/zynax/issues/412) | llm-adapter registry client + bootstrap | ✅ Done — merged |
 | [#417](https://github.com/zynax-io/zynax/issues/417) | langgraph-adapter registry client + bootstrap | ✅ Done — merged |
 | [#413](https://github.com/zynax-io/zynax/issues/413) | llm-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR #742 merged |
-| [#418](https://github.com/zynax-io/zynax/issues/418) | langgraph-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR #743 |
+| [#418](https://github.com/zynax-io/zynax/issues/418) | langgraph-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR #743 merged |
 
 ## Next Session Queue (priority order)
 
-After #418 merges: close epics #383 #384, check #377 (Adapter Library) exit criteria.
+Remaining open M5 non-epic issues (after #377 #458 closed):
+- **#575** (docs: competitive positioning, S) — Zynax vs Kagent/Dapr comparison; G19 High
+- **#624** (docs: architecture overhaul, M) — update ARCHITECTURE.md M5 row + remaining gaps
+- **#555** (ci: DRY/KISS refactor, L) — BATCH 5 Group E; reserve for dedicated session
+- **#656** (feat: gRPC Health Checking, L) — M6 prep; defer to M6
