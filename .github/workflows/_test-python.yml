@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: Apache-2.0
+# Reusable workflow — Python pytest-bdd + coverage gate.
+# Called by the test-python job in ci.yml.
+
+name: _test-python (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      event_name: { required: true, type: string }
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  AGENT_LIST: ""
+
+jobs:
+  test-python:
+    name: test-python
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
+      options: --user root
+    env:
+      UV_LINK_MODE: copy
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Load coverage gates
+        run: |
+          while IFS='=' read -r key value; do
+            [[ -z "$key" || "$key" =~ ^# ]] && continue
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done < tools/coverage-gates.env
+
+      - name: Detect Python agents
+        id: py-detect
+        run: |
+          count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
+          echo "has_py=$count" >> "$GITHUB_OUTPUT"
+
+      - name: pytest-bdd (SDK + all Python agents)
+        if: steps.py-detect.outputs.has_py != '0'
+        run: |
+          failed=false
+
+          if [ -f agents/sdk/pyproject.toml ]; then
+            echo "── test: agents/sdk"
+            cd agents/sdk
+            uv run pytest tests/ \
+              --cov=src \
+              --cov-report=term-missing \
+              --cov-report=json:coverage.json \
+              --cov-fail-under=${COVERAGE_PYTHON_GATE:-90} \
+              -v --tb=short || failed=true
+            cd ../..
+          fi
+
+          for agent in ${{ env.AGENT_LIST }}; do
+            if [ -f "agents/examples/${agent}/pyproject.toml" ]; then
+              echo "── test: agents/examples/${agent}"
+              cd "agents/examples/${agent}"
+              uv run pytest tests/ \
+                --cov=src \
+                --cov-report=term-missing \
+                --cov-report=json:coverage.json \
+                --cov-fail-under=${COVERAGE_PYTHON_GATE:-90} \
+                -v --tb=short || failed=true
+              cd ../../..
+            fi
+          done
+
+          $failed && exit 1 || echo "✅ Python tests passed"
