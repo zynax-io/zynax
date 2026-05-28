@@ -159,7 +159,21 @@ Priority gaps to file immediately:
 | [#374](https://github.com/zynax-io/zynax/issues/374) | ctx-first mandate in services/AGENTS.md + Temporal comment | ✅ Done |
 | [#375](https://github.com/zynax-io/zynax/issues/375) | Enable ruff D (Google docstrings) in agents/sdk | ✅ Done |
 
+## Active Work (BATCH 9 — Documentation Quality)
+
+| Issue | Title | Status |
+|-------|-------|--------|
+| [#232](https://github.com/zynax-io/zynax/issues/232) | Architecture fitness functions doc | ✅ Done — PR pending |
+| [#248](https://github.com/zynax-io/zynax/issues/248) | AI-output review checklist in PR template | ⬜ In progress |
+| [#228](https://github.com/zynax-io/zynax/issues/228) | Google-style docstrings on SDK public symbols | ⬜ Ready |
+| [#229](https://github.com/zynax-io/zynax/issues/229) | Strip explanatory comments in agents/sdk | ⬜ Ready |
+
 ## Next Session Queue (priority order)
 
 Remaining open M5 non-epic issues:
+- **#248** (docs: AI-output review checklist, S) — HIGH priority; PR in progress
+- **#228** (docs: SDK docstrings, S) — LOW priority; ready
+- **#229** (refactor: strip comments, S) — LOW priority; ready
+- **#376** (docs: SDK docstrings step 2) — BLOCKED on SDK modules (M6+ scope)
+- **#235**, **#239** (SBOM/SLSA) — superseded by M6.C #489; close when M6 activates
 - **#656** (feat: gRPC Health Checking, L) — M6 prep; defer to M6
