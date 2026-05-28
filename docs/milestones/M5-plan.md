@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 80 — G19 competitive positioning ✅ #575)
+**Last updated:** 2026-05-28 (rev 81 — #624 ✅ ARCHITECTURE.md M3/M4/M5 rows updated)
 
 ---
 
@@ -708,7 +708,7 @@ open issues. File them before or during M5 execution:
 | ~~NEW-1: gRPC call deadlines~~ | High | ~~[#622](https://github.com/zynax-io/zynax/issues/622)~~ | ✅ Done |
 | NEW-4: `ZYNAX_GW_API_KEY=""` bypass | High | [#623](https://github.com/zynax-io/zynax/issues/623) | M5 |
 | H1: Stateless workflow-compiler (OOM risk R4) | **High** | [#466](https://github.com/zynax-io/zynax/issues/466) | M5 (**promoted from M6** 2026-05-21) |
-| Architecture overhaul docs (tracking) | — | [#624](https://github.com/zynax-io/zynax/issues/624) | M5 |
+| ~~Architecture overhaul docs (tracking)~~ | — | ~~[#624](https://github.com/zynax-io/zynax/issues/624)~~ ✅ Done | M5 |
 | PE-1: Stale `COMPILER_ADDR` default (`50051` vs actual `50054`) | **High** | [#661](https://github.com/zynax-io/zynax/issues/661) | M5 |
 | PE-2: `sbom` + `scan-image` Makefile targets broken (wrong build context) | **High** | [#662](https://github.com/zynax-io/zynax/issues/662) | M5 |
 | PE-3: `GO_SERVICES` hardcoded — includes stub-only services | Low | [#663](https://github.com/zynax-io/zynax/issues/663) | M5 |

@@ -357,9 +357,9 @@ make test        # full suite (unit + BDD + coverage gate)
 |-----------|--------|---------|------|
 | **M1 — Contracts Foundation** | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
 | **M2 — Workflow IR** | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
-| **M3 — Temporal Execution** | ⚠ **Partial** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) · no task-broker — blocked by M5.C [#460](https://github.com/zynax-io/zynax/issues/460) |
-| **M4 — YAML System + CLI** | ⚠ **Partial** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) · no agent-registry — blocked by M5.C [#460](https://github.com/zynax-io/zynax/issues/460) |
-| **M5 — Adapter Library** | 🔄 **In Progress** | v0.4.0 | [Epic #377](https://github.com/zynax-io/zynax/issues/377) · [Plan](docs/milestones/M5-plan.md) · M5.C compose wiring ✅ · M5.D ✅ · M5.E ✅ · adapters pending |
+| **M3 — Temporal Execution** | ⚠ **Partial** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) · task-broker + agent-registry delivered M5.C |
+| **M4 — YAML System + CLI** | ⚠ **Partial** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) · agent-registry delivered M5.C · compose wired (#481 ✅) |
+| **M5 — Adapter Library** | 🔄 **In Progress** | v0.4.0 | [Plan](docs/milestones/M5-plan.md) · all 5 adapters ✅ · M5.C ✅ · M5.D ✅ · M5.E ✅ · E2E demo + v0.4.0 tag pending |
 
 **M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
 AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract
@@ -379,7 +379,7 @@ the Temporal Go SDK, `IRInterpreterWorkflow` state machine interpreter driving
 `DispatchCapabilityActivity` → `TaskBrokerService` gRPC, cel-go guard evaluation, and all 5
 `EngineAdapterService` gRPC methods (`Submit`, `Signal`, `Cancel`, `GetWorkflowStatus`,
 `WatchWorkflow`). **Partial:** CloudEvents lifecycle events are a log-stub (NATS not yet wired);
-task-broker was not delivered in M3 (delivered in M5.C).
+task-broker + agent-registry were delivered in M5.C (#479, #480).
 
 **M4** delivered the YAML system and CLI: api-gateway HTTP REST layer
 (`POST /api/v1/apply`, `GET /api/v1/workflows/{id}`, `DELETE /api/v1/workflows/{id}`),
