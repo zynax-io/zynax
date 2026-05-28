@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 77 — #413 ✅ llm-adapter Dockerfile + compose + AGENTS.md)
+**Last updated:** 2026-05-28 (rev 78 — #418 ✅ langgraph-adapter Dockerfile + compose + AGENTS.md)
 
 ---
 
@@ -430,7 +430,7 @@ Streaming response must emit `PROGRESS` task events during generation.
 | [#415](https://github.com/zynax-io/zynax/issues/415) | O2 | Module scaffold + GraphMount config | ✅ Done |
 | [#416](https://github.com/zynax-io/zynax/issues/416) | O3 | GraphLoader + LangGraphHandler | ✅ Done |
 | [#417](https://github.com/zynax-io/zynax/issues/417) | O4 | Registry client + bootstrap | ✅ Done |
-| [#418](https://github.com/zynax-io/zynax/issues/418) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #417) |
+| [#418](https://github.com/zynax-io/zynax/issues/418) | O5 | Dockerfile, docker-compose, AGENTS.md | ✅ Done |
 
 **Engineer profile:** Python engineer with LangGraph experience. Read `docs/spdd/384-langgraph-adapter/canvas.md`.
 The adapter mounts a `StateGraph` as a Zynax capability. Each node becomes a `capability`
