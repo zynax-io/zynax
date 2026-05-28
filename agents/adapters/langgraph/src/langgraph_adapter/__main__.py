@@ -9,6 +9,9 @@ import signal
 import sys
 
 import grpc.aio  # type: ignore[import-untyped]
+from google.protobuf import (
+    timestamp_pb2 as _timestamp_pb2,  # noqa: F401 — must precede zynax pb2 imports to seed the descriptor pool
+)
 from zynax.v1 import agent_registry_pb2_grpc  # type: ignore[import-untyped]
 from zynax.v1.agent_pb2_grpc import (
     add_AgentServiceServicer_to_server,  # type: ignore[import-untyped]
