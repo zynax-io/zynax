@@ -137,6 +137,34 @@ See [docs/knowledge-base-policy.md](docs/knowledge-base-policy.md) for definitio
 
 ---
 
+## AI-Output Review (required when `ai-assisted` label is set)
+
+> Skip this entire section for PRs without the `ai-assisted` label.
+> See `docs/patterns/ai-review-guide.md` for failure-mode rationale.
+
+**Correctness**
+- [ ] Business logic matches the intent described in the linked issue (not just "the code works")
+- [ ] Edge cases in the definition of done are handled (empty inputs, max sizes, error paths)
+- [ ] No silent data loss — every error is returned, logged, or explicitly documented as ignorable
+- [ ] gRPC status codes are semantically correct (NOT_FOUND vs INVALID_ARGUMENT vs INTERNAL)
+
+**Scope**
+- [ ] Change touches only the files scoped by the Canvas or issue body
+- [ ] No undocumented drive-by refactoring mixed into the feature change
+- [ ] No abstraction introduced that isn't required by the current issue
+
+**SPDD**
+- [ ] Canvas (if `feat:`) reflects the final implementation, not just the original intent
+- [ ] `/spdd-security-review` has been run and passed (Canvas security checklist complete)
+- [ ] Canvas status is `Aligned` or `Implemented` (not `Draft`)
+
+**Security**
+- [ ] No Tier 2 context in Canvas, code comments, or error messages
+- [ ] New external inputs are validated at the API boundary
+- [ ] No new `//nolint:` or `# type: ignore` without an explaining comment
+
+---
+
 ## Feature Files
 
 Link to `.feature` files written for this change (must exist before implementation):
