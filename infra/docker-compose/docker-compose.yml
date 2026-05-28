@@ -231,6 +231,30 @@ services:
       retries: 10
       start_period: 15s
 
+  llm-adapter:
+    image: ghcr.io/zynax-io/zynax/llm-adapter:main
+    build:
+      context: ../..
+      dockerfile: agents/adapters/llm/Dockerfile
+    environment:
+      AGENT_ID: llm-adapter
+      ADAPTER_ENDPOINT: "llm-adapter:50057"
+      REGISTRY_ADDR: "agent-registry:50052"
+      ZYNAX_LLM_ADAPTER_GRPC_PORT: "50057"
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      LLM_MODEL: ${LLM_MODEL:-llama3.2}
+    depends_on:
+      agent-registry:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 50057), 2).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
 volumes:
   postgres-data:
   nats-data:

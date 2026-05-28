@@ -56,12 +56,13 @@ tags        = ["infrastructure"]
 # 'local' as a standalone word or in NATS URLs is fine (dev environment docs)
 regexes     = ['''nats://localhost|nats://local\b|description.*[Ll]ocal''']
 # .dockerignore / .gitignore list glob patterns — never real hostnames
-# infra/AGENTS.md documents .env.local as a filename, not a hostname
+# infra/AGENTS.md and agents/*/AGENTS.md document Docker bridge hostnames (host.docker.internal)
 # Policy doc uses counter-examples
 paths       = [
   '''\.dockerignore$''',
   '''\.gitignore$''',
   '''infra/AGENTS\.md''',
+  '''agents/.*/AGENTS\.md''',
   '''docs/knowledge-base-policy\.md''',
 ]
 

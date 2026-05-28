@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 76 — #417 ✅ langgraph-adapter registry client + bootstrap)
+**Last updated:** 2026-05-28 (rev 77 — #413 ✅ llm-adapter Dockerfile + compose + AGENTS.md)
 
 ---
 
@@ -416,7 +416,7 @@ exponential backoff and a configurable max-poll-duration.
 | [#410](https://github.com/zynax-io/zynax/issues/410) | O2 | Module scaffold + ProviderConfig | ✅ Done |
 | [#411](https://github.com/zynax-io/zynax/issues/411) | O3 | Provider handlers (OpenAI, Bedrock, Ollama) | ✅ Done |
 | [#412](https://github.com/zynax-io/zynax/issues/412) | O4 | Registry client + bootstrap | ✅ Done |
-| [#413](https://github.com/zynax-io/zynax/issues/413) | O5 | Dockerfile, docker-compose, AGENTS.md | ⬜ Open (blocked on #412) |
+| [#413](https://github.com/zynax-io/zynax/issues/413) | O5 | Dockerfile, docker-compose, AGENTS.md | ✅ Done |
 
 **Engineer profile:** Python engineer with LLM API experience. Read `docs/spdd/383-llm-adapter/canvas.md`.
 Capability: `chat_completion`. Provider support: OpenAI (via `openai` SDK), AWS Bedrock

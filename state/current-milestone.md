@@ -142,15 +142,15 @@ Priority gaps to file immediately:
 | [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent retry + isTransient + cmd | ✅ Done — PR #724 merged |
 | [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | ✅ Done — PR #725 merged |
 
-## Active Work (BATCH 7 — adapter O4 step)
+## Active Work (BATCH 7 — adapter O5 step)
 
 | Issue | Title | Status |
 |-------|-------|--------|
-| [#411](https://github.com/zynax-io/zynax/issues/411) | llm-adapter provider handlers — OpenAI, Bedrock, Ollama | ✅ Done — PR #738/#736 merged |
-| [#416](https://github.com/zynax-io/zynax/issues/416) | langgraph-adapter GraphLoader + LangGraphHandler | ✅ Done — PR #737 merged |
-| [#412](https://github.com/zynax-io/zynax/issues/412) | llm-adapter registry client + bootstrap | ✅ Done — PR pending merge |
-| [#417](https://github.com/zynax-io/zynax/issues/417) | langgraph-adapter registry client + bootstrap | ⬜ Open — in progress |
+| [#412](https://github.com/zynax-io/zynax/issues/412) | llm-adapter registry client + bootstrap | ✅ Done — merged |
+| [#417](https://github.com/zynax-io/zynax/issues/417) | langgraph-adapter registry client + bootstrap | ✅ Done — merged |
+| [#413](https://github.com/zynax-io/zynax/issues/413) | llm-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR in review |
+| [#418](https://github.com/zynax-io/zynax/issues/418) | langgraph-adapter Dockerfile + docker-compose + AGENTS.md | ⬜ Open — in progress |
 
 ## Next Session Queue (priority order)
 
-After #412 + #417: #413/#418 (Dockerfile + docker-compose service).
+After #413 + #418: close epics #383 #384, then check #377 (Adapter Library) exit criteria.
