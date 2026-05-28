@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 78 — #418 ✅ langgraph-adapter Dockerfile + compose + AGENTS.md)
+**Last updated:** 2026-05-28 (rev 80 — G19 competitive positioning ✅ #575)
 
 ---
 
@@ -55,10 +55,10 @@ the developer's responsibility; auto-merge fires automatically once all checks p
 |---|-------|------|--------|----------|
 | **M5.F** | CI/CD Performance Sprint | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #555 (DRY/KISS L) remaining | **P2** |
 | **M5.F.R** | Release Pipeline | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) | — |
-| **M5.C** | Capability Dispatch E2E | [#460](https://github.com/zynax-io/zynax/issues/460) | 🟡 In Progress — dispatch wired; E2E demo pending adapters | **P0** |
+| **M5.C** | Capability Dispatch E2E | [#460](https://github.com/zynax-io/zynax/issues/460) | 🟡 In Progress — dispatch wired; E2E demo pending | **P0** |
 | **M5.B** | Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 #476 #477 #478 all ✅ | — |
 | **M5.A** | Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | ✅ Complete — #472 ✅ #473 ✅ #474 ✅ #572 ✅ #579 ✅ | — |
-| **Adapters** | Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | 🟡 In Progress — http ✅ git ✅; ci/llm/langgraph pending | **P2** |
+| **Adapters** | Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | ✅ Complete (closed) — all five adapters merged | — |
 | **M5.D** | Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete (closed) | — |
 | **M5.E** | DX Polish | [#462](https://github.com/zynax-io/zynax/issues/462) | ✅ Complete (closed) | — |
 | **Tooling** | Containerized Make | [#442](https://github.com/zynax-io/zynax/issues/442) | ✅ Complete (closed) | — |
@@ -648,21 +648,21 @@ Both child issues merged: #485 #486.
 ### http-adapter (#380) ✅ Complete
 All step issues merged: #391 #392 #393 #394 #395 #396 #397.
 
-### git-adapter (#381) · go-adapter · Capabilities: `open_pr`, `request_review`, `get_diff`
+### git-adapter (#381) ✅ Complete
 **Canvas:** [docs/spdd/381-git-adapter/canvas.md](../spdd/381-git-adapter/canvas.md)
-BDD done (#399). Implementation pending: #400 → #401 → #402 → #403.
+All steps done: #399 (BDD) #400 #401 #402 #403. Coverage ≥85% via #713 (#715 #716 #717 #718).
 
-### ci-adapter (#382) · go-adapter · Capabilities: `trigger_workflow`, `get_run_status`
+### ci-adapter (#382) ✅ Complete
 **Canvas:** [docs/spdd/382-ci-adapter/canvas.md](../spdd/382-ci-adapter/canvas.md)
-BDD done (#404). Implementation pending: #405 → #406 → #407 → #408.
+All steps done: #404 (BDD) #405 #406 #407 #408.
 
-### llm-adapter (#383) · Python · Capability: `chat_completion`
+### llm-adapter (#383) ✅ Complete
 **Canvas:** [docs/spdd/383-llm-adapter/canvas.md](../spdd/383-llm-adapter/canvas.md)
-BDD done (#409). Implementation pending: #410 → #411 → #412 → #413.
+All steps done: #409 (BDD) #410 #411 #412 #413.
 
-### langgraph-adapter (#384) · Python · Maps LangGraph StateGraph to capabilities
+### langgraph-adapter (#384) ✅ Complete
 **Canvas:** [docs/spdd/384-langgraph-adapter/canvas.md](../spdd/384-langgraph-adapter/canvas.md)
-BDD done (#414). Implementation pending: #415 → #416 → #417 → #418.
+All steps done: #414 (BDD) #415 #416 #417 #418.
 
 ---
 
@@ -696,7 +696,7 @@ open issues. File them before or during M5 execution:
 | ~~G16: Background-context goroutines~~ | Medium | ~~[#570](https://github.com/zynax-io/zynax/issues/570)~~ ✅ Done | M5 |
 | ~~G17: Stub services in SERVICE_LIST~~ | Low | ~~[#574](https://github.com/zynax-io/zynax/issues/574)~~ ✅ Done | M5 |
 | G18: No community channel | Medium | [#470](https://github.com/zynax-io/zynax/issues/470) | M8 |
-| G19: Kagent positioning | **High** | [#575](https://github.com/zynax-io/zynax/issues/575) | M5 |
+| ~~G19: Kagent positioning~~ | **High** | ~~[#575](https://github.com/zynax-io/zynax/issues/575)~~ ✅ Done | M5 |
 | G20: pkg.go.dev module reference | Medium | [#582](https://github.com/zynax-io/zynax/issues/582) | M6 |
 | G21: Python SDK claims v0.1.0, is 3-line placeholder | High | [#474](https://github.com/zynax-io/zynax/issues/474) | M5 |
 | ~~G22: Summarizer phantom~~ | Low | ~~[#576](https://github.com/zynax-io/zynax/issues/576)~~ ✅ Done | M5 |

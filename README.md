@@ -205,6 +205,9 @@ Replace `api-gateway` with any image name from the table above.
 
 **Event-driven state machines** — not DAGs. Supports loops, human-in-the-loop, long-running workflows, and async events natively.
 
+> **How does Zynax compare to Kagent, Dapr, Temporal, or LangGraph?**
+> See [docs/architecture/2026-05-28-competitive-positioning.md](docs/architecture/2026-05-28-competitive-positioning.md).
+
 ---
 
 ## Architecture
