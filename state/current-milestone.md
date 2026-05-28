@@ -133,18 +133,22 @@ Priority gaps to file immediately:
 - **#712** (PR) — summarizer phantom removal, merged 2026-05-26
 - **#714** — revert git from GO_ADAPTER_LIST until coverage gate met ✅
 
-## Active Work (BATCH 7.1 — git-adapter coverage)
+## Active Work (BATCH 7.1 — git-adapter coverage — ✅ COMPLETE)
 
 | Issue | Title | Status |
 |-------|-------|--------|
 | [#715](https://github.com/zynax-io/zynax/issues/715) | Cover requestReview + progressEvent | ✅ Done — PR #722 merged |
 | [#716](https://github.com/zynax-io/zynax/issues/716) | Cover execute/sanitise/githubErrCode/parsePayload | ✅ Done — PR #723 merged |
 | [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent retry + isTransient + cmd | ✅ Done — PR #724 merged |
-| [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | 🟡 In Progress — PR open (this PR) |
+| [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | ✅ Done — PR #725 merged |
+
+## Active Work (BATCH 7 — adapter O3 step)
+
+| Issue | Title | Status |
+|-------|-------|--------|
+| [#411](https://github.com/zynax-io/zynax/issues/411) | llm-adapter provider handlers — OpenAI, Bedrock, Ollama | 🟡 In Progress |
+| [#416](https://github.com/zynax-io/zynax/issues/416) | langgraph-adapter GraphLoader + LangGraphHandler | 🟡 In Progress |
 
 ## Next Session Queue (priority order)
 
-| Priority | Issue | Title | Note |
-|----------|-------|-------|------|
-| P1 | [#411](https://github.com/zynax-io/zynax/issues/411) | llm-adapter provider handlers — OpenAI, Bedrock, Ollama (O3) | S, feat, unblocked by #410 |
-| P1 | [#416](https://github.com/zynax-io/zynax/issues/416) | langgraph-adapter GraphLoader + LangGraphHandler (O3) | S, feat, unblocked by #415 |
+After #411 + #416: #412/#417 (registry client + bootstrap), then #413/#418 (Dockerfile + compose).
