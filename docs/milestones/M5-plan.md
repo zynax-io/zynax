@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 88 — #228 ✅; #564 ✅ row fix in BATCH 5 table)
+**Last updated:** 2026-05-28 (rev 89 — #228 ✅ #229 ✅; #564 ✅ row fix in BATCH 5 table)
 
 ---
 
@@ -738,7 +738,7 @@ Open M5 milestone issues not previously tracked in this plan. All are SPDD-exemp
 | Issue | Type | Title | Size | Status |
 |-------|------|-------|------|--------|
 | [#228](https://github.com/zynax-io/zynax/issues/228) | docs | Google-style docstrings on all public symbols in agents/sdk | S | ✅ |
-| [#229](https://github.com/zynax-io/zynax/issues/229) | refactor | Strip explanatory comments in agents/sdk + agents/examples | S | ⬜ |
+| [#229](https://github.com/zynax-io/zynax/issues/229) | refactor | Strip explanatory comments in agents/sdk + agents/examples | S | ✅ |
 | [#232](https://github.com/zynax-io/zynax/issues/232) | docs | Architecture fitness functions — document all CI gates | XS | ✅ Done |
 | [#248](https://github.com/zynax-io/zynax/issues/248) | docs | AI-output review checklist in PR template + ai-review-guide | S | ✅ Done |
 | [#376](https://github.com/zynax-io/zynax/issues/376) | docs | Google-style docstrings — step 2 (blocked on SDK modules) | M | ⬜ blocked |
