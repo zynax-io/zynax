@@ -1,34 +1,21 @@
 # SPDX-License-Identifier: Apache-2.0
 # Zynax — Core CI Pipeline
 #
-# Job names are deliberately chosen to match the branch protection required
-# status checks configured on `main`. Never rename a job without updating
-# the branch protection rules first (Settings → Branches → main).
+# Job names match the branch protection required status checks on `main`.
+# Never rename a job without updating branch protection first.
 #
-# Required check names: dco · lint-proto · lint-go · lint-python · test-unit · security
-# (test-integration is non-required until real integration tests exist — see #227, #547)
+# Required checks: dco · lint-proto · lint-go · lint-python · test-unit · security
+# (test-integration is non-required until real integration tests exist — #227)
 #
-# Job graph (all gates after dco):
+# Job graph:
 #   dco → changes → lint-proto ─╮
-#                ├─ lint-go   ──┴──→ test-unit         (skipped if code=false)
-#                │            └──→ test-integration    (non-required; no //go:build integration files yet — #227)
-#                └─ lint-python
-#   dco → security   (independent)
+#                ├─ lint-go   ──┴──→ test-go   ─╮
+#                │                  test-python ─┴──→ test-unit (wrapper, required check)
+#                └─ lint-python    (parallel; code=false skips both)
+#   dco → security  (independent)
 #
-# Path-based skipping:
-#   - lint lanes are skipped when no relevant files changed.
-#   - test-unit and test-integration are skipped entirely when the PR only
-#     touches docs/ or root *.md files (code=false from the changes job).
-#   - On push to main, path-based skipping works via git diff HEAD^1 HEAD.
-#
-# Test coverage:
-#   test-unit covers: platform services (SERVICE_LIST), Go adapters (GO_ADAPTER_LIST),
-#   CLI tools (cmd/zynax, cmd/zynax-ci), BDD contract tests, Python agents.
-#
-# Design: Docker-free in CI (install tools natively for speed and cache
-# reuse). All commands mirror the Makefile targets so local and CI output
-# is identical. When adding a new service, Go adapter, or Python agent update
-# the SERVICE_LIST, GO_ADAPTER_LIST, or AGENT_LIST env vars — no other changes required.
+# When adding a service/adapter/agent update SERVICE_LIST, GO_ADAPTER_LIST,
+# or AGENT_LIST — no other changes required.
 
 name: CI
 
@@ -56,10 +43,6 @@ defaults:
     shell: bash
 
 env:
-  PYTHON_VERSION: "3.12"
-  BUF_VERSION: "1.69.0"
-  GOLANGCI_VERSION: "v2.12.2"
-  GOVULNCHECK_VERSION: "v1.1.4"
   SERVICE_LIST: "agent-registry task-broker api-gateway workflow-compiler engine-adapter"
   GO_ADAPTER_LIST: "http git"
   AGENT_LIST: ""
@@ -67,9 +50,6 @@ env:
   GONOSUMDB: "*"
 
 # ── DCO ─────────────────────────────────────────────────────────────────────
-# Every commit in a PR must carry a Signed-off-by trailer (Developer
-# Certificate of Origin). This is enforced by the merge queue as well, but
-# checking here surfaces the problem before review begins.
 jobs:
   dco:
     name: dco
@@ -82,7 +62,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Trust workspace (git safe.directory for root container)
+      - name: Trust workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Verify Signed-off-by on every commit
@@ -120,15 +100,7 @@ jobs:
           echo "✅ All commits carry Signed-off-by"
 
 # ── Change Detection ──────────────────────────────────────────────────────────
-# Detects which path groups changed so downstream lanes can be skipped.
-# Outputs (coarse-grained, gate entire jobs):
-#   code   — true when services/, agents/, cmd/, protos/, or go.work change; gates test-unit
-#   proto  — true when protos/, spec/, or AI context files change
-#   go     — true when any Go code changes (services/, cmd/, Go adapters)
-#   python — true when Python agents change
-# Outputs (per-service, gate individual steps within lint-go and test-unit):
-#   engine_adapter / workflow_compiler / api_gateway / task_broker / agent_registry
-#   cli / adapters_go / adapters_python
+# Outputs coarse-grained (code/proto/go/python) and per-service flags.
 # On push to main uses git diff HEAD^1 HEAD; on PR uses the PR diff range.
   changes:
     name: changes
@@ -155,7 +127,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Trust workspace (git safe.directory for root container)
+      - name: Trust workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Detect force-full signal
@@ -190,18 +162,10 @@ jobs:
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           else
             {
-              echo "code=true"
-              echo "proto=true"
-              echo "go=true"
-              echo "python=true"
-              echo "engine_adapter=true"
-              echo "workflow_compiler=true"
-              echo "api_gateway=true"
-              echo "task_broker=true"
-              echo "agent_registry=true"
-              echo "cli=true"
-              echo "adapters_go=true"
-              echo "adapters_python=true"
+              echo "code=true"; echo "proto=true"; echo "go=true"; echo "python=true"
+              echo "engine_adapter=true"; echo "workflow_compiler=true"; echo "api_gateway=true"
+              echo "task_broker=true"; echo "agent_registry=true"; echo "cli=true"
+              echo "adapters_go=true"; echo "adapters_python=true"
             } >> "$GITHUB_OUTPUT"
             echo "ℹ️  Unknown event '${{ github.event_name }}' — all lanes enabled."
             exit 0
@@ -210,18 +174,10 @@ jobs:
             echo "⚠️  git diff failed — enabling all lanes as fail-safe"
             cat /tmp/git-diff-err.txt
             {
-              echo "code=true"
-              echo "proto=true"
-              echo "go=true"
-              echo "python=true"
-              echo "engine_adapter=true"
-              echo "workflow_compiler=true"
-              echo "api_gateway=true"
-              echo "task_broker=true"
-              echo "agent_registry=true"
-              echo "cli=true"
-              echo "adapters_go=true"
-              echo "adapters_python=true"
+              echo "code=true"; echo "proto=true"; echo "go=true"; echo "python=true"
+              echo "engine_adapter=true"; echo "workflow_compiler=true"; echo "api_gateway=true"
+              echo "task_broker=true"; echo "agent_registry=true"; echo "cli=true"
+              echo "adapters_go=true"; echo "adapters_python=true"
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -233,26 +189,18 @@ jobs:
 
           while IFS= read -r f; do
             [ -z "$f" ] && continue
-
-            # code=true only for paths that have tests in test-unit.
-            # Everything else (docs, state, infra, .github, tools, spec) skips the test job.
             if echo "$f" | grep -qE '^(services/|agents/|cmd/|protos/|go\.work(\.sum)?$)'; then
               code=true
             fi
-
             if echo "$f" | grep -qE '^(protos/|spec/|CLAUDE\.md|AGENTS\.md|.*/AGENTS\.md|docs/ai-assistant-setup\.md|\.ai/|\.claude/)'; then
               proto=true
             fi
-            # Go code: platform services, standalone CLI tools, and Go adapters.
             if echo "$f" | grep -qE '^(services/|protos/|cmd/|agents/adapters/)'; then
               go=true
             fi
-            # Python code: SDK and example agents (Go adapters live under agents/adapters/).
             if echo "$f" | grep -qE '^agents/' && ! echo "$f" | grep -qE '^agents/adapters/'; then
               python=true
             fi
-
-            # Per-service granularity: sets all service flags when shared deps change.
             case "$f" in
               services/engine-adapter/*)    engine_adapter=true ;;
               services/workflow-compiler/*) workflow_compiler=true ;;
@@ -263,37 +211,25 @@ jobs:
               agents/adapters/http/*|agents/adapters/git/*|agents/adapters/ci/*) adapters_go=true ;;
               agents/adapters/llm/*|agents/adapters/langgraph/*)                 adapters_python=true ;;
               protos/generated/go/*|go.work|go.work.sum)
-                # Generated stubs and workspace file are imported by all Go services.
                 engine_adapter=true workflow_compiler=true api_gateway=true
                 task_broker=true agent_registry=true cli=true adapters_go=true ;;
               tools/golangci-lint.yml)
-                # Lint config change requires re-linting every service.
                 engine_adapter=true workflow_compiler=true api_gateway=true
                 task_broker=true agent_registry=true cli=true adapters_go=true ;;
             esac
           done <<< "$FILES"
 
           {
-            echo "code=$code"
-            echo "proto=$proto"
-            echo "go=$go"
-            echo "python=$python"
-            echo "engine_adapter=$engine_adapter"
-            echo "workflow_compiler=$workflow_compiler"
-            echo "api_gateway=$api_gateway"
-            echo "task_broker=$task_broker"
-            echo "agent_registry=$agent_registry"
-            echo "cli=$cli"
-            echo "adapters_go=$adapters_go"
-            echo "adapters_python=$adapters_python"
+            echo "code=$code"; echo "proto=$proto"; echo "go=$go"; echo "python=$python"
+            echo "engine_adapter=$engine_adapter"; echo "workflow_compiler=$workflow_compiler"
+            echo "api_gateway=$api_gateway"; echo "task_broker=$task_broker"
+            echo "agent_registry=$agent_registry"; echo "cli=$cli"
+            echo "adapters_go=$adapters_go"; echo "adapters_python=$adapters_python"
           } >> "$GITHUB_OUTPUT"
-          echo "── Changed path groups: code=$code  lint-proto=$proto  lint-go=$go  lint-python=$python"
-          echo "── Per-service: engine-adapter=$engine_adapter  workflow-compiler=$workflow_compiler  api-gateway=$api_gateway  task-broker=$task_broker  agent-registry=$agent_registry  cli=$cli  adapters-go=$adapters_go  adapters-python=$adapters_python"
+          echo "── code=$code  proto=$proto  go=$go  python=$python"
+          echo "── engine-adapter=$engine_adapter  workflow-compiler=$workflow_compiler  api-gateway=$api_gateway  task-broker=$task_broker  agent-registry=$agent_registry  cli=$cli  adapters-go=$adapters_go  adapters-python=$adapters_python"
 
-# ── Lint: Proto, AI context scan, and spec validation ────────────────────────
-# Runs: gitleaks (AI KB files), buf lint/format, stubs freshness,
-#       AsyncAPI spec, JSON schema validation.
-# Skipped on PRs that touch neither protos/, spec/, nor AI context files.
+# ── Lint: Proto, AI context scan, spec validation ─────────────────────────────
   lint-proto:
     name: lint-proto
     runs-on: ubuntu-24.04
@@ -305,7 +241,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Trust workspace (git safe.directory for root container)
+      - name: Trust workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # ── Security: AI context file scan ──────────────────────────────────
@@ -321,11 +257,8 @@ jobs:
             echo "has_changes=1" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [ -n "$files" ]; then
-            echo "has_changes=1" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_changes=0" >> "$GITHUB_OUTPUT"
-          fi
+          if [ -n "$files" ]; then echo "has_changes=1" >> "$GITHUB_OUTPUT"
+          else echo "has_changes=0" >> "$GITHUB_OUTPUT"; fi
 
       - name: Scan AI context files for secrets and PII
         if: steps.ai-detect.outputs.has_changes != '0'
@@ -348,7 +281,7 @@ jobs:
           }
           echo "✅ AI context files passed security scan"
 
-      # ── Proto: buf lint + format check ──────────────────────────────────
+      # ── Proto: buf lint + format ──────────────────────────────────────────
       - name: Detect proto workspace
         id: proto-detect
         run: |
@@ -357,12 +290,10 @@ jobs:
             echo "ℹ️  protos/buf.yaml not found — buf lint skipped."
             exit 0
           fi
-          # Only run buf checks when proto/gen files actually changed in this PR
           changed_protos=$(git diff --name-only origin/main...HEAD -- \
             'protos/' 2>/dev/null \
             | grep -E '\.proto$|buf\.(yaml|gen\.yaml)$' || true)
-          if [ -n "$changed_protos" ]; then
-            echo "has_protos=1" >> "$GITHUB_OUTPUT"
+          if [ -n "$changed_protos" ]; then echo "has_protos=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_protos=0" >> "$GITHUB_OUTPUT"
             echo "ℹ️  No proto files changed — buf lint/format/stubs checks skipped."
@@ -378,12 +309,11 @@ jobs:
         working-directory: protos
         run: buf format --diff --exit-code
 
-      # ── Proto: stubs freshness (generate + diff) ─────────────────────────
+      # ── Proto: stubs freshness (generate + diff) ──────────────────────────
       - name: Detect buf.gen.yaml
         id: gen-detect
         run: |
-          if [ -f protos/buf.gen.yaml ]; then
-            echo "has_gen=1" >> "$GITHUB_OUTPUT"
+          if [ -f protos/buf.gen.yaml ]; then echo "has_gen=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_gen=0" >> "$GITHUB_OUTPUT"
             echo "ℹ️  protos/buf.gen.yaml not found — stubs freshness check skipped."
@@ -393,28 +323,20 @@ jobs:
         if: steps.gen-detect.outputs.has_gen == '1' && steps.proto-detect.outputs.has_protos == '1'
         working-directory: protos
         run: |
-          # First pass: detect committed stubs drift
           buf generate --template buf.gen.yaml
           if ! git diff --quiet -- generated/; then
-            echo "❌ Generated stubs are out of date."
-            echo "   Run 'make generate-protos' locally and commit the result."
-            git diff --stat -- generated/
-            exit 1
+            echo "❌ Generated stubs are out of date. Run 'make generate-protos' and commit."
+            git diff --stat -- generated/; exit 1
           fi
           echo "✅ Generated stubs are up to date (first pass)"
-
-          # Second pass: determinism check — buf generate must produce identical
-          # output on repeat runs (no timestamps, no random ordering).
           buf generate --template buf.gen.yaml
           if ! git diff --quiet -- generated/; then
             echo "❌ buf generate is not deterministic — second run produced a diff."
-            echo "   This is a bug in the buf plugin or buf.gen.yaml configuration."
-            git diff --stat -- generated/
-            exit 1
+            git diff --stat -- generated/; exit 1
           fi
           echo "✅ buf generate is deterministic (second pass identical)"
 
-      # ── Spec: AsyncAPI + JSON Schema validation ──────────────────────────
+      # ── Spec: AsyncAPI + JSON Schema ──────────────────────────────────────
       - name: Detect spec files
         id: spec-detect
         run: |
@@ -423,11 +345,8 @@ jobs:
             echo "ℹ️  spec/asyncapi/zynax-events.yaml not found — spec validation skipped."
             exit 0
           fi
-          # Only validate spec when spec files actually changed in this PR
-          changed_spec=$(git diff --name-only origin/main...HEAD -- \
-            'spec/' 2>/dev/null | grep . || true)
-          if [ -n "$changed_spec" ]; then
-            echo "has_spec=1" >> "$GITHUB_OUTPUT"
+          changed_spec=$(git diff --name-only origin/main...HEAD -- 'spec/' 2>/dev/null | grep . || true)
+          if [ -n "$changed_spec" ]; then echo "has_spec=1" >> "$GITHUB_OUTPUT"
           else
             echo "has_spec=0" >> "$GITHUB_OUTPUT"
             echo "ℹ️  No spec files changed — spec validation skipped."
@@ -445,7 +364,6 @@ jobs:
       - name: Validate AsyncAPI spec
         if: steps.spec-detect.outputs.has_spec == '1'
         run: |
-          echo "── asyncapi validate: spec/asyncapi/zynax-events.yaml"
           asyncapi validate spec/asyncapi/zynax-events.yaml
           echo "✅ AsyncAPI spec is valid"
 
@@ -454,8 +372,6 @@ jobs:
         run: zynax-ci validate schema spec/schemas/
 
 # ── Lint: Go services ─────────────────────────────────────────────────────────
-# Runs: golangci-lint on all Go platform services.
-# Skipped on PRs that touch neither services/ nor protos/.
   lint-go:
     name: lint-go
     runs-on: ubuntu-24.04
@@ -467,7 +383,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Trust workspace (git safe.directory for root container)
+      - name: Trust workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: golangci-lint (platform services)
@@ -478,27 +394,15 @@ jobs:
           needs.changes.outputs.task_broker == 'true' ||
           needs.changes.outputs.agent_registry == 'true'
         env:
-          ENGINE_ADAPTER_CHANGED:   ${{ needs.changes.outputs.engine_adapter }}
+          ENGINE_ADAPTER_CHANGED:    ${{ needs.changes.outputs.engine_adapter }}
           WORKFLOW_COMPILER_CHANGED: ${{ needs.changes.outputs.workflow_compiler }}
-          API_GATEWAY_CHANGED:      ${{ needs.changes.outputs.api_gateway }}
-          TASK_BROKER_CHANGED:      ${{ needs.changes.outputs.task_broker }}
-          AGENT_REGISTRY_CHANGED:   ${{ needs.changes.outputs.agent_registry }}
+          API_GATEWAY_CHANGED:       ${{ needs.changes.outputs.api_gateway }}
+          TASK_BROKER_CHANGED:       ${{ needs.changes.outputs.task_broker }}
+          AGENT_REGISTRY_CHANGED:    ${{ needs.changes.outputs.agent_registry }}
         run: |
-          failed=false
-          for svc in ${{ env.SERVICE_LIST }}; do
-            if [ -f "services/${svc}/go.mod" ]; then
-              var="$(echo "$svc" | tr '-' '_' | tr '[:lower:]' '[:upper:]')_CHANGED"
-              if [ "${!var:-false}" != "true" ]; then
-                echo "── lint: services/${svc} [SKIPPED — not changed]"
-                continue
-              fi
-              echo "── lint: services/${svc}"
-              cd "services/${svc}"
-              GOWORK=off golangci-lint run ./... --config "../../tools/golangci-lint.yml" || failed=true
-              cd ../..
-            fi
-          done
-          $failed && exit 1 || echo "✅ Go service lint passed"
+          bash tools/ci/run-go-svc-loop.sh services/ "${{ env.SERVICE_LIST }}" -- \
+            golangci-lint run ./... --config ../../tools/golangci-lint.yml
+          echo "✅ Go service lint passed"
 
       - name: golangci-lint (Go adapters)
         if: needs.changes.outputs.adapters_go == 'true'
@@ -508,7 +412,7 @@ jobs:
             if [ -f "agents/adapters/${adapter}/go.mod" ]; then
               echo "── lint: agents/adapters/${adapter}"
               cd "agents/adapters/${adapter}"
-              GOWORK=off golangci-lint run ./... --config "../../../tools/golangci-lint.yml" || failed=true
+              GOWORK=off golangci-lint run ./... --config ../../../tools/golangci-lint.yml || failed=true
               cd ../../..
             fi
           done
@@ -522,15 +426,13 @@ jobs:
             if [ -f "cmd/${cli}/go.mod" ]; then
               echo "── lint: cmd/${cli}"
               cd "cmd/${cli}"
-              GOWORK=off golangci-lint run ./... --config "../../tools/golangci-lint.yml" || failed=true
+              GOWORK=off golangci-lint run ./... --config ../../tools/golangci-lint.yml || failed=true
               cd ../..
             fi
           done
           $failed && exit 1 || echo "✅ CLI tool lint passed"
 
 # ── Lint: Python agents and SDK ───────────────────────────────────────────────
-# Runs: ruff + mypy on SDK + all Python agents.
-# Skipped on PRs that do not touch agents/.
   lint-python:
     name: lint-python
     runs-on: ubuntu-24.04
@@ -573,653 +475,69 @@ jobs:
 
           $failed && exit 1 || echo "✅ Python lint passed"
 
-# ── Unit Tests ────────────────────────────────────────────────────────────────
-# Runs: Go unit tests + godog BDD contract tests (when step defs exist),
-#       pytest-bdd with ≥90% coverage (Python), proto contract spec report.
-#
-# `if: always()` is required: lint-proto and lint-python are skipped on Go-only
-# PRs (path-based), which would cascade and skip test-unit too. `always()` breaks
-# the cascade; the `!contains` guards ensure we still gate on actual failures.
+# ── Tests: Go ─────────────────────────────────────────────────────────────────
+# Calls _test-go.yml reusable workflow (Go unit + BDD + coverage gates).
+# always() breaks cascade-skip when lint lanes are skipped on path-filtered PRs.
+  test-go:
+    name: test-go
+    needs: [changes, lint-go, lint-proto]
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.code == 'true' &&
+      needs.lint-go.result != 'failure' &&
+      needs.lint-proto.result != 'failure'
+    uses: ./.github/workflows/_test-go.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      engine_adapter:    ${{ needs.changes.outputs.engine_adapter }}
+      workflow_compiler: ${{ needs.changes.outputs.workflow_compiler }}
+      api_gateway:       ${{ needs.changes.outputs.api_gateway }}
+      task_broker:       ${{ needs.changes.outputs.task_broker }}
+      agent_registry:    ${{ needs.changes.outputs.agent_registry }}
+      cli:               ${{ needs.changes.outputs.cli }}
+      adapters_go:       ${{ needs.changes.outputs.adapters_go }}
+      event_name:        ${{ github.event_name }}
+      pr_base_sha:       ${{ github.event.pull_request.base.sha || '' }}
+      pr_head_sha:       ${{ github.event.pull_request.head.sha || '' }}
+
+# ── Tests: Python ─────────────────────────────────────────────────────────────
+# Runs in parallel with test-go (independent lane).
+  test-python:
+    name: test-python
+    needs: [changes, lint-python]
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.code == 'true' &&
+      needs.changes.outputs.python == 'true' &&
+      needs.lint-python.result != 'failure'
+    uses: ./.github/workflows/_test-python.yml
+    with:
+      event_name: ${{ github.event_name }}
+
+# ── test-unit: required-check wrapper (branch protection gate) ────────────────
+# Branch protection requires "test-unit" to pass. This wrapper job fulfils
+# that requirement by waiting for test-go + test-python.
   test-unit:
     name: test-unit
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
-    needs: [changes, lint-go, lint-proto, lint-python]
-    # always() prevents cascade-skip when lint lanes are skipped on path-filtered PRs.
-    # needs.changes.outputs.code gates the job: docs-only PRs produce code=false → skipped.
+    needs: [test-go, test-python]
     if: >-
       always() &&
-      needs.changes.result == 'success' &&
-      needs.changes.outputs.code == 'true' &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')
-    permissions:
-      contents: read
-      pull-requests: write
-    env:
-      UV_LINK_MODE: copy
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Trust workspace (git safe.directory for root container)
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      # Shared file written by test steps; read by the coverage comment step.
-      # Format per line: type|name|pkg_label|pct  (pct is a bare number, e.g. 91.2)
-      - name: Initialize coverage results file
-        run: echo "" > /tmp/coverage-results.txt
-
-      # Gate thresholds live in tools/coverage-gates.env — one edit updates both
-      # the enforcement steps below and the PR comment report.
-      - name: Load coverage gates
-        run: |
-          while IFS='=' read -r key value; do
-            [[ -z "$key" || "$key" =~ ^# ]] && continue
-            echo "$key=$value" >> "$GITHUB_ENV"
-          done < tools/coverage-gates.env
-
-      # ── BDD contract spec: scenario count summary ────────────────────────
-      - name: Report BDD contract scenario counts
-        run: |
-          echo "── proto contract BDD scenarios (protos/tests/features/) ─────────"
-          proto_total=0
-          for feature in protos/tests/features/*.feature; do
-            svc=$(basename "$feature" .feature)
-            count=$(grep -c "^\s*Scenario:" "$feature" 2>/dev/null || echo 0)
-            proto_total=$((proto_total + count))
-            printf "  %-40s %3d scenarios\n" "$svc" "$count"
-          done
-          echo ""
-          echo "Proto total: ${proto_total} scenarios"
-          echo ""
-          echo "── service-level BDD specs (services/*/tests/features/) ──────────"
-          svc_total=0
-          svc_with_steps=0
-          for feature in services/*/tests/features/*.feature; do
-            [ -f "$feature" ] || continue
-            svc=$(echo "$feature" | cut -d/ -f2)
-            count=$(grep -c "^\s*Scenario:" "$feature" 2>/dev/null || echo 0)
-            svc_total=$((svc_total + count))
-            svcdir=$(dirname "$feature")/..
-            steps=$(find "$svcdir" -name "*_test.go" -path "*/tests/*" 2>/dev/null | wc -l)
-            if [ "$steps" -gt 0 ]; then
-              svc_with_steps=$((svc_with_steps + 1))
-              printf "  %-40s %3d scenarios  ✅ steps implemented\n" "$svc" "$count"
-            else
-              printf "  %-40s %3d scenarios  ⚠ spec-only (no step impl yet)\n" "$svc" "$count"
-            fi
-          done
-          echo ""
-          echo "Service total: ${svc_total} scenarios (${svc_with_steps} with step implementations)"
-
-      # ── Go: unit tests + godog (when services exist) ─────────────────────
-      - name: Detect Go code
-        id: go-detect
-        run: |
-          svc_count=$(find services/ -name "*.go" 2>/dev/null | wc -l)
-          bdd_count=$(find protos/tests/ -name "*.go" 2>/dev/null | wc -l)
-          svc_bdd_count=$(find services/ -path "*/tests/*" -name "*_test.go" 2>/dev/null | wc -l)
-          adapter_count=$(find agents/adapters/ -name "*.go" 2>/dev/null | wc -l)
-          cli_count=$(find cmd/ -name "*_test.go" 2>/dev/null | wc -l)
-          echo "has_services=$svc_count" >> "$GITHUB_OUTPUT"
-          echo "has_bdd_impl=$bdd_count" >> "$GITHUB_OUTPUT"
-          echo "has_svc_bdd=$svc_bdd_count" >> "$GITHUB_OUTPUT"
-          echo "has_adapters=$adapter_count" >> "$GITHUB_OUTPUT"
-          echo "has_cli=$cli_count" >> "$GITHUB_OUTPUT"
-
-      - name: Go service unit tests
-        if: steps.go-detect.outputs.has_services != '0'
-        env:
-          ENGINE_ADAPTER_CHANGED:    ${{ needs.changes.outputs.engine_adapter }}
-          WORKFLOW_COMPILER_CHANGED: ${{ needs.changes.outputs.workflow_compiler }}
-          API_GATEWAY_CHANGED:       ${{ needs.changes.outputs.api_gateway }}
-          TASK_BROKER_CHANGED:       ${{ needs.changes.outputs.task_broker }}
-          AGENT_REGISTRY_CHANGED:    ${{ needs.changes.outputs.agent_registry }}
-        run: |
-          failed=false
-          for svc in ${{ env.SERVICE_LIST }}; do
-            if [ -f "services/${svc}/go.mod" ]; then
-              var="$(echo "$svc" | tr '-' '_' | tr '[:lower:]' '[:upper:]')_CHANGED"
-              if [ "${!var:-false}" != "true" ]; then
-                echo "── test: services/${svc} [SKIPPED — not changed]"
-                continue
-              fi
-              echo "── test: services/${svc}"
-              cd "services/${svc}"
-              GOWORK=off go test -tags="" ./... -v -timeout 60s -count=1 || failed=true
-              cd ../..
-            fi
-          done
-          $failed && exit 1 || echo "✅ Go service tests passed"
-
-      - name: Go domain coverage measurement
-        if: steps.go-detect.outputs.has_services != '0'
-        env:
-          ENGINE_ADAPTER_CHANGED:    ${{ needs.changes.outputs.engine_adapter }}
-          WORKFLOW_COMPILER_CHANGED: ${{ needs.changes.outputs.workflow_compiler }}
-          API_GATEWAY_CHANGED:       ${{ needs.changes.outputs.api_gateway }}
-          TASK_BROKER_CHANGED:       ${{ needs.changes.outputs.task_broker }}
-          AGENT_REGISTRY_CHANGED:    ${{ needs.changes.outputs.agent_registry }}
-        run: |
-          # Run tests scoped to internal/domain/ only for a clean coverage profile.
-          # go tool cover is run from inside the service dir so it resolves go.mod.
-          for svc in ${{ env.SERVICE_LIST }}; do
-            if [ -f "services/${svc}/go.mod" ] && [ -d "services/${svc}/internal/domain" ]; then
-              var="$(echo "$svc" | tr '-' '_' | tr '[:lower:]' '[:upper:]')_CHANGED"
-              if [ "${!var:-false}" != "true" ]; then
-                echo "── coverage: services/${svc} [SKIPPED — not changed]"
-                continue
-              fi
-              cd "services/${svc}"
-              GOWORK=off go test -tags="" ./internal/domain/... \
-                -coverprofile=domain-coverage.out \
-                -covermode=atomic 2>/dev/null || true
-              if [ -f domain-coverage.out ]; then
-                pct=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
-                      | grep "^total:" | awk '{print $3}' | tr -d '%') || true
-                [ -n "$pct" ] && echo "service|${svc}|internal/domain|${pct}" >> /tmp/coverage-results.txt
-              fi
-              cd ../..
-            fi
-          done
-
-      - name: Go service coverage gate (≥90% on internal/domain)
-        if: steps.go-detect.outputs.has_services != '0'
-        run: |
-          failed=false
-          for svc in ${{ env.SERVICE_LIST }}; do
-            if [ -f "services/${svc}/domain-coverage.out" ]; then
-              # cd into the module so go tool cover resolves go.mod correctly
-              cd "services/${svc}"
-              total=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
-                      | grep "^total:" | awk '{print $3}' | tr -d '%')
-              cd ../..
-              if [ -z "$total" ]; then
-                echo "  ⚠ no coverage total for services/${svc} — skipping"
-                continue
-              fi
-              echo "── domain coverage: services/${svc}  ${total}%"
-              if awk "BEGIN{exit !(${total} < ${COVERAGE_DOMAIN_GATE:-90})}"; then
-                echo "  ❌ ${total}% < ${COVERAGE_DOMAIN_GATE:-90}% — domain coverage gate failed for services/${svc}"
-                failed=true
-              else
-                echo "  ✅ ${total}% ≥ ${COVERAGE_DOMAIN_GATE:-90}% domain coverage for services/${svc}"
-              fi
-            fi
-          done
-          $failed && exit 1 || true
-
-      - name: Godog BDD contract tests (selective by changed proto)
-        if: steps.go-detect.outputs.has_bdd_impl != '0'
-        run: |
-          # Proto file → test package mapping
-          declare -A PKG_MAP
-          PKG_MAP["agent.proto"]="agent_service"
-          PKG_MAP["agent_registry.proto"]="agent_registry_service"
-          PKG_MAP["cloudevents.proto"]="cloudevents_envelope"
-          PKG_MAP["engine_adapter.proto"]="engine_adapter_service"
-          PKG_MAP["event_bus.proto"]="event_bus_service"
-          PKG_MAP["memory.proto"]="memory_service"
-          PKG_MAP["task_broker.proto"]="task_broker_service"
-          PKG_MAP["workflow_compiler.proto"]="workflow_compiler_service"
-
-          # Diff range
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE="${{ github.event.pull_request.base.sha }}"
-            HEAD="${{ github.event.pull_request.head.sha }}"
-          else
-            BASE="HEAD~1"
-            HEAD="HEAD"
-          fi
-          if ! changed=$(git diff --name-only "${BASE}..${HEAD}" -- 'protos/' 2>/tmp/git-diff-err.txt); then
-            echo "⚠️  git diff failed — running full BDD suite as fail-safe"
-            cat /tmp/git-diff-err.txt
-            run_all=true
-            changed=""
-          else
-            # Shared infra changes → run full suite
-            run_all=false
-            if echo "$changed" | grep -qE "^protos/tests/(go\.(mod|sum)|testserver/)"; then
-              run_all=true
-              echo "ℹ️  Shared test infrastructure changed — running full suite."
-            fi
-          fi
-
-          # Map changed files to packages
-          pkgs=""
-          if [ "$run_all" = "false" ]; then
-            while IFS= read -r f; do
-              [ -z "$f" ] && continue
-              case "$f" in
-                protos/zynax/v1/*.proto)
-                  b=$(basename "$f")
-                  pkg="${PKG_MAP[$b]:-}"
-                  [ -n "$pkg" ] && pkgs="$pkgs $pkg"
-                  ;;
-                protos/tests/features/*)
-                  run_all=true
-                  echo "ℹ️  Feature file changed — running full suite."
-                  break
-                  ;;
-                protos/tests/*/*)
-                  pkg=$(echo "$f" | cut -d/ -f3)
-                  [ "$pkg" != "features" ] && pkgs="$pkgs $pkg"
-                  ;;
-              esac
-            done <<< "$changed"
-          fi
-
-          # Deduplicate
-          pkgs=$(echo "$pkgs" | tr ' ' '\n' | sort -u | grep -v '^$' | tr '\n' ' ') || true
-
-          # Run
-          cd protos/tests
-          if [ "$run_all" = "true" ] || [ -n "$pkgs" ]; then
-            if [ "$run_all" = "true" ] || [ -z "$pkgs" ]; then
-              echo "── BDD: full suite"
-              GOWORK=off go test ./... -v -timeout 120s 2>&1 | tee bdd-results.txt
-            else
-              pkg_args=$(echo "$pkgs" | tr ' ' '\n' | grep -v '^$' | sed 's|^|./|;s|$|/...|' | tr '\n' ' ')
-              echo "── BDD: selective — $pkgs"
-              GOWORK=off go test $pkg_args -v -timeout 120s 2>&1 | tee bdd-results.txt
-            fi
-          else
-            echo "ℹ️  No proto or contract test files changed — BDD suite skipped."
-          fi
-          echo "✅ BDD contract tests passed"
-
-      # ── Service-level BDD godog tests ────────────────────────────────────
-      # Runs when step implementations exist under services/<svc>/tests/**/*_test.go.
-      # Currently a no-op (no service ships step files yet). The engine-adapter
-      # Temporal scenarios require integration infrastructure and live there instead.
-      # Add step files alongside the feature file and this runner picks them up.
-      - name: Service BDD tests (godog)
-        if: steps.go-detect.outputs.has_svc_bdd != '0'
-        run: |
-          failed=false
-          for svc in ${{ env.SERVICE_LIST }}; do
-            steps=$(find "services/${svc}/tests" -name "*_test.go" 2>/dev/null | wc -l)
-            if [ "$steps" -gt 0 ] && [ -f "services/${svc}/go.mod" ]; then
-              echo "── service BDD: services/${svc}"
-              cd "services/${svc}"
-              GOWORK=off go test ./tests/... -v -timeout 120s || failed=true
-              cd ../..
-            fi
-          done
-          $failed && exit 1 || echo "✅ Service BDD tests passed (or no step implementations found)"
-
-      - name: No service BDD step implementations yet
-        if: steps.go-detect.outputs.has_svc_bdd == '0'
-        run: |
-          echo "ℹ️  No service BDD step implementations found."
-          echo "   Feature specs exist under services/*/tests/features/ but are spec-only."
-          echo "   Add *_test.go files alongside the .feature files to make them executable."
-          echo "   Engine-adapter Temporal scenarios belong in tests/integration/ instead."
-
-      # ── Go adapter unit tests ─────────────────────────────────────────────
-      - name: Go adapter unit tests
-        if: steps.go-detect.outputs.has_adapters != '0'
-        run: |
-          failed=false
-          for adapter in ${{ env.GO_ADAPTER_LIST }}; do
-            if [ -f "agents/adapters/${adapter}/go.mod" ]; then
-              echo "── test: agents/adapters/${adapter}"
-              cd "agents/adapters/${adapter}"
-              GOWORK=off go test ./... -v -timeout 60s -count=1 \
-                -coverprofile=coverage.out -covermode=atomic || failed=true
-              if [ -f coverage.out ]; then
-                pct=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
-                      | grep "^total:" | awk '{print $3}' | tr -d '%') || true
-                [ -n "$pct" ] && echo "adapter|${adapter}||${pct}" >> /tmp/coverage-results.txt
-              fi
-              cd ../../..
-            fi
-          done
-          $failed && exit 1 || echo "✅ Go adapter tests passed"
-
-      # ── Go adapter coverage gate (≥85%) ──────────────────────────────────
-      - name: Go adapter coverage gate (≥85%)
-        if: steps.go-detect.outputs.has_adapters != '0'
-        run: |
-          failed=false
-          for adapter in ${{ env.GO_ADAPTER_LIST }}; do
-            if [ -f "agents/adapters/${adapter}/coverage.out" ]; then
-              cd "agents/adapters/${adapter}"
-              total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
-                      | grep "^total:" | awk '{print $3}' | tr -d '%')
-              cd ../../..
-              if [ -z "$total" ]; then
-                echo "  ⚠ no coverage total for agents/adapters/${adapter} — skipping"
-                continue
-              fi
-              echo "── adapter coverage: agents/adapters/${adapter}  ${total}%"
-              if awk "BEGIN{exit !(${total} < ${COVERAGE_ADAPTER_GATE:-85})}"; then
-                echo "  ❌ ${total}% < ${COVERAGE_ADAPTER_GATE:-85}% — coverage gate failed for agents/adapters/${adapter}"
-                failed=true
-              else
-                echo "  ✅ ${total}% ≥ ${COVERAGE_ADAPTER_GATE:-85}% for agents/adapters/${adapter}"
-              fi
-            fi
-          done
-          $failed && exit 1 || true
-
-      # ── CLI tool unit tests ───────────────────────────────────────────────
-      - name: CLI tool unit tests (zynax + zynax-ci)
-        if: steps.go-detect.outputs.has_cli != '0'
-        run: |
-          failed=false
-          for cli in zynax zynax-ci; do
-            if [ -f "cmd/${cli}/go.mod" ]; then
-              echo "── test: cmd/${cli}"
-              cd "cmd/${cli}"
-              GOWORK=off go test ./... -v -timeout 60s -count=1 \
-                -coverprofile=coverage.out -covermode=atomic || failed=true
-              if [ -f coverage.out ]; then
-                pct=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
-                      | grep "^total:" | awk '{print $3}' | tr -d '%') || true
-                [ -n "$pct" ] && echo "cli|${cli}||${pct}" >> /tmp/coverage-results.txt
-              fi
-              cd ../..
-            fi
-          done
-          $failed && exit 1 || echo "✅ CLI tool tests passed"
-
-      # ── cmd/zynax coverage gate (≥79%) ───────────────────────────────────
-      - name: cmd/zynax coverage gate (≥79%)
-        if: steps.go-detect.outputs.has_cli != '0'
-        run: |
-          if [ -f "cmd/zynax/coverage.out" ]; then
-            cd cmd/zynax
-            total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
-                    | grep "^total:" | awk '{print $3}' | tr -d '%')
-            cd ../..
-            if [ -z "$total" ]; then
-              echo "  ⚠ no coverage total for cmd/zynax — skipping"
-            else
-              echo "── CLI coverage: cmd/zynax  ${total}%"
-              if awk "BEGIN{exit !(${total} < ${COVERAGE_CLI_ZYNAX_GATE:-79})}"; then
-                echo "  ❌ ${total}% < ${COVERAGE_CLI_ZYNAX_GATE:-79}% — coverage gate failed for cmd/zynax"
-                exit 1
-              else
-                echo "  ✅ ${total}% ≥ ${COVERAGE_CLI_ZYNAX_GATE:-79}% for cmd/zynax"
-              fi
-            fi
-          fi
-
-      # ── cmd/zynax-ci coverage gate (≥80%) ────────────────────────────────
-      - name: cmd/zynax-ci coverage gate (≥80%)
-        if: steps.go-detect.outputs.has_cli != '0'
-        run: |
-          if [ -f "cmd/zynax-ci/coverage.out" ]; then
-            cd cmd/zynax-ci
-            total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
-                    | grep "^total:" | awk '{print $3}' | tr -d '%')
-            cd ../..
-            if [ -z "$total" ]; then
-              echo "  ⚠ no coverage total for cmd/zynax-ci — skipping"
-            else
-              echo "── CLI coverage: cmd/zynax-ci  ${total}%"
-              if awk "BEGIN{exit !(${total} < ${COVERAGE_CLI_ZYNAX_CI_GATE:-80})}"; then
-                echo "  ❌ ${total}% < ${COVERAGE_CLI_ZYNAX_CI_GATE:-80}% — coverage gate failed for cmd/zynax-ci"
-                exit 1
-              else
-                echo "  ✅ ${total}% ≥ ${COVERAGE_CLI_ZYNAX_CI_GATE:-80}% for cmd/zynax-ci"
-              fi
-            fi
-          fi
-
-      # ── BDD results: post PR comment ──────────────────────────────────────
-      - name: Post BDD contract test report on PR
-        if: always() && github.event_name == 'pull_request' && steps.go-detect.outputs.has_bdd_impl != '0'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const marker = '<!-- zynax-bdd-report -->';
-
-            let body;
-            const resultsFile = 'protos/tests/bdd-results.txt';
-
-            if (fs.existsSync(resultsFile)) {
-              const raw = fs.readFileSync(resultsFile, 'utf8');
-              const lines = raw.split('\n');
-
-              const pkgResults = [];
-              let passed = 0, failed = 0;
-              for (const line of lines) {
-                const okMatch  = line.match(/^ok\s+\S+\/protos\/tests\/(\S+)\s+(\S+)/);
-                const failMatch = line.match(/^FAIL\s+\S+\/protos\/tests\/(\S+)/);
-                // Count sub-test lines (individual scenarios, not top-level TestXxx)
-                if (line.match(/\s+--- PASS: Test\w+\/.+/)) passed++;
-                if (line.match(/\s+--- FAIL: Test\w+\/.+/)) failed++;
-                if (okMatch)   pkgResults.push({ pkg: okMatch[1],   status: '✅', time: okMatch[2] });
-                if (failMatch) pkgResults.push({ pkg: failMatch[1], status: '❌', time: '—' });
-              }
-
-              const total = passed + failed;
-              const headline = failed === 0
-                ? `✅ **${total} scenarios passed** across ${pkgResults.length} package(s)`
-                : `❌ **${failed} scenario(s) failed** (${passed} passed) across ${pkgResults.length} package(s)`;
-
-              const rows = pkgResults.length > 0
-                ? pkgResults.map(r => `| \`${r.pkg}\` | ${r.status} | ${r.time} |`).join('\n')
-                : '| — | ⏭️ skipped | — |';
-
-              body = `${marker}\n## Contract Test Report\n\n${headline}\n\n| Package | Result | Time |\n|---------|--------|------|\n${rows}\n\n<sub>Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) · \`${{ github.sha }}`.slice(0,7) + `\`</sub>`;
-            } else {
-              body = `${marker}\n## Contract Test Report\n\nℹ️ BDD suite skipped — no proto or contract test files changed in this PR.\n\n<sub>Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})</sub>`;
-            }
-
-            // Find existing marker comment and update it, or create new
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const existing = comments.find(c => c.body && c.body.includes(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
-
-      # ── Python: pytest-bdd with coverage ─────────────────────────────────
-      - name: Detect Python agents
-        id: py-detect
-        run: |
-          count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
-          echo "has_py=$count" >> "$GITHUB_OUTPUT"
-
-      - name: pytest-bdd (SDK + all Python agents)
-        if: steps.py-detect.outputs.has_py != '0'
-        run: |
-          failed=false
-
-          if [ -f agents/sdk/pyproject.toml ]; then
-            echo "── test: agents/sdk"
-            cd agents/sdk
-            uv run pytest tests/ \
-              --cov=src \
-              --cov-report=term-missing \
-              --cov-report=json:coverage.json \
-              --cov-fail-under=${COVERAGE_PYTHON_GATE:-90} \
-              -v \
-              --tb=short || failed=true
-            if [ -f coverage.json ]; then
-              pct=$(python3 -c \
-                "import json; d=json.load(open('coverage.json')); print(f\"{d['totals']['percent_covered']:.1f}\")" \
-                2>/dev/null || echo "")
-              [ -n "$pct" ] && echo "python|sdk||${pct}" >> /tmp/coverage-results.txt
-            fi
-            cd ../..
-          fi
-
-          for agent in ${{ env.AGENT_LIST }}; do
-            if [ -f "agents/examples/${agent}/pyproject.toml" ]; then
-              echo "── test: agents/examples/${agent}"
-              cd "agents/examples/${agent}"
-              uv run pytest tests/ \
-                --cov=src \
-                --cov-report=term-missing \
-                --cov-report=json:coverage.json \
-                --cov-fail-under=${COVERAGE_PYTHON_GATE:-90} \
-                -v \
-                --tb=short || failed=true
-              if [ -f coverage.json ]; then
-                pct=$(python3 -c \
-                  "import json; d=json.load(open('coverage.json')); print(f\"{d['totals']['percent_covered']:.1f}\")" \
-                  2>/dev/null || echo "")
-                [ -n "$pct" ] && echo "python|${agent}||${pct}" >> /tmp/coverage-results.txt
-              fi
-              cd ../../..
-            fi
-          done
-
-          $failed && exit 1 || echo "✅ Python tests passed"
-
-      # ── Coverage comment: build markdown from shared results file ─────────
-      - name: Build coverage comment
-        if: always() && github.event_name == 'pull_request'
-        run: |
-          RESULTS=/tmp/coverage-results.txt
-          OUT=/tmp/coverage-comment.md
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          SHA="${{ github.sha }}"
-
-          {
-            echo "<!-- zynax-coverage-report -->"
-            echo "## Coverage Report"
-            echo ""
-
-            # ── Go services ────────────────────────────────────────────────
-            if grep -q "^service|" "$RESULTS" 2>/dev/null; then
-              echo "### Go services — \`internal/domain\` (gate ≥ ${COVERAGE_DOMAIN_GATE:-90}%)"
-              echo ""
-              echo "| Service | Coverage | Gate |"
-              echo "|---------|---------|------|"
-              grep "^service|" "$RESULTS" | while IFS='|' read -r _ name _pkg pct; do
-                gate=$(awk -v p="${pct:-0}" -v g="${COVERAGE_DOMAIN_GATE:-90}" 'BEGIN{print (p+0 >= g+0) ? "✅" : "❌"}')
-                echo "| \`services/${name}\` | **${pct}%** | ${gate} |"
-              done
-              echo ""
-            fi
-
-            # ── Go adapters ────────────────────────────────────────────────
-            if grep -q "^adapter|" "$RESULTS" 2>/dev/null; then
-              echo "### Go adapters (gate ≥ ${COVERAGE_ADAPTER_GATE:-85}%)"
-              echo ""
-              echo "| Adapter | Coverage | Gate |"
-              echo "|---------|---------|------|"
-              grep "^adapter|" "$RESULTS" | while IFS='|' read -r _ name _ pct; do
-                gate=$(awk -v p="${pct:-0}" -v g="${COVERAGE_ADAPTER_GATE:-85}" 'BEGIN{print (p+0 >= g+0) ? "✅" : "❌"}')
-                echo "| \`agents/adapters/${name}\` | **${pct}%** | ${gate} |"
-              done
-              echo ""
-            fi
-
-            # ── CLI tools ──────────────────────────────────────────────────
-            if grep -q "^cli|" "$RESULTS" 2>/dev/null; then
-              echo "### CLI tools (gate ≥ ${COVERAGE_CLI_ZYNAX_GATE:-79}% zynax / ${COVERAGE_CLI_ZYNAX_CI_GATE:-80}% zynax-ci)"
-              echo ""
-              echo "| Tool | Coverage | Gate |"
-              echo "|------|---------|------|"
-              grep "^cli|" "$RESULTS" | while IFS='|' read -r _ name _ pct; do
-                if [[ "$name" == "zynax" ]]; then
-                  g="${COVERAGE_CLI_ZYNAX_GATE:-79}"
-                else
-                  g="${COVERAGE_CLI_ZYNAX_CI_GATE:-80}"
-                fi
-                gate=$(awk -v p="${pct:-0}" -v g="$g" 'BEGIN{print (p+0 >= g+0) ? "✅" : "❌"}')
-                echo "| \`cmd/${name}\` | **${pct}%** | ${gate} |"
-              done
-              echo ""
-            fi
-
-            # ── Python ─────────────────────────────────────────────────────
-            if grep -q "^python|" "$RESULTS" 2>/dev/null; then
-              echo "### Python (gate ≥ ${COVERAGE_PYTHON_GATE:-90}%)"
-              echo ""
-              echo "| Module | Coverage | Gate |"
-              echo "|--------|---------|------|"
-              grep "^python|" "$RESULTS" | while IFS='|' read -r _ name _ pct; do
-                gate=$(awk -v p="${pct:-0}" -v g="${COVERAGE_PYTHON_GATE:-90}" 'BEGIN{print (p+0 >= g+0) ? "✅" : "❌"}')
-                echo "| \`agents/${name}\` | **${pct}%** | ${gate} |"
-              done
-              echo ""
-            fi
-
-            if ! grep -q "^" "$RESULTS" 2>/dev/null || [ ! -s "$RESULTS" ]; then
-              echo "_No coverage data collected — tests may have been skipped._"
-              echo ""
-            fi
-
-            echo "<sub>Run [#${{ github.run_number }}](${RUN_URL}) · \`${SHA:0:7}\`</sub>"
-          } > "$OUT"
-
-      - name: Post coverage report on PR
-        if: always() && github.event_name == 'pull_request'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const marker = '<!-- zynax-coverage-report -->';
-
-            let body;
-            if (fs.existsSync('/tmp/coverage-comment.md')) {
-              body = fs.readFileSync('/tmp/coverage-comment.md', 'utf8');
-            } else {
-              body = `${marker}\n## Coverage Report\n\n_No coverage data available for this run._\n\n<sub>Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})</sub>`;
-            }
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const existing = comments.find(c => c.body && c.body.includes(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+      - name: All tests passed
+        run: echo "✅ test-go=${{ needs.test-go.result }}  test-python=${{ needs.test-python.result }}"
 
 # ── Integration Tests ─────────────────────────────────────────────────────────
-# Runs against real backing services (not mocked). Currently a no-op skeleton;
-# real tests will be added when services ship. The job always passes so branch
-# protection stays green. Remove the skip condition once tests exist.
-#
-# `if: always()` mirrors test-unit — prevents the cascade-skip when lint-proto
-# and lint-python are skipped on Go-only PRs (same reasoning as above).
-# NOT a required status check: removed from branch protection in #547.
-# Re-add to required checks once real integration tests exist (#227 / M7.C).
+# No-op skeleton until real integration tests exist (#227 / M7.C).
   test-integration:
     name: test-integration
     runs-on: ubuntu-24.04
@@ -1227,7 +545,6 @@ jobs:
       image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
     needs: [changes, lint-go, lint-proto, lint-python]
-    # Mirrors test-unit: always() breaks cascade-skip; code gate skips on docs-only PRs.
     if: >-
       always() &&
       needs.changes.result == 'success' &&
@@ -1246,6 +563,7 @@ jobs:
       - name: Run integration tests
         if: steps.int-detect.outputs.has_integration != '0'
         run: |
+          failed=false
           for svc in ${{ env.SERVICE_LIST }}; do
             if grep -rl "//go:build integration" "services/${svc}/" 2>/dev/null | grep -q .; then
               echo "── integration: services/${svc}"
@@ -1263,9 +581,7 @@ jobs:
           echo "   Tag test files with '//go:build integration' to include them here."
 
 # ── Security ──────────────────────────────────────────────────────────────────
-# Runs: govulncheck (Go CVE database), bandit (Python SAST),
-#       pip-audit (Python dependency CVEs). All scans run independently
-#       so a single finding does not mask others.
+# govulncheck (Go CVE), bandit + pip-audit (Python SAST/CVE), trivy (Dockerfile).
   security:
     name: security
     runs-on: ubuntu-24.04
@@ -1273,19 +589,12 @@ jobs:
       image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
       options: --user root
     needs: [dco, changes]
-    # PRs: always run (satisfies required check). Push to main: skip on docs-only changes.
     if: github.event_name != 'push' || needs.changes.outputs.code == 'true'
     env:
       UV_LINK_MODE: copy
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      # ── Go: govulncheck ───────────────────────────────────────────────────
-      # Per-service gating: each service in SERVICE_LIST is only scanned when
-      # its per-service output from the changes job is 'true'. The env vars
-      # below map service names to change outputs using bash indirect expansion
-      # (${!var}). When adding a new service, add it to SERVICE_LIST and add
-      # a matching <SERVICE_UPPER>_CHANGED env var pointing to its changes output.
       - name: Detect Go services
         id: go-detect
         run: |
@@ -1301,23 +610,9 @@ jobs:
           TASK_BROKER_CHANGED:       ${{ needs.changes.outputs.task_broker }}
           AGENT_REGISTRY_CHANGED:    ${{ needs.changes.outputs.agent_registry }}
         run: |
-          failed=false
-          for svc in ${{ env.SERVICE_LIST }}; do
-            if [ -f "services/${svc}/go.mod" ]; then
-              var="$(echo "$svc" | tr '-' '_' | tr '[:lower:]' '[:upper:]')_CHANGED"
-              if [ "${!var:-false}" != "true" ]; then
-                echo "── govulncheck: services/${svc} [SKIPPED — not changed]"
-                continue
-              fi
-              echo "── govulncheck: services/${svc}"
-              cd "services/${svc}"
-              GOWORK=off govulncheck ./... || failed=true
-              cd ../..
-            fi
-          done
-          $failed && exit 1 || echo "✅ govulncheck passed"
+          bash tools/ci/run-go-svc-loop.sh services/ "${{ env.SERVICE_LIST }}" -- govulncheck ./...
+          echo "✅ govulncheck passed"
 
-      # ── Python: bandit + pip-audit ────────────────────────────────────────
       - name: Detect Python agents
         id: py-detect
         run: |
@@ -1352,9 +647,6 @@ jobs:
           done
           $failed && exit 1 || echo "✅ Security scans passed"
 
-      # ── Trivy: dependency CVEs + Dockerfile misconfigs ───────────────────
-      # trivy-action is a JavaScript action — runs on the host runner, not
-      # inside the Alpine container. The workspace is shared, so file scanning works.
       - name: trivy filesystem scan (go.mod + pyproject.toml CVEs)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -1378,9 +670,7 @@ jobs:
           cache: false
 
       - name: No security targets yet
-        if: >-
-          steps.go-detect.outputs.has_go == '0' &&
-          steps.py-detect.outputs.has_py == '0'
+        if: steps.go-detect.outputs.has_go == '0' && steps.py-detect.outputs.has_py == '0'
         run: |
           echo "ℹ️  No Go or Python source found — govulncheck and bandit skipped."
           echo "   trivy dependency and config scans above always run."

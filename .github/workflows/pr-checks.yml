@@ -1,25 +1,21 @@
 # SPDX-License-Identifier: Apache-2.0
 # Zynax — PR Automation Checks
 #
-# These jobs automate the PR template checklist so reviewers can focus on
-# design and correctness rather than process compliance.
+# These jobs automate the PR template checklist.
 #
-# Coverage:
+# Jobs:
 #   actionlint           → GitHub Actions workflow YAML and expression linting
 #   conventional-commit  → PR title follows Conventional Commits format
-#   proto-breaking       → buf breaking change detection against base branch
-#   proto-stubs-fresh    → detects stale generated stubs (issue #12 tracks gen)
+#   proto-check          → buf breaking-change detection + generated stubs freshness
 #   layer-boundaries     → detects cross-layer imports (ADR-001 §separation)
-#   gitleaks-scan        → scans full PR commit range for secrets (all paths)
+#   canvas-freshness     → SPDD Canvas present + valid for feat: PRs (ADR-019)
+#   conflict-markers     → scans PR for leftover git conflict markers
+#   gitleaks-scan        → secrets scan across full PR commit range
 #
-# PR size labeling is handled by pr-size.yml (separate workflow) to avoid a
-# feedback loop: label write-back → pull_request event → pr-checks re-run.
+# PR size labeling is in pr-size.yml (separate workflow) to avoid feedback loops.
 #
-# Required status checks (branch protection):
-#   GitHub Actions workflow lint · Conventional Commit title · PR size label
-#   Secret scan (gitleaks)
-# All jobs with if: github.event_name == 'pull_request' are skipped on push
-# to main (only gitleaks-scan fires on push).
+# Required status checks: GitHub Actions workflow lint · Conventional Commit title
+#   PR size label · Secret scan (gitleaks)
 
 name: PR Checks
 
@@ -41,12 +37,8 @@ defaults:
   run:
     shell: bash
 
-# ── GitHub Actions Workflow Lint ──────────────────────────────────────────────
-# actionlint catches expression-context mismatches (e.g. using pull_request
-# context variables in a job that also fires on push), invalid step outputs,
-# and schema errors — before they reach main.
-#   actionlint docs: https://github.com/rhysd/actionlint
 jobs:
+# ── GitHub Actions Workflow Lint ──────────────────────────────────────────────
   actionlint:
     name: GitHub Actions workflow lint
     if: github.event_name == 'pull_request'
@@ -58,13 +50,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Lint all workflow files
-        run: |
-          # shellcheck not in ci-runner image — run without it; tracked in #552
-          actionlint -color
+        run: actionlint -color
 
 # ── Conventional Commit Title ─────────────────────────────────────────────────
-# The PR title becomes the squash commit subject on merge. It must follow the
-# Conventional Commits spec so changelog generation and semantic versioning work.
   conventional-commit:
     name: Conventional Commit title
     if: github.event_name == 'pull_request'
@@ -91,11 +79,10 @@ jobs:
             PR title subject must be ≤72 characters.
             Current: "{subject}"
 
-# ── Proto Breaking-Change Detection ──────────────────────────────────────────
-# Fails if any change to protos/ breaks backward compatibility with the base
-# branch. buf compares field numbers, message names, enum values, and service
-# signatures. New fields and enums are always safe; removals and renames fail.
-  proto-breaking:
+# ── Proto: Breaking-Change Detection + Stubs Freshness ───────────────────────
+# Merged from proto-breaking + proto-stubs-fresh: both fire on proto changes,
+# share the same checkout + fetch setup, and buf is already in ci-runner.
+  proto-check:
     name: Proto backward compatibility
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
@@ -113,8 +100,10 @@ jobs:
         run: |
           BASE_REF="${{ github.event.pull_request.base.ref }}"
           git fetch --depth=1 origin "$BASE_REF"
-          changed=$(git diff --name-only FETCH_HEAD HEAD -- 'protos/**/*.proto' | wc -l)
-          echo "proto_changed=$changed" >> "$GITHUB_OUTPUT"
+          proto_changed=$(git diff --name-only FETCH_HEAD HEAD -- 'protos/**/*.proto' | wc -l)
+          stubs_changed=$(git diff --name-only FETCH_HEAD HEAD -- 'protos/generated/' | wc -l)
+          echo "proto_changed=$proto_changed" >> "$GITHUB_OUTPUT"
+          echo "stubs_changed=$stubs_changed" >> "$GITHUB_OUTPUT"
 
       - name: buf breaking (compare against base branch)
         if: steps.proto-detect.outputs.proto_changed != '0'
@@ -124,36 +113,10 @@ jobs:
             --against \
             "https://github.com/${{ github.repository }}.git#branch=${{ github.event.pull_request.base.ref }},subdir=protos"
 
-      - name: No proto changes
-        if: steps.proto-detect.outputs.proto_changed == '0'
-        run: echo "ℹ️  No .proto files changed — backward-compat check skipped."
-
-# ── Generated Stub Freshness ──────────────────────────────────────────────────
-# If a .proto file changed and stubs exist in protos/generated/, verifies
-# that the stubs were regenerated in this PR (i.e. they are not stale).
-# Issue #12 tracks implementing `make generate-protos` in buf.gen.yaml.
-  proto-stubs-fresh:
-    name: Proto generated stubs freshness
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
-      options: --user root
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Allow git to read workspace inside container
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Check stubs are not stale
+      - name: Check generated stubs are not stale
+        if: steps.proto-detect.outputs.proto_changed != '0'
         run: |
-          BASE_REF="${{ github.event.pull_request.base.ref }}"
-          git fetch --depth=1 origin "$BASE_REF"
-
-          proto_changed=$(git diff --name-only FETCH_HEAD HEAD -- 'protos/**/*.proto' | wc -l)
-          stubs_changed=$(git diff --name-only FETCH_HEAD HEAD -- 'protos/generated/' | wc -l)
-
-          if [ "$proto_changed" -gt 0 ] && [ -d protos/generated ] && [ "$stubs_changed" -eq 0 ]; then
+          if [ -d protos/generated ] && [ "${{ steps.proto-detect.outputs.stubs_changed }}" -eq 0 ]; then
             echo "❌ .proto files changed but generated stubs were not updated."
             echo ""
             echo "Proto files modified:"
@@ -162,20 +125,17 @@ jobs:
             echo "Fix: run  make generate-protos  and commit the updated stubs."
             exit 1
           fi
-
-          if [ "$proto_changed" -gt 0 ] && [ ! -d protos/generated ]; then
+          if [ ! -d protos/generated ]; then
             echo "ℹ️  protos/generated/ does not exist yet (issue #12 tracks this)."
-            echo "   Stub freshness check skipped until buf.gen.yaml is added."
           else
             echo "✅ Generated stubs are up to date (or no protos changed)."
           fi
 
+      - name: No proto changes
+        if: steps.proto-detect.outputs.proto_changed == '0'
+        run: echo "ℹ️  No .proto files changed — backward-compat and stubs checks skipped."
+
 # ── Layer Boundary Enforcement ────────────────────────────────────────────────
-# Detects cross-layer imports that violate the three-layer separation (AGENTS.md §1).
-# Scans only files changed in this PR to keep the check fast.
-# Rules:
-#   domain/  must NOT import from  api/  or  infrastructure/
-#   protos/  must NOT import service business logic
   layer-boundaries:
     name: Layer boundary enforcement
     if: github.event_name == 'pull_request'
@@ -198,15 +158,11 @@ jobs:
 
           for f in $changed_go; do
             [ -f "$f" ] || continue
-
-            # domain/ must not import api/ or infrastructure/
             if echo "$f" | grep -q "/domain/"; then
               if grep -qE '".*/(api|infrastructure)/' "$f"; then
                 violations="${violations}\n  ${f}: domain/ imports api/ or infrastructure/"
               fi
             fi
-
-            # contracts (protos/) must not import service packages
             if echo "$f" | grep -q "^protos/"; then
               if grep -qE '"github\.com/zynax-io/zynax/services/' "$f"; then
                 violations="${violations}\n  ${f}: protos/ imports service business logic"
@@ -221,18 +177,9 @@ jobs:
             echo "See docs/adr/ADR-001-*.md for the three-layer separation rules."
             exit 1
           fi
-
           echo "✅ Layer boundaries respected"
 
 # ── SPDD Canvas Freshness (feat: PRs only) ────────────────────────────────────
-# For every PR whose title starts with feat:, verifies that a REASONS Canvas
-# was committed as part of this PR (or already exists in docs/spdd/).
-# Rules (ADR-019):
-#   - feat: PRs must include at least one docs/spdd/**/canvas.md in the diff
-#     OR have an existing canvas.md anywhere under docs/spdd/.
-#   - Any canvas touched by this PR is validated with zynax-ci validate canvas.
-#   - Draft status emits a warning but does not fail (Aligned is enforced by
-#     /spdd-generate at code-generation time, not at PR open time).
   canvas-freshness:
     name: SPDD Canvas freshness (feat only)
     if: github.event_name == 'pull_request'
@@ -249,7 +196,6 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          # Only enforce for feat: PRs
           if ! echo "$PR_TITLE" | grep -qE '^feat(\([^)]+\))?:'; then
             echo "ℹ️  Not a feat: PR — Canvas check skipped."
             exit 0
@@ -260,10 +206,7 @@ jobs:
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.event.pull_request.head.sha }}"
 
-          # Canvas files added or modified in this PR
           canvas_in_pr=$(git diff --name-only "${BASE}..${HEAD}" -- 'docs/spdd/**/canvas.md' 'docs/spdd/*/canvas.md' | grep "canvas\.md" || true)
-
-          # Any canvas that already exists under docs/spdd/
           canvas_existing=$(find docs/spdd -name "canvas.md" 2>/dev/null | head -1 || true)
 
           if [ -z "$canvas_in_pr" ] && [ -z "$canvas_existing" ]; then
@@ -300,7 +243,6 @@ jobs:
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.event.pull_request.head.sha }}"
 
-          # Validate canvases touched in this PR; fall back to all canvases
           canvas_in_pr=$(git diff --name-only "${BASE}..${HEAD}" -- 'docs/spdd/**/canvas.md' 'docs/spdd/*/canvas.md' | grep "canvas\.md" || true)
 
           if [ -n "$canvas_in_pr" ]; then
@@ -317,9 +259,6 @@ jobs:
           fi
 
 # ── Git Conflict Marker Check ─────────────────────────────────────────────────
-# Scans every file changed in the PR for leftover git conflict markers
-# (<<<<<<<, =======, >>>>>>>). These are invisible to golangci-lint, ruff,
-# and gitleaks but produce broken docs/configs if merged.
   conflict-markers:
     name: No conflict markers
     if: github.event_name == 'pull_request'
@@ -338,15 +277,11 @@ jobs:
           HEAD="${{ github.event.pull_request.head.sha }}"
 
           changed=$(git diff --name-only "${BASE}..${HEAD}" | grep -v "^$" || true)
-          if [ -z "$changed" ]; then
-            echo "✅ No changed files"
-            exit 0
-          fi
+          if [ -z "$changed" ]; then echo "✅ No changed files"; exit 0; fi
 
           found=0
           while IFS= read -r f; do
             [ -f "$f" ] || continue
-            # Binary files return non-zero from grep -I; skip them
             if grep -IqE '^(<{7} |={7}$|>{7} )' "$f" 2>/dev/null; then
               echo "❌ Conflict markers in: $f"
               grep -InE '^(<{7} |={7}$|>{7} )' "$f" | head -5
@@ -362,10 +297,6 @@ jobs:
           echo "✅ No conflict markers found"
 
 # ── Secret Scan (gitleaks) ────────────────────────────────────────────────────
-# Scans every commit in the PR range — including commits that were later amended
-# or squashed — so secrets deleted before merge are still caught.
-# Uses the same gitleaks-ai-context.toml config used by the main CI lint-proto
-# job, extended with all paths (not just KB files).
   gitleaks-scan:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-24.04

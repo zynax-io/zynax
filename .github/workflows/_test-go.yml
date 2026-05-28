@@ -1,0 +1,327 @@
+# SPDX-License-Identifier: Apache-2.0
+# Reusable workflow — Go unit tests, BDD contract tests, coverage gates.
+# Called by the test-go job in ci.yml.
+# Publishes BDD + coverage PR comments.
+
+name: _test-go (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      engine_adapter:    { required: true, type: string }
+      workflow_compiler: { required: true, type: string }
+      api_gateway:       { required: true, type: string }
+      task_broker:       { required: true, type: string }
+      agent_registry:    { required: true, type: string }
+      cli:               { required: true, type: string }
+      adapters_go:       { required: true, type: string }
+      event_name:        { required: true, type: string }
+      pr_base_sha:       { required: false, type: string, default: '' }
+      pr_head_sha:       { required: false, type: string, default: '' }
+
+permissions:
+  contents: read
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SERVICE_LIST: "agent-registry task-broker api-gateway workflow-compiler engine-adapter"
+  GO_ADAPTER_LIST: "http git"
+  GOPROXY: "https://proxy.golang.org,direct"
+  GONOSUMDB: "*"
+
+jobs:
+  test-go:
+    name: test-go
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:6dd8e55d433324656bdbbd2a46541c361498230f866f15be67863ac89ae81af1
+      options: --user root
+    env:
+      UV_LINK_MODE: copy
+      ENGINE_ADAPTER_CHANGED:    ${{ inputs.engine_adapter }}
+      WORKFLOW_COMPILER_CHANGED: ${{ inputs.workflow_compiler }}
+      API_GATEWAY_CHANGED:       ${{ inputs.api_gateway }}
+      TASK_BROKER_CHANGED:       ${{ inputs.task_broker }}
+      AGENT_REGISTRY_CHANGED:    ${{ inputs.agent_registry }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Trust workspace (git safe.directory for root container)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Initialize coverage results file
+        run: echo "" > /tmp/coverage-results.txt
+
+      - name: Load coverage gates
+        run: |
+          while IFS='=' read -r key value; do
+            [[ -z "$key" || "$key" =~ ^# ]] && continue
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done < tools/coverage-gates.env
+
+      # ── BDD contract spec report ─────────────────────────────────────────
+      - name: Report BDD contract scenario counts
+        run: |
+          echo "── proto contract BDD scenarios (protos/tests/features/) ─────────"
+          proto_total=0
+          for feature in protos/tests/features/*.feature; do
+            svc=$(basename "$feature" .feature)
+            count=$(grep -c "^\s*Scenario:" "$feature" 2>/dev/null || echo 0)
+            proto_total=$((proto_total + count))
+            printf "  %-40s %3d scenarios\n" "$svc" "$count"
+          done
+          echo "Proto total: ${proto_total} scenarios"
+          echo ""
+          echo "── service-level BDD specs (services/*/tests/features/) ──────────"
+          svc_total=0; svc_with_steps=0
+          for feature in services/*/tests/features/*.feature; do
+            [ -f "$feature" ] || continue
+            svc=$(echo "$feature" | cut -d/ -f2)
+            count=$(grep -c "^\s*Scenario:" "$feature" 2>/dev/null || echo 0)
+            svc_total=$((svc_total + count))
+            svcdir=$(dirname "$feature")/..
+            steps=$(find "$svcdir" -name "*_test.go" -path "*/tests/*" 2>/dev/null | wc -l)
+            if [ "$steps" -gt 0 ]; then
+              svc_with_steps=$((svc_with_steps + 1))
+              printf "  %-40s %3d scenarios  ✅ steps\n" "$svc" "$count"
+            else
+              printf "  %-40s %3d scenarios  ⚠ spec-only\n" "$svc" "$count"
+            fi
+          done
+          echo "Service total: ${svc_total} scenarios (${svc_with_steps} with step implementations)"
+
+      # ── Go code detection ─────────────────────────────────────────────────
+      - name: Detect Go code
+        id: go-detect
+        run: |
+          svc_count=$(find services/ -name "*.go" 2>/dev/null | wc -l)
+          bdd_count=$(find protos/tests/ -name "*.go" 2>/dev/null | wc -l)
+          svc_bdd_count=$(find services/ -path "*/tests/*" -name "*_test.go" 2>/dev/null | wc -l)
+          adapter_count=$(find agents/adapters/ -name "*.go" 2>/dev/null | wc -l)
+          cli_count=$(find cmd/ -name "*_test.go" 2>/dev/null | wc -l)
+          echo "has_services=$svc_count" >> "$GITHUB_OUTPUT"
+          echo "has_bdd_impl=$bdd_count" >> "$GITHUB_OUTPUT"
+          echo "has_svc_bdd=$svc_bdd_count" >> "$GITHUB_OUTPUT"
+          echo "has_adapters=$adapter_count" >> "$GITHUB_OUTPUT"
+          echo "has_cli=$cli_count" >> "$GITHUB_OUTPUT"
+
+      # ── Go service unit tests ─────────────────────────────────────────────
+      - name: Go service unit tests
+        if: steps.go-detect.outputs.has_services != '0'
+        run: |
+          bash tools/ci/run-go-svc-loop.sh services/ "${{ env.SERVICE_LIST }}" -- \
+            go test -tags="" ./... -v -timeout 60s -count=1
+          echo "✅ Go service tests passed"
+
+      # ── Go domain coverage measurement ────────────────────────────────────
+      - name: Go domain coverage measurement
+        if: steps.go-detect.outputs.has_services != '0'
+        run: |
+          for svc in ${{ env.SERVICE_LIST }}; do
+            if [ -f "services/${svc}/go.mod" ] && [ -d "services/${svc}/internal/domain" ]; then
+              var="$(echo "$svc" | tr '-' '_' | tr '[:lower:]' '[:upper:]')_CHANGED"
+              if [ "${!var:-false}" != "true" ]; then
+                echo "── coverage: services/${svc} [SKIPPED — not changed]"; continue
+              fi
+              cd "services/${svc}"
+              GOWORK=off go test -tags="" ./internal/domain/... \
+                -coverprofile=domain-coverage.out -covermode=atomic 2>/dev/null || true
+              if [ -f domain-coverage.out ]; then
+                pct=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
+                      | grep "^total:" | awk '{print $3}' | tr -d '%') || true
+                [ -n "$pct" ] && echo "service|${svc}|internal/domain|${pct}" >> /tmp/coverage-results.txt
+              fi
+              cd ../..
+            fi
+          done
+
+      - name: Go service coverage gate (≥90% on internal/domain)
+        if: steps.go-detect.outputs.has_services != '0'
+        run: |
+          failed=false
+          for svc in ${{ env.SERVICE_LIST }}; do
+            if [ -f "services/${svc}/domain-coverage.out" ]; then
+              cd "services/${svc}"
+              total=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
+                      | grep "^total:" | awk '{print $3}' | tr -d '%')
+              cd ../..
+              [ -z "$total" ] && echo "  ⚠ no coverage for services/${svc} — skipping" && continue
+              echo "── domain coverage: services/${svc}  ${total}%"
+              if awk "BEGIN{exit !(${total} < ${COVERAGE_DOMAIN_GATE:-90})}"; then
+                echo "  ❌ ${total}% < ${COVERAGE_DOMAIN_GATE:-90}% for services/${svc}"; failed=true
+              else
+                echo "  ✅ ${total}% ≥ ${COVERAGE_DOMAIN_GATE:-90}% for services/${svc}"
+              fi
+            fi
+          done
+          $failed && exit 1 || true
+
+      # ── Godog BDD contract tests ──────────────────────────────────────────
+      - name: Godog BDD contract tests (selective by changed proto)
+        if: steps.go-detect.outputs.has_bdd_impl != '0'
+        run: |
+          if [ "${{ inputs.event_name }}" = "pull_request" ]; then
+            export BASE="${{ inputs.pr_base_sha }}" HEAD="${{ inputs.pr_head_sha }}"
+          else
+            export BASE="HEAD~1" HEAD="HEAD"
+          fi
+          pkgs=$(bash tools/ci/bdd-select-packages.sh)
+          cd protos/tests
+          if [ "$pkgs" = "ALL" ]; then
+            echo "── BDD: full suite"
+            GOWORK=off go test ./... -v -timeout 120s 2>&1 | tee bdd-results.txt
+          elif [ -n "$pkgs" ]; then
+            pkg_args=$(echo "$pkgs" | tr ' ' '\n' | grep -v '^$' | sed 's|^|./|;s|$|/...|' | tr '\n' ' ')
+            echo "── BDD: selective — $pkgs"
+            GOWORK=off go test $pkg_args -v -timeout 120s 2>&1 | tee bdd-results.txt
+          else
+            echo "ℹ️  No proto or contract test files changed — BDD suite skipped."
+          fi
+          echo "✅ BDD contract tests passed"
+
+      - name: Service BDD tests (godog)
+        if: steps.go-detect.outputs.has_svc_bdd != '0'
+        run: |
+          bash tools/ci/run-go-svc-loop.sh services/ "${{ env.SERVICE_LIST }}" -- \
+            go test ./tests/... -v -timeout 120s
+          echo "✅ Service BDD tests passed"
+
+      - name: No service BDD step implementations yet
+        if: steps.go-detect.outputs.has_svc_bdd == '0'
+        run: echo "ℹ️  No service BDD step implementations — feature specs are spec-only."
+
+      # ── Post BDD PR comment ───────────────────────────────────────────────
+      - name: Post BDD contract test report on PR
+        if: always() && inputs.event_name == 'pull_request' && steps.go-detect.outputs.has_bdd_impl != '0'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fn = require('./.github/scripts/post-bdd-comment.js');
+            await fn({ github, context, core });
+
+      # ── Go adapter unit tests ─────────────────────────────────────────────
+      - name: Go adapter unit tests
+        if: steps.go-detect.outputs.has_adapters != '0' && inputs.adapters_go == 'true'
+        run: |
+          failed=false
+          for adapter in ${{ env.GO_ADAPTER_LIST }}; do
+            if [ -f "agents/adapters/${adapter}/go.mod" ]; then
+              echo "── test: agents/adapters/${adapter}"
+              cd "agents/adapters/${adapter}"
+              GOWORK=off go test ./... -v -timeout 60s -count=1 \
+                -coverprofile=coverage.out -covermode=atomic || failed=true
+              if [ -f coverage.out ]; then
+                pct=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
+                      | grep "^total:" | awk '{print $3}' | tr -d '%') || true
+                [ -n "$pct" ] && echo "adapter|${adapter}||${pct}" >> /tmp/coverage-results.txt
+              fi
+              cd ../../..
+            fi
+          done
+          $failed && exit 1 || echo "✅ Go adapter tests passed"
+
+      - name: Go adapter coverage gate (≥85%)
+        if: steps.go-detect.outputs.has_adapters != '0' && inputs.adapters_go == 'true'
+        run: |
+          failed=false
+          for adapter in ${{ env.GO_ADAPTER_LIST }}; do
+            if [ -f "agents/adapters/${adapter}/coverage.out" ]; then
+              cd "agents/adapters/${adapter}"
+              total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
+                      | grep "^total:" | awk '{print $3}' | tr -d '%')
+              cd ../../..
+              [ -z "$total" ] && echo "  ⚠ no coverage for adapters/${adapter} — skipping" && continue
+              echo "── adapter coverage: agents/adapters/${adapter}  ${total}%"
+              if awk "BEGIN{exit !(${total} < ${COVERAGE_ADAPTER_GATE:-85})}"; then
+                echo "  ❌ ${total}% < ${COVERAGE_ADAPTER_GATE:-85}% for adapters/${adapter}"; failed=true
+              else
+                echo "  ✅ ${total}% ≥ ${COVERAGE_ADAPTER_GATE:-85}% for adapters/${adapter}"
+              fi
+            fi
+          done
+          $failed && exit 1 || true
+
+      # ── CLI tool unit tests ───────────────────────────────────────────────
+      - name: CLI tool unit tests (zynax + zynax-ci)
+        if: steps.go-detect.outputs.has_cli != '0' && inputs.cli == 'true'
+        run: |
+          failed=false
+          for cli in zynax zynax-ci; do
+            if [ -f "cmd/${cli}/go.mod" ]; then
+              echo "── test: cmd/${cli}"
+              cd "cmd/${cli}"
+              GOWORK=off go test ./... -v -timeout 60s -count=1 \
+                -coverprofile=coverage.out -covermode=atomic || failed=true
+              if [ -f coverage.out ]; then
+                pct=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
+                      | grep "^total:" | awk '{print $3}' | tr -d '%') || true
+                [ -n "$pct" ] && echo "cli|${cli}||${pct}" >> /tmp/coverage-results.txt
+              fi
+              cd ../..
+            fi
+          done
+          $failed && exit 1 || echo "✅ CLI tool tests passed"
+
+      - name: cmd/zynax coverage gate (≥79%)
+        if: steps.go-detect.outputs.has_cli != '0' && inputs.cli == 'true'
+        run: |
+          if [ -f "cmd/zynax/coverage.out" ]; then
+            cd cmd/zynax
+            total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
+                    | grep "^total:" | awk '{print $3}' | tr -d '%')
+            cd ../..
+            [ -z "$total" ] && echo "  ⚠ no coverage for cmd/zynax — skipping" && exit 0
+            echo "── CLI coverage: cmd/zynax  ${total}%"
+            if awk "BEGIN{exit !(${total} < ${COVERAGE_CLI_ZYNAX_GATE:-79})}"; then
+              echo "  ❌ ${total}% < ${COVERAGE_CLI_ZYNAX_GATE:-79}% for cmd/zynax"; exit 1
+            fi
+            echo "  ✅ ${total}% ≥ ${COVERAGE_CLI_ZYNAX_GATE:-79}% for cmd/zynax"
+          fi
+
+      - name: cmd/zynax-ci coverage gate (≥80%)
+        if: steps.go-detect.outputs.has_cli != '0' && inputs.cli == 'true'
+        run: |
+          if [ -f "cmd/zynax-ci/coverage.out" ]; then
+            cd cmd/zynax-ci
+            total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
+                    | grep "^total:" | awk '{print $3}' | tr -d '%')
+            cd ../..
+            [ -z "$total" ] && echo "  ⚠ no coverage for cmd/zynax-ci — skipping" && exit 0
+            echo "── CLI coverage: cmd/zynax-ci  ${total}%"
+            if awk "BEGIN{exit !(${total} < ${COVERAGE_CLI_ZYNAX_CI_GATE:-80})}"; then
+              echo "  ❌ ${total}% < ${COVERAGE_CLI_ZYNAX_CI_GATE:-80}% for cmd/zynax-ci"; exit 1
+            fi
+            echo "  ✅ ${total}% ≥ ${COVERAGE_CLI_ZYNAX_CI_GATE:-80}% for cmd/zynax-ci"
+          fi
+
+      # ── Coverage comment ──────────────────────────────────────────────────
+      - name: Build coverage comment
+        if: always() && inputs.event_name == 'pull_request'
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: bash .github/scripts/build-coverage-comment.sh
+
+      - name: Post coverage report on PR
+        if: always() && inputs.event_name == 'pull_request'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fn = require('./.github/scripts/post-coverage-comment.js');
+            await fn({ github, context, core });

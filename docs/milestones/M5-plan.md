@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 84 — #373 ✅ #374 ✅ #375 ✅; BATCH 8 added)
+**Last updated:** 2026-05-28 (rev 85 — #555 ✅; BATCH 5 Group E complete)
 
 ---
 
@@ -53,7 +53,7 @@ the developer's responsibility; auto-merge fires automatically once all checks p
 
 | # | Track | Epic | Status | Priority |
 |---|-------|------|--------|----------|
-| **M5.F** | CI/CD Performance Sprint | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — #555 (DRY/KISS L) remaining | **P2** |
+| **M5.F** | CI/CD Performance Sprint | [#542](https://github.com/zynax-io/zynax/issues/542) | ✅ Complete (closed) — all child issues merged | — |
 | **M5.F.R** | Release Pipeline | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) | — |
 | **M5.C** | Capability Dispatch E2E | [#460](https://github.com/zynax-io/zynax/issues/460) | 🟡 In Progress — dispatch wired; E2E demo pending | **P0** |
 | **M5.B** | Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 #476 #477 #478 all ✅ | — |
@@ -175,7 +175,7 @@ of tooling at run time. The image is rebuilt and published to
 | [#554](https://github.com/zynax-io/zynax/issues/554) | Force-full-pipeline trigger (dispatch, label, `[full-ci]`) | S | After #552 ✅ | ✅ Done |
 | [#549](https://github.com/zynax-io/zynax/issues/549) | Extend changes job per-service module granularity | M | After #552 | ✅ Done |
 | [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M | After #549 | ✅ Done |
-| [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L | After #552 | P2 |
+| [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L | After #552 | ✅ Done |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml | XS | ✅ Done | — |
 | [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS | After #552 | P2 |
 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | After #552 | ✅ Done |
@@ -501,7 +501,7 @@ reports **≥85% total** and CI adapter gate passes for all covered packages.
 ### Group E — DRY/KISS refactor
 | Issue | Title | Size |
 |-------|-------|------|
-| [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions, extracted scripts | L |
+| [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions, extracted scripts | L | ✅ Done |
 
 ---
 

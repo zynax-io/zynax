@@ -30,7 +30,7 @@ M5 is structured into seven tracks. See full execution plan: **[docs/milestones/
 
 | Track | Epic | Status |
 |-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | 🟡 In Progress — all done except #555 (DRY/KISS L, P2) |
+| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | ✅ Complete (closed) — #555 ✅ all child issues done |
 | **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) |
 | M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | ✅ Complete — #472 ✅ #473 ✅ #474 ✅ #572 ✅ #579 ✅ |
 | M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 ✅ #476 ✅ #477 ✅ #478 ✅ |
@@ -162,5 +162,4 @@ Priority gaps to file immediately:
 ## Next Session Queue (priority order)
 
 Remaining open M5 non-epic issues:
-- **#555** (ci: DRY/KISS refactor, L) — BATCH 5 Group E; reserve for dedicated session
 - **#656** (feat: gRPC Health Checking, L) — M6 prep; defer to M6
