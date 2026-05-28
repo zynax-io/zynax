@@ -165,13 +165,13 @@ Priority gaps to file immediately:
 |-------|-------|--------|
 | [#232](https://github.com/zynax-io/zynax/issues/232) | Architecture fitness functions doc | ✅ Done — PR #750 merged |
 | [#248](https://github.com/zynax-io/zynax/issues/248) | AI-output review checklist in PR template | ✅ Done — PR #751 pending |
-| [#228](https://github.com/zynax-io/zynax/issues/228) | Google-style docstrings on SDK public symbols | ⬜ Ready |
+| [#228](https://github.com/zynax-io/zynax/issues/228) | Google-style docstrings on SDK public symbols | ✅ Done |
 | [#229](https://github.com/zynax-io/zynax/issues/229) | Strip explanatory comments in agents/sdk | ⬜ Ready |
 
 ## Next Session Queue (priority order)
 
 Remaining open M5 non-epic issues:
-- **#228** (docs: SDK docstrings, S) — LOW priority; ready
+- **#228** (docs: SDK docstrings, S) — ✅ Done
 - **#229** (refactor: strip comments, S) — LOW priority; ready
 - **#376** (docs: SDK docstrings step 2) — BLOCKED on SDK modules (M6+ scope)
 - **#235**, **#239** (SBOM/SLSA) — superseded by M6.C #489; close when M6 activates

@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 87 — #232 ✅ #248 ✅; BATCH 9 added)
+**Last updated:** 2026-05-28 (rev 88 — #228 ✅; #564 ✅ row fix in BATCH 5 table)
 
 ---
 
@@ -177,7 +177,7 @@ of tooling at run time. The image is rebuilt and published to
 | [#550](https://github.com/zynax-io/zynax/issues/550) | Scope govulncheck to changed services only | M | After #549 | ✅ Done |
 | [#555](https://github.com/zynax-io/zynax/issues/555) | DRY/KISS refactor — reusable workflows, composite actions | L | After #552 | ✅ Done |
 | [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml | XS | ✅ Done | — |
-| [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS | After #552 | P2 |
+| [#564](https://github.com/zynax-io/zynax/issues/564) | Pin action digests + add linux/arm64 to zynax-ci | XS | After #552 | ✅ Done |
 | [#565](https://github.com/zynax-io/zynax/issues/565) | Add trivy container scan gate before GHCR push | S | After #552 | ✅ Done |
 | [#641](https://github.com/zynax-io/zynax/issues/641) | Per-service change detection for image builds in release.yml | M | After #552 | ✅ Done |
 | [#642](https://github.com/zynax-io/zynax/issues/642) | Switch service Dockerfiles to distroless/static:nonroot + `-ldflags "-s -w"` | S | None | ✅ Done |
@@ -737,7 +737,7 @@ Open M5 milestone issues not previously tracked in this plan. All are SPDD-exemp
 
 | Issue | Type | Title | Size | Status |
 |-------|------|-------|------|--------|
-| [#228](https://github.com/zynax-io/zynax/issues/228) | docs | Google-style docstrings on all public symbols in agents/sdk | S | ⬜ |
+| [#228](https://github.com/zynax-io/zynax/issues/228) | docs | Google-style docstrings on all public symbols in agents/sdk | S | ✅ |
 | [#229](https://github.com/zynax-io/zynax/issues/229) | refactor | Strip explanatory comments in agents/sdk + agents/examples | S | ⬜ |
 | [#232](https://github.com/zynax-io/zynax/issues/232) | docs | Architecture fitness functions — document all CI gates | XS | ✅ Done |
 | [#248](https://github.com/zynax-io/zynax/issues/248) | docs | AI-output review checklist in PR template + ai-review-guide | S | ✅ Done |

@@ -25,6 +25,13 @@ def capability(name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         async def summarize(self, request: Any, context: Any) -> AsyncGenerator[Any, None]:
             yield self.report_progress(request.task_id, {"step": 1})
             yield self.report_completed(request.task_id, {"summary": "done"})
+
+    Args:
+        name: The capability identifier used in ``ExecuteCapabilityRequest.capability_name``.
+
+    Returns:
+        A decorator that attaches ``_capability_name`` to the wrapped method and
+        registers it during ``Agent.__init_subclass__``.
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -74,14 +81,24 @@ class Agent(agent_pb2_grpc.AgentServiceServicer, ABC):  # type: ignore[misc]
                 caps[cap_name] = method
         cls._capabilities = caps
 
-    # ── gRPC handlers ──────────────────────────────────────────────────────────
-
     def ExecuteCapability(
         self,
         request: Any,
         context: Any,
     ) -> Generator[Any, None, None]:
-        """Route the request to the registered capability handler and stream events."""
+        """Route the request to the registered capability handler and stream events.
+
+        Validates ``capability_name``, ``task_id``, and ``input_payload`` before
+        dispatching.  Unknown capabilities yield a FAILED event rather than raising.
+
+        Args:
+            request: ``ExecuteCapabilityRequest`` proto message.
+            context: gRPC ``ServicerContext`` used to abort on validation failure.
+
+        Yields:
+            ``TaskEvent`` proto messages produced by the capability handler,
+            followed by at most one FAILED event if the capability is not found.
+        """
         if not request.capability_name:
             context.abort(
                 grpc.StatusCode.INVALID_ARGUMENT, "capability_name must not be empty"
@@ -122,7 +139,17 @@ class Agent(agent_pb2_grpc.AgentServiceServicer, ABC):  # type: ignore[misc]
         request: Any,
         context: Any,
     ) -> Any:
-        """Return schema metadata for a registered capability."""
+        """Return schema metadata for a registered capability.
+
+        Args:
+            request: ``GetCapabilitySchemaRequest`` proto message containing
+                ``capability_name``.
+            context: gRPC ``ServicerContext`` used to abort on validation failure.
+
+        Returns:
+            ``GetCapabilitySchemaResponse`` with placeholder JSON schemas, or
+            ``None`` after aborting the context when the capability is unknown.
+        """
         if not request.capability_name:
             context.abort(
                 grpc.StatusCode.INVALID_ARGUMENT, "capability_name must not be empty"
@@ -141,11 +168,17 @@ class Agent(agent_pb2_grpc.AgentServiceServicer, ABC):  # type: ignore[misc]
             description=f"Capability '{request.capability_name}'",
         )
 
-    # ── Event helpers ──────────────────────────────────────────────────────────
-
     @staticmethod
     def report_progress(task_id: str, payload: dict[str, Any]) -> Any:
-        """Create a PROGRESS TaskEvent."""
+        """Create a PROGRESS TaskEvent.
+
+        Args:
+            task_id: Opaque identifier from the originating ``ExecuteCapabilityRequest``.
+            payload: Arbitrary JSON-serialisable progress data yielded to the caller.
+
+        Returns:
+            A ``TaskEvent`` with ``event_type`` set to ``TASK_EVENT_TYPE_PROGRESS``.
+        """
         return agent_pb2.TaskEvent(
             task_id=task_id,
             event_type=agent_pb2.TASK_EVENT_TYPE_PROGRESS,
@@ -155,7 +188,15 @@ class Agent(agent_pb2_grpc.AgentServiceServicer, ABC):  # type: ignore[misc]
 
     @staticmethod
     def report_completed(task_id: str, payload: dict[str, Any]) -> Any:
-        """Create a COMPLETED TaskEvent."""
+        """Create a COMPLETED TaskEvent.
+
+        Args:
+            task_id: Opaque identifier from the originating ``ExecuteCapabilityRequest``.
+            payload: Final JSON-serialisable result data for the task.
+
+        Returns:
+            A ``TaskEvent`` with ``event_type`` set to ``TASK_EVENT_TYPE_COMPLETED``.
+        """
         return agent_pb2.TaskEvent(
             task_id=task_id,
             event_type=agent_pb2.TASK_EVENT_TYPE_COMPLETED,
@@ -165,7 +206,17 @@ class Agent(agent_pb2_grpc.AgentServiceServicer, ABC):  # type: ignore[misc]
 
     @staticmethod
     def report_failed(task_id: str, code: str, message: str) -> Any:
-        """Create a FAILED TaskEvent with structured CapabilityError."""
+        """Create a FAILED TaskEvent with structured CapabilityError.
+
+        Args:
+            task_id: Opaque identifier from the originating ``ExecuteCapabilityRequest``.
+            code: Machine-readable error code (e.g. ``"CAPABILITY_NOT_FOUND"``).
+            message: Human-readable description of the failure.
+
+        Returns:
+            A ``TaskEvent`` with ``event_type`` set to ``TASK_EVENT_TYPE_FAILED``
+            and a populated ``CapabilityError`` field.
+        """
         return agent_pb2.TaskEvent(
             task_id=task_id,
             event_type=agent_pb2.TASK_EVENT_TYPE_FAILED,
