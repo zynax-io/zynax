@@ -6,6 +6,10 @@
 **Status:** Accepted — guides M2 through M8 roadmap decisions  
 **Related issues:** #165 (this review), epic #101 (M2), epic #157 (security)
 
+> **See also:** [2026-05-28-competitive-positioning.md](2026-05-28-competitive-positioning.md)
+> for the current (M5/v0.4.0) Kagent-aware comparison table — Kagent became a CNCF Sandbox
+> project in 2026 after this document was written.
+
 ---
 
 ## Executive Summary
