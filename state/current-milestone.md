@@ -81,7 +81,7 @@ All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
 | [#713](https://github.com/zynax-io/zynax/issues/713) | Adapters | git-adapter quality epic (coverage ≥85%) | ✅ Complete — #714 ✅ #715 ✅ #716 ✅ #717 ✅ #718 ✅ all merged |
 | ~~[#382](https://github.com/zynax-io/zynax/issues/382)~~ | Adapters | ci-adapter impl | ✅ Closed — all steps done (#404–#408) |
 | [#383](https://github.com/zynax-io/zynax/issues/383) | Adapters | llm-adapter impl | open — #409 BDD ✅; #410 ✅ scaffold+config; #411 ✅ providers+handler+router+server; #412+ pending |
-| [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open — #414 BDD ✅; #415 ✅ scaffold+config; #416+ pending |
+| [#384](https://github.com/zynax-io/zynax/issues/384) | Adapters | langgraph-adapter impl | open — #414 BDD ✅; #415 ✅ scaffold+config; #416 ✅ GraphLoader+handler+router+server; #417+ pending |
 
 ---
 
@@ -146,8 +146,8 @@ Priority gaps to file immediately:
 
 | Issue | Title | Status |
 |-------|-------|--------|
-| [#411](https://github.com/zynax-io/zynax/issues/411) | llm-adapter provider handlers — OpenAI, Bedrock, Ollama | ✅ Done — PR open |
-| [#416](https://github.com/zynax-io/zynax/issues/416) | langgraph-adapter GraphLoader + LangGraphHandler | 🟡 In Progress |
+| [#411](https://github.com/zynax-io/zynax/issues/411) | llm-adapter provider handlers — OpenAI, Bedrock, Ollama | ✅ Done — PR #738/#736 merged |
+| [#416](https://github.com/zynax-io/zynax/issues/416) | langgraph-adapter GraphLoader + LangGraphHandler | ✅ Done — PR #737 open |
 
 ## Next Session Queue (priority order)
 
