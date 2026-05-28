@@ -6,7 +6,7 @@
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
 **Status:** In Progress
-**Last updated:** 2026-05-28 (rev 82 — #373 ✅ workflow-compiler ctx threading; BATCH 8 added)
+**Last updated:** 2026-05-28 (rev 83 — #373 ✅ #374 ✅; BATCH 8 added)
 
 ---
 
@@ -726,7 +726,7 @@ Standalone quality improvements that don't fit earlier batches. All are XS, SPDD
 | Issue | Type | Title | Size | Status |
 |-------|------|-------|------|--------|
 | [#373](https://github.com/zynax-io/zynax/issues/373) | refactor | Thread ctx in workflow-compiler gRPC handlers | XS | ✅ Done |
-| [#374](https://github.com/zynax-io/zynax/issues/374) | docs | ctx-first mandate in services/AGENTS.md + Temporal comment | XS | ⬜ |
+| [#374](https://github.com/zynax-io/zynax/issues/374) | docs | ctx-first mandate in services/AGENTS.md + Temporal comment | XS | ✅ Done |
 | [#375](https://github.com/zynax-io/zynax/issues/375) | ci | Enable ruff D (Google docstrings) in agents/sdk | XS | ⬜ |
 
 ---

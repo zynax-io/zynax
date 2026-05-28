@@ -44,6 +44,10 @@ var nonRetryableActivityErrors = []string{
 func IRInterpreterWorkflow(ctx workflow.Context, ir *zynaxv1.WorkflowIR) error {
 	exec := &temporalActivityExecutor{ctx: ctx}
 	pub := &temporalEventPublisher{ctx: ctx}
+	// context.Background() is intentional: workflow.Context cannot be converted to
+	// context.Context without breaking Temporal's replay determinism (ADR-015).
+	// IRInterpreter.Run performs no I/O itself; all I/O is delegated to exec/pub,
+	// which receive workflow.Context via their struct fields.
 	if err := (&domain.IRInterpreter{}).Run(context.Background(), ir, exec, pub); err != nil {
 		return fmt.Errorf("engine-adapter: %w", err)
 	}

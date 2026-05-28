@@ -92,6 +92,31 @@ Never connect to a shared or external service from within a build-tagged test.
 
 ---
 
+## Context propagation
+
+Every domain function that performs I/O, calls gRPC, or may block **must** accept
+`ctx context.Context` as its first parameter and propagate it to every downstream call.
+
+Rules:
+- **Never use `context.Background()` or `context.TODO()`** in production domain or
+  infrastructure code, except where architecturally mandated (see the exception below).
+- **gRPC handlers** must call `ctx.Err()` at entry and return
+  `status.FromContextError(err).Err()` if the context is already cancelled:
+  ```go
+  if err := ctx.Err(); err != nil {
+      return nil, status.FromContextError(err).Err()
+  }
+  ```
+- **Temporal workflow functions** are the one documented exception: inside a
+  `workflow.Function` the context is `workflow.Context`, not `context.Context`.
+  Temporal's replay determinism constraint prevents converting `workflow.Context` to
+  `context.Context` with a live deadline. Domain functions called from a workflow
+  function receive `context.Background()` intentionally — see ADR-015.
+  Activities (functions registered with `workflow.RegisterActivity`) receive a normal
+  `context.Context` and must propagate it.
+
+---
+
 ## Key ADRs
 
 | ADR | Governs |
@@ -99,6 +124,7 @@ Never connect to a shared or external service from within a build-tagged test.
 | [ADR-001](../docs/adr/ADR-001-grpc-inter-service-protocol.md) | gRPC as the only inter-service protocol |
 | [ADR-008](../docs/adr/ADR-008-no-shared-databases.md) | Each service owns its own schema |
 | [ADR-009](../docs/adr/ADR-009-language-strategy.md) | Go for all platform services |
+| [ADR-015](../docs/adr/ADR-015-temporal-engine-adapter.md) | Temporal integration — workflow vs activity context |
 | [ADR-016](../docs/adr/ADR-016-layered-testing-strategy.md) | Testing pyramid |
 | [ADR-017](../docs/adr/ADR-017-contract-test-isolation.md) | GOWORK=off for all `go` commands |
 
