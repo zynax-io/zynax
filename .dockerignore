@@ -74,4 +74,5 @@ infra/k8s/
 !agents/adapters/llm/
 !agents/adapters/langgraph/
 !protos/generated/go/
+!protos/generated/python/
 !tools/healthcheck/

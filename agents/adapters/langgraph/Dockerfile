@@ -14,7 +14,7 @@
 # modules via a volume or build a custom image extending this one.
 
 # renovate: datasource=docker depName=python versioning=docker
-FROM python:3.12-slim@sha256:68f78b84b35ab1d74a1a7a04a5447b2d1f5fcf0b7f38dee97a3a1de3c2eac65e AS builder
+FROM python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203 AS builder
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ COPY agents/adapters/langgraph/pyproject.toml agents/adapters/langgraph/uv.lock 
 RUN uv sync --no-dev --no-install-project --frozen
 
 # renovate: datasource=docker depName=python versioning=docker
-FROM python:3.12-slim@sha256:68f78b84b35ab1d74a1a7a04a5447b2d1f5fcf0b7f38dee97a3a1de3c2eac65e
+FROM python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
 
 WORKDIR /app
 
