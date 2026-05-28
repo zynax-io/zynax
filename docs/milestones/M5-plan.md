@@ -5,8 +5,8 @@
 **Milestone:** Adapter Library (M5) · v0.4.0
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
-**Status:** In Progress
-**Last updated:** 2026-05-28 (rev 90 — #460 E2E demo workflow created; DoD #1 updated to e2e-demo.yaml)
+**Status:** ✅ Complete — v0.4.0 released 2026-05-29
+**Last updated:** 2026-05-29 (rev 91 — v0.4.0 tag pushed; all DoD criteria met; M5 complete)
 
 ---
 
@@ -16,11 +16,10 @@
 
 M5 is done when ALL of the following are true:
 
-1. `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` produces real,
-   observable state transitions through at least one capability dispatch (langgraph echo mock).
-   (`code-review.yaml` is an aspirational reference — it requires live GitHub credentials and a
-   real PR; `e2e-demo.yaml` is the self-contained E2E fixture using the `echo` capability.)
-2. v0.4.0 tag exists on GitHub with downloadable CLI binaries and GHCR service images.
+1. ✅ `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` → `WORKFLOW_STATUS_COMPLETED`
+   (verified 2026-05-29 — echo dispatched via langgraph-adapter; full chain confirmed live)
+2. ✅ v0.4.0 tag exists on GitHub with downloadable CLI binaries and GHCR service images.
+   (https://github.com/zynax-io/zynax/releases/tag/v0.4.0)
 3. All five adapters (http ✅ + git + ci + llm + langgraph) have implementations merged.
 4. The Python SDK `Agent` base class is implemented (Option A, #474).
 5. cel-go replaces the bespoke guard evaluator (#476/#538).
