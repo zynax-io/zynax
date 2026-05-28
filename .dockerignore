@@ -69,4 +69,9 @@ infra/k8s/
 # Adapter Dockerfiles are built from repo root and need their module source
 # plus the generated proto stubs to resolve the workspace replace directive.
 !agents/adapters/http/
+!agents/adapters/git/
+!agents/adapters/ci/
+!agents/adapters/llm/
+!agents/adapters/langgraph/
 !protos/generated/go/
+!tools/healthcheck/
