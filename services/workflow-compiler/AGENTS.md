@@ -1,13 +1,12 @@
 # services/workflow-compiler — AGENTS.md
 
 > Go 1.26.3. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M2 Complete.** Fully implemented — one of two complete platform services (M3 adds engine-adapter).
+> **Status: M5 Complete.** Fully implemented — YAML → WorkflowIR, structured error list, cel-go guard wiring. IR store is in-memory (durable storage in M6, #466).
 
-> **⚠ Persistence limitation (M5):** The IR store is an unbounded in-memory map (`sync.RWMutex` +
+> **⚠ Persistence limitation (M6):** The IR store is an unbounded in-memory map (`sync.RWMutex` +
 > `map[string]*WorkflowIR`) with **no TTL, no eviction, and no persistence across restarts**.
-> `GetCompiledWorkflow` returns `NOT_FOUND` after any pod restart. There is no 30-day retention
-> guarantee in M5. Durable retention is tracked in [#466](https://github.com/zynax-io/zynax/issues/466)
-> (M6 — stateless-compiler refactor).
+> `GetCompiledWorkflow` returns `NOT_FOUND` after any pod restart. Durable retention is tracked in
+> [#466](https://github.com/zynax-io/zynax/issues/466) (M6 — stateless-compiler refactor).
 
 ---
 

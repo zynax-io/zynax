@@ -7,7 +7,7 @@
 **Issue:** #476 (Epic)
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-19
-**Status:** Aligned
+**Status:** Implemented
 
 **Parent epic:** [#459 M5.B Engine Correctness Hardening](https://github.com/zynax-io/zynax/issues/459)
 **Track:** M5.B

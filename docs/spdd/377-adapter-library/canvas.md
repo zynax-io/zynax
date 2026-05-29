@@ -9,7 +9,7 @@
 **Issue:** #377
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-07
-**Status:** Aligned
+**Status:** Implemented
 
 > **Scope note:** This is a milestone-level Canvas. It states the M5 objective and cross-cutting
 > constraints for all five adapters. Each child `feat:` issue carries its own Aligned Canvas before

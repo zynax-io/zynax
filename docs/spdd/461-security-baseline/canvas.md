@@ -7,7 +7,7 @@
 **Issue:** #461
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-18
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #482 (bearer-token auth) · #483 (event publish observability) · #484 (request ID propagation)
 

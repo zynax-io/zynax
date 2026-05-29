@@ -9,7 +9,7 @@
 **Issue:** #479 (Epic)
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-19
-**Status:** Aligned
+**Status:** Implemented
 
 **Parent epic:** [#460 M5.C Capability Dispatch End-to-End](https://github.com/zynax-io/zynax/issues/460)
 **Continues:** [#460 canvas](../460-capability-dispatch/canvas.md) O1

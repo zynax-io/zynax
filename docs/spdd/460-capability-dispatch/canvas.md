@@ -7,7 +7,7 @@
 **Issue:** #460
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-18
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #479 (task-broker MVP — code merged; cleanup: #530 #531 #532) · #480 (agent-registry MVP — steps: #526 #527 #528) · #481 (compose wiring)
 

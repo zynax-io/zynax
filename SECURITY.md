@@ -30,21 +30,21 @@ Include: description, reproduction steps, impact assessment, and suggested fix i
 See `AGENTS.md`, `docs/adr/ADR-001`, `ADR-008` and `docs/reviews/04-architecture-gaps.md` for the full security posture.
 
 ### Current (shipped)
-- Non-root containers — all service images run as `USER zynax` (uid 1001)
-- Bearer-token authentication on all mutating api-gateway endpoints
+- Non-root containers — all service images use `gcr.io/distroless/static:nonroot` (uid 65532)
+- Bearer-token authentication on all mutating api-gateway endpoints (constant-time compare ✅ #567)
+- `ReadHeaderTimeout` + `MaxBytesReader` on HTTP server (slow-read DoS protection ✅ #568)
 - X-Request-ID correlation propagated across all services
 - Structured JSON logging with no sensitive fields
 - Renovate dependency updates (weekly, patch auto-merge)
 - Trivy CVE scanning in release pipeline (#565)
 - `ZYNAX_API_KEY` required at startup — gateway refuses to start without it
+- gRPC call deadlines on all outbound calls (#622); configurable via `ZYNAX_GRPC_TIMEOUT_MS`
 
-### In Progress
-- SBOM per release artifact — tracked by [#235](https://github.com/zynax-io/zynax/issues/235) / [#556](https://github.com/zynax-io/zynax/issues/556)
+### In Progress (M6)
+- SBOM per release artifact — tracked by [#235](https://github.com/zynax-io/zynax/issues/235) / [#489](https://github.com/zynax-io/zynax/issues/489)
 - cosign-signed images (SLSA L2) — tracked by [#239](https://github.com/zynax-io/zynax/issues/239) / [#489](https://github.com/zynax-io/zynax/issues/489)
-- Constant-time bearer comparison — tracked by [#567](https://github.com/zynax-io/zynax/issues/567) (to be filed)
 
 ### Planned (M6+)
 - mTLS between all platform services — tracked by [#464](https://github.com/zynax-io/zynax/issues/464) / [#488](https://github.com/zynax-io/zynax/issues/488)
 - OIDC/JWT authentication replacing static bearer token
 - Rate limiting on `POST /api/v1/apply`
-- `ReadHeaderTimeout` on all HTTP servers
