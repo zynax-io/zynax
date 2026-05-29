@@ -15,10 +15,12 @@
 | M3 — Temporal Execution | ⚠ Partial | v0.2.0 |
 | M4 — YAML System + CLI | ⚠ Partial | v0.3.0 |
 | **M5 — Adapter Library** | ✅ **Complete** | **v0.4.0** |
+| **M6 — K8s Production-Ready** | 🔜 **Next** | — |
 
 M3/M4 are partial because task-broker and agent-registry were not delivered in those milestones.
 Both completed under M5.C (#460). CloudEvents publishing is log-only (not wired to NATS).
 v0.4.0 tag pushed 2026-05-29; GitHub Release live at https://github.com/zynax-io/zynax/releases/tag/v0.4.0
+GitHub milestone "Adapter Library (M5)" closed 2026-05-29; 5 deferred issues (#235 #239 #376 #466 #656) moved to M6.
 See [docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md).
 
 ---

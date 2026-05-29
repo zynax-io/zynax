@@ -5,8 +5,8 @@
 **Milestone:** Adapter Library (M5) · v0.4.0
 **GitHub Milestone:** [Adapter Library (M5)](https://github.com/zynax-io/zynax/milestone/5)
 **Parent epic:** [#377](https://github.com/zynax-io/zynax/issues/377)
-**Status:** ✅ Complete — v0.4.0 released 2026-05-29
-**Last updated:** 2026-05-29 (rev 91 — v0.4.0 tag pushed; all DoD criteria met; M5 complete)
+**Status:** ✅ Complete — v0.4.0 released 2026-05-29; GitHub milestone closed 2026-05-29
+**Last updated:** 2026-05-29 (rev 92 — GitHub milestone closed; 5 deferred issues moved to M6)
 
 ---
 
@@ -715,7 +715,7 @@ open issues. File them before or during M5 execution:
 | README status table | High | [#579](https://github.com/zynax-io/zynax/issues/579) | M5 |
 | ~~NEW-1: gRPC call deadlines~~ | High | ~~[#622](https://github.com/zynax-io/zynax/issues/622)~~ | ✅ Done |
 | NEW-4: `ZYNAX_GW_API_KEY=""` bypass | High | [#623](https://github.com/zynax-io/zynax/issues/623) | M5 |
-| H1: Stateless workflow-compiler (OOM risk R4) | **High** | [#466](https://github.com/zynax-io/zynax/issues/466) | M5 (**promoted from M6** 2026-05-21) |
+| H1: Stateless workflow-compiler (OOM risk R4) | **High** | [#466](https://github.com/zynax-io/zynax/issues/466) | M6 (deferred — not completed in M5) |
 | ~~Architecture overhaul docs (tracking)~~ | — | ~~[#624](https://github.com/zynax-io/zynax/issues/624)~~ ✅ Done | M5 |
 | PE-1: Stale `COMPILER_ADDR` default (`50051` vs actual `50054`) | **High** | [#661](https://github.com/zynax-io/zynax/issues/661) | M5 |
 | PE-2: `sbom` + `scan-image` Makefile targets broken (wrong build context) | **High** | [#662](https://github.com/zynax-io/zynax/issues/662) | M5 |
@@ -749,7 +749,7 @@ Open M5 milestone issues not previously tracked in this plan. All are SPDD-exemp
 | [#229](https://github.com/zynax-io/zynax/issues/229) | refactor | Strip explanatory comments in agents/sdk + agents/examples | S | ✅ |
 | [#232](https://github.com/zynax-io/zynax/issues/232) | docs | Architecture fitness functions — document all CI gates | XS | ✅ Done |
 | [#248](https://github.com/zynax-io/zynax/issues/248) | docs | AI-output review checklist in PR template + ai-review-guide | S | ✅ Done |
-| [#376](https://github.com/zynax-io/zynax/issues/376) | docs | Google-style docstrings — step 2 (blocked on SDK modules) | M | ⬜ blocked |
+| [#376](https://github.com/zynax-io/zynax/issues/376) | docs | Google-style docstrings — step 2 (blocked on SDK modules) | M | ➡ M6 (moved — blocked until SDK runtime modules exist) |
 
 **Notes:**
 - #235 (SBOM) and #239 (SLSA provenance) are superseded by M6.C child #489 — close when M6 goes active.
