@@ -1,7 +1,7 @@
 # services/agent-registry — AGENTS.md
 
 > Go 1.26.3. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M5.C (active).** gRPC service wired with in-memory store (M5); persistence deferred to M6.
+> **Status: M5 Complete.** gRPC service wired with in-memory round-robin store; compose-wired (#481); persistence deferred to M6 (#480 delivered).
 
 ---
 

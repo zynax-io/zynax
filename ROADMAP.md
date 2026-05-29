@@ -125,29 +125,30 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 5 — Adapter Library 🔄 In Progress (v0.4.0)
+## Milestone 5 — Adapter Library ✅ Complete (v0.4.0)
 
 **Goal:** Existing systems become capabilities without SDK adoption. First green E2E demo.
 
-> Label: `milestone: M5` · Epic: [#377](https://github.com/zynax-io/zynax/issues/377)
-> Execution plan: [docs/milestones/M5-plan.md](docs/milestones/M5-plan.md)
+> Released 2026-05-29. Label: `milestone: M5` · Epic: [#377](https://github.com/zynax-io/zynax/issues/377)
+> Full plan: [docs/milestones/M5-plan.md](docs/milestones/M5-plan.md)
 
-### M5 Definition of Done (7 criteria)
-1. `make run-local && zynax apply code-review.yaml` → real state transitions + ≥1 dispatch
-2. v0.4.0 tag with downloadable CLI + GHCR images
-3. All 5 adapters (http ✅ + git + ci + llm + langgraph) merged
-4. Python SDK `Agent` base class implemented ✅
-5. cel-go replaces bespoke guard evaluator ✅
-6. SECURITY.md matches shipped reality ✅
-7. CI < 10 minutes per PR 🟡
+### M5 Definition of Done (7/7 criteria met)
 
-### M5.A — Truth Pass ([#458](https://github.com/zynax-io/zynax/issues/458))
+1. [x] `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` → `WORKFLOW_STATUS_COMPLETED`
+2. [x] v0.4.0 tag with downloadable CLI + GHCR images (released 2026-05-29)
+3. [x] All 5 adapters merged (http ✅ git ✅ ci ✅ llm ✅ langgraph ✅)
+4. [x] Python SDK `Agent` base class implemented (#474 / #535 #536 #537)
+5. [x] cel-go replaces bespoke guard evaluator (#476 / #538 #539 #540)
+6. [x] SECURITY.md matches shipped reality
+7. [x] CI < 10 minutes per PR (#552)
+
+### M5.A — Truth Pass ([#458](https://github.com/zynax-io/zynax/issues/458)) ✅
 
 - [x] Remove CNCF Sandbox Candidate badge (#472)
 - [x] Audit CHANGELOG for phantom entries (#473)
 - [x] Python SDK Agent base class (#474 / #535 #536 #537)
 - [x] Fix SECURITY.md — remove mTLS/SBOM/cosign false claims
-- [ ] Add per-service status table to README (#579)
+- [x] Add per-service status table to README (#579)
 
 ### M5.B — Engine Correctness Hardening ([#459](https://github.com/zynax-io/zynax/issues/459)) ✅
 
@@ -156,11 +157,11 @@ Each roadmap milestone maps to a GitHub Milestone:
 - [x] Return full `CompilationError` list from `CompileWorkflow` (#477)
 - [x] Fix SSE `WriteTimeout` breaking `zynax logs` at 30 s (#478)
 
-### M5.C — Capability Dispatch End-to-End ([#460](https://github.com/zynax-io/zynax/issues/460)) 🔴 Critical path
+### M5.C — Capability Dispatch End-to-End ([#460](https://github.com/zynax-io/zynax/issues/460)) ✅
 
-- [x] `task-broker` MVP: in-memory `TaskBrokerService`, 5 RPCs, 92.7% coverage (#479 / #520 #522 #523)
-- [ ] `agent-registry` MVP: BDD trim (#526) → domain (#527) → gRPC wiring (#528)
-- [ ] Docker Compose wiring: task-broker + agent-registry in `make run-local` (#481)
+- [x] `task-broker` MVP: in-memory `TaskBrokerService`, 5 RPCs, 92.7% domain coverage (#479)
+- [x] `agent-registry` MVP: domain (#527) → gRPC wiring (#528) → in-memory round-robin (#480)
+- [x] Docker Compose wiring: task-broker + agent-registry in `make run-local` (#481)
 
 ### M5.D — Control Plane Security Baseline ([#461](https://github.com/zynax-io/zynax/issues/461)) ✅
 
@@ -174,23 +175,24 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 - [x] Idempotent apply and compose consolidation (#485 #486)
 
-### M5.F — CI/CD Performance Sprint ([#542](https://github.com/zynax-io/zynax/issues/542)) 🟡
+### M5.F — CI/CD Performance Sprint ([#542](https://github.com/zynax-io/zynax/issues/542)) ✅
 
 - [x] Concurrency + stale-run cancellation (#545)
 - [x] Unified release workflow — fix race condition (#557)
-- [x] v0.4.0 CHANGELOG promoted; tag push pending
+- [x] v0.4.0 tag pushed and GitHub Release live
 - [x] All service/adapter images public on GHCR (#562)
 - [x] CI runner container image (#551 #552)
-- [ ] Force-full-pipeline trigger (#554)
-- [ ] Per-service change detection (#549 #550)
+- [x] Force-full-pipeline trigger (#554)
+- [x] Per-service change detection (#549 #550)
+- [x] DRY/KISS CI refactor (#555)
 
-### Adapter Library ([#377](https://github.com/zynax-io/zynax/issues/377))
+### Adapter Library ([#377](https://github.com/zynax-io/zynax/issues/377)) ✅
 
 - [x] `http-adapter`: REST API proxy — all step issues merged (#380)
-- [ ] `git-adapter`: `open_pr`, `request_review`, `get_diff` (#381 — BDD done, impl pending #481)
-- [ ] `ci-adapter`: `trigger_workflow`, `get_run_status` (#382 — BDD done, impl pending #481)
-- [ ] `llm-adapter`: OpenAI / Bedrock / Ollama `chat_completion` (#383 — BDD done, impl pending #481)
-- [ ] `langgraph-adapter`: LangGraph StateGraph as Zynax capabilities (#384 — BDD done, impl pending #481)
+- [x] `git-adapter`: `open_pr`, `request_review`, `get_diff` — all steps merged (#381); coverage ≥85% (#713)
+- [x] `ci-adapter`: `trigger_workflow`, `get_run_status` — all steps merged (#382)
+- [x] `llm-adapter`: OpenAI / Bedrock / Ollama `chat_completion` — all steps merged (#383)
+- [x] `langgraph-adapter`: LangGraph StateGraph as Zynax capabilities — all steps merged (#384); wired in e2e-demo
 
 ---
 

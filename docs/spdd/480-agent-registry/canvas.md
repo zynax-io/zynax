@@ -7,7 +7,7 @@
 **Issue:** #480 (Epic)
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-19
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #526 (BDD trim) · #527 (domain layer) · #528 (gRPC wiring + cmd)
 **Continues:** #481 (compose wiring, existing)

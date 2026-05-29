@@ -3,7 +3,7 @@
 **Issue:** #442
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-13
-**Status:** Aligned
+**Status:** Implemented
 
 ---
 

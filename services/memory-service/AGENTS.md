@@ -1,7 +1,7 @@
 # services/memory-service — AGENTS.md
 
 > Go 1.22+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M5+ (not yet implemented).** BDD contract tests exist in `protos/tests/`.
+> **Status: M6+ (not yet implemented).** BDD contract tests exist in `protos/tests/`.
 
 ---
 

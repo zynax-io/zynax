@@ -7,7 +7,7 @@
 **Issue:** #459
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-18
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #475 (resolveTemplate determinism) · #476 (guard parser) · #477 (compiler error contract) · #478 (SSE WriteTimeout)
 

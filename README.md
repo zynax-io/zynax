@@ -359,7 +359,7 @@ make test        # full suite (unit + BDD + coverage gate)
 | **M2 — Workflow IR** | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
 | **M3 — Temporal Execution** | ⚠ **Partial** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) · task-broker + agent-registry delivered M5.C |
 | **M4 — YAML System + CLI** | ⚠ **Partial** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) · agent-registry delivered M5.C · compose wired (#481 ✅) |
-| **M5 — Adapter Library** | 🔄 **In Progress** | v0.4.0 | [Plan](docs/milestones/M5-plan.md) · all 5 adapters ✅ · M5.C ✅ · M5.D ✅ · M5.E ✅ · E2E demo + v0.4.0 tag pending |
+| **M5 — Adapter Library** | ✅ **Complete** | v0.4.0 | [Plan](docs/milestones/M5-plan.md) · all 5 adapters ✅ · M5.C ✅ · M5.D ✅ · M5.E ✅ · E2E demo ✅ · v0.4.0 released 2026-05-29 |
 
 **M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
 AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract
@@ -412,9 +412,9 @@ Current implementation status per service and adapter (as of M5 v0.4.0):
 |---------|----------|--------|-------|
 | http-adapter | Go | ✅ Complete | Generic HTTP capability bridge; SSRF-safe static routing |
 | git-adapter | Go | ✅ Complete | `open_pr`, `request_review`, `get_diff` via GitHub REST API |
-| ci-adapter | Go | 🔄 In Progress | BDD ✅; scaffold + handler pending ([#405](https://github.com/zynax-io/zynax/issues/405)+) |
-| llm-adapter | Python | 🔄 In Progress | BDD ✅; OpenAI/Bedrock/Ollama pending ([#410](https://github.com/zynax-io/zynax/issues/410)+) |
-| langgraph-adapter | Python | 🔄 In Progress | BDD ✅; graph-mount impl pending ([#415](https://github.com/zynax-io/zynax/issues/415)+) |
+| ci-adapter | Go | ✅ Complete | `trigger_workflow`, `get_run_status` via GitHub Actions REST API |
+| llm-adapter | Python | ✅ Complete | `chat_completion` — OpenAI, AWS Bedrock, Ollama |
+| langgraph-adapter | Python | ✅ Complete | LangGraph `StateGraph` as Zynax capabilities; wired in e2e-demo |
 
 **Legend:** ✅ Complete · 🟡 MVP (in-memory, ephemeral) · 🔄 In Progress · 📋 Planned
 

@@ -7,7 +7,7 @@
 **Issue:** #474 (Epic)
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-19
-**Status:** Aligned
+**Status:** Implemented
 
 **Parent epic:** [#458 M5.A Truth Pass](https://github.com/zynax-io/zynax/issues/458)
 **Track:** M5.A

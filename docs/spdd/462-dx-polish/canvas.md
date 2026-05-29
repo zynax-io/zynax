@@ -7,7 +7,7 @@
 **Issue:** #462
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-18
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #485 (idempotent Apply) · #486 (compose consolidation)
 

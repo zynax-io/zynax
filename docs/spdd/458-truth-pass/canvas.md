@@ -8,7 +8,7 @@
 **Issue:** #458
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-18
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #472 (remove CNCF badge + milestone status) · #473 (CHANGELOG audit) · #474 (Python SDK decision)
 

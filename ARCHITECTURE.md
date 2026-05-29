@@ -19,7 +19,7 @@
 | M2 — Workflow IR | ✅ **Complete** | v0.1.0 | YAML parser, WorkflowGraph builder, structural + semantic validators, WorkflowGraph→WorkflowIR serialisation, `CompileWorkflow`/`ValidateManifest`/`GetCompiledWorkflow` gRPC, JSON schemas for Workflow/AgentDef/Policy |
 | M3 — Temporal Execution | ⚠ **Partial** | v0.2.0 | `WorkflowEngine` interface, `TemporalEngine`, `IRInterpreterWorkflow` state machine, `DispatchCapabilityActivity`, cel-go guard evaluation, 5 `EngineAdapterService` gRPC methods. **Not delivered in M3:** task-broker + agent-registry (delivered M5.C #479/#480). CloudEvents publish is a log stub. |
 | M4 — YAML System + CLI | ⚠ **Partial** | v0.3.0 | api-gateway REST layer, `zynax` CLI, Docker Compose runner, GitOps watch. **Not delivered in M4:** agent-registry routing — delivered M5.C (#480); capability dispatch was unblocked by compose wiring (#481). |
-| M5 — Adapter Library | 🔄 **In Progress** | v0.4.0 | task-broker MVP, agent-registry MVP, compose wiring, git/ci/llm/langgraph adapters (all five adapters ✅), cel-go guard, Python SDK Agent base class, unified release pipeline, CI runner, distroless images, gRPC deadlines. **Remaining:** E2E demo · v0.4.0 tag · #555 CI refactor. See `docs/milestones/M5-plan.md`. |
+| M5 — Adapter Library | ✅ **Complete** | v0.4.0 | task-broker MVP, agent-registry MVP, compose wiring, all five adapters (http ✅ git ✅ ci ✅ llm ✅ langgraph ✅), cel-go guard, Python SDK `Agent` base class, unified release pipeline, CI runner, distroless images, gRPC deadlines, e2e-demo wired. Released 2026-05-29. See `docs/milestones/M5-plan.md`. |
 | M6 — K8s Production | 📅 **Planned** | v0.5.0 | TLS/mTLS (ADR-020), SBOM+cosign, persistent stores, rate limiting, OTel baseline, Helm charts |
 | M7 — Full Observability | 📅 **Planned** | v0.6.0 | Benchmarks, load tests, SLOs, Watch polling fix |
 | M8 — CNCF Sandbox | 📅 **Planned** | v1.0.0 | Community traction, second maintainer, trademark policy |
@@ -86,9 +86,9 @@ Layer 3 engines are always behind the `WorkflowEngine` interface.
             └──────────┬──────────────┘
                        │ HTTP/REST :7080
             ┌──────────▼──────────────┐
-            │  api-gateway  ✅         │  bearer-token auth (non-const-time ⚠ #567)
+            │  api-gateway  ✅         │  bearer-token auth (constant-time ✅ #567)
             │  POST /api/v1/apply      │  X-Request-ID propagation
-            │  GET  /api/v1/workflows  │  no ReadHeaderTimeout ⚠ #568
+            │  GET  /api/v1/workflows  │  ReadHeaderTimeout ✅ #568
             └──────┬──────────┬───────┘
                    │          │ gRPC (insecure ⚠ — no TLS yet)
           ┌────────▼──────┐ ┌─▼─────────────────┐
@@ -100,14 +100,13 @@ Layer 3 engines are always behind the `WorkflowEngine` interface.
                                       │ gRPC: DispatchCapabilityActivity
                                       ▼
                             ┌─────────────────────┐
-                            │ task-broker 🟡        │  in-memory only
-                            │ round-robin dispatch  │  NOT in compose (#481)
-                            │ no RetryPolicy ⚠ #569│
+                            │ task-broker 🟡        │  in-memory only (Postgres in M6)
+                            │ round-robin dispatch  │  wired in compose (#481 ✅)
                             └──────────┬────────────┘
                                        │ FindByCapability + ExecuteCapability gRPC
                                        ▼
                   ┌────────────────────────────────────────┐
-                  │ agent-registry  ❌ 0 LoC (#480 pending) │
+                  │ agent-registry  🟡 In-memory MVP ✅       │
                   │ event-bus       ❌ 0 LoC (M6+)          │
                   │ memory-service  ❌ 0 LoC (M6+)          │
                   └────────────────────────────────────────┘
@@ -115,18 +114,18 @@ Layer 3 engines are always behind the `WorkflowEngine` interface.
                   ┌────────────────────────────────────────┐
                   │ Adapters (Layer 4 — Python + Go)        │
                   │ http-adapter ✅ (Go)                     │
-                  │ git-adapter  🟡 BDD done, impl pending  │
-                  │ ci-adapter   🟡 BDD done, impl pending  │
-                  │ llm-adapter  🟡 BDD done, impl pending  │
-                  │ langgraph    🟡 BDD done, impl pending  │
+                  │ git-adapter  ✅ (Go)                     │
+                  │ ci-adapter   ✅ (Go)                     │
+                  │ llm-adapter  ✅ (Python)                 │
+                  │ langgraph    ✅ (Python)                 │
                   └────────────────────────────────────────┘
 ```
 
 **Legend:** ✅ Implemented · 🟡 Partial / in-progress · ❌ Not yet implemented · ⚠ Known issue with issue link
 
-> **Critical note:** Every workflow with capability actions will fail at the first
-> `DispatchCapabilityActivity` until task-broker is in the compose stack and
-> agent-registry is implemented. This is M5.C tracked by #460 / #481.
+> **M5.C complete:** End-to-end capability dispatch is fully wired. task-broker and
+> agent-registry are in the compose stack (#481 ✅). Run `make run-local && zynax apply
+> spec/workflows/examples/e2e-demo.yaml` to observe a full dispatch round-trip.
 
 ---
 
@@ -240,7 +239,7 @@ Capability routing (loose): task → capability:summarize
 Named routing breaks when an agent is replaced. Capability routing decouples the workflow
 definition from any specific executor — swap a summarizer, zero workflow changes.
 
-### Capability Resolution Flow (M5.C target state)
+### Capability Resolution Flow (implemented in M5.C)
 
 ```
 Workflow YAML:
@@ -291,9 +290,9 @@ execution from any engine. Adding `ArgoEngine` or `LangGraphEngine` is ~500 LoC,
 
 ### Activity RetryPolicy Note
 
-Temporal's default Activity retry is exponential backoff with no max attempts — **this means
-permanent failures (e.g. capability not found) will retry forever**. Explicit `RetryPolicy`
-must be set on `DispatchCapabilityActivity`. Tracked by #569.
+Temporal's default Activity retry is exponential backoff with no max attempts. An explicit
+`RetryPolicy` is set on `DispatchCapabilityActivity` (3 max attempts, non-retryable on
+`ErrCapabilityNotFound` and gRPC `NOT_FOUND` — fixed #569).
 
 ---
 
@@ -367,7 +366,7 @@ two domain interfaces (`ActivityExecutor`, `EventPublisher`). The Temporal SDK a
 
 ---
 
-## 10. Service LoC Inventory (as of 2026-05-21)
+## 10. Service LoC Inventory (as of 2026-05-29)
 
 | Service | Code LoC | Test LoC | Status |
 |---|---:|---:|---|
@@ -375,7 +374,7 @@ two domain interfaces (`ActivityExecutor`, `EventPublisher`). The Temporal SDK a
 | engine-adapter | ~1,143 | ~1,209 | ✅ Implemented |
 | api-gateway | ~1,047 | ~1,071 | ✅ Implemented |
 | task-broker | ~905 | ~455 | 🟡 In-memory MVP |
-| agent-registry | 0 | 0 | ❌ Stub (BDD files only) |
+| agent-registry | ~565 | ~691 | 🟡 In-memory MVP |
 | event-bus | 0 | 0 | ❌ Stub |
 | memory-service | 0 | 0 | ❌ Stub |
 | cmd/zynax | ~1,470 | ~1,200 | ✅ Implemented |
@@ -440,13 +439,10 @@ See ADR-017 and `docs/decisions/004-gowork-off-isolation.md`.
 
 | Limitation | Severity | Tracked by | Target milestone |
 |---|---|---|---|
-| No E2E capability dispatch (agent-registry missing) | Critical | #460 | M5 |
-| workflow-compiler IR store unbounded in-memory | High | #466 | M5 |
+| workflow-compiler IR store unbounded in-memory | High | #466 | M6 |
 | All inter-service gRPC insecure (no TLS) | High | #488 / ADR-020 | M6 |
-| Bearer-token compare not constant-time | High | #567 | M5 |
-| No OTel tracing on api-gateway + engine-adapter | High | #491 | M5/M6 |
+| No OTel tracing on api-gateway + engine-adapter | High | #491 | M6 |
 | CloudEvents publishing is a log stub | High | #460 | M6 |
-| Temporal Activity with no explicit RetryPolicy | Medium | #569 | M5 |
 | No rate limiting on POST /apply | Medium | #580 | M6 |
 | No SBOM / cosign / SLSA provenance | High | #489 | M6 |
 

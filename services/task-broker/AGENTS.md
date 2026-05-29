@@ -1,8 +1,7 @@
 # services/task-broker — AGENTS.md
 
 > Go 1.26.3+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M5 Implemented — quality cleanup in progress (#531, #532).**
-> Implementation merged in PRs #520, #522, #523. BDD contract tests in `protos/tests/task_broker_service/`.
+> **Status: M5 Complete** — Implementation merged in PRs #520, #522, #523. BDD aligned (#531), handler unit tests complete (#532). Domain coverage 92.7%. BDD contract tests in `protos/tests/task_broker_service/`.
 
 ---
 
