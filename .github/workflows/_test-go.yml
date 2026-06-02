@@ -188,8 +188,20 @@ jobs:
       - name: Service BDD tests (godog)
         if: steps.go-detect.outputs.has_svc_bdd != '0'
         run: |
-          bash tools/ci/run-go-svc-loop.sh services/ "${{ env.SERVICE_LIST }}" -- \
-            go test ./tests/... -v -timeout 120s
+          # Build a filtered list: only services whose tests/ dir has *_test.go files.
+          # Services with a feature spec but no step implementations yet are skipped
+          # gracefully — `go test ./tests/...` exits 1 on no packages, so we pre-filter.
+          svc_bdd_list=""
+          for svc in ${{ env.SERVICE_LIST }}; do
+            if find "services/${svc}/tests" -name "*_test.go" 2>/dev/null | grep -q .; then
+              svc_bdd_list="${svc_bdd_list} ${svc}"
+            fi
+          done
+          svc_bdd_list="${svc_bdd_list# }"
+          if [ -n "$svc_bdd_list" ]; then
+            bash tools/ci/run-go-svc-loop.sh services/ "$svc_bdd_list" -- \
+              go test ./tests/... -v -timeout 120s
+          fi
           echo "✅ Service BDD tests passed"
 
       - name: No service BDD step implementations yet
