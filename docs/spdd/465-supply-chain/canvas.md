@@ -7,7 +7,7 @@
 **Issue:** #465
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-18
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #489 (cosign + SBOM + multi-arch)
 
