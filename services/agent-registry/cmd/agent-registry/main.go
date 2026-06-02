@@ -29,6 +29,9 @@ import (
 type config struct {
 	GRPCPort int    `envconfig:"GRPC_PORT" default:"50052"`
 	LogLevel string `envconfig:"LOG_LEVEL" default:"info"`
+	TLSCert  string `envconfig:"TLS_CERT"`
+	TLSKey   string `envconfig:"TLS_KEY"`
+	TLSCA    string `envconfig:"TLS_CA"`
 }
 
 func main() {
@@ -47,10 +50,15 @@ func main() {
 }
 
 func run(cfg config) error {
+	creds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	if err != nil {
+		return fmt.Errorf("agent-registry: tls credentials: %w", err)
+	}
+
 	repo := infrastructure.NewMemoryRepo()
 	svc := domain.NewAgentRegistryService(repo)
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(grpc.Creds(creds))
 	reflection.Register(srv)
 	zynaxv1.RegisterAgentRegistryServiceServer(srv, api.NewHandler(svc))
 

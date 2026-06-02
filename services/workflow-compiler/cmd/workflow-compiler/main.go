@@ -27,6 +27,7 @@ import (
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/api"
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/config"
+	"github.com/zynax-io/zynax/services/workflow-compiler/internal/infrastructure"
 )
 
 func main() {
@@ -40,7 +41,14 @@ func main() {
 		Level: parseLogLevel(cfg.LogLevel),
 	})))
 
+	serverCreds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	if err != nil {
+		slog.Error("tls credentials failed", "err", err)
+		os.Exit(1)
+	}
+
 	grpcServer := grpc.NewServer(
+		grpc.Creds(serverCreds),
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(requestIDServerInterceptor),
 	)

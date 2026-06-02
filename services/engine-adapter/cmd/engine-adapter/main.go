@@ -21,7 +21,6 @@ import (
 	"go.temporal.io/sdk/worker"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
@@ -45,6 +44,9 @@ type config struct {
 	GRPCCallTimeoutS    int
 	MaxActivityAttempts int32
 	LivenessThresholdS  int
+	TLSCert             string
+	TLSKey              string
+	TLSCA               string
 }
 
 func loadConfig() config {
@@ -60,6 +62,9 @@ func loadConfig() config {
 		GRPCCallTimeoutS:    getEnvInt("ZYNAX_ENGINE_ADAPTER_GRPC_CALL_TIMEOUT_S", 30),
 		MaxActivityAttempts: getEnvInt32("ZYNAX_ENGINE_MAX_ACTIVITY_ATTEMPTS", 3),
 		LivenessThresholdS:  getEnvInt("ZYNAX_ENGINE_ADAPTER_LIVENESS_THRESHOLD_S", 60),
+		TLSCert:             getEnv("ZYNAX_TLS_CERT", ""),
+		TLSKey:              getEnv("ZYNAX_TLS_KEY", ""),
+		TLSCA:               getEnv("ZYNAX_TLS_CA", ""),
 	}
 }
 
@@ -139,9 +144,14 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientConn, e
 		return nil, func() {}, nil, fmt.Errorf("temporal client: %w", err)
 	}
 
+	brokerCreds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	if err != nil {
+		tc.Close()
+		return nil, func() {}, nil, fmt.Errorf("tls credentials: %w", err)
+	}
 	brokerConn, err := grpc.NewClient(
 		cfg.TaskBrokerAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(brokerCreds),
 	)
 	if err != nil {
 		tc.Close()
@@ -172,7 +182,12 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientConn, e
 }
 
 func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*grpc.Server, error) {
+	serverCreds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	if err != nil {
+		return nil, fmt.Errorf("tls credentials: %w", err)
+	}
 	srv := grpc.NewServer(
+		grpc.Creds(serverCreds),
 		grpc.ChainUnaryInterceptor(makeRequestIDInterceptor(probes)),
 	)
 	reflection.Register(srv)

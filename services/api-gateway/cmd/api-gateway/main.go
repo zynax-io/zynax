@@ -32,6 +32,9 @@ type config struct {
 	DevInsecure        bool   `envconfig:"DEV_INSECURE"`
 	GRPCCallTimeoutS   int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
 	LivenessThresholdS int    `envconfig:"LIVENESS_THRESHOLD_S" default:"60"`
+	TLSCert            string `envconfig:"TLS_CERT"`
+	TLSKey             string `envconfig:"TLS_KEY"`
+	TLSCA              string `envconfig:"TLS_CA"`
 }
 
 // validateConfig rejects an empty API key unless ZYNAX_GW_DEV_INSECURE=1 is set.
@@ -71,7 +74,7 @@ func main() {
 // run contains the service lifecycle. Deferred cleanups execute before returning.
 func run(cfg config) error {
 	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
-	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, callTimeout)
+	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
 		return fmt.Errorf("gateway clients: %w", err)
 	}
