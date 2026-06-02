@@ -15,6 +15,7 @@ import (
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -28,6 +29,7 @@ type GatewayClients struct {
 	compiler    zynaxv1.WorkflowCompilerServiceClient
 	engine      zynaxv1.EngineAdapterServiceClient
 	registry    zynaxv1.AgentRegistryServiceClient
+	conns       []*grpc.ClientConn // retained for health checking
 	callTimeout time.Duration
 }
 
@@ -59,10 +61,26 @@ func NewGatewayClients(compilerAddr, engineAddr, registryAddr string, callTimeou
 		compiler:    zynaxv1.NewWorkflowCompilerServiceClient(compConn),
 		engine:      zynaxv1.NewEngineAdapterServiceClient(engConn),
 		registry:    zynaxv1.NewAgentRegistryServiceClient(regConn),
+		conns:       []*grpc.ClientConn{compConn, engConn, regConn},
 		callTimeout: callTimeout,
 	}
 	cleanup := func() { _ = compConn.Close(); _ = engConn.Close(); _ = regConn.Close() }
 	return c, cleanup, nil
+}
+
+// ReadyChecker returns a function that reports true when all downstream gRPC
+// connections are healthy (not in TransientFailure or Shutdown state).
+// Used by the readiness probe without blocking.
+func (c *GatewayClients) ReadyChecker() func() bool {
+	return func() bool {
+		for _, conn := range c.conns {
+			switch conn.GetState() {
+			case connectivity.TransientFailure, connectivity.Shutdown:
+				return false
+			}
+		}
+		return true
+	}
 }
 
 // CompileWorkflow implements domain.CompilerPort.

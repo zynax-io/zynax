@@ -76,16 +76,23 @@ func run(cfg config) error {
 	}
 	defer cleanup()
 
+	probes := api.NewProbes(clients.ReadyChecker())
+
 	svc := domain.NewApplyService(clients, clients, clients)
 	handler := api.NewHandler(svc, cfg.APIKey)
 
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
-	registerProbes(mux)
+	mux.HandleFunc("GET /startupz", probes.Startupz)
+	mux.HandleFunc("GET /readyz", probes.Readyz)
+	mux.HandleFunc("GET /livez", probes.Livez)
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+
+	probes.MarkStarted()
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
-		Handler:           maxBodyMiddleware(api.RequestIDMiddleware(mux)),
+		Handler:           maxBodyMiddleware(api.RequestIDMiddleware(recordWorkMiddleware(probes, mux))),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -115,11 +122,17 @@ func serveUntilShutdown(srv *http.Server, port int) error {
 	return nil
 }
 
-func registerProbes(mux *http.ServeMux) {
-	ok := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }
-	mux.HandleFunc("GET /healthz", ok)
-	mux.HandleFunc("GET /readyz", ok)
-	mux.HandleFunc("GET /startupz", ok)
+// recordWorkMiddleware calls probes.RecordWork() on every request that is not a probe path.
+func recordWorkMiddleware(p *api.Probes, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+		switch r.URL.Path {
+		case "/healthz", "/readyz", "/livez", "/startupz":
+			// probe paths do not count as work
+		default:
+			p.RecordWork()
+		}
+	})
 }
 
 func maxBodyMiddleware(next http.Handler) http.Handler {
