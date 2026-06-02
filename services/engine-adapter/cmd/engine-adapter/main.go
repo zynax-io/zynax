@@ -20,6 +20,7 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -43,6 +44,7 @@ type config struct {
 	ActiveEngine        string
 	GRPCCallTimeoutS    int
 	MaxActivityAttempts int32
+	LivenessThresholdS  int
 }
 
 func loadConfig() config {
@@ -57,6 +59,7 @@ func loadConfig() config {
 		ActiveEngine:        getEnv("ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE", "temporal"),
 		GRPCCallTimeoutS:    getEnvInt("ZYNAX_ENGINE_ADAPTER_GRPC_CALL_TIMEOUT_S", 30),
 		MaxActivityAttempts: getEnvInt32("ZYNAX_ENGINE_MAX_ACTIVITY_ATTEMPTS", 3),
+		LivenessThresholdS:  getEnvInt("ZYNAX_ENGINE_ADAPTER_LIVENESS_THRESHOLD_S", 60),
 	}
 }
 
@@ -74,18 +77,27 @@ func main() {
 
 // run contains the service lifecycle. Deferred cleanups execute before returning.
 func run(cfg config) error {
-	engine, cleanup, err := buildEngine(cfg)
+	engine, cleanup, brokerConn, err := buildEngine(cfg)
 	if err != nil {
 		return fmt.Errorf("engine setup: %w", err)
 	}
 	defer cleanup()
 
-	grpcSrv, err := startGRPC(cfg, engine)
+	brokerReadyFn := func() bool {
+		s := brokerConn.GetState()
+		return s != connectivity.TransientFailure && s != connectivity.Shutdown
+	}
+	probes := api.NewProbes(int64(cfg.LivenessThresholdS), brokerReadyFn)
+
+	grpcSrv, err := startGRPC(cfg, engine, probes)
 	if err != nil {
 		return fmt.Errorf("gRPC start: %w", err)
 	}
 
-	httpSrv := startHTTP(cfg)
+	httpSrv := startHTTP(cfg, probes)
+
+	// Mark started: engine built, Temporal worker running, gRPC server listening.
+	probes.MarkStarted()
 
 	slog.Info("engine-adapter started",
 		"grpc_port", cfg.GRPCPort,
@@ -111,9 +123,10 @@ func run(cfg config) error {
 
 // buildEngine creates the WorkflowEngine and its underlying Temporal worker.
 // The returned cleanup function stops the worker and closes connections.
-func buildEngine(cfg config) (domain.WorkflowEngine, func(), error) {
+// brokerConn is returned separately so main can use it for the readiness probe.
+func buildEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientConn, error) {
 	if cfg.ActiveEngine != "temporal" {
-		return nil, func() {}, fmt.Errorf("unsupported engine %q: only \"temporal\" is supported in M3", cfg.ActiveEngine)
+		return nil, func() {}, nil, fmt.Errorf("unsupported engine %q: only \"temporal\" is supported in M3", cfg.ActiveEngine)
 	}
 
 	infrastructure.DefaultActivityMaxAttempts = cfg.MaxActivityAttempts
@@ -123,7 +136,7 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), error) {
 		Namespace: cfg.TemporalNamespace,
 	})
 	if err != nil {
-		return nil, func() {}, fmt.Errorf("temporal client: %w", err)
+		return nil, func() {}, nil, fmt.Errorf("temporal client: %w", err)
 	}
 
 	brokerConn, err := grpc.NewClient(
@@ -132,7 +145,7 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), error) {
 	)
 	if err != nil {
 		tc.Close()
-		return nil, func() {}, fmt.Errorf("task-broker dial: %w", err)
+		return nil, func() {}, nil, fmt.Errorf("task-broker dial: %w", err)
 	}
 
 	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
@@ -146,7 +159,7 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), error) {
 	if err := w.Start(); err != nil {
 		tc.Close()
 		_ = brokerConn.Close()
-		return nil, func() {}, fmt.Errorf("temporal worker: %w", err)
+		return nil, func() {}, nil, fmt.Errorf("temporal worker: %w", err)
 	}
 
 	cleanup := func() {
@@ -155,12 +168,12 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), error) {
 		_ = brokerConn.Close()
 	}
 
-	return infrastructure.NewTemporalEngine(tc, cfg.TemporalTaskQueue, cfg.TemporalNamespace), cleanup, nil
+	return infrastructure.NewTemporalEngine(tc, cfg.TemporalTaskQueue, cfg.TemporalNamespace), cleanup, brokerConn, nil
 }
 
-func startGRPC(cfg config, engine domain.WorkflowEngine) (*grpc.Server, error) {
+func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*grpc.Server, error) {
 	srv := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(requestIDServerInterceptor),
+		grpc.ChainUnaryInterceptor(makeRequestIDInterceptor(probes)),
 	)
 	reflection.Register(srv)
 
@@ -183,17 +196,9 @@ func startGRPC(cfg config, engine domain.WorkflowEngine) (*grpc.Server, error) {
 	return srv, nil
 }
 
-func startHTTP(cfg config) *http.Server {
+func startHTTP(cfg config, probes *api.Probes) *http.Server {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	mux.HandleFunc("/startupz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
+	probes.Register(mux)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.MetricsPort),
@@ -209,18 +214,26 @@ func startHTTP(cfg config) *http.Server {
 	return srv
 }
 
-func requestIDServerInterceptor(
-	ctx context.Context,
-	req any,
-	info *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler,
-) (any, error) {
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if vals := md.Get("request-id"); len(vals) > 0 {
-			slog.Info("grpc request", "method", info.FullMethod, "request_id", vals[0])
+// makeRequestIDInterceptor returns a gRPC unary interceptor that propagates
+// request-id metadata and calls probes.RecordWork() after each successful call.
+func makeRequestIDInterceptor(probes *api.Probes) grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req any,
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (any, error) {
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if vals := md.Get("request-id"); len(vals) > 0 {
+				slog.Info("grpc request", "method", info.FullMethod, "request_id", vals[0])
+			}
 		}
+		resp, err := handler(ctx, req)
+		if err == nil {
+			probes.RecordWork()
+		}
+		return resp, err
 	}
-	return handler(ctx, req)
 }
 
 func getEnv(key, fallback string) string {

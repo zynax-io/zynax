@@ -15,7 +15,7 @@
 | M3 — Temporal Execution | ⚠ Partial | v0.2.0 |
 | M4 — YAML System + CLI | ⚠ Partial | v0.3.0 |
 | **M5 — Adapter Library** | ✅ **Complete** | **v0.4.0** |
-| **M6 — K8s Production-Ready** | 🔜 **Next** | — |
+| **M6 — K8s Production-Ready** | 🚀 **Active** | — |
 
 M3/M4 are partial because task-broker and agent-registry were not delivered in those milestones.
 Both completed under M5.C (#460). CloudEvents publishing is log-only (not wired to NATS).
@@ -170,6 +170,20 @@ Priority gaps to file immediately:
 | [#248](https://github.com/zynax-io/zynax/issues/248) | AI-output review checklist in PR template | ✅ Done — PR #751 pending |
 | [#228](https://github.com/zynax-io/zynax/issues/228) | Google-style docstrings on SDK public symbols | ✅ Done |
 | [#229](https://github.com/zynax-io/zynax/issues/229) | Strip explanatory comments in agents/sdk | ✅ Done |
+
+---
+
+## M6 — Active Work
+
+### M6.A Health Probe Semantics (#463)
+
+| Story | Issue | Status |
+|-------|-------|--------|
+| C.2 split probes in api-gateway + engine-adapter | [#487](https://github.com/zynax-io/zynax/issues/487) | ✅ PR open |
+
+Canvas: `docs/spdd/463-health-probes/canvas.md` — Status: Implemented
+
+---
 
 ## Next Session Queue (priority order)
 

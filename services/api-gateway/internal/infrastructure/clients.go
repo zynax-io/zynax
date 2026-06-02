@@ -15,6 +15,7 @@ import (
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -28,7 +29,20 @@ type GatewayClients struct {
 	compiler    zynaxv1.WorkflowCompilerServiceClient
 	engine      zynaxv1.EngineAdapterServiceClient
 	registry    zynaxv1.AgentRegistryServiceClient
+	conns       []*grpc.ClientConn
 	callTimeout time.Duration
+}
+
+// ConnectionsReady returns false if any downstream gRPC connection is in
+// TRANSIENT_FAILURE or SHUTDOWN state. Used by the /readyz probe handler.
+func (c *GatewayClients) ConnectionsReady() bool {
+	for _, conn := range c.conns {
+		s := conn.GetState()
+		if s == connectivity.TransientFailure || s == connectivity.Shutdown {
+			return false
+		}
+	}
+	return true
 }
 
 // NewGatewayClients dials all three downstream gRPC services. callTimeout is
@@ -59,6 +73,7 @@ func NewGatewayClients(compilerAddr, engineAddr, registryAddr string, callTimeou
 		compiler:    zynaxv1.NewWorkflowCompilerServiceClient(compConn),
 		engine:      zynaxv1.NewEngineAdapterServiceClient(engConn),
 		registry:    zynaxv1.NewAgentRegistryServiceClient(regConn),
+		conns:       []*grpc.ClientConn{compConn, engConn, regConn},
 		callTimeout: callTimeout,
 	}
 	cleanup := func() { _ = compConn.Close(); _ = engConn.Close(); _ = regConn.Close() }

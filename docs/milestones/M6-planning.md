@@ -2,10 +2,16 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02  
+> Generated: 2026-06-02 · Last updated: 2026-06-02  
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6, 30 open issues / 2 closed).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
+
+## Delivery Progress
+
+| Story | Issue | EPIC | PR | Status |
+|-------|-------|------|----|--------|
+| C.2 feat(api-gateway+engine-adapter): split startup/readiness/liveness probes | #487 | M6.A #463 | — | ✅ Merged |
 
 ---
 

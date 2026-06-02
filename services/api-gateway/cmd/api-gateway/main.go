@@ -23,14 +23,15 @@ import (
 )
 
 type config struct {
-	HTTPPort         int    `envconfig:"HTTP_PORT" default:"8080"`
-	CompilerAddr     string `envconfig:"COMPILER_ADDR" default:"localhost:50054"`
-	EngineAddr       string `envconfig:"ENGINE_ADDR" default:"localhost:50055"`
-	RegistryAddr     string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
-	LogLevel         string `envconfig:"LOG_LEVEL" default:"info"`
-	APIKey           string `envconfig:"API_KEY"`
-	DevInsecure      bool   `envconfig:"DEV_INSECURE"`
-	GRPCCallTimeoutS int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
+	HTTPPort           int    `envconfig:"HTTP_PORT" default:"8080"`
+	CompilerAddr       string `envconfig:"COMPILER_ADDR" default:"localhost:50054"`
+	EngineAddr         string `envconfig:"ENGINE_ADDR" default:"localhost:50055"`
+	RegistryAddr       string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
+	LogLevel           string `envconfig:"LOG_LEVEL" default:"info"`
+	APIKey             string `envconfig:"API_KEY"`
+	DevInsecure        bool   `envconfig:"DEV_INSECURE"`
+	GRPCCallTimeoutS   int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
+	LivenessThresholdS int    `envconfig:"LIVENESS_THRESHOLD_S" default:"60"`
 }
 
 // validateConfig rejects an empty API key unless ZYNAX_GW_DEV_INSECURE=1 is set.
@@ -76,21 +77,27 @@ func run(cfg config) error {
 	}
 	defer cleanup()
 
+	probes := api.NewProbes(int64(cfg.LivenessThresholdS), clients.ConnectionsReady)
+
 	svc := domain.NewApplyService(clients, clients, clients)
 	handler := api.NewHandler(svc, cfg.APIKey)
 
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
-	registerProbes(mux)
+	probes.Register(mux)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
-		Handler:           maxBodyMiddleware(api.RequestIDMiddleware(mux)),
+		Handler:           maxBodyMiddleware(api.RequestIDMiddleware(workRecordMiddleware(probes, mux))),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
+
+	// Mark the service started: config parsed, clients dialed, server starting.
+	probes.MarkStarted()
+
 	return serveUntilShutdown(srv, cfg.HTTPPort)
 }
 
@@ -115,11 +122,32 @@ func serveUntilShutdown(srv *http.Server, port int) error {
 	return nil
 }
 
-func registerProbes(mux *http.ServeMux) {
-	ok := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }
-	mux.HandleFunc("GET /healthz", ok)
-	mux.HandleFunc("GET /readyz", ok)
-	mux.HandleFunc("GET /startupz", ok)
+// workRecordMiddleware calls probes.RecordWork() after any non-probe request
+// that completes with a 2xx HTTP status code.
+func workRecordMiddleware(probes *api.Probes, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/startupz", "/readyz", "/livez", "/healthz":
+			next.ServeHTTP(w, r)
+			return
+		}
+		rec := &statusRecorder{ResponseWriter: w, code: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		if rec.code >= 200 && rec.code < 300 {
+			probes.RecordWork()
+		}
+	})
+}
+
+// statusRecorder captures the HTTP status code written by a handler.
+type statusRecorder struct {
+	http.ResponseWriter
+	code int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.code = code
+	r.ResponseWriter.WriteHeader(code)
 }
 
 func maxBodyMiddleware(next http.Handler) http.Handler {
