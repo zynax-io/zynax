@@ -175,13 +175,18 @@ Priority gaps to file immediately:
 
 ## M6 — Active Work
 
-### M6.A Health Probe Semantics (#463)
+### M6.A Health Probe Semantics (#463) — ✅ COMPLETE
 
 | Story | Issue | Status |
 |-------|-------|--------|
-| C.2 split probes in api-gateway + engine-adapter | [#487](https://github.com/zynax-io/zynax/issues/487) | ✅ PR open |
+| C.2 split probes in api-gateway + engine-adapter | [#487](https://github.com/zynax-io/zynax/issues/487) | ✅ Merged (#821) |
 
 Canvas: `docs/spdd/463-health-probes/canvas.md` — Status: Implemented
+
+### EBUS-DECISION (#764) — ✅ RESOLVED
+
+**ADR-022 accepted — Option 1: Full gRPC EventBusService wrapping NATS JetStream.**
+EPIC I (#772) is unblocked. Canvas needed: run `/spdd-reasons-canvas 772` before implementation.
 
 ---
 

@@ -32,6 +32,7 @@ a PR against `docs/adr/`.
 | [ADR-019](ADR-019-spdd-prompt-governance.md) | Structured Prompt-Driven Development (SPDD) | Accepted | 2026-04-30 | `feat:` PRs — Canvas before code, `docs/spdd/`, slash commands |
 | [ADR-020](ADR-020-zero-trust-auth.md) | mTLS with cert-manager for inter-service gRPC auth | Accepted | 2026-05-21 | All inter-service gRPC in K8s — #240 #488 |
 | [ADR-021](ADR-021-horizontal-scale.md) | Postgres-backed repositories for horizontal scaling | Accepted | 2026-05-21 | task-broker + agent-registry repos — #578 #626 |
+| [ADR-022](ADR-022-event-bus-architecture.md) | EventBusService gRPC wrapper over NATS JetStream | Accepted | 2026-06-02 | `services/event-bus/`, `protos/zynax/v1/event_bus.proto`, EPIC I (#772) |
 
 ---
 

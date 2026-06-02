@@ -1,7 +1,7 @@
 # services/event-bus — AGENTS.md
 
 > Go 1.22+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M6+ (not yet implemented).** BDD contract tests exist in `protos/tests/`. NATS JetStream backend; `PublishLifecycleEventActivity` in engine-adapter is a log-only stub until this service ships.
+> **Status: M6 EPIC I (#772) — implementation pending.** Architecture decided by ADR-022: full gRPC `EventBusService` wrapping NATS JetStream; the service is a stateless Deployment (all durability in JetStream). BDD contract tests exist in `protos/tests/`. `PublishLifecycleEventActivity` in engine-adapter is a log-only stub until EPIC I ships.
 
 ---
 
