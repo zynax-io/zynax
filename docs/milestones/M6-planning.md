@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-02 (M6.B #464 complete — #488 merged PR #831)  
+> Generated: 2026-06-02 · Last updated: 2026-06-02 (M6.C #465 O1 in PR — #489)  
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6, 30 open issues / 2 closed).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -15,6 +15,7 @@
 | D.1 refactor(workflow-compiler): drop in-memory IR store — stateless compiler | #490 | M6.D #466 | #774 | ✅ Merged |
 | I.0 docs: ADR-022 EventBus architecture decision | #764 | M6.I #772 | #822 | ✅ Merged |
 | B.1 feat(infra): mTLS env-var cert paths + gRPC credential wiring for all services | #488 | M6.B #464 | #831 | ✅ Merged |
+| C.1 ci: cosign + SBOM + multi-arch for all release workflows | #489 | M6.C #465 | — | ⬜ In PR |
 | I.1 feat(event-bus): service scaffold | #823 | M6.I #772 | — | ⬜ Pending canvas |
 | I.2 feat(event-bus): Publish path | #824 | M6.I #772 | — | ⬜ Pending I.1 |
 | I.3 feat(event-bus): Subscribe path | #825 | M6.I #772 | — | ⬜ Pending I.2 |

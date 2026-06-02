@@ -319,6 +319,7 @@ jobs:
 
       # ── Multi-arch push (only reached if trivy scan above exits 0) ────────────
       - name: Build and push
+        id: build
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
@@ -331,6 +332,16 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ steps.img.outputs.created }}
 
+      - name: Install cosign
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+
+      - name: Sign image
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        run: |
+          cosign sign --yes \
+            "${{ env.IMAGE_PREFIX }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}"
+
       - name: Install syft ${{ env.SYFT_VERSION }}
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: |
@@ -340,19 +351,19 @@ jobs:
           tar -xzf /tmp/syft.tar.gz -C /usr/local/bin syft
           rm /tmp/syft.tar.gz
 
-      - name: Generate SBOM
+      - name: Generate SBOM (SPDX)
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: |
           syft \
-            "${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ steps.ver.outputs.version }}" \
-            -o cyclonedx-json \
-            --file "${{ matrix.service }}-sbom.json"
+            "${{ env.IMAGE_PREFIX }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}" \
+            -o spdx-json \
+            --file "${{ matrix.service }}-sbom.spdx.json"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         with:
           name: sbom-${{ matrix.service }}
-          path: ${{ matrix.service }}-sbom.json
+          path: ${{ matrix.service }}-sbom.spdx.json
           retention-days: 7
 
 # ── Single GitHub Release ─────────────────────────────────────────────────────
@@ -465,7 +476,7 @@ jobs:
             docker pull ghcr.io/zynax-io/zynax/http-adapter:${{ steps.ver.outputs.version }}
             ```
 
-            CycloneDX SBOMs for all service and adapter images are attached to this release.
+            SPDX SBOMs for all service and adapter images are attached to this release. Verify image signatures with `cosign verify ghcr.io/zynax-io/zynax/<service>:<version>`.
 
             ### What's new
 
