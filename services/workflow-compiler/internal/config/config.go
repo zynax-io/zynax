@@ -15,6 +15,12 @@ type Config struct {
 	MetricsPort int `envconfig:"ZYNAX_WC_METRICS_PORT" default:"9094"`
 	// LogLevel controls structured log verbosity (debug, info, warn, error).
 	LogLevel string `envconfig:"ZYNAX_WC_LOG_LEVEL" default:"info"`
+	// TLSCert is the path to the service TLS certificate PEM file.
+	TLSCert string `envconfig:"ZYNAX_TLS_CERT"`
+	// TLSKey is the path to the service TLS private key PEM file.
+	TLSKey string `envconfig:"ZYNAX_TLS_KEY"`
+	// TLSCA is the path to the CA certificate bundle PEM file for verifying peers.
+	TLSCA string `envconfig:"ZYNAX_TLS_CA"`
 }
 
 // Load reads Config from environment variables.

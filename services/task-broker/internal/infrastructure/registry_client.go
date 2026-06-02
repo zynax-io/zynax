@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/task-broker/internal/domain"
@@ -22,9 +22,10 @@ type registryClient struct {
 
 // NewRegistryClient dials the agent registry and returns an AgentFinder.
 // callTimeout is applied as a per-call deadline on every outgoing gRPC request.
+// creds controls transport security; pass TLSCreds() or insecure.NewCredentials().
 // The returned cleanup function closes the connection and must be deferred by the caller.
-func NewRegistryClient(addr string, callTimeout time.Duration) (domain.AgentFinder, func(), error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func NewRegistryClient(addr string, callTimeout time.Duration, creds credentials.TransportCredentials) (domain.AgentFinder, func(), error) {
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("task-broker: registry dial: %w", err)
 	}

@@ -32,6 +32,9 @@ type config struct {
 	RegistryAddr     string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
 	LogLevel         string `envconfig:"LOG_LEVEL" default:"info"`
 	GRPCCallTimeoutS int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
+	TLSCert          string `envconfig:"TLS_CERT"`
+	TLSKey           string `envconfig:"TLS_KEY"`
+	TLSCA            string `envconfig:"TLS_CA"`
 }
 
 func main() {
@@ -50,18 +53,23 @@ func main() {
 }
 
 func run(cfg config) error {
+	creds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	if err != nil {
+		return fmt.Errorf("task-broker: tls credentials: %w", err)
+	}
+
 	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
-	finder, finderCleanup, err := infrastructure.NewRegistryClient(cfg.RegistryAddr, callTimeout)
+	finder, finderCleanup, err := infrastructure.NewRegistryClient(cfg.RegistryAddr, callTimeout, creds)
 	if err != nil {
 		return fmt.Errorf("task-broker: registry client: %w", err)
 	}
 	defer finderCleanup()
 
 	repo := infrastructure.NewMemoryRepo()
-	executor := infrastructure.NewAgentExecutor()
+	executor := infrastructure.NewAgentExecutor(creds)
 	svc := domain.NewTaskService(repo, finder, executor)
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(grpc.Creds(creds))
 	reflection.Register(srv)
 	zynaxv1.RegisterTaskBrokerServiceServer(srv, api.NewHandler(svc))
 

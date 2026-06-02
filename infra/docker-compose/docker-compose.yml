@@ -87,6 +87,34 @@ services:
       retries: 10
       start_period: 5s
 
+  # ── Dev TLS cert generator ──────────────────────────────────────────────
+  # Generates a self-signed CA + per-service leaf certs into the certs-data
+  # volume. Set ZYNAX_TLS_CERT/KEY/CA on each service to enable mTLS.
+  # Leave those env vars unset (default) to keep insecure mode for local dev.
+
+  cert-gen:
+    image: alpine/openssl:latest
+    volumes:
+      - certs-data:/certs
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        [ -f /certs/ca.pem ] && exit 0
+        openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
+          -keyout /certs/ca-key.pem -out /certs/ca.pem -days 3650 \
+          -nodes -subj "/CN=zynax-dev-ca"
+        for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry; do
+          openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
+            -keyout /certs/$$svc-key.pem -out /certs/$$svc-csr.pem \
+            -nodes -subj "/CN=$$svc"
+          openssl x509 -req -in /certs/$$svc-csr.pem -CA /certs/ca.pem \
+            -CAkey /certs/ca-key.pem -CAcreateserial \
+            -out /certs/$$svc-cert.pem -days 3650 \
+            -extfile <(printf "subjectAltName=DNS:$$svc,DNS:localhost")
+        done
+
   # ── Platform services ───────────────────────────────────────────────────
 
   agent-registry:
@@ -279,3 +307,4 @@ services:
 volumes:
   postgres-data:
   nats-data:
+  certs-data:

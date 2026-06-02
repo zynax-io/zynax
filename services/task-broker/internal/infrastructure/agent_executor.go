@@ -11,22 +11,28 @@ import (
 	"io"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/task-broker/internal/domain"
 )
 
 // AgentExecutor implements domain.CapabilityExecutor by dialing agent gRPC endpoints.
-type AgentExecutor struct{}
+type AgentExecutor struct {
+	creds credentials.TransportCredentials
+}
 
 // NewAgentExecutor constructs an AgentExecutor.
-func NewAgentExecutor() *AgentExecutor { return &AgentExecutor{} }
+// creds controls transport security for agent connections; pass TLSCreds() or
+// insecure.NewCredentials(). When nil, insecure is used as a safe default.
+func NewAgentExecutor(creds credentials.TransportCredentials) *AgentExecutor {
+	return &AgentExecutor{creds: creds}
+}
 
 // Execute opens a connection to the agent, calls ExecuteCapability, and streams
 // TaskEvents until a terminal COMPLETED or FAILED event is received.
 func (e *AgentExecutor) Execute(ctx context.Context, agent domain.AgentInfo, task *domain.Task) ([]byte, *domain.TaskError, error) {
-	conn, err := grpc.NewClient(agent.Endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(agent.Endpoint, grpc.WithTransportCredentials(e.creds))
 	if err != nil {
 		return nil, nil, fmt.Errorf("task-broker: dial agent %q: %w", agent.AgentID, err)
 	}

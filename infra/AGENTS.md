@@ -61,6 +61,27 @@ Set `ZYNAX_GW_API_KEY` in your `.env.local` (gitignored). Never commit a real ke
 
 ---
 
+## Inter-Service mTLS Environment Variables (ADR-020)
+
+All five Go platform services read the following shared env vars for mutual TLS.
+When all three are set the service uses `credentials.NewTLS` with cert hot-reload.
+When any is empty the service falls back to `insecure.NewCredentials` (dev only).
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ZYNAX_TLS_CERT` | _(empty)_ | Path to the service's TLS certificate PEM file |
+| `ZYNAX_TLS_KEY` | _(empty)_ | Path to the service's TLS private key PEM file |
+| `ZYNAX_TLS_CA` | _(empty)_ | Path to the CA certificate bundle PEM for verifying peer certificates |
+
+**Local dev:** run the `cert-gen` Docker Compose service once to populate the
+`certs-data` volume, then mount it and set `ZYNAX_TLS_*` on each service.
+**K8s:** cert-manager issues per-service certificates; the Helm chart injects
+these paths via `ZYNAX_TLS_*` env vars from a projected `Certificate` volume.
+
+Never commit certificate or key files. Never set `InsecureSkipVerify: true`.
+
+---
+
 ## Hard Rules
 
 - Never store secrets in `values.yaml` or `values-production.yaml`.

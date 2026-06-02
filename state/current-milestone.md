@@ -201,7 +201,7 @@ Next: `/spdd-reasons-canvas 772` → canvas Aligned → implement I.1 (#823) fir
 
 | Story | Issue | Status |
 |-------|-------|--------|
-| O1 mTLS env-var cert paths + credential wiring | [#488](https://github.com/zynax-io/zynax/issues/488) | ⬜ In progress |
+| O1 mTLS env-var cert paths + credential wiring | [#488](https://github.com/zynax-io/zynax/issues/488) | ⬜ In review |
 
 Canvas: `docs/spdd/464-mtls/canvas.md` — Status: Aligned
 

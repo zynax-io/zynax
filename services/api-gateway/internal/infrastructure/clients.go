@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -47,10 +46,16 @@ func (c *GatewayClients) ConnectionsReady() bool {
 
 // NewGatewayClients dials all three downstream gRPC services. callTimeout is
 // applied as a per-call deadline on every unary RPC (streaming Watch excluded).
+// tlsCertFile, tlsKeyFile, tlsCAFile are paths to PEM files for mTLS; pass empty
+// strings to fall back to insecure credentials (dev/test).
 // The returned cleanup function closes all connections and must be deferred by the caller.
-func NewGatewayClients(compilerAddr, engineAddr, registryAddr string, callTimeout time.Duration) (*GatewayClients, func(), error) {
+func NewGatewayClients(compilerAddr, engineAddr, registryAddr string, callTimeout time.Duration, tlsCertFile, tlsKeyFile, tlsCAFile string) (*GatewayClients, func(), error) {
+	creds, err := tlsCreds(tlsCertFile, tlsKeyFile, tlsCAFile)
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("api-gateway: tls credentials: %w", err)
+	}
 	dialOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithUnaryInterceptor(requestIDUnaryInterceptor),
 		grpc.WithStreamInterceptor(requestIDStreamInterceptor),
 	}
