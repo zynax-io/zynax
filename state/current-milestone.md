@@ -179,15 +179,31 @@ Priority gaps to file immediately:
 
 | Story | Issue | Status |
 |-------|-------|--------|
-| C.2 split probes in api-gateway + engine-adapter | [#487](https://github.com/zynax-io/zynax/issues/487) | ✅ Merged (#821) |
+| A.1 split probes in api-gateway | [#487](https://github.com/zynax-io/zynax/issues/487) | ✅ Merged (#821) |
 
 Canvas: `docs/spdd/463-health-probes/canvas.md` — Status: Implemented
+
+### M6.D Stateless Compiler (#466) — ✅ COMPLETE
+
+| Story | Issue | Status |
+|-------|-------|--------|
+| D.1 drop in-memory IR store | [#490](https://github.com/zynax-io/zynax/issues/490) | ✅ Merged (#774) |
+
+Canvas: `docs/spdd/466-stateless-compiler/canvas.md` — Status: Implemented
 
 ### EBUS-DECISION (#764) — ✅ RESOLVED
 
 **ADR-022 accepted — Option 1: Full gRPC EventBusService wrapping NATS JetStream.** (PR #822)
 EPIC I (#772) unblocked. Stories created: #823 #824 #825 #826 #827 #828.
 Next: `/spdd-reasons-canvas 772` → canvas Aligned → implement I.1 (#823) first.
+
+### M6.B Inter-Service mTLS (#464) — 🚀 ACTIVE
+
+| Story | Issue | Status |
+|-------|-------|--------|
+| O1 mTLS env-var cert paths + credential wiring | [#488](https://github.com/zynax-io/zynax/issues/488) | ⬜ In progress |
+
+Canvas: `docs/spdd/464-mtls/canvas.md` — Status: Aligned
 
 ---
 
