@@ -197,13 +197,13 @@ Canvas: `docs/spdd/466-stateless-compiler/canvas.md` — Status: Implemented
 EPIC I (#772) unblocked. Stories created: #823 #824 #825 #826 #827 #828.
 Next: `/spdd-reasons-canvas 772` → canvas Aligned → implement I.1 (#823) first.
 
-### M6.B Inter-Service mTLS (#464) — 🚀 ACTIVE
+### M6.B Inter-Service mTLS (#464) — ✅ COMPLETE
 
 | Story | Issue | Status |
 |-------|-------|--------|
-| O1 mTLS env-var cert paths + credential wiring | [#488](https://github.com/zynax-io/zynax/issues/488) | ⬜ In review |
+| O1 mTLS env-var cert paths + credential wiring | [#488](https://github.com/zynax-io/zynax/issues/488) | ✅ Merged (#831) |
 
-Canvas: `docs/spdd/464-mtls/canvas.md` — Status: Aligned
+Canvas: `docs/spdd/464-mtls/canvas.md` — Status: Implemented
 
 ---
 
