@@ -177,9 +177,8 @@ func TestCompileWorkflow_LineNumberBoundsCheck(t *testing.T) {
 	}
 }
 
-func TestCompileWorkflow_DryRunDoesNotStore(t *testing.T) {
-	s := newServer()
-	resp, err := s.CompileWorkflow(context.Background(), &zynaxv1.CompileWorkflowRequest{
+func TestCompileWorkflow_DryRunReturnsIR(t *testing.T) {
+	resp, err := newServer().CompileWorkflow(context.Background(), &zynaxv1.CompileWorkflowRequest{
 		ManifestYaml: validYAML,
 		DryRun:       true,
 	})
@@ -187,15 +186,7 @@ func TestCompileWorkflow_DryRunDoesNotStore(t *testing.T) {
 		t.Fatalf("CompileWorkflow dry_run: %v", err)
 	}
 	if resp.WorkflowIr == nil {
-		t.Fatal("expected WorkflowIR even on dry_run")
-	}
-	// GetCompiledWorkflow must not find it
-	wfID := resp.WorkflowIr.WorkflowId
-	_, getErr := s.GetCompiledWorkflow(context.Background(), &zynaxv1.GetCompiledWorkflowRequest{
-		WorkflowId: wfID,
-	})
-	if grpcCode(getErr) != codes.NotFound {
-		t.Errorf("dry_run IR should not be stored: expected NotFound, got %v", getErr)
+		t.Fatal("expected WorkflowIR in response even on dry_run")
 	}
 }
 
@@ -273,22 +264,15 @@ func TestValidateManifest_NoWorkflowIR(t *testing.T) {
 
 // GetCompiledWorkflow ──────────────────────────────────────────────────────────
 
-func TestGetCompiledWorkflow_RoundTrip(t *testing.T) {
+func TestGetCompiledWorkflow_AlwaysNotFound(t *testing.T) {
+	// The compiler is stateless: GetCompiledWorkflow always returns NOT_FOUND.
+	// Callers must retain the ir_payload from CompileWorkflow response.
 	s := newServer()
-	compiled := compile(t, s, validYAML)
-	wfID := compiled.WorkflowIr.WorkflowId
-
-	got, err := s.GetCompiledWorkflow(context.Background(), &zynaxv1.GetCompiledWorkflowRequest{
-		WorkflowId: wfID,
+	_, err := s.GetCompiledWorkflow(context.Background(), &zynaxv1.GetCompiledWorkflowRequest{
+		WorkflowId: "any-id",
 	})
-	if err != nil {
-		t.Fatalf("GetCompiledWorkflow: %v", err)
-	}
-	if got.WorkflowIr.WorkflowId != wfID {
-		t.Errorf("workflow_id: got %q, want %q", got.WorkflowIr.WorkflowId, wfID)
-	}
-	if got.CompiledAt == nil {
-		t.Error("compiled_at must not be nil")
+	if grpcCode(err) != codes.NotFound {
+		t.Errorf("expected NotFound (stateless compiler), got %v", err)
 	}
 }
 
@@ -321,6 +305,17 @@ func TestGetCompiledWorkflow_IDsAreUnique(t *testing.T) {
 	r2 := compile(t, s, validYAML)
 	if r1.WorkflowIr.WorkflowId == r2.WorkflowIr.WorkflowId {
 		t.Error("successive compiles must generate unique workflow IDs")
+	}
+}
+
+func BenchmarkCompileWorkflow(b *testing.B) {
+	s := newServer()
+	req := &zynaxv1.CompileWorkflowRequest{ManifestYaml: validYAML}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := s.CompileWorkflow(context.Background(), req); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 

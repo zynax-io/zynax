@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sync"
 	"time"
 
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
@@ -19,33 +18,24 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Server implements WorkflowCompilerServiceServer using in-memory IR storage.
-// The in-memory store is appropriate for M5; a persistent backend is deferred to M6.
-//
-// WARNING: the store is an unbounded in-memory map with no TTL, no eviction, and no
-// persistence across restarts. GetCompiledWorkflow returns NOT_FOUND after any restart.
-// Durable storage is tracked in issue #466 (M6 — stateless-compiler refactor).
+// Server implements WorkflowCompilerServiceServer.
+// The compiler is stateless: each CompileWorkflow call compiles the manifest
+// and returns the IR in the response. Callers must retain ir_payload if they
+// need the IR after the RPC — GetCompiledWorkflow always returns NOT_FOUND.
 //
 // Server is not usable at zero value; always construct via New().
-// When future milestones add injectable dependencies (persistent store, tracer),
-// extend New() with functional options following the WithXxx(v) pattern.
 type Server struct {
 	zynaxv1.UnimplementedWorkflowCompilerServiceServer
-	mu         sync.RWMutex
-	store      map[string]*zynaxv1.WorkflowIR
 	generateID func() string
 }
 
 // New creates a Server ready to serve gRPC requests.
 func New() *Server {
-	return &Server{
-		store:      make(map[string]*zynaxv1.WorkflowIR),
-		generateID: generateWorkflowID,
-	}
+	return &Server{generateID: generateWorkflowID}
 }
 
 // CompileWorkflow parses, validates, and compiles a YAML manifest into a WorkflowIR.
-// The compiled IR is stored unless dry_run is true.
+// The compiled IR is returned in the response; it is not stored anywhere.
 func (s *Server) CompileWorkflow(ctx context.Context, req *zynaxv1.CompileWorkflowRequest) (*zynaxv1.CompileWorkflowResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, status.FromContextError(err).Err()
@@ -84,12 +74,6 @@ func (s *Server) CompileWorkflow(ctx context.Context, req *zynaxv1.CompileWorkfl
 	wfIR, err := ir.ToIR(ctx, g, wfID, manifest.APIVersion, time.Now().UTC())
 	if err != nil {
 		return nil, grpcErr(fmt.Errorf("IR generation: %w", err))
-	}
-
-	if !req.DryRun {
-		s.mu.Lock()
-		s.store[wfID] = wfIR
-		s.mu.Unlock()
 	}
 
 	durationMs := time.Since(start).Milliseconds()
@@ -136,7 +120,10 @@ func (s *Server) ValidateManifest(ctx context.Context, req *zynaxv1.ValidateMani
 	}, nil
 }
 
-// GetCompiledWorkflow retrieves a previously compiled WorkflowIR by workflow_id.
+// GetCompiledWorkflow always returns NOT_FOUND. The compiler is stateless — the
+// compiled IR is returned in the CompileWorkflow response and is not stored.
+// Callers must retain the ir_payload from CompileWorkflowResponse and pass it
+// directly to EngineAdapterService.SubmitWorkflow.
 func (s *Server) GetCompiledWorkflow(ctx context.Context, req *zynaxv1.GetCompiledWorkflowRequest) (*zynaxv1.GetCompiledWorkflowResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, status.FromContextError(err).Err()
@@ -144,19 +131,10 @@ func (s *Server) GetCompiledWorkflow(ctx context.Context, req *zynaxv1.GetCompil
 	if req.WorkflowId == "" {
 		return nil, status.Error(codes.InvalidArgument, "workflow_id must not be empty")
 	}
-
-	s.mu.RLock()
-	wfIR, ok := s.store[req.WorkflowId]
-	s.mu.RUnlock()
-
-	if !ok {
-		return nil, status.Errorf(codes.NotFound, "workflow %q not found", req.WorkflowId)
-	}
-
-	return &zynaxv1.GetCompiledWorkflowResponse{
-		WorkflowIr: wfIR,
-		CompiledAt: wfIR.CompiledAt,
-	}, nil
+	return nil, status.Errorf(codes.NotFound,
+		"workflow %q not found: compiler is stateless — retain ir_payload from CompileWorkflow response",
+		req.WorkflowId,
+	)
 }
 
 // errorCodeMap maps domain codes to proto codes.
