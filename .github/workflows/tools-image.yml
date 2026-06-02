@@ -31,10 +31,13 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write   # cosign keyless OIDC signing on tag builds
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: zynax-io/zynax/tools
+  CI_RUNNER_IMAGE: zynax-io/zynax/ci-runner
+  SYFT_VERSION: "1.44.0"
 
 jobs:
   build-push:
@@ -49,6 +52,9 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
@@ -67,10 +73,12 @@ jobs:
           fi
 
       - name: Build and push
+        id: build-tools
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           file: infra/docker/Dockerfile.tools
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=tools
@@ -78,6 +86,40 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/zynax-io/zynax
             org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Install cosign
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+
+      - name: Sign tools image
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cosign sign --yes \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-tools.outputs.digest }}"
+
+      - name: Install syft ${{ env.SYFT_VERSION }}
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          curl -sSfL \
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/syft.tar.gz
+          tar -xzf /tmp/syft.tar.gz -C /usr/local/bin syft
+          rm /tmp/syft.tar.gz
+
+      - name: Generate SBOM (SPDX)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          syft \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-tools.outputs.digest }}" \
+            -o spdx-json \
+            --file tools-sbom.spdx.json
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: sbom-tools
+          path: tools-sbom.spdx.json
+          retention-days: 7
 
   build-push-ci-runner:
     name: Build and push ci-runner image
@@ -92,6 +134,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
@@ -99,18 +144,19 @@ jobs:
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
-          images: ${{ env.REGISTRY }}/zynax-io/zynax/ci-runner
+          images: ${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=main-,format=long
             type=semver,pattern={{version}}
 
       - name: Build and push ci-runner
-        id: build
+        id: build-ci-runner
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           file: infra/docker/Dockerfile.ci-runner
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha,scope=ci-runner
@@ -120,4 +166,14 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Output ci-runner digest
-        run: echo "ci-runner digest ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "ci-runner digest ${{ steps.build-ci-runner.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install cosign
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+
+      - name: Sign ci-runner image
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cosign sign --yes \
+            "${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}@${{ steps.build-ci-runner.outputs.digest }}"

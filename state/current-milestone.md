@@ -205,6 +205,14 @@ Next: `/spdd-reasons-canvas 772` → canvas Aligned → implement I.1 (#823) fir
 
 Canvas: `docs/spdd/464-mtls/canvas.md` — Status: Implemented
 
+### M6.C Supply Chain Hardening (#465) — 🚀 ACTIVE
+
+| Story | Issue | Status |
+|-------|-------|--------|
+| O1 cosign signing + SBOM (SPDX) + multi-arch in release workflows | [#489](https://github.com/zynax-io/zynax/issues/489) | 🔄 In PR |
+
+Canvas: `docs/spdd/465-supply-chain/canvas.md` — Status: Aligned
+
 ---
 
 ## Next Session Queue (priority order)
