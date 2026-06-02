@@ -43,11 +43,11 @@ git fetch origin --prune && git checkout main && git pull --rebase origin main
 
 | Read when | File |
 |---|---|
-| Any EPIC touching event-bus | Wait for ADR-022 decision (#764) — EPIC I (#772) is BLOCKED |
+| Any EPIC touching event-bus | ADR-022 Accepted (#764 closed) — EPIC I (#772) needs canvas via `/spdd-reasons-canvas 772` |
 | Any memory-service work | Confirm single-store choice is in J.2 canvas safeguards |
 | Proto or BDD boundary touched | `protos/AGENTS.md` + `docs/patterns/bdd-contract-testing.md` |
 | Helm chart work | `infra/AGENTS.md` + `docs/patterns/helm-charts.md` |
-| Any ADR-governed decision | `docs/adr/INDEX.md` — ADR-022 (event-bus) is still open |
+| Any ADR-governed decision | `docs/adr/INDEX.md` — ADR-022 (event-bus) Accepted; all 22 ADRs stable |
 
 Run `/help` to confirm all SPDD commands are available.
 
@@ -74,20 +74,20 @@ Apply the **Resumption tree** (bottom) and report the matching row before taking
 
 | Priority | EPIC | Issue | Status gate |
 |---|---|---|---|
-| 1 | M6.A Health probes | #463 | canvas `Aligned`; child #487 |
-| 2 | M6.D Stateless compiler | #466 | canvas `Aligned`; child #490 — **#774 merged** ✅ |
-| 3 | M6.B mTLS | #464 | canvas `Aligned`; child #488 |
-| 4 | M6.C Supply chain | #465 | canvas `Aligned`; child #489 |
-| 5 | M6.Helm | #765 | canvas `Aligned` `docs/spdd/765-helm-charts/canvas.md`; children #779–#792 |
-| 6 | M6.H Postgres repos | #626 | canvas `Aligned` `docs/spdd/626-postgres-repos/canvas.md`; children #793 #794 |
-| 7 | M6.F Config convergence | #670 | refactor/ci — SPDD-exempt; children #667 #668 #669 |
-| 8 | M6.NS Multi-namespace | #767 | canvas `Aligned` `docs/spdd/767-multi-namespace/canvas.md`; children #799 #800; D.1 done (#774) |
-| 9 | M6.Argo | #766 | canvas `Aligned` `docs/spdd/766-argo-engine/canvas.md`; children #795–#798 |
-| 10 | M6.SDK PyPI | #769 | canvas `Aligned` `docs/spdd/769-sdk-pypi/canvas.md`; children #805–#808 |
-| 11 | M6.Policy | #768 | canvas `Aligned` `docs/spdd/768-policy-enforcement/canvas.md`; children #801–#804 |
-| 12 | M6.J memory-service | #773 | canvas `Aligned` `docs/spdd/773-memory-service/canvas.md`; children #814–#819; **BLOCKED on #626** |
-| 13 | M6.I event-bus | #772 | **BLOCKED on #764 (EBUS-DECISION)** — no canvas until ADR-022 merged |
-| 14 | M6.G e2e harness | #770 | canvas `Aligned` `docs/spdd/770-e2e-harness/canvas.md`; children #809–#813; BLOCKED on EPIC A + I + J + B |
+| ✅ | M6.A Health probes | #463 | **COMPLETE** — #487 merged in PR #821 |
+| ✅ | M6.D Stateless compiler | #466 | **COMPLETE** — #490 merged in PR #774 |
+| 1 | M6.B mTLS | #464 | canvas `Aligned`; child #488 |
+| 2 | M6.C Supply chain | #465 | canvas `Aligned`; child #489 |
+| 3 | M6.Helm | #765 | canvas `Aligned` `docs/spdd/765-helm-charts/canvas.md`; children #779–#792 |
+| 4 | M6.H Postgres repos | #626 | canvas `Aligned` `docs/spdd/626-postgres-repos/canvas.md`; children #793 #794 |
+| 5 | M6.F Config convergence | #670 | refactor/ci — SPDD-exempt; children #667 #668 #669 |
+| 6 | M6.NS Multi-namespace | #767 | canvas `Aligned` `docs/spdd/767-multi-namespace/canvas.md`; children #799 #800; D.1 done (#774) |
+| 7 | M6.Argo | #766 | canvas `Aligned` `docs/spdd/766-argo-engine/canvas.md`; children #795–#798 |
+| 8 | M6.SDK PyPI | #769 | canvas `Aligned` `docs/spdd/769-sdk-pypi/canvas.md`; children #805–#808 |
+| 9 | M6.Policy | #768 | canvas `Aligned` `docs/spdd/768-policy-enforcement/canvas.md`; children #801–#804 |
+| 10 | M6.J memory-service | #773 | canvas `Aligned` `docs/spdd/773-memory-service/canvas.md`; children #814–#819; **BLOCKED on #626** |
+| 11 | M6.I event-bus | #772 | ADR-022 Accepted (#764 closed) — no canvas yet; run `/spdd-reasons-canvas 772` first |
+| 12 | M6.G e2e harness | #770 | canvas `Aligned` `docs/spdd/770-e2e-harness/canvas.md`; children #809–#813; BLOCKED on EPIC A + I + J + B |
 
 ```bash
 gh issue view <EPIC_N> --json number,title,body,labels,state,milestone,comments
