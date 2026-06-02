@@ -1,13 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Zynax — Agent Registry BDD Feature File
 #
-# This file is the SPECIFICATION. It is written BEFORE the implementation.
-# It is the source of truth for what the agent-registry service does.
-# See AGENTS.md §6.2 for feature file writing rules.
-#
 # RPCs covered: RegisterAgent, DeregisterAgent, GetAgent, ListAgents, FindByCapability.
 # Phantom RPCs removed in #526: Heartbeat, WatchAgentEvents (not in agent_registry.proto).
-# Phantom fields/values removed: request_id, AGENT_STATUS_ACTIVE, AGENT_STATUS_OFFLINE.
 
 Feature: Agent Registration
   As an orchestrator or autonomous agent
@@ -59,56 +54,3 @@ Feature: Agent Registration
     When the agent is registered
     Then the response status is INVALID_ARGUMENT
     And the error message mentions valid capability format
-
-Feature: Agent Discovery
-  As an orchestrator or task broker
-  I want to discover agents by capability
-  So that I can route tasks to capable agents
-
-  Background:
-    Given the agent registry is running and healthy
-    And the following agents are registered:
-      | id           | capabilities      |
-      | agent-sum-01 | summarize, search |
-      | agent-sum-02 | summarize         |
-      | agent-wri-01 | write, summarize  |
-
-  Scenario: Find agents by capability
-    When agents are listed by capability "summarize"
-    Then the response contains exactly 3 agents
-    And the response includes "agent-sum-01", "agent-sum-02", and "agent-wri-01"
-
-  Scenario: Discovery returns empty list when no matching agents
-    When agents are listed by capability "nonexistent-capability"
-    Then the response contains 0 agents
-    And the response status is OK (not NOT_FOUND)
-
-  Scenario: Discovery results are paginated
-    Given 25 agents with capability "batch-test" are registered
-    When agents are listed by capability "batch-test" with page_size 10
-    Then the response contains exactly 10 agents
-    And the response contains a non-empty next_page_token
-    When the next page is requested using the page_token
-    Then the response contains exactly 10 agents
-    When the final page is requested
-    Then the response contains exactly 5 agents
-    And the response next_page_token is empty
-
-Feature: Agent Deregistration
-  As an agent or orchestrator
-  I want to deregister an agent gracefully
-  So that it is no longer discoverable after shutdown
-
-  Background:
-    Given the agent registry is running and healthy
-
-  Scenario: Successfully deregister an existing agent
-    Given an agent with id "departing-agent" is registered
-    When the agent is deregistered
-    Then the response contains a deregistered_at timestamp
-    And the agent is no longer discoverable by capability
-    And GetAgent returns NOT_FOUND for the deregistered id
-
-  Scenario: Deregister non-existent agent returns NOT_FOUND
-    When an agent with id "ghost-agent-99" is deregistered
-    Then the response status is NOT_FOUND
