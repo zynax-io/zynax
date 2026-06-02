@@ -7,7 +7,7 @@
 **Issue:** #463
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-18
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #487 (api-gateway and engine-adapter probes)
 
@@ -63,7 +63,7 @@
 
 ## O — Operations
 
-1. **[#487]** Implement three semantically correct probe handlers in api-gateway and engine-adapter; update compose healthcheck configuration; unit tests for all three state transitions.
+1. ✅ **[#487]** Implement three semantically correct probe handlers in api-gateway and engine-adapter; update compose healthcheck configuration; unit tests for all three state transitions.
 
 ---
 

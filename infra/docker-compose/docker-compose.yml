@@ -159,7 +159,7 @@ services:
       task-broker:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "/healthcheck", "http://localhost:9095/healthz"]
+      test: ["CMD", "/healthcheck", "http://localhost:9095/readyz"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -187,7 +187,7 @@ services:
       agent-registry:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "/healthcheck", "http://localhost:8080/healthz"]
+      test: ["CMD", "/healthcheck", "http://localhost:8080/readyz"]
       interval: 10s
       timeout: 5s
       retries: 10
