@@ -78,15 +78,16 @@ Apply the **Resumption tree** (bottom) and report the matching row before taking
 | 2 | M6.D Stateless compiler | #466 | canvas `Aligned`; child #490 — **#774 merged** ✅ |
 | 3 | M6.B mTLS | #464 | canvas `Aligned`; child #488 |
 | 4 | M6.C Supply chain | #465 | canvas `Aligned`; child #489 |
-| 5 | M6.Helm | #765 | needs canvas + story decomposition |
-| 6 | M6.F Config convergence | #670 | refactor/ci — SPDD-exempt |
-| 7 | M6.H Postgres repos | #626 | needs canvas; gates memory-service |
-| 8 | M6.NS Multi-namespace | #767 | needs canvas |
-| 9 | M6.Argo | #766 | needs canvas |
-| 10 | M6.J memory-service | #773 | BLOCKED on #626 (Postgres repos) |
-| 11 | M6.I event-bus | #772 | **BLOCKED on #764 (EBUS-DECISION)** |
-| 12 | M6.E Policy enforcement | #768 | needs proto design first |
-| 13 | M6.G e2e harness | #770 | BLOCKED on most other EPICs |
+| 5 | M6.Helm | #765 | canvas `Aligned` `docs/spdd/765-helm-charts/canvas.md`; children #779–#792 |
+| 6 | M6.H Postgres repos | #626 | canvas `Aligned` `docs/spdd/626-postgres-repos/canvas.md`; children #793 #794 |
+| 7 | M6.F Config convergence | #670 | refactor/ci — SPDD-exempt; children #667 #668 #669 |
+| 8 | M6.NS Multi-namespace | #767 | canvas `Aligned` `docs/spdd/767-multi-namespace/canvas.md`; children #799 #800; D.1 done (#774) |
+| 9 | M6.Argo | #766 | canvas `Aligned` `docs/spdd/766-argo-engine/canvas.md`; children #795–#798 |
+| 10 | M6.SDK PyPI | #769 | canvas `Aligned` `docs/spdd/769-sdk-pypi/canvas.md`; children #805–#808 |
+| 11 | M6.Policy | #768 | canvas `Aligned` `docs/spdd/768-policy-enforcement/canvas.md`; children #801–#804 |
+| 12 | M6.J memory-service | #773 | canvas `Aligned` `docs/spdd/773-memory-service/canvas.md`; children #814–#819; **BLOCKED on #626** |
+| 13 | M6.I event-bus | #772 | **BLOCKED on #764 (EBUS-DECISION)** — no canvas until ADR-022 merged |
+| 14 | M6.G e2e harness | #770 | canvas `Aligned` `docs/spdd/770-e2e-harness/canvas.md`; children #809–#813; BLOCKED on EPIC A + I + J + B |
 
 ```bash
 gh issue view <EPIC_N> --json number,title,body,labels,state,milestone,comments
