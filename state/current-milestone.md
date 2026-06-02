@@ -185,8 +185,9 @@ Canvas: `docs/spdd/463-health-probes/canvas.md` — Status: Implemented
 
 ### EBUS-DECISION (#764) — ✅ RESOLVED
 
-**ADR-022 accepted — Option 1: Full gRPC EventBusService wrapping NATS JetStream.**
-EPIC I (#772) is unblocked. Canvas needed: run `/spdd-reasons-canvas 772` before implementation.
+**ADR-022 accepted — Option 1: Full gRPC EventBusService wrapping NATS JetStream.** (PR #822)
+EPIC I (#772) unblocked. Stories created: #823 #824 #825 #826 #827 #828.
+Next: `/spdd-reasons-canvas 772` → canvas Aligned → implement I.1 (#823) first.
 
 ---
 

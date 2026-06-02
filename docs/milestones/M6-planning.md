@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-02 (ADR-022 accepted; EPIC I unblocked)  
+> Generated: 2026-06-02 · Last updated: 2026-06-02 (ADR-022 accepted; EPIC I stories #823–#828 created)  
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6, 30 open issues / 2 closed).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -12,7 +12,13 @@
 | Story | Issue | EPIC | PR | Status |
 |-------|-------|------|----|--------|
 | C.2 feat(api-gateway+engine-adapter): split startup/readiness/liveness probes | #487 | M6.A #463 | #821 | ✅ Merged |
-| I.0 docs: ADR-022 EventBus architecture decision | #764 | M6.I #772 | — | ✅ Decision: Option 1 (gRPC svc) |
+| I.0 docs: ADR-022 EventBus architecture decision | #764 | M6.I #772 | #822 | ✅ Merged |
+| I.1 feat(event-bus): service scaffold | #823 | M6.I #772 | — | ⬜ Pending canvas |
+| I.2 feat(event-bus): Publish path | #824 | M6.I #772 | — | ⬜ Pending I.1 |
+| I.3 feat(event-bus): Subscribe path | #825 | M6.I #772 | — | ⬜ Pending I.2 |
+| I.4 feat(event-bus): Unsubscribe + DLQ + retry | #826 | M6.I #772 | — | ⬜ Pending I.3 |
+| I.5 feat(engine-adapter): wire lifecycle activity | #827 | M6.I #772 | — | ⬜ Pending I.4 |
+| I.6 test: BDD steps for event_bus.feature | #828 | M6.I #772 | — | ⬜ Pending I.4 |
 
 ---
 
