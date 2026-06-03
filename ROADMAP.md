@@ -200,14 +200,30 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 **Goal:** Production deployment on Kubernetes. Argo engine support.
 
-> Label: `milestone: M6`
+> Label: `milestone: M6` · Target: v0.5.0 · Plan: [docs/milestones/M6-planning.md](docs/milestones/M6-planning.md)
 
-- [ ] Helm charts for all services (including Temporal dependency)
-- [ ] `ArgoEngine` adapter
-- [ ] Kubernetes Runtime Provider (HPA, PDB, NetworkPolicy for all services)
-- [ ] Multi-namespace support in workflow-compiler
-- [ ] Policy enforcement: routing policies, rate limits, capability quotas
-- [ ] `zynax-sdk` Python package published to PyPI
+**Process health (complete):**
+- [x] K8s startup/readiness/liveness probe semantics in api-gateway + engine-adapter (PR #821)
+- [x] Stateless workflow-compiler — drop in-memory IR store (PR #774)
+- [x] Inter-service mTLS — env-var cert paths + gRPC credential wiring (PR #831)
+- [x] Supply chain hardening — cosign signing, SPDX SBOM, multi-arch release images (PR #833)
+- [x] ADR-023 — restrict direct pushes to main; rebase-merge only (PR #847)
+- [x] ci-runner digest bump script + `make bump-ci-runner` (PR #848)
+- [x] Post-build bump issue automation in tools-image.yml (PR #849)
+- [x] `/resume-m6` rewrite — FF discipline, doc-PR path, branch cleanup (PR #850)
+- [x] Merge policy documented in CONTRIBUTING.md + AGENTS.md (PR #851)
+
+**Feature EPICs (in progress / pending):**
+- [ ] EventBusService — NATS JetStream gRPC wrapper (EPIC I #772; ADR-022 accepted)
+- [ ] Helm charts for all services (EPIC Helm #765)
+- [ ] Postgres-backed repositories — horizontal scale (EPIC H #626)
+- [ ] Config convergence — env-var canonicalisation (EPIC F #670)
+- [ ] Multi-namespace support in workflow-compiler (EPIC NS #767)
+- [ ] `ArgoEngine` adapter (EPIC Argo #766)
+- [ ] `zynax-sdk` Python package published to PyPI (EPIC SDK #769)
+- [ ] Policy enforcement: routing policies, rate limits, capability quotas (EPIC E #768)
+- [ ] Memory service — Redis KV + vector context (EPIC J #773; blocked on #626)
+- [ ] End-to-end harness — full workflow execution test (EPIC G #770)
 
 ---
 
