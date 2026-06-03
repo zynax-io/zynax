@@ -20,4 +20,14 @@ RUN cd tools/healthcheck && CGO_ENABLED=0 GOWORK=off \
 FROM gcr.io/distroless/static:nonroot@sha256:dfadf31470f770fcabd48903762dce126958e98d1ce320acf1216bbfaa42d79c
 COPY --from=builder /http-adapter /http-adapter
 COPY --from=builder /healthcheck /healthcheck
+LABEL org.opencontainers.image.title="Zynax HTTP Adapter" \
+      org.opencontainers.image.description="HTTP capability adapter. Registers agent capabilities and executes HTTP-based agent calls on behalf of the Temporal workflow engine. Configure via ADAPTER_CONFIG env pointing to an agent-def YAML." \
+      org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/agents/adapters/http/AGENTS.md" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Zynax" \
+      com.zynax.service.role="adapter" \
+      com.zynax.service.language="Go" \
+      com.zynax.service.port="9095/tcp (gRPC)"
 ENTRYPOINT ["/http-adapter"]

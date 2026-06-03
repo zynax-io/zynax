@@ -155,5 +155,14 @@ ENV PATH="/usr/local/go/bin:/usr/local/bin:/root/.local/bin:${PATH}" \
     UV_CACHE_DIR=/root/.cache/uv \
     DO_NOT_TRACK=1
 
+LABEL org.opencontainers.image.title="Zynax Developer Tools" \
+      org.opencontainers.image.description="All-in-one developer toolbox for Zynax contributors. Includes buf, golangci-lint, govulncheck, godog, mockery, migrate, gitleaks, syft, grpc-health-probe, and the zynax-ci toolchain — plus uv, ruff, mypy, bandit, pip-audit, and pytest for Python." \
+      org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/CLAUDE.md" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Zynax" \
+      com.zynax.image.role="developer-toolbox" \
+      com.zynax.image.usage="docker run --rm -v $(pwd):/workspace ghcr.io/zynax-io/zynax/tools:latest make lint"
 WORKDIR /workspace
 CMD ["/bin/sh"]

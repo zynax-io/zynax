@@ -81,9 +81,15 @@ RUN cd /src/zynax-ci && GOWORK=off go build -trimpath -o /go/bin/zynax-ci .
 # ── Stage 2: ci-runner — clean Alpine, NO curl ───────────────────────────────
 FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS ci-runner
 
-LABEL org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
-      org.opencontainers.image.description="Zynax CI Runner — GitHub Actions container mode" \
-      org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.title="Zynax CI Runner" \
+      org.opencontainers.image.description="Purpose-built GitHub Actions container for Zynax CI. Pre-baked with golangci-lint, govulncheck, godog, mockery, actionlint, gitleaks, buf, zynax-ci, uv, ruff, mypy, bandit, pip-audit, and pytest — zero runtime downloads." \
+      org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/infra/docker/Dockerfile.ci-runner" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Zynax" \
+      com.zynax.image.role="ci-runner" \
+      com.zynax.image.usage="container: { image: ghcr.io/zynax-io/zynax/ci-runner@<digest> } in GitHub Actions jobs"
 
 # Alpine system deps — curl intentionally absent from this stage
 RUN apk add --no-cache git bash ca-certificates python3 py3-pip libstdc++ libgcc

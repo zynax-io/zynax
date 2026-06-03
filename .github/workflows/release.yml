@@ -331,6 +331,42 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ steps.img.outputs.created }}
+            org.opencontainers.image.version=${{ steps.ver.outputs.version }}
+
+      - name: Report image sizes
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SVC="${{ matrix.service }}"
+          DIGEST="${{ steps.build.outputs.digest }}"
+          BASE="https://ghcr.io/v2/zynax-io/zynax/${SVC}"
+          { echo "## 📦 ${SVC}"; echo "**Digest:** \`${DIGEST}\`"; echo ""; \
+            echo "| Platform | Compressed size |"; echo "|----------|-----------------|"; \
+          } >> "$GITHUB_STEP_SUMMARY"
+          INDEX=$(curl -fsSL \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            "${BASE}/manifests/${DIGEST}" 2>/dev/null) || true
+          if [ -n "$INDEX" ]; then
+            while IFS='|' read -r osname arch pdigs; do
+              MF=$(curl -fsSL \
+                -H "Authorization: Bearer ${TOKEN}" \
+                -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+                "${BASE}/manifests/${pdigs}" 2>/dev/null) || true
+              if [ -n "$MF" ]; then
+                BYTES=$(echo "$MF" | jq '[.layers[].size] | add // 0')
+                SIZE_MB=$(echo "scale=1; ${BYTES} / 1048576" | bc)
+                echo "| ${osname}/${arch} | ${SIZE_MB} MB |" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "| ${osname}/${arch} | — |" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done < <(echo "$INDEX" | jq -r \
+              '.manifests[] | select(.platform.architecture == "amd64" or .platform.architecture == "arm64") | select(.platform.os != "unknown") | [.platform.os, .platform.architecture, .digest] | join("|")' \
+              2>/dev/null)
+          else
+            echo "| (manifest unavailable) | — |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install cosign
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'

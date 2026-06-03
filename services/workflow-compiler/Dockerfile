@@ -17,4 +17,14 @@ RUN cd tools/healthcheck && CGO_ENABLED=0 GOWORK=off \
 FROM gcr.io/distroless/static:nonroot@sha256:dfadf31470f770fcabd48903762dce126958e98d1ce320acf1216bbfaa42d79c
 COPY --from=builder /workflow-compiler /workflow-compiler
 COPY --from=builder /healthcheck /healthcheck
+LABEL org.opencontainers.image.title="Zynax Workflow Compiler" \
+      org.opencontainers.image.description="Stateless YAML-to-IR compiler. Translates declarative workflow manifests into typed WorkflowIR for dispatch by the engine adapter. Scales horizontally — holds no persistent state." \
+      org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/services/workflow-compiler/AGENTS.md" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Zynax" \
+      com.zynax.service.role="compiler" \
+      com.zynax.service.language="Go" \
+      com.zynax.service.port="9092/tcp (gRPC)"
 ENTRYPOINT ["/workflow-compiler"]
