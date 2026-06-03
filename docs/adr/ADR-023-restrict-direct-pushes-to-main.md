@@ -92,14 +92,35 @@ changes, creating a pattern where not all changes to `main` went through CI.
 - Force-pushes during active review (after rebase) require `--force-with-lease`,
   which is already the repo convention (`CONTRIBUTING.md §8`).
 
-### Settings change required (manual, not automated)
+### Settings applied (2026-06-03)
 
-In GitHub → Settings → Branches → `main` rule:
-- Enable **"Block direct pushes"** (or equivalent "Restrict pushes" option)
-- Enable **"Automatically delete head branches"** (repository-level setting)
+- ✅ **"Automatically delete head branches"** — enabled via API (`delete_branch_on_merge: true`)
 
-These are not applied by this ADR commit — they are a manual settings action
-by the repo owner after this ADR is merged.
+### Known limitation — push restrictions require GitHub Team
+
+**"Block direct pushes"** (branch protection `restrictions`) is a **GitHub Team /
+Enterprise feature** and is not available on the `zynax-io` free-plan organisation.
+Attempting to enable it via the API returns HTTP 404.
+
+**Residual risk:** a contributor with write access can still `git push origin main`
+directly, bypassing the PR + CI gate, as long as the commit is locally signed
+(satisfying `required_signatures`). The 10 required status checks only gate PR
+merges, not direct pushes.
+
+**Mitigations in place without paid push restrictions:**
+
+| Control | Effect |
+|---------|--------|
+| `required_signatures: true` | Direct push must be locally SSH-signed — accidental pushes are blocked |
+| `enforce_admins: true` | All protection rules apply to the owner too |
+| `required_linear_history: true` | Force-push of a merge commit is rejected |
+| Process discipline (this ADR + AGENTS.md) | Explicit policy makes the bypass intentional, not accidental |
+| `/resume-m6` Branch discipline section | Session-level guardrail for the AI-assisted workflow |
+
+**Upgrade path:** Upgrading `zynax-io` to GitHub Team unlocks the `restrictions`
+field. At that point, set `restrictions: {users: [], teams: [], apps: []}` to
+fully block direct pushes for all actors. No ADR amendment needed — this ADR
+already records the intent.
 
 ---
 
@@ -108,5 +129,6 @@ by the repo owner after this ADR is merged.
 | Option | Rejected because |
 |--------|-----------------|
 | Keep `restrictions: null`, rely on convention | Proved insufficient — the /resume-m6 "no PR" path was an explicit instruction, not an accidental omission |
+| Upgrade to GitHub Team immediately to enable push restrictions | Cost vs. benefit: residual risk is low given required_signatures + process controls; revisit when team grows |
 | Merge-queue (issue #544) | Adds significant tooling complexity for a solo-maintainer repo; deferred to a future ADR when team size warrants it |
 | Rebase-and-merge as default | `required_signatures` prevents GitHub from auto-signing replayed commits; `gh pr merge --rebase` is rejected by the API |
