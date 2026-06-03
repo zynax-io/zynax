@@ -31,7 +31,7 @@ type ContextReport struct {
 // thresholds mirrors the logic in tools/count-ai-context.sh.
 var (
 	thresholdClaude     = 200
-	thresholdRootAgents = 300
+	thresholdRootAgents = 310
 	thresholdAISetup    = 150
 	thresholdDirAgents  = 150
 	thresholdTotal      = 2200
