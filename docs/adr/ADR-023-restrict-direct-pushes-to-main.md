@@ -43,13 +43,12 @@ changes, creating a pattern where not all changes to `main` went through CI.
    including repo admins — from pushing directly to `main`. All changes must go
    through a PR.
 
-2. **Merge strategy: rebase-merge only** (`gh pr merge --rebase`). Squash-merge
-   is permitted only when a branch has multiple intermediate commits that are
-   noise (e.g. fixup commits during review); in that case the author interactively
-   squashes locally before opening the PR, so the PR itself contains one clean
-   commit that can be rebase-merged. The "squash-and-merge" button in the GitHub
-   UI must not be used — it obscures authorship and discards the original commit
-   SHA.
+2. **Merge strategy: squash-merge** (`gh pr merge --squash`). The repo has
+   `required_signatures` enabled; GitHub's rebase-merge cannot auto-sign the
+   replayed commits, so `--rebase` is rejected. Squash-merge produces a single
+   signed commit on `main` — it satisfies `required_linear_history` (no merge
+   commit) and keeps a clean, signed history. Never use the "Create a merge commit"
+   button — that violates `required_linear_history`.
 
 3. **Rebase branch onto current `main` immediately before merge.** Never merge
    a branch that has diverged from `main`. The sequence is always:
@@ -58,7 +57,7 @@ changes, creating a pattern where not all changes to `main` went through CI.
    git rebase origin/main          # resolve any conflicts
    git push --force-with-lease
    gh pr checks <PR> --watch
-   gh pr merge <PR> --rebase
+   gh pr merge <PR> --squash
    ```
 
 4. **Delete the remote branch immediately after merge:**
@@ -110,4 +109,4 @@ by the repo owner after this ADR is merged.
 |--------|-----------------|
 | Keep `restrictions: null`, rely on convention | Proved insufficient — the /resume-m6 "no PR" path was an explicit instruction, not an accidental omission |
 | Merge-queue (issue #544) | Adds significant tooling complexity for a solo-maintainer repo; deferred to a future ADR when team size warrants it |
-| Squash-and-merge as default | Discards original commit SHAs, making `git bisect` and `git blame` less useful; rebase-merge is strictly better for the repo's single-author style |
+| Rebase-and-merge as default | `required_signatures` prevents GitHub from auto-signing replayed commits; `gh pr merge --rebase` is rejected by the API |
