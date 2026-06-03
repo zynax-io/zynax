@@ -43,7 +43,7 @@ services:
 
   http-adapter:
     profiles: [dev]
-    image: ghcr.io/zynax-io/zynax/http-adapter:main
+    image: ghcr.io/zynax-io/zynax/http-adapter@sha256:b12750bf90c3617078ace8b90be54c137dc50a8d4b64916ed31dd11e9f2b27df
     build:
       context: ../..
       dockerfile: agents/adapters/http/Dockerfile

@@ -27,12 +27,12 @@
 
 # ── Base image digests ──────────────────────────────────────────────────────
 # Pinned for supply-chain integrity. To update a digest:
-#   docker manifest inspect golang:1.26.3-alpine --verbose | jq '.Descriptor.digest'
+#   docker manifest inspect golang:1.26.4-alpine --verbose | jq '.Descriptor.digest'
 # Override at build time:  --build-arg GO_ALPINE_DIGEST=sha256:<new>
 #
 # renovate: datasource=docker depName=golang versioning=docker
-ARG GO_VERSION=1.26.3
-ARG GO_ALPINE_DIGEST=sha256:91eda9776261207ea25fd06b5b7fed8d397dd2c0a283e77f2ab6e91bfa71079d
+ARG GO_VERSION=1.26.4
+ARG GO_ALPINE_DIGEST=sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f
 # renovate: datasource=docker depName=python versioning=docker
 ARG PYTHON_VERSION=3.14
 ARG PYTHON_ALPINE_DIGEST=sha256:1aba322febb2d47185eb4db4934a1d7ce942cf3a469be8908dbce95aa513419b
@@ -155,5 +155,14 @@ ENV PATH="/usr/local/go/bin:/usr/local/bin:/root/.local/bin:${PATH}" \
     UV_CACHE_DIR=/root/.cache/uv \
     DO_NOT_TRACK=1
 
+LABEL org.opencontainers.image.title="Zynax Developer Tools" \
+      org.opencontainers.image.description="All-in-one developer toolbox for Zynax contributors. Includes buf, golangci-lint, govulncheck, godog, mockery, migrate, gitleaks, syft, grpc-health-probe, and the zynax-ci toolchain — plus uv, ruff, mypy, bandit, pip-audit, and pytest for Python." \
+      org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/CLAUDE.md" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Zynax" \
+      com.zynax.image.role="developer-toolbox" \
+      com.zynax.image.usage="docker run --rm -v $(pwd):/workspace ghcr.io/zynax-io/zynax/tools:latest make lint"
 WORKDIR /workspace
 CMD ["/bin/sh"]

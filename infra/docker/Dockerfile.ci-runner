@@ -26,12 +26,12 @@
 
 # ── Base image digests ─────────────────────────────────────────────────────
 # Pinned for supply-chain integrity. To update a digest:
-#   docker manifest inspect golang:1.26.3-alpine --verbose | jq '.Descriptor.digest'
+#   docker manifest inspect golang:1.26.4-alpine --verbose | jq '.Descriptor.digest'
 # Override at build time:  --build-arg GO_ALPINE_DIGEST=sha256:<new>
 #
 # renovate: datasource=docker depName=golang versioning=docker
-ARG GO_VERSION=1.26.3
-ARG GO_ALPINE_DIGEST=sha256:91eda9776261207ea25fd06b5b7fed8d397dd2c0a283e77f2ab6e91bfa71079d
+ARG GO_VERSION=1.26.4
+ARG GO_ALPINE_DIGEST=sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f
 # renovate: datasource=docker depName=alpine versioning=docker
 ARG ALPINE_VERSION=3.21
 ARG ALPINE_DIGEST=sha256:f27cad9117495d32d067133afff942cb2dc745dfe9163e949f6bfe8a6a245339
@@ -41,7 +41,7 @@ FROM golang:${GO_VERSION}-alpine@${GO_ALPINE_DIGEST} AS builder
 
 RUN apk add --no-cache git curl ca-certificates
 
-# golangci-lint — compiled from source so it embeds Go 1.26.3 stdlib
+# golangci-lint — compiled from source so it embeds Go 1.26.4 stdlib
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 
@@ -57,12 +57,12 @@ RUN go install github.com/cucumber/godog/cmd/godog@v0.15.1
 # renovate: datasource=github-releases depName=vektra/mockery
 RUN go install github.com/vektra/mockery/v2@v2.53.6
 
-# gitleaks — secret scanner; compiled from source so it embeds Go 1.26.3 stdlib
+# gitleaks — secret scanner; compiled from source so it embeds Go 1.26.4 stdlib
 # (version must match .pre-commit-config.yaml rev:)
 # renovate: datasource=github-releases depName=gitleaks/gitleaks
 RUN go install github.com/zricethezav/gitleaks/v8@v8.30.1
 
-# actionlint — GitHub Actions workflow linter; compiled from source with Go 1.26.3
+# actionlint — GitHub Actions workflow linter; compiled from source with Go 1.26.4
 # renovate: datasource=github-releases depName=rhysd/actionlint
 RUN go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 
@@ -81,9 +81,15 @@ RUN cd /src/zynax-ci && GOWORK=off go build -trimpath -o /go/bin/zynax-ci .
 # ── Stage 2: ci-runner — clean Alpine, NO curl ───────────────────────────────
 FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS ci-runner
 
-LABEL org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
-      org.opencontainers.image.description="Zynax CI Runner — GitHub Actions container mode" \
-      org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.title="Zynax CI Runner" \
+      org.opencontainers.image.description="Purpose-built GitHub Actions container for Zynax CI. Pre-baked with golangci-lint, govulncheck, godog, mockery, actionlint, gitleaks, buf, zynax-ci, uv, ruff, mypy, bandit, pip-audit, and pytest — zero runtime downloads." \
+      org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/infra/docker/Dockerfile.ci-runner" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Zynax" \
+      com.zynax.image.role="ci-runner" \
+      com.zynax.image.usage="container: { image: ghcr.io/zynax-io/zynax/ci-runner@<digest> } in GitHub Actions jobs"
 
 # Alpine system deps — curl intentionally absent from this stage
 RUN apk add --no-cache git bash ca-certificates python3 py3-pip libstdc++ libgcc
@@ -97,7 +103,7 @@ COPY --from=builder /usr/local/go/src /usr/local/go/src
 COPY --from=builder /usr/local/go/pkg /usr/local/go/pkg
 COPY --from=builder /usr/local/go/lib /usr/local/go/lib
 
-# ── Go tool binaries (all compiled with Go 1.26.3) ────────────────────────────
+# ── Go tool binaries (all compiled with Go 1.26.4) ────────────────────────────
 COPY --from=builder /go/bin/golangci-lint /usr/local/bin/
 COPY --from=builder /go/bin/govulncheck   /usr/local/bin/
 COPY --from=builder /go/bin/godog         /usr/local/bin/
