@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "zynax.fullname" . }}
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "zynax.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - port: {{ .Values.env.httpPort }}
+          protocol: TCP
+        - port: 9090
+          protocol: TCP
+  egress:
+    # DNS resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Upstream gRPC services
+    - ports:
+        - port: 50052
+          protocol: TCP
+        - port: 50054
+          protocol: TCP
+        - port: 50055
+          protocol: TCP

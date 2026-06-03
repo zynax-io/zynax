@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v2
+name: zynax-api-gateway
+description: >
+  Helm chart for the Zynax API Gateway — HTTP REST entry point for the
+  control plane. Accepts YAML workflow manifests on POST /api/v1/apply
+  and routes them to internal gRPC services.
+type: application
+version: 0.1.0
+appVersion: "0.4.0"
+dependencies:
+  - name: zynax-lib
+    version: "0.1.0"
+    repository: "file://../zynax-lib"

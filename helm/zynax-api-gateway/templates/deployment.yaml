@@ -1,0 +1,142 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zynax.fullname" . }}
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "zynax.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9090"
+      labels:
+        {{- include "zynax.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "zynax.serviceAccountName" . }}
+      securityContext:
+        {{- include "zynax.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: api-gateway
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- include "zynax.containerSecurityContext" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.env.httpPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: ZYNAX_GW_HTTP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: http-port
+            - name: ZYNAX_GW_COMPILER_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: compiler-addr
+            - name: ZYNAX_GW_ENGINE_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: engine-addr
+            - name: ZYNAX_GW_REGISTRY_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: registry-addr
+            - name: ZYNAX_GW_LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: log-level
+            - name: ZYNAX_GW_GRPC_CALL_TIMEOUT_S
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: grpc-call-timeout-s
+            - name: ZYNAX_GW_LIVENESS_THRESHOLD_S
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: liveness-threshold-s
+            {{- if .Values.apiKeySecretName }}
+            - name: ZYNAX_GW_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.apiKeySecretName }}
+                  key: api-key
+                  optional: true
+            {{- end }}
+            {{- if .Values.tlsSecretName }}
+            - name: ZYNAX_GW_TLS_CERT
+              value: /tls/tls.crt
+            - name: ZYNAX_GW_TLS_KEY
+              value: /tls/tls.key
+            - name: ZYNAX_GW_TLS_CA
+              value: /tls/ca.crt
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /startupz
+              port: http
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.tlsSecretName }}
+          volumeMounts:
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+          {{- end }}
+      {{- if .Values.tlsSecretName }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ .Values.tlsSecretName }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

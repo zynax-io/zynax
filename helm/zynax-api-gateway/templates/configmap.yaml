@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zynax.fullname" . }}
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+data:
+  http-port: {{ .Values.env.httpPort | quote }}
+  compiler-addr: {{ .Values.env.compilerAddr | quote }}
+  engine-addr: {{ .Values.env.engineAddr | quote }}
+  registry-addr: {{ .Values.env.registryAddr | quote }}
+  log-level: {{ .Values.env.logLevel | quote }}
+  grpc-call-timeout-s: {{ .Values.env.grpcCallTimeoutS | quote }}
+  liveness-threshold-s: {{ .Values.env.livenessThresholdS | quote }}
