@@ -69,7 +69,9 @@ git fetch origin --prune && git checkout main && git pull --rebase origin main
 | Proto or BDD boundary touched | `protos/AGENTS.md` + `docs/patterns/bdd-contract-testing.md` |
 | Helm chart work | `infra/AGENTS.md` + `docs/patterns/helm-charts.md` |
 | Any ADR-governed decision | `docs/adr/INDEX.md` — ADR-022 (event-bus) Accepted; all 22 ADRs stable |
-| M6.Images work (#855) | `cmd/zynax-ci/AGENTS.md` + `images/images.yaml` (created in O1); O1 is `chore:` (implement directly); O2+O3 are the keystone cluster (`feat:`+`ci:`) |
+| M6.Images SoT work (#855, #856–#862) | `cmd/zynax-ci/AGENTS.md` + `images/images.yaml` (created in O1); O1 is `chore:` (implement directly); O2+O3 are the keystone cluster (`feat:`+`ci:`) |
+| M6.Images GHCR hygiene (#865–#869) | Root cause confirmed: all images have `"annotations": null` on OCI index (no description shown); `unknown/unknown` = SLSA provenance attestation (expected, do NOT disable); deliver #868 ADR-025 first, then #865 annotations, then #866 gate, #867 retention, #869 docs |
+| M6.Build work (#837, #841) | Native arm64 runners; B.1–B.3 story issues must be created from EPIC body before implementing |
 
 Run `/help` to confirm all SPDD commands are available.
 
@@ -119,7 +121,8 @@ Apply the **Resumption tree** (bottom) and report the matching row before taking
 | 1 | M6.Helm | #765 | canvas `Aligned` `docs/spdd/765-helm-charts/canvas.md`; children #779–#792 |
 | 2 | M6.H Postgres repos | #626 | canvas `Aligned` `docs/spdd/626-postgres-repos/canvas.md`; children #793 #794 |
 | 3 | M6.F Config convergence | #670 | refactor/ci — SPDD-exempt; children #667 #668 #669 |
-| 4 | M6.Images | #855 | canvas `Aligned` `docs/spdd/855-images-sot/canvas.md`; children #856–#862; O1 (#856) `chore:` — implement directly (skip `/spdd-generate`); O2 (#857) `feat:` — use `/spdd-generate`; **O2+O3 (#857+#858) must ship as one cluster** |
+| 4 | M6.Images — SoT | #855 | canvas `Aligned` `docs/spdd/855-images-sot/canvas.md`; SoT children: #856–#862 (O1 `chore:` direct; O2+O3 keystone cluster); **GHCR hygiene children: #865–#869 — SPDD-exempt; deliver in order #868 → #865 → #866 → #867 → #869** |
+| 4a | M6.Build | #837 | SPDD-exempt (ci:/chore:); B.1–B.3 story issues not yet created — create from EPIC body; B.4 = #841 (image size audit); goal: zero QEMU, native arm64 runners, Python adapters in release pipeline |
 | 5 | M6.NS Multi-namespace | #767 | canvas `Aligned` `docs/spdd/767-multi-namespace/canvas.md`; children #799 #800; D.1 done (#774) |
 | 6 | M6.Argo | #766 | canvas `Aligned` `docs/spdd/766-argo-engine/canvas.md`; children #795–#798 |
 | 7 | M6.SDK PyPI | #769 | canvas `Aligned` `docs/spdd/769-sdk-pypi/canvas.md`; children #805–#808 |
