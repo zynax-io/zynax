@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-03 (M6.DevAuto EPIC #873 added; issues #874–#883 created)  
+> Generated: 2026-06-02 · Last updated: 2026-06-03 (DevAuto.1 #874 ✅ merged in #884)  
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -87,7 +87,7 @@
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
-| DevAuto.1 docs(automation): STATUS-AND-DIRECTION.md | [#874](https://github.com/zynax-io/zynax/issues/874) | Docs | — | ⬜ Open |
+| DevAuto.1 docs(automation): STATUS-AND-DIRECTION.md | [#874](https://github.com/zynax-io/zynax/issues/874) | Docs | #884 | ✅ Merged |
 | DevAuto.2 chore(automation): expert mesh YAML configs (9 experts) | [#875](https://github.com/zynax-io/zynax/issues/875) | CI | — | ⬜ Open |
 | DevAuto.3 chore(automation): orchestrator config + aggregation protocol | [#876](https://github.com/zynax-io/zynax/issues/876) | CI | — | ⬜ Open |
 | DevAuto.4 ci: Wave 0 — GH Actions advisory workflow | [#877](https://github.com/zynax-io/zynax/issues/877) | CI | — | ⬜ Open |

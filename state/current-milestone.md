@@ -266,6 +266,20 @@ All PRs merged 2026-06-03.
 | docs(contributing): merge policy | [#846](https://github.com/zynax-io/zynax/issues/846) | #851 | ✅ Merged |
 | docs(milestones): tracking + ROADMAP expansion | — | #852 | ✅ Merged |
 
+### M6.DevAuto — Self-hosting dev-automation (#873) — 🔄 In Progress
+
+Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is BLOCKED on #626 + #772)
+
+| Story | Issue | Status |
+|-------|-------|--------|
+| DevAuto.1 docs(automation): STATUS-AND-DIRECTION.md | [#874](https://github.com/zynax-io/zynax/issues/874) | ✅ Merged (#884) |
+| DevAuto.2 chore(automation): expert mesh YAML configs | [#875](https://github.com/zynax-io/zynax/issues/875) | ⬜ Next |
+| DevAuto.3 chore(automation): orchestrator config | [#876](https://github.com/zynax-io/zynax/issues/876) | ⬜ Pending |
+| DevAuto.4–7 ci: Waves 0–3 | [#877](https://github.com/zynax-io/zynax/issues/877)–[#880](https://github.com/zynax-io/zynax/issues/880) | ⬜ Pending |
+| DevAuto.8 feat: Wave 4 aspirational | [#881](https://github.com/zynax-io/zynax/issues/881) | ⬜ **BLOCKED on #626 + #772** |
+| DevAuto.9 test: xfail gate | [#882](https://github.com/zynax-io/zynax/issues/882) | ⬜ Pending |
+| DevAuto.10 docs: AGENTS.md pointer + README | [#883](https://github.com/zynax-io/zynax/issues/883) | ⬜ Pending |
+
 ---
 
 ## Next Session Queue (priority order)
