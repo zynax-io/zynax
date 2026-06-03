@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/cucumber/godog v0.14.1
 	github.com/zynax-io/zynax/protos/generated/go v0.0.0
-	google.golang.org/grpc v1.80.0
+	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 )
