@@ -33,7 +33,7 @@
 | docs(contributing): record rebase-merge / branch-delete / no-reopen policy | [#846](https://github.com/zynax-io/zynax/issues/846) | Docs | #851 | ⬜ Open |
 | docs(adr): ADR-023 — restrict direct pushes to main; rebase-merge only | — | Docs/ADR | #847 | ⬜ Open |
 
-**M6.Images — Single source of truth for container-image references** (EPIC #855; canvas `docs/spdd/855-images-sot/canvas.md` — Status: Draft)
+**M6.Images — Single source of truth for container-image references** (EPIC #855; canvas `docs/spdd/855-images-sot/canvas.md` — Status: **Aligned**)
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
