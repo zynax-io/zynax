@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-03 (M6.Images EPIC #855 + stories #856–#862 added)  
+> Generated: 2026-06-02 · Last updated: 2026-06-03 (GHCR hygiene issues #865–#869 + M6.Build #837 wired)  
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6, 30 open issues / 2 closed).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -44,6 +44,25 @@
 | O5 chore(ci): bump flow rewrite | [#860](https://github.com/zynax-io/zynax/issues/860) | CI tooling | — | ⬜ Open |
 | O6 docs: single source of truth propagation | [#861](https://github.com/zynax-io/zynax/issues/861) | Docs | — | ⬜ Open |
 | O7 docs: ADR-024 | [#862](https://github.com/zynax-io/zynax/issues/862) | Docs/ADR | — | ⬜ Open |
+
+**M6.Images — GHCR Package Hygiene** (attached to EPIC #855; SPDD-exempt; delivery order: #868 → #865 → #866 → #867 → #869)
+
+| Story | Issue | Area | PR | Status |
+|-------|-------|------|-----|--------|
+| docs(adr): ADR-025 — SLSA provenance attestation keep vs disable | [#868](https://github.com/zynax-io/zynax/issues/868) | Docs/ADR | — | ⬜ Open |
+| ci: add OCI manifest annotations — fix "no description" on GHCR | [#865](https://github.com/zynax-io/zynax/issues/865) | CI/Infra | — | ⬜ Open |
+| ci: description-present gate + size-budget check in publish steps | [#866](https://github.com/zynax-io/zynax/issues/866) | CI | — | ⬜ Open |
+| chore(ci): GHCR retention cap — keep last 5 builds per image | [#867](https://github.com/zynax-io/zynax/issues/867) | CI | — | ⬜ Open |
+| docs: document unknown/unknown — expected SLSA provenance | [#869](https://github.com/zynax-io/zynax/issues/869) | Docs/Infra | — | ⬜ Open |
+
+**M6.Build — Native multi-arch build pipeline** (EPIC [#837](https://github.com/zynax-io/zynax/issues/837); SPDD-exempt; no canvas required)
+
+| Story | Issue | Area | PR | Status |
+|-------|-------|------|-----|--------|
+| ci(infra): migrate release.yml service builds to native arm64 — no QEMU | — | CI | — | ⬜ Open |
+| ci(infra): migrate tools-image.yml to native arm64 — no QEMU | — | CI | — | ⬜ Open |
+| ci(infra): add Python adapter images to multi-arch release pipeline | — | CI/Infra | — | ⬜ Open |
+| ci(infra): audit and minimize final image sizes | [#841](https://github.com/zynax-io/zynax/issues/841) | CI/Infra | — | ⬜ Open |
 
 ---
 

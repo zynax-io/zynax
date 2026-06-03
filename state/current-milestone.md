@@ -229,6 +229,20 @@ Canvas: `docs/spdd/855-images-sot/canvas.md` — Status: **Aligned** ✅
 
 **Keystone**: O2 + O3 must ship in the same sprint; neither is done without the other.
 
+### M6.Images — GHCR Package Hygiene — ⬜ Ready to implement
+
+Investigation confirmed (2026-06-03): all 8 GHCR images have `"annotations": null` on their OCI index manifests → "No description" in GHCR UI. Two `unknown/unknown` rows per image are SLSA provenance attestations (expected). No retention policy exists.
+
+Delivery order (each is its own PR):
+
+| Story | Issue | Status |
+|-------|-------|--------|
+| docs(adr): ADR-025 — keep vs disable SLSA attestations | [#868](https://github.com/zynax-io/zynax/issues/868) | ⬜ Open |
+| ci: OCI manifest annotations (fix "no description") | [#865](https://github.com/zynax-io/zynax/issues/865) | ⬜ Open — depends on #868 |
+| ci: description-present gate + size-budget check | [#866](https://github.com/zynax-io/zynax/issues/866) | ⬜ Open — depends on #865 |
+| chore(ci): GHCR retention cap (last 5 builds) | [#867](https://github.com/zynax-io/zynax/issues/867) | ⬜ Open |
+| docs: document unknown/unknown attestation manifests | [#869](https://github.com/zynax-io/zynax/issues/869) | ⬜ Open — depends on #868 |
+
 ### M6 Infra / Tooling — 🔄 In Progress
 
 Process-health work (ADR-023, merge-policy, image-bump tooling, /resume-m6 fix).
