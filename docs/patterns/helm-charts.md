@@ -6,6 +6,38 @@
 
 ---
 
+## Library Chart (zynax-lib)
+
+All Zynax service charts depend on `helm/zynax-lib` (a Helm library chart — `type: library`,
+no installable templates). Declare the dependency in every service chart's `Chart.yaml`:
+
+```yaml
+dependencies:
+  - name: zynax-lib
+    version: "0.1.0"
+    repository: "file://../../zynax-lib"
+```
+
+Run `helm dependency update helm/zynax-<service>/` after adding the dependency.
+
+### Available macros
+
+| Macro | Usage | Returns |
+|-------|-------|---------|
+| `zynax.name` | `{{ include "zynax.name" . }}` | Chart name, truncated to 63 chars |
+| `zynax.fullname` | `{{ include "zynax.fullname" . }}` | `<release>-<chart>`, deduped, ≤63 chars |
+| `zynax.chart` | `{{ include "zynax.chart" . }}` | `<chart>-<version>` for `helm.sh/chart` label |
+| `zynax.labels` | `{{ include "zynax.labels" . \| nindent 4 }}` | Full common labels block |
+| `zynax.selectorLabels` | `{{ include "zynax.selectorLabels" . \| nindent 6 }}` | Selector-stable labels (`name` + `instance`) |
+| `zynax.serviceAccountName` | `{{ include "zynax.serviceAccountName" . }}` | SA name respecting `serviceAccount.name` override |
+| `zynax.podSecurityContext` | `{{ include "zynax.podSecurityContext" . \| nindent 8 }}` | `spec.securityContext` block (UID 1001, RuntimeDefault) |
+| `zynax.containerSecurityContext` | `{{ include "zynax.containerSecurityContext" . \| nindent 12 }}` | `containers[].securityContext` block (no root, drop ALL) |
+
+Use these macros in every template rather than inlining the values — this ensures all
+charts stay consistent when the library is updated.
+
+---
+
 ## Required Chart Structure
 
 Every service chart MUST include all of the following:

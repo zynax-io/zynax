@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v2
+name: zynax-lib
+description: >
+  Shared Helm library chart for Zynax services.
+  Provides _helpers.tpl macros: fullname, labels, selectorLabels,
+  serviceAccountName, podSecurityContext, containerSecurityContext.
+  Every Zynax service chart declares this as a dependency.
+type: library
+version: 0.1.0

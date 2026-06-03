@@ -213,6 +213,15 @@ Canvas: `docs/spdd/464-mtls/canvas.md` — Status: Implemented
 
 Canvas: `docs/spdd/465-supply-chain/canvas.md` — Status: Implemented
 
+### M6.Helm — Helm Charts for All Services (#765) — 🔄 In Progress
+
+Canvas: `docs/spdd/765-helm-charts/canvas.md` — Status: **Aligned** ✅
+
+| Story | Issue | Status |
+|-------|-------|--------|
+| A.0 feat(infra): shared zynax-lib library chart | [#779](https://github.com/zynax-io/zynax/issues/779) | ✅ Merged (#872) |
+| A.1–A.13: remaining stories | [#780](https://github.com/zynax-io/zynax/issues/780)–[#792](https://github.com/zynax-io/zynax/issues/792) | ⬜ Pending A.0 |
+
 ### M6.Images — Single Source of Truth for Container Image References (#855) — ⬜ Canvas Aligned, not started
 
 Canvas: `docs/spdd/855-images-sot/canvas.md` — Status: **Aligned** ✅
