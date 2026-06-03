@@ -8,4 +8,4 @@
 #     image: ghcr.io/zynax-io/zynax/ci-runner@<digest>
 #
 # Digest from last build (update after each tools-image.yml run):
-sha256:029e67dbbf6159bda7ec7c3c25d0c2e42ae588bc68d24df474c0580e20f23cb7
+sha256:f33e9a90f6ad8fdd6404c6e7f47811b6712e62d5be295493aa19fb730004666a
