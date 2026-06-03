@@ -1,6 +1,6 @@
 module github.com/zynax-io/zynax/protos/generated/go
 
-go 1.26.3
+go 1.26.4
 
 require (
 	google.golang.org/grpc v1.81.1

@@ -1,6 +1,6 @@
 module github.com/zynax-io/zynax/protos/tests
 
-go 1.26.3
+go 1.26.4
 
 require (
 	github.com/cucumber/godog v0.14.1

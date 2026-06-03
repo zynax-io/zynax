@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 module github.com/zynax-io/zynax/agents/adapters/ci
 
-go 1.26.3
+go 1.26.4
 
 replace github.com/zynax-io/zynax/protos/generated/go => ../../../protos/generated/go
 

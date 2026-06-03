@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 module github.com/zynax-io/zynax/cmd/zynax
 
-go 1.26.3
+go 1.26.4
 
 require (
 	github.com/fsnotify/fsnotify v1.10.1
