@@ -27,6 +27,27 @@ PR flips its own story-issue row in `docs/milestones/M6-planning.md` and updates
 
 ---
 
+## Branch discipline (non-negotiable — ADR-023)
+
+- **Rebase before every merge.** `git rebase origin/main` immediately before `gh pr merge`.
+  Never merge a branch that has diverged from `main`. Resolve all conflicts, then
+  `git push --force-with-lease` before merging.
+- **Merge strategy: `--squash` only.** Use `gh pr merge <PR> --squash`. Never `--merge`
+  (creates a merge commit, violates `required_linear_history`). `--rebase` is blocked by
+  `required_signatures` — GitHub cannot auto-sign replayed commits.
+- **Delete the remote branch after every merge:**
+  ```bash
+  git push origin --delete <branch>
+  ```
+  No merged or closed branch should remain on the remote.
+- **Never reopen a closed PR or branch.** If commits from a closed branch are still
+  wanted, cherry-pick or rebase them onto a fresh branch off current `main`, open a
+  new PR, let CI run green, then squash-merge.
+- **No direct commits to `main` — including one-line doc fixes.** All changes go
+  through a branch → PR → CI green → `gh pr merge --squash` → branch deleted.
+
+---
+
 ## STEP 1 — Orient & resume (run first)
 
 **1.1 Sync main**
@@ -56,8 +77,24 @@ Run `/help` to confirm all SPDD commands are available.
 gh issue list --milestone "K8s Production-Ready (M6)" --state open   --limit 200 --json number,title,labels,state
 gh issue list --milestone "K8s Production-Ready (M6)" --state closed --limit 200 --json number,title,labels,state
 ```
-Open issue ⇒ ⬜ row; closed issue ⇒ ✅ row. Any mismatch → fix `M6-planning.md` +
-`current-milestone.md` now (small `docs:` commit, no PR; bump "Last updated").
+Open issue ⇒ ⬜ row; closed issue ⇒ ✅ row. Any mismatch → fix via a dedicated `docs:` branch
+and PR (never a direct commit to `main`):
+```bash
+git checkout -b docs/milestone-sync-$(date +%Y%m%d)
+# edit M6-planning.md and/or current-milestone.md
+git add docs/milestones/M6-planning.md state/current-milestone.md
+git commit -s -m "docs(milestones): reconcile M6 planning table — <what changed>
+
+Assisted-by: Claude/<model>"
+git push -u origin HEAD
+gh pr create --title "docs(milestones): reconcile M6 planning table" \
+  --body "Reconcile open/closed issue state with delivery table." \
+  --label "type: docs,milestone: M6"
+gh pr checks <PR> --watch
+git fetch origin main && git rebase origin/main && git push --force-with-lease
+gh pr merge <PR> --squash
+git push origin --delete docs/milestone-sync-$(date +%Y%m%d)
+```
 
 **1.4 Detect in-flight + health gate**
 ```bash
@@ -317,12 +354,9 @@ git checkout "$BR" && gh pr edit "$PR" --base main 2>/dev/null || true
 git rebase origin/main || { echo "rebase conflict — resolve or stop+ask"; exit 1; }
 git push --force-with-lease
 gh pr checks "$PR" --watch --interval 30
-gh pr merge "$PR" --auto --squash \
-  --subject "<type>(<scope>): <subject> (#$PR)" \
-  --body "Closes #$STORY
-
-Assisted-by: Claude/<model-id-from-this-session>"
+gh pr merge "$PR" --squash
 until [ "$(gh pr view "$PR" --json state --jq .state)" = "MERGED" ]; do sleep 30; done
+git push origin --delete "$BR" 2>/dev/null || true
 ```
 
 **After each merge (9.R):**
