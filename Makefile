@@ -26,7 +26,7 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: bootstrap check-docker build-tools
+.PHONY: bootstrap check-docker build-tools bump-ci-runner
 bootstrap: ensure-tools ## ★ Run once after clone — pulls tools image from GHCR and installs pre-commit hooks
 	@if command -v pre-commit >/dev/null 2>&1; then \
 	  pre-commit install && echo "✅ pre-commit hooks installed"; \
@@ -42,6 +42,10 @@ check-docker:
 build-tools: check-docker ## Build zynax/tools:local from source — use when editing Dockerfile.tools
 	docker build -f infra/docker/Dockerfile.tools -t $(TOOLS_IMAGE) .
 	@echo "✅ Tools image: $(TOOLS_IMAGE)"
+
+bump-ci-runner: ## Update ci-runner digest everywhere: make bump-ci-runner NEW_DIGEST=sha256:<hex>
+	@[ -n "$(NEW_DIGEST)" ] || (echo "❌ Usage: make bump-ci-runner NEW_DIGEST=sha256:<64-hex>"; exit 1)
+	scripts/bump-ci-runner.sh $(NEW_DIGEST)
 
 pull-tools: check-docker ## Pull tools image from GHCR (authenticates via `gh auth token`)
 	@echo "🔐 Authenticating to GHCR via gh..."
