@@ -2,7 +2,7 @@
 // Zynax — Go workspace
 // Platform services and Go adapters. Python agents use separate pyproject.toml files.
 
-go 1.26.3
+go 1.26.4
 
 use (
 	./agents/adapters/ci
