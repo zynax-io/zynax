@@ -279,13 +279,35 @@ See [`docs/patterns/bdd-contract-testing.md`](docs/patterns/bdd-contract-testing
 3. Title must follow Conventional Commits (CI-enforced). Fill all template sections.
 4. Mark **Draft** if in progress; convert to **Ready** only when CI passes locally.
 5. Push fixup commits during review — do not force-push while reviewers are active.
-6. After all approvals: rebase onto `main`, squash, `git push --force-with-lease`.
+6. After all approvals: rebase onto `main`, `git push --force-with-lease`, then merge.
 
 **Merge requirements:**
 - [ ] All CI checks green (lint, test-unit, test-integration, security, dco)
 - [ ] No unresolved review comments · PR description complete · CHANGELOG updated
 
-**Merge strategy:** squash-and-merge for feature branches; rebase-merge for PR chains.
+**Merge strategy: squash-and-merge** (`gh pr merge <PR> --squash`). No merge commits.
+`required_linear_history` is enforced by branch protection — merge commits are rejected
+for all actors including admins (ADR-023). `--rebase` is blocked by `required_signatures`
+(GitHub cannot auto-sign replayed commits); squash-merge is GitHub-signed and linear.
+
+Sequence before every merge:
+```bash
+git fetch origin main
+git rebase origin/main        # resolve conflicts if any
+git push --force-with-lease
+gh pr checks <PR> --watch
+gh pr merge <PR> --squash
+git push origin --delete <branch>   # delete remote branch immediately after merge
+```
+
+**Branch lifecycle:**
+- Create branches off fresh `origin/main` immediately before work.
+- Delete the remote branch immediately after merge (`git push origin --delete <branch>`).
+  GitHub's "Automatically delete head branches" setting enforces this for merge-button ops.
+- **Never reopen a closed PR or stale branch.** If commits from a closed branch are still
+  wanted, cherry-pick or rebase them onto a fresh branch off current `main`, open a new PR,
+  run CI, then squash-merge.
+
 Solo maintainer phase: CI must pass; maintainer may self-merge non-breaking changes.
 Breaking and proto changes require a 5-day RFC comment period (see `GOVERNANCE.md §2`).
 
@@ -294,7 +316,7 @@ Breaking and proto changes require a 5-day RFC comment period (see `GOVERNANCE.m
 ## 9. Code Review Etiquette
 
 **Authors:** respond to all comments; push fixup commits during review (no amend);
-squash after approval; rebase `main` to keep branches current; no AI-generated replies.
+rebase onto current `main` immediately before merge; no AI-generated replies.
 
 **Reviewers:** use explicit severity prefixes:
 

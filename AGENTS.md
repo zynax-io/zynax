@@ -157,6 +157,12 @@ A feature is DONE when **all** are true:
 - Never hardcode LLM model names — env var always
 - Close all I/O resources in `finally` blocks or context managers
 
+**Merge discipline (ADR-023):** rebase onto `origin/main` before every merge ·
+`gh pr merge <PR> --squash` only (no merge commits; `--rebase` blocked by `required_signatures`) ·
+delete the remote branch after every merge (`git push origin --delete <branch>`) · never
+reopen a closed PR or branch (cherry-pick onto a fresh branch instead) · no direct commits
+to `main` (all changes: branch → PR → CI green → squash-merge → branch deleted).
+
 **SPDD — prompt governance (feat: PRs, ADR-019):**
 - Canvas before code: write `docs/spdd/<issue>-<slug>/canvas.md` before any implementation
 - Logic correction flow: requirements change → update Canvas → regenerate/patch code
