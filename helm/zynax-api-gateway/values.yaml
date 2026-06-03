@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+replicaCount: 1
+
+image:
+  repository: ghcr.io/zynax-io/zynax/api-gateway
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to .Chart.AppVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+# Non-secret env vars for the api-gateway (prefix: ZYNAX_GW_)
+env:
+  httpPort: 8080
+  compilerAddr: "zynax-workflow-compiler:50054"
+  engineAddr: "zynax-engine-adapter:50055"
+  registryAddr: "zynax-agent-registry:50052"
+  logLevel: "info"
+  grpcCallTimeoutS: 30
+  livenessThresholdS: 60
+
+# Secret references — never store values here
+# ZYNAX_GW_API_KEY is read from this secret's "api-key" key.
+# Set to empty string to skip mounting (dev-insecure mode only).
+apiKeySecretName: "zynax-gw-api-key"
+
+# mTLS secret — set to empty string to disable TLS (dev only).
+# When set, the secret must contain tls.crt, tls.key, and ca.crt.
+tlsSecretName: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

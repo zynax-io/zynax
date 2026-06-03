@@ -1,0 +1,15 @@
+Zynax API Gateway deployed as {{ include "zynax.fullname" . }}.
+
+  Service: {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}
+
+  Health probes (HTTP):
+    Startup:   GET /startupz
+    Readiness: GET /readyz
+    Liveness:  GET /livez
+
+  Apply a workflow manifest:
+    kubectl run -it --rm --restart=Never curl-test --image=curlimages/curl -- \
+      curl -s -X POST http://{{ include "zynax.fullname" . }}:{{ .Values.service.port }}/api/v1/apply \
+        -H "Content-Type: application/yaml" \
+        -H "Authorization: Bearer $API_KEY" \
+        --data-binary @workflow.yaml

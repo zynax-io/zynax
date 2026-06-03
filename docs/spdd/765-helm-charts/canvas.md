@@ -119,7 +119,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 1. **[A.0]** ✅ Create `helm/zynax-lib` library chart with `_helpers.tpl` macros (`zynax.fullname`, `zynax.labels`, `zynax.selectorLabels`, `zynax.serviceAccountName`, security context helper); update `docs/patterns/helm-charts.md` with library chart usage section; `ct lint` passes.
 
-2. **[A.1]** Create `helm/zynax-api-gateway` chart: Deployment (liveness/readiness/startup probes on `/livez`/`/readyz`/`/startupz`; gRPC port 50051; metrics 9090), Service (ClusterIP), ServiceAccount, HPA, PDB, NetworkPolicy; `values.yaml` defaults; `ct lint` passes.
+2. **[A.1]** ✅ Create `helm/zynax-api-gateway` chart: Deployment (liveness/readiness/startup probes on `/livez`/`/readyz`/`/startupz`; HTTP port 8080; metrics port 9090), Service (ClusterIP), ServiceAccount, HPA, PDB, NetworkPolicy, ConfigMap; `values.yaml` defaults; `helm lint` passes.
 
 3. **[A.2]** Create `helm/zynax-workflow-compiler` chart (same structure as A.1).
 

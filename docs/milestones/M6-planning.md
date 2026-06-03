@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-03 (DevAuto.1 #874 ✅ merged in #884)  
+> Generated: 2026-06-02 · Last updated: 2026-06-03 (DevAuto.1 #874 merged in #884; A.1 #780 merged)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -60,7 +60,7 @@
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
 | A.0 feat(infra): shared Helm zynax-lib library chart | [#779](https://github.com/zynax-io/zynax/issues/779) | Infra | #872 | ✅ Merged |
-| A.1 feat(infra): Helm chart for api-gateway | [#780](https://github.com/zynax-io/zynax/issues/780) | Infra | — | ⬜ Open |
+| A.1 feat(infra): Helm chart for api-gateway | [#780](https://github.com/zynax-io/zynax/issues/780) | Infra | #886 | ✅ Merged |
 | A.2 feat(infra): Helm chart for workflow-compiler | [#781](https://github.com/zynax-io/zynax/issues/781) | Infra | — | ⬜ Open |
 | A.3 feat(infra): Helm chart for engine-adapter | [#782](https://github.com/zynax-io/zynax/issues/782) | Infra | — | ⬜ Open |
 | A.4 feat(infra): Helm chart for task-broker | [#783](https://github.com/zynax-io/zynax/issues/783) | Infra | — | ⬜ Open |
