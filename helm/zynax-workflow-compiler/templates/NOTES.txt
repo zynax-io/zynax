@@ -1,0 +1,9 @@
+Zynax Workflow Compiler deployed as {{ include "zynax.fullname" . }}.
+
+  Service (gRPC): {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}
+  Health check:   http://{{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.env.metricsPort }}/healthz
+
+  Compile a workflow manifest via grpcurl:
+    grpcurl -plaintext \
+      {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }} \
+      zynax.v1.WorkflowCompilerService/CompileWorkflow

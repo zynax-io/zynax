@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+replicaCount: 1
+
+image:
+  repository: ghcr.io/zynax-io/zynax/workflow-compiler
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to .Chart.AppVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 50054
+
+# Non-secret env vars (prefix: ZYNAX_WC_)
+env:
+  grpcPort: 50054
+  metricsPort: 9094
+  logLevel: "info"
+
+# mTLS secret — set to empty string to disable TLS (dev only).
+# When set, the secret must contain tls.crt, tls.key, and ca.crt.
+tlsSecretName: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
