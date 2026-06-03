@@ -219,7 +219,7 @@ Canvas: `docs/spdd/765-helm-charts/canvas.md` — Status: **Aligned** ✅
 
 | Story | Issue | Status |
 |-------|-------|--------|
-| A.0 feat(infra): shared zynax-lib library chart | [#779](https://github.com/zynax-io/zynax/issues/779) | 🔄 In PR |
+| A.0 feat(infra): shared zynax-lib library chart | [#779](https://github.com/zynax-io/zynax/issues/779) | ✅ Merged (#872) |
 | A.1–A.13: remaining stories | [#780](https://github.com/zynax-io/zynax/issues/780)–[#792](https://github.com/zynax-io/zynax/issues/792) | ⬜ Pending A.0 |
 
 ### M6.Images — Single Source of Truth for Container Image References (#855) — ⬜ Canvas Aligned, not started

@@ -59,7 +59,7 @@
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
-| A.0 feat(infra): shared Helm zynax-lib library chart | [#779](https://github.com/zynax-io/zynax/issues/779) | Infra | — | ⬜ Open |
+| A.0 feat(infra): shared Helm zynax-lib library chart | [#779](https://github.com/zynax-io/zynax/issues/779) | Infra | #872 | ✅ Merged |
 | A.1 feat(infra): Helm chart for api-gateway | [#780](https://github.com/zynax-io/zynax/issues/780) | Infra | — | ⬜ Open |
 | A.2 feat(infra): Helm chart for workflow-compiler | [#781](https://github.com/zynax-io/zynax/issues/781) | Infra | — | ⬜ Open |
 | A.3 feat(infra): Helm chart for engine-adapter | [#782](https://github.com/zynax-io/zynax/issues/782) | Infra | — | ⬜ Open |
