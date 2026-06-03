@@ -32,8 +32,9 @@ PR flips its own story-issue row in `docs/milestones/M6-planning.md` and updates
 - **Rebase before every merge.** `git rebase origin/main` immediately before `gh pr merge`.
   Never merge a branch that has diverged from `main`. Resolve all conflicts, then
   `git push --force-with-lease` before merging.
-- **Merge strategy: `--rebase` only.** Use `gh pr merge <PR> --rebase`. Never `--squash`,
-  never `--merge`. `required_linear_history` is enforced by branch protection.
+- **Merge strategy: `--squash` only.** Use `gh pr merge <PR> --squash`. Never `--merge`
+  (creates a merge commit, violates `required_linear_history`). `--rebase` is blocked by
+  `required_signatures` — GitHub cannot auto-sign replayed commits.
 - **Delete the remote branch after every merge:**
   ```bash
   git push origin --delete <branch>
@@ -41,9 +42,9 @@ PR flips its own story-issue row in `docs/milestones/M6-planning.md` and updates
   No merged or closed branch should remain on the remote.
 - **Never reopen a closed PR or branch.** If commits from a closed branch are still
   wanted, cherry-pick or rebase them onto a fresh branch off current `main`, open a
-  new PR, let CI run green, then rebase-merge.
+  new PR, let CI run green, then squash-merge.
 - **No direct commits to `main` — including one-line doc fixes.** All changes go
-  through a branch → PR → CI green → `gh pr merge --rebase` → branch deleted.
+  through a branch → PR → CI green → `gh pr merge --squash` → branch deleted.
 
 ---
 
@@ -91,7 +92,7 @@ gh pr create --title "docs(milestones): reconcile M6 planning table" \
   --label "type: docs,milestone: M6"
 gh pr checks <PR> --watch
 git fetch origin main && git rebase origin/main && git push --force-with-lease
-gh pr merge <PR> --rebase
+gh pr merge <PR> --squash
 git push origin --delete docs/milestone-sync-$(date +%Y%m%d)
 ```
 
@@ -353,7 +354,7 @@ git checkout "$BR" && gh pr edit "$PR" --base main 2>/dev/null || true
 git rebase origin/main || { echo "rebase conflict — resolve or stop+ask"; exit 1; }
 git push --force-with-lease
 gh pr checks "$PR" --watch --interval 30
-gh pr merge "$PR" --rebase
+gh pr merge "$PR" --squash
 until [ "$(gh pr view "$PR" --json state --jq .state)" = "MERGED" ]; do sleep 30; done
 git push origin --delete "$BR" 2>/dev/null || true
 ```
