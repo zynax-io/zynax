@@ -213,6 +213,20 @@ Canvas: `docs/spdd/464-mtls/canvas.md` — Status: Implemented
 
 Canvas: `docs/spdd/465-supply-chain/canvas.md` — Status: Implemented
 
+### M6 Infra / Tooling — 🔄 In Progress
+
+Process-health work (ADR-023, merge-policy, image-bump tooling, /resume-m6 fix).
+SPDD-exempt (chore/docs/ci — not feat: EPICs).
+
+| Work Item | Issue | PR | Status |
+|-----------|-------|-----|--------|
+| ADR-023 — restrict direct pushes to main | — | #847 | ⬜ CI running |
+| chore(ci): bump-ci-runner script + make target | [#843](https://github.com/zynax-io/zynax/issues/843) | #848 | ⬜ CI running |
+| ci(infra): post-build bump issue from tools-image.yml | [#844](https://github.com/zynax-io/zynax/issues/844) | #849 | ⬜ CI running |
+| chore(claude): /resume-m6 rewrite — FF discipline | [#845](https://github.com/zynax-io/zynax/issues/845) | #850 | ⬜ CI running |
+| docs(contributing): merge policy | [#846](https://github.com/zynax-io/zynax/issues/846) | #851 | ⬜ CI running |
+| docs(milestones): this tracking PR | — | #852 | ⬜ Open |
+
 ---
 
 ## Next Session Queue (priority order)

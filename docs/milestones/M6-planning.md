@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-02 (M6.C #465 complete — #489 merged PR #833)  
+> Generated: 2026-06-02 · Last updated: 2026-06-03 (M6 infra work tracked — #843 #844 #845 #846)  
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6, 30 open issues / 2 closed).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -22,6 +22,16 @@
 | I.4 feat(event-bus): Unsubscribe + DLQ + retry | #826 | M6.I #772 | — | ⬜ Pending I.3 |
 | I.5 feat(engine-adapter): wire lifecycle activity | #827 | M6.I #772 | — | ⬜ Pending I.4 |
 | I.6 test: BDD steps for event_bus.feature | #828 | M6.I #772 | — | ⬜ Pending I.4 |
+
+**M6 Infra / Tooling** (process health — not feature EPICs; exempt from SPDD)
+
+| Story | Issue | Area | PR | Status |
+|-------|-------|------|-----|--------|
+| chore(ci): add bump-ci-runner script and make target | [#843](https://github.com/zynax-io/zynax/issues/843) | CI tooling | #848 | ⬜ Open |
+| ci(infra): open ci-runner bump issue after tools-image build | [#844](https://github.com/zynax-io/zynax/issues/844) | CI automation | #849 | ⬜ Open |
+| chore(claude): rewrite /resume-m6 — FF discipline, doc-PR path, branch cleanup | [#845](https://github.com/zynax-io/zynax/issues/845) | Slash commands | #850 | ⬜ Open |
+| docs(contributing): record rebase-merge / branch-delete / no-reopen policy | [#846](https://github.com/zynax-io/zynax/issues/846) | Docs | #851 | ⬜ Open |
+| docs(adr): ADR-023 — restrict direct pushes to main; rebase-merge only | — | Docs/ADR | #847 | ⬜ Open |
 
 ---
 
