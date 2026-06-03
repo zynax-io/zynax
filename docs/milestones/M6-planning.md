@@ -2,9 +2,9 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-03 (GHCR hygiene issues #865–#869 + M6.Build #837 wired)  
+> Generated: 2026-06-02 · Last updated: 2026-06-03 (infra/tooling PRs #847–#852 all merged)  
 > Based on live repo state at commit `994efb7` (main).  
-> GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6, 30 open issues / 2 closed).  
+> GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
 
 ## Delivery Progress
@@ -27,11 +27,11 @@
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
-| chore(ci): add bump-ci-runner script and make target | [#843](https://github.com/zynax-io/zynax/issues/843) | CI tooling | #848 | ⬜ Open |
-| ci(infra): open ci-runner bump issue after tools-image build | [#844](https://github.com/zynax-io/zynax/issues/844) | CI automation | #849 | ⬜ Open |
-| chore(claude): rewrite /resume-m6 — FF discipline, doc-PR path, branch cleanup | [#845](https://github.com/zynax-io/zynax/issues/845) | Slash commands | #850 | ⬜ Open |
-| docs(contributing): record rebase-merge / branch-delete / no-reopen policy | [#846](https://github.com/zynax-io/zynax/issues/846) | Docs | #851 | ⬜ Open |
-| docs(adr): ADR-023 — restrict direct pushes to main; rebase-merge only | — | Docs/ADR | #847 | ⬜ Open |
+| chore(ci): add bump-ci-runner script and make target | [#843](https://github.com/zynax-io/zynax/issues/843) | CI tooling | #848 | ✅ Merged |
+| ci(infra): open ci-runner bump issue after tools-image build | [#844](https://github.com/zynax-io/zynax/issues/844) | CI automation | #849 | ✅ Merged |
+| chore(claude): rewrite /resume-m6 — FF discipline, doc-PR path, branch cleanup | [#845](https://github.com/zynax-io/zynax/issues/845) | Slash commands | #850 | ✅ Merged |
+| docs(contributing): record rebase-merge / branch-delete / no-reopen policy | [#846](https://github.com/zynax-io/zynax/issues/846) | Docs | #851 | ✅ Merged |
+| docs(adr): ADR-023 — restrict direct pushes to main; rebase-merge only | — | Docs/ADR | #847 | ✅ Merged |
 
 **M6.Images — Single source of truth for container-image references** (EPIC #855; canvas `docs/spdd/855-images-sot/canvas.md` — Status: **Aligned**)
 

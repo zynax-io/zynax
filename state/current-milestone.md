@@ -243,19 +243,19 @@ Delivery order (each is its own PR):
 | chore(ci): GHCR retention cap (last 5 builds) | [#867](https://github.com/zynax-io/zynax/issues/867) | ⬜ Open |
 | docs: document unknown/unknown attestation manifests | [#869](https://github.com/zynax-io/zynax/issues/869) | ⬜ Open — depends on #868 |
 
-### M6 Infra / Tooling — 🔄 In Progress
+### M6 Infra / Tooling — ✅ Complete
 
 Process-health work (ADR-023, merge-policy, image-bump tooling, /resume-m6 fix).
-SPDD-exempt (chore/docs/ci — not feat: EPICs).
+All PRs merged 2026-06-03.
 
 | Work Item | Issue | PR | Status |
 |-----------|-------|-----|--------|
-| ADR-023 — restrict direct pushes to main | — | #847 | ⬜ CI running |
-| chore(ci): bump-ci-runner script + make target | [#843](https://github.com/zynax-io/zynax/issues/843) | #848 | ⬜ CI running |
-| ci(infra): post-build bump issue from tools-image.yml | [#844](https://github.com/zynax-io/zynax/issues/844) | #849 | ⬜ CI running |
-| chore(claude): /resume-m6 rewrite — FF discipline | [#845](https://github.com/zynax-io/zynax/issues/845) | #850 | ⬜ CI running |
-| docs(contributing): merge policy | [#846](https://github.com/zynax-io/zynax/issues/846) | #851 | ⬜ CI running |
-| docs(milestones): this tracking PR | — | #852 | ⬜ Open |
+| ADR-023 — restrict direct pushes to main | — | #847 | ✅ Merged |
+| chore(ci): bump-ci-runner script + make target | [#843](https://github.com/zynax-io/zynax/issues/843) | #848 | ✅ Merged |
+| ci(infra): post-build bump issue from tools-image.yml | [#844](https://github.com/zynax-io/zynax/issues/844) | #849 | ✅ Merged |
+| chore(claude): /resume-m6 rewrite — FF discipline | [#845](https://github.com/zynax-io/zynax/issues/845) | #850 | ✅ Merged |
+| docs(contributing): merge policy | [#846](https://github.com/zynax-io/zynax/issues/846) | #851 | ✅ Merged |
+| docs(milestones): tracking + ROADMAP expansion | — | #852 | ✅ Merged |
 
 ---
 
