@@ -285,9 +285,10 @@ See [`docs/patterns/bdd-contract-testing.md`](docs/patterns/bdd-contract-testing
 - [ ] All CI checks green (lint, test-unit, test-integration, security, dco)
 - [ ] No unresolved review comments · PR description complete · CHANGELOG updated
 
-**Merge strategy: rebase-merge only** (`gh pr merge <PR> --rebase`). No squash-and-merge,
-no merge commits. `required_linear_history` is enforced by branch protection — merge commits
-are rejected for all actors including admins (ADR-023).
+**Merge strategy: squash-and-merge** (`gh pr merge <PR> --squash`). No merge commits.
+`required_linear_history` is enforced by branch protection — merge commits are rejected
+for all actors including admins (ADR-023). `--rebase` is blocked by `required_signatures`
+(GitHub cannot auto-sign replayed commits); squash-merge is GitHub-signed and linear.
 
 Sequence before every merge:
 ```bash
@@ -295,7 +296,7 @@ git fetch origin main
 git rebase origin/main        # resolve conflicts if any
 git push --force-with-lease
 gh pr checks <PR> --watch
-gh pr merge <PR> --rebase
+gh pr merge <PR> --squash
 git push origin --delete <branch>   # delete remote branch immediately after merge
 ```
 
@@ -305,7 +306,7 @@ git push origin --delete <branch>   # delete remote branch immediately after mer
   GitHub's "Automatically delete head branches" setting enforces this for merge-button ops.
 - **Never reopen a closed PR or stale branch.** If commits from a closed branch are still
   wanted, cherry-pick or rebase them onto a fresh branch off current `main`, open a new PR,
-  run CI, then rebase-merge.
+  run CI, then squash-merge.
 
 Solo maintainer phase: CI must pass; maintainer may self-merge non-breaking changes.
 Breaking and proto changes require a 5-day RFC comment period (see `GOVERNANCE.md §2`).
