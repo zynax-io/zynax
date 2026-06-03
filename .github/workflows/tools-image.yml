@@ -88,17 +88,17 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Install cosign
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
       - name: Sign tools image
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
           cosign sign --yes \
             "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-tools.outputs.digest }}"
 
       - name: Install syft ${{ env.SYFT_VERSION }}
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
           curl -sSfL \
             "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
@@ -107,7 +107,7 @@ jobs:
           rm /tmp/syft.tar.gz
 
       - name: Generate SBOM (SPDX)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
           syft \
             "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-tools.outputs.digest }}" \
@@ -115,7 +115,7 @@ jobs:
             --file tools-sbom.spdx.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         with:
           name: sbom-tools
           path: tools-sbom.spdx.json
@@ -169,11 +169,11 @@ jobs:
         run: echo "ci-runner digest ${{ steps.build-ci-runner.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install cosign
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
       - name: Sign ci-runner image
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
           cosign sign --yes \
             "${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}@${{ steps.build-ci-runner.outputs.digest }}"
