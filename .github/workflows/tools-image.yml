@@ -32,6 +32,7 @@ permissions:
   contents: read
   packages: write
   id-token: write   # cosign keyless OIDC signing on tag builds
+  issues: write     # open bump-tracking issue after ci-runner rebuild
 
 env:
   REGISTRY: ghcr.io
@@ -211,6 +212,20 @@ jobs:
             done < <(echo "$INDEX" | jq -r '.manifests[] | select(.platform.architecture == "amd64" or .platform.architecture == "arm64") | select(.platform.os != "unknown") | [.platform.os, .platform.architecture, .digest] | join("|")' 2>/dev/null)
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open ci-runner bump issue
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIGEST: ${{ steps.build-ci-runner.outputs.digest }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          SHORT="${DIGEST:7:16}"
+          gh issue create \
+            --title "chore(ci): bump ci-runner digest to ${SHORT}" \
+            --label "type: chore,area: ci" \
+            --body "$(printf '## ci-runner digest bump\n\n**New digest:** `%s`\n**Built by:** %s\n\n## Steps\n\n```bash\nmake bump-ci-runner NEW_DIGEST=%s\nscripts/bump-ci-runner.sh --check %s\n```\n\nThen open a PR: branch off `main`, commit, push, CI green, `gh pr merge --rebase`, delete branch.\n\n## Checklist\n\n- [ ] `make bump-ci-runner NEW_DIGEST=%s` ran\n- [ ] `--check` exits 0\n- [ ] PR merged (rebase), branch deleted\n' \
+              "$DIGEST" "$RUN_URL" "$DIGEST" "$DIGEST" "$DIGEST")"
 
       - name: Install cosign
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
