@@ -55,6 +55,25 @@
 | chore(ci): GHCR retention cap — keep last 5 builds per image | [#867](https://github.com/zynax-io/zynax/issues/867) | CI | — | ⬜ Open |
 | docs: document unknown/unknown — expected SLSA provenance | [#869](https://github.com/zynax-io/zynax/issues/869) | Docs/Infra | — | ⬜ Open |
 
+**M6.Helm — Helm charts for all 7 services + cluster dependencies** (EPIC [#765](https://github.com/zynax-io/zynax/issues/765); canvas `docs/spdd/765-helm-charts/canvas.md` — Status: **Aligned**)
+
+| Story | Issue | Area | PR | Status |
+|-------|-------|------|-----|--------|
+| A.0 feat(infra): shared Helm zynax-lib library chart | [#779](https://github.com/zynax-io/zynax/issues/779) | Infra | — | ⬜ Open |
+| A.1 feat(infra): Helm chart for api-gateway | [#780](https://github.com/zynax-io/zynax/issues/780) | Infra | — | ⬜ Open |
+| A.2 feat(infra): Helm chart for workflow-compiler | [#781](https://github.com/zynax-io/zynax/issues/781) | Infra | — | ⬜ Open |
+| A.3 feat(infra): Helm chart for engine-adapter | [#782](https://github.com/zynax-io/zynax/issues/782) | Infra | — | ⬜ Open |
+| A.4 feat(infra): Helm chart for task-broker | [#783](https://github.com/zynax-io/zynax/issues/783) | Infra | — | ⬜ Open |
+| A.5 feat(infra): Helm chart for agent-registry | [#784](https://github.com/zynax-io/zynax/issues/784) | Infra | — | ⬜ Open |
+| A.6 feat(infra): Helm chart placeholder for event-bus | [#785](https://github.com/zynax-io/zynax/issues/785) | Infra | — | ⬜ Open |
+| A.7 feat(infra): Helm chart for memory-service | [#786](https://github.com/zynax-io/zynax/issues/786) | Infra | — | ⬜ Open |
+| A.8 feat(infra): NATS JetStream subchart | [#787](https://github.com/zynax-io/zynax/issues/787) | Infra | — | ⬜ Open |
+| A.9 feat(infra): Postgres 16 subchart | [#788](https://github.com/zynax-io/zynax/issues/788) | Infra | — | ⬜ Open |
+| A.10 feat(infra): Temporal + zynax-umbrella chart | [#789](https://github.com/zynax-io/zynax/issues/789) | Infra | — | ⬜ Open |
+| A.11 feat(infra): cert-manager ClusterIssuer + Certificates | [#790](https://github.com/zynax-io/zynax/issues/790) | Infra | — | ⬜ Open |
+| A.12 ci: helm lint gate | [#791](https://github.com/zynax-io/zynax/issues/791) | CI | — | ⬜ Open |
+| A.13 docs(infra): environment parity manifest | [#792](https://github.com/zynax-io/zynax/issues/792) | Docs | — | ⬜ Open |
+
 **M6.Build — Native multi-arch build pipeline** (EPIC [#837](https://github.com/zynax-io/zynax/issues/837); SPDD-exempt; no canvas required)
 
 | Story | Issue | Area | PR | Status |
