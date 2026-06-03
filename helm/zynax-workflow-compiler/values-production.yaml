@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# Production overrides — merge with: helm install -f values.yaml -f values-production.yaml
+replicaCount: 3
+
+image:
+  pullPolicy: Always
+
+env:
+  logLevel: "warn"
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi

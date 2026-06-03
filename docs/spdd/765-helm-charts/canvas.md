@@ -121,7 +121,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 2. **[A.1]** ✅ Create `helm/zynax-api-gateway` chart: Deployment (liveness/readiness/startup probes on `/livez`/`/readyz`/`/startupz`; HTTP port 8080; metrics port 9090), Service (ClusterIP), ServiceAccount, HPA, PDB, NetworkPolicy, ConfigMap; `values.yaml` defaults; `helm lint` passes.
 
-3. **[A.2]** Create `helm/zynax-workflow-compiler` chart (same structure as A.1).
+3. **[A.2]** ✅ Create `helm/zynax-workflow-compiler` chart (same structure as A.1).
 
 4. **[A.3]** Create `helm/zynax-engine-adapter` chart (same structure as A.1).
 
