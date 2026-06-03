@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-03 (M6 infra work tracked — #843 #844 #845 #846)  
+> Generated: 2026-06-02 · Last updated: 2026-06-03 (M6.Images EPIC #855 + stories #856–#862 added)  
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6, 30 open issues / 2 closed).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -32,6 +32,18 @@
 | chore(claude): rewrite /resume-m6 — FF discipline, doc-PR path, branch cleanup | [#845](https://github.com/zynax-io/zynax/issues/845) | Slash commands | #850 | ⬜ Open |
 | docs(contributing): record rebase-merge / branch-delete / no-reopen policy | [#846](https://github.com/zynax-io/zynax/issues/846) | Docs | #851 | ⬜ Open |
 | docs(adr): ADR-023 — restrict direct pushes to main; rebase-merge only | — | Docs/ADR | #847 | ⬜ Open |
+
+**M6.Images — Single source of truth for container-image references** (EPIC #855; canvas `docs/spdd/855-images-sot/canvas.md` — Status: Draft)
+
+| Story | Issue | Area | PR | Status |
+|-------|-------|------|-----|--------|
+| O1 chore(ci): images/images.yaml — schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | CI tooling | — | ⬜ Open |
+| O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | CI tooling | — | ⬜ Open |
+| O3 ci: wire drift-check into pr-checks.yml + ci.yml | [#858](https://github.com/zynax-io/zynax/issues/858) | CI | — | ⬜ Open (ships with O2) |
+| O4 chore(infra): Dockerfile ARG migration | [#859](https://github.com/zynax-io/zynax/issues/859) | Infra | — | ⬜ Open |
+| O5 chore(ci): bump flow rewrite | [#860](https://github.com/zynax-io/zynax/issues/860) | CI tooling | — | ⬜ Open |
+| O6 docs: single source of truth propagation | [#861](https://github.com/zynax-io/zynax/issues/861) | Docs | — | ⬜ Open |
+| O7 docs: ADR-024 | [#862](https://github.com/zynax-io/zynax/issues/862) | Docs/ADR | — | ⬜ Open |
 
 ---
 

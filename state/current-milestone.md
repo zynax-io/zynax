@@ -213,6 +213,23 @@ Canvas: `docs/spdd/464-mtls/canvas.md` — Status: Implemented
 
 Canvas: `docs/spdd/465-supply-chain/canvas.md` — Status: Implemented
 
+### M6.Images — Single Source of Truth for Container Image References (#855) — ⬜ IN PROGRESS
+
+Canvas: `docs/spdd/855-images-sot/canvas.md` — Status: **Draft** (set to Aligned before O2 implementation)
+
+| Story | Issue | Status |
+|-------|-------|--------|
+| O1 chore(ci): images/images.yaml schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | ⬜ Open |
+| O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | ⬜ Open |
+| O3 ci: wire drift-check into CI | [#858](https://github.com/zynax-io/zynax/issues/858) | ⬜ Open (ships with O2) |
+| O4 chore(infra): Dockerfile ARG migration | [#859](https://github.com/zynax-io/zynax/issues/859) | ⬜ Open |
+| O5 chore(ci): bump flow rewrite (closes #844) | [#860](https://github.com/zynax-io/zynax/issues/860) | ⬜ Open |
+| O6 docs: propagation | [#861](https://github.com/zynax-io/zynax/issues/861) | ⬜ Open |
+| O7 docs: ADR-024 | [#862](https://github.com/zynax-io/zynax/issues/862) | ⬜ Open |
+
+**Active blocker**: Canvas must reach Status: Aligned before O2 (`feat:`) implementation starts (ADR-019).
+**Keystone**: O2 + O3 must ship in the same sprint; neither is done without the other.
+
 ### M6 Infra / Tooling — 🔄 In Progress
 
 Process-health work (ADR-023, merge-policy, image-bump tooling, /resume-m6 fix).
