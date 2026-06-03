@@ -72,6 +72,7 @@ git fetch origin --prune && git checkout main && git pull --rebase origin main
 | M6.Images SoT work (#855, #856–#862) | `cmd/zynax-ci/AGENTS.md` + `images/images.yaml` (created in O1); O1 is `chore:` (implement directly); O2+O3 are the keystone cluster (`feat:`+`ci:`) |
 | M6.Images GHCR hygiene (#865–#869) | Root cause confirmed: all images have `"annotations": null` on OCI index (no description shown); `unknown/unknown` = SLSA provenance attestation (expected, do NOT disable); deliver #868 ADR-025 first, then #865 annotations, then #866 gate, #867 retention, #869 docs |
 | M6.Build work (#837, #841) | Native arm64 runners; B.1–B.3 story issues must be created from EPIC body before implementing |
+| M6.DevAuto work (#873, #874–#883) | Read `automation/STATUS-AND-DIRECTION.md` first; two-plane model — near-term Waves 0–3 (ci:/chore:/docs:, SPDD-exempt) vs aspirational Wave 4 (#881, BLOCKED on #626 + #772); failing test in #882 gates Wave 4 |
 
 Run `/help` to confirm all SPDD commands are available.
 
@@ -123,6 +124,7 @@ Apply the **Resumption tree** (bottom) and report the matching row before taking
 | 3 | M6.F Config convergence | #670 | refactor/ci — SPDD-exempt; children #667 #668 #669 |
 | 4 | M6.Images — SoT | #855 | canvas `Aligned` `docs/spdd/855-images-sot/canvas.md`; SoT children: #856–#862 (O1 `chore:` direct; O2+O3 keystone cluster); **GHCR hygiene children: #865–#869 — SPDD-exempt; deliver in order #868 → #865 → #866 → #867 → #869** |
 | 4a | M6.Build | #837 | SPDD-exempt (ci:/chore:); B.1–B.3 story issues not yet created — create from EPIC body; B.4 = #841 (image size audit); goal: zero QEMU, native arm64 runners, Python adapters in release pipeline |
+| 4b | M6.DevAuto | #873 | Near-term waves 0–3 are SPDD-exempt (ci:/chore:/docs:); Wave 4 (#881) is feat: — needs canvas + BLOCKED on #626 + #772; start with DevAuto.1 (#874) → DevAuto.2 (#875) → DevAuto.3 (#876) → Wave 0 (#877); assets in `automation/` only |
 | 5 | M6.NS Multi-namespace | #767 | canvas `Aligned` `docs/spdd/767-multi-namespace/canvas.md`; children #799 #800; D.1 done (#774) |
 | 6 | M6.Argo | #766 | canvas `Aligned` `docs/spdd/766-argo-engine/canvas.md`; children #795–#798 |
 | 7 | M6.SDK PyPI | #769 | canvas `Aligned` `docs/spdd/769-sdk-pypi/canvas.md`; children #805–#808 |
@@ -402,7 +404,7 @@ Mark the EPIC canvas `Status: Implemented` (small docs: commit). Post the sessio
 | No in-flight work, EPIC has stories created | Pick next O-step → STEP 4 |
 | EPIC has canvas Aligned but no story issues | STEP 3B: create stories, then STEP 4 |
 | EPIC has no canvas | STEP 3A: full pipeline |
-| EPIC is BLOCKED (#764 for EPIC I, #626 for EPIC J) | Pick next unblocked EPIC |
+| EPIC is BLOCKED (#764 for EPIC I, #626 for EPIC J, #626+#772 for DevAuto.8 #881) | Pick next unblocked EPIC |
 | All EPICs exhausted | Report M6 exit-criteria; ask re: milestone close / M7 |
 
 ---

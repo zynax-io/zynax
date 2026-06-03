@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-03 (infra/tooling PRs #847–#852 all merged)  
+> Generated: 2026-06-02 · Last updated: 2026-06-03 (M6.DevAuto EPIC #873 added; issues #874–#883 created)  
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -82,6 +82,24 @@
 | ci(infra): migrate tools-image.yml to native arm64 — no QEMU | — | CI | — | ⬜ Open |
 | ci(infra): add Python adapter images to multi-arch release pipeline | — | CI/Infra | — | ⬜ Open |
 | ci(infra): audit and minimize final image sizes | [#841](https://github.com/zynax-io/zynax/issues/841) | CI/Infra | — | ⬜ Open |
+
+**M6.DevAuto — Self-hosting dev-automation via orchestrator + expert mesh** (EPIC [#873](https://github.com/zynax-io/zynax/issues/873); assets in `automation/` — **not** AGENTS.md ambient context)
+
+| Story | Issue | Area | PR | Status |
+|-------|-------|------|-----|--------|
+| DevAuto.1 docs(automation): STATUS-AND-DIRECTION.md | [#874](https://github.com/zynax-io/zynax/issues/874) | Docs | — | ⬜ Open |
+| DevAuto.2 chore(automation): expert mesh YAML configs (9 experts) | [#875](https://github.com/zynax-io/zynax/issues/875) | CI | — | ⬜ Open |
+| DevAuto.3 chore(automation): orchestrator config + aggregation protocol | [#876](https://github.com/zynax-io/zynax/issues/876) | CI | — | ⬜ Open |
+| DevAuto.4 ci: Wave 0 — GH Actions advisory workflow | [#877](https://github.com/zynax-io/zynax/issues/877) | CI | — | ⬜ Open |
+| DevAuto.5 ci: Wave 1 — orchestrator aggregation step | [#878](https://github.com/zynax-io/zynax/issues/878) | CI | — | ⬜ Open |
+| DevAuto.6 ci: Wave 2 — gated non-destructive actions | [#879](https://github.com/zynax-io/zynax/issues/879) | CI | — | ⬜ Open |
+| DevAuto.7 ci: Wave 3 — post-merge completeness mesh | [#880](https://github.com/zynax-io/zynax/issues/880) | CI/Infra | — | ⬜ Open |
+| DevAuto.8 feat: Wave 4 aspirational — AgentDef workflows *(BLOCKED: M6.H + M6.I)* | [#881](https://github.com/zynax-io/zynax/issues/881) | CI/Infra | — | ⬜ **Blocked** |
+| DevAuto.9 test: platform-readiness xfail gate for Wave 4 | [#882](https://github.com/zynax-io/zynax/issues/882) | CI | — | ⬜ Open |
+| DevAuto.10 docs: AGENTS.md pointer + automation/README + ARCHITECTURE.md | [#883](https://github.com/zynax-io/zynax/issues/883) | Docs | — | ⬜ Open |
+
+**Two-plane note:** DevAuto.1–7 + DevAuto.9–10 are near-term (GitHub Actions + Claude Code, no Zynax runtime dependency).
+DevAuto.8 is aspirational (Zynax AgentDef workflows) — gated by `automation/tests/test_platform_readiness.py` xfail test; BLOCKED until M6.H #626 + M6.I #772 complete.
 
 ---
 
