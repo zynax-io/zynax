@@ -69,6 +69,7 @@ git fetch origin --prune && git checkout main && git pull --rebase origin main
 | Proto or BDD boundary touched | `protos/AGENTS.md` + `docs/patterns/bdd-contract-testing.md` |
 | Helm chart work | `infra/AGENTS.md` + `docs/patterns/helm-charts.md` |
 | Any ADR-governed decision | `docs/adr/INDEX.md` — ADR-022 (event-bus) Accepted; all 22 ADRs stable |
+| M6.Images work (#855) | `cmd/zynax-ci/AGENTS.md` + `images/images.yaml` (created in O1); O1 is `chore:` (implement directly); O2+O3 are the keystone cluster (`feat:`+`ci:`) |
 
 Run `/help` to confirm all SPDD commands are available.
 
@@ -118,7 +119,7 @@ Apply the **Resumption tree** (bottom) and report the matching row before taking
 | 1 | M6.Helm | #765 | canvas `Aligned` `docs/spdd/765-helm-charts/canvas.md`; children #779–#792 |
 | 2 | M6.H Postgres repos | #626 | canvas `Aligned` `docs/spdd/626-postgres-repos/canvas.md`; children #793 #794 |
 | 3 | M6.F Config convergence | #670 | refactor/ci — SPDD-exempt; children #667 #668 #669 |
-| 4 | M6.Images | #855 | canvas `Draft` `docs/spdd/855-images-sot/canvas.md`; children #856–#862; set canvas to Aligned before running O2 (`feat:`); O2+O3 ship as one cluster |
+| 4 | M6.Images | #855 | canvas `Aligned` `docs/spdd/855-images-sot/canvas.md`; children #856–#862; O1 (#856) `chore:` — implement directly (skip `/spdd-generate`); O2 (#857) `feat:` — use `/spdd-generate`; **O2+O3 (#857+#858) must ship as one cluster** |
 | 5 | M6.NS Multi-namespace | #767 | canvas `Aligned` `docs/spdd/767-multi-namespace/canvas.md`; children #799 #800; D.1 done (#774) |
 | 6 | M6.Argo | #766 | canvas `Aligned` `docs/spdd/766-argo-engine/canvas.md`; children #795–#798 |
 | 7 | M6.SDK PyPI | #769 | canvas `Aligned` `docs/spdd/769-sdk-pypi/canvas.md`; children #805–#808 |

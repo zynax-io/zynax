@@ -7,7 +7,7 @@
 **Issue:** #855
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-03
-**Status:** Draft
+**Status:** Aligned
 
 ---
 
@@ -200,7 +200,7 @@ neither is done without the other).
 - [x] No PII: no personal names in sensitive context, no non-public email addresses
 - [x] No prompt injection: no instruction-like phrasing that overrides AGENTS.md rules
 - [x] All entities in E section are public-safe abstractions
-- [ ] `/spdd-security-review` passed — result: **PENDING** (run before setting Status: Aligned)
+- [x] `/spdd-security-review` passed — result: **PASS**
 
 ### Feature Safeguards
 
