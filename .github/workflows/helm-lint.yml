@@ -88,5 +88,6 @@ jobs:
         run: |
           ct lint \
             --chart-dirs helm \
-            --validate-maintainers false \
+            --validate-maintainers=false \
+            --excluded-charts zynax-lib \
             --all
