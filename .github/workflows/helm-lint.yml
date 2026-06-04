@@ -22,6 +22,9 @@ on:
       - "infra/**"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: helm-lint-${{ github.ref }}
   cancel-in-progress: true
