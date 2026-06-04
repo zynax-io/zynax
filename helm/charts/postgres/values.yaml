@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Zynax Postgres 16 subchart values.
+# Bitnami postgresql chart overrides are nested under the `postgresql:` key.
+# Each Zynax service uses a dedicated schema (ADR-008; no cross-schema access).
+#
+# Schema ownership:
+#   task_broker    → owned by task-broker service (ADR-021)
+#   agent_registry → owned by agent-registry service (ADR-021)
+#   memory_service → owned by memory-service (EPIC J #773)
+#
+# Service DSNs are wired via K8s Secrets — never in values.yaml.
+# Example:
+#   kubectl create secret generic task-broker-db \
+#     --from-literal=dsn="postgres://zynax:pass@zynax-postgres-postgresql:5432/task_broker?sslmode=require"
+
+# Bitnami postgresql chart overrides
+postgresql:
+  auth:
+    # Primary database — task-broker owns this schema by default.
+    # Additional schemas (agent_registry, memory_service) are created by
+    # service init-container migrations (EPIC J / #793 / #794).
+    database: "task_broker"
+    username: "zynax"
+    # Password is sourced from a K8s Secret at deploy time.
+    # Set existingSecret to the name of the Secret containing the password.
+    # The Secret must contain a key named "password".
+    existingSecret: ""
+    secretKeys:
+      adminPasswordKey: "postgres-password"
+      userPasswordKey: "password"
+
+  primary:
+    persistence:
+      enabled: true
+      # Adjust storageClassName to match your cluster's storage provisioner.
+      storageClassName: ""
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+  # PostgreSQL version is pinned to 16 via the chart version (appVersion: 16.4.0).
+  image:
+    tag: "16.4.0-debian-12-r12"
+
+  # Replica count — single node for M6 (HA is M7+ scope)
+  architecture: standalone

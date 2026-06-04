@@ -1,0 +1,18 @@
+Zynax Postgres 16 — single cluster-level StatefulSet (ADR-008 + ADR-021)
+
+IMPORTANT: each Zynax service uses a DEDICATED schema. No cross-schema access.
+
+Schema layout:
+  task_broker    → task-broker service (init-container migration in EPIC J / #793)
+  agent_registry → agent-registry service (init-container migration in EPIC J / #794)
+  memory_service → memory-service (init-container migration in EPIC J / #773)
+
+Connection (from within the cluster):
+  Host:     <release-name>-postgresql.<namespace>
+  Port:     5432
+  User:     zynax
+  Database: task_broker (primary; additional schemas via migration)
+
+Service DSNs are wired via K8s Secrets — set db.secretName in each service chart.
+Schema migrations run as init-containers in each service Deployment (EPIC J).
+HA / read-replicas are out of M6 scope.
