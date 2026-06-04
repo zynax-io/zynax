@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Zynax NATS JetStream subchart values.
+# Overrides for the community nats/nats chart are nested under the `nats:` key.
+
+# JetStream stream configuration — applied via ConfigMap to document the
+# required streams for Zynax event-bus (EventBusService, ADR-022).
+# Actual stream creation is performed by event-bus on startup (EPIC I).
+jetstream:
+  # Stream definitions are documented here for operator awareness.
+  # event-bus creates these streams on startup using the NATS Go SDK.
+  streams:
+    - name: ZYNAX_WORKFLOW_EVENTS
+      subjects: ["zynax.workflow.>"]
+      retention: limits
+      maxAge: 7d
+      storage: file
+    - name: ZYNAX_TASK_EVENTS
+      subjects: ["zynax.task.>"]
+      retention: limits
+      maxAge: 7d
+      storage: file
+    - name: ZYNAX_AGENT_EVENTS
+      subjects: ["zynax.agent.>"]
+      retention: limits
+      maxAge: 7d
+      storage: file
+
+# Community nats/nats chart overrides
+nats:
+  config:
+    jetstream:
+      enabled: true
+      fileStore:
+        enabled: true
+        dir: /data
+        pvc:
+          enabled: true
+          # Adjust storageClassName to match your cluster's storage provisioner.
+          storageClassName: ""
+          size: 5Gi
+  container:
+    image:
+      tag: "2.11.3-alpine"
+  reloader:
+    enabled: true
+  promExporter:
+    enabled: false

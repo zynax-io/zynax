@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-04 (A.7 #786 merged — Helm chart for memory-service)
+> Generated: 2026-06-02 · Last updated: 2026-06-04 (A.8 #787 merged — NATS JetStream subchart)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -67,7 +67,7 @@
 | A.5 feat(infra): Helm chart for agent-registry | [#784](https://github.com/zynax-io/zynax/issues/784) | Infra | — | ✅ Merged |
 | A.6 feat(infra): Helm chart placeholder for event-bus | [#785](https://github.com/zynax-io/zynax/issues/785) | Infra | — | ✅ Merged |
 | A.7 feat(infra): Helm chart for memory-service | [#786](https://github.com/zynax-io/zynax/issues/786) | Infra | — | ✅ Merged |
-| A.8 feat(infra): NATS JetStream subchart | [#787](https://github.com/zynax-io/zynax/issues/787) | Infra | — | ⬜ Open |
+| A.8 feat(infra): NATS JetStream subchart | [#787](https://github.com/zynax-io/zynax/issues/787) | Infra | — | ✅ Merged |
 | A.9 feat(infra): Postgres 16 subchart | [#788](https://github.com/zynax-io/zynax/issues/788) | Infra | — | ⬜ Open |
 | A.10 feat(infra): Temporal + zynax-umbrella chart | [#789](https://github.com/zynax-io/zynax/issues/789) | Infra | — | ⬜ Open |
 | A.11 feat(infra): cert-manager ClusterIssuer + Certificates | [#790](https://github.com/zynax-io/zynax/issues/790) | Infra | — | ⬜ Open |
