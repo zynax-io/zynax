@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v2
+name: zynax-event-bus
+description: >
+  Helm chart placeholder for the Zynax Event Bus — stateless gRPC service
+  wrapping NATS JetStream (ADR-022). Implementation pending EPIC I (#772).
+  Do not deploy until EPIC I merges.
+type: application
+version: 0.1.0
+appVersion: "placeholder"
+dependencies:
+  - name: zynax-lib
+    version: "0.1.0"
+    repository: "file://../zynax-lib"

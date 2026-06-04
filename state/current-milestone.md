@@ -225,7 +225,8 @@ Canvas: `docs/spdd/765-helm-charts/canvas.md` — Status: **Aligned** ✅
 | A.3 feat(infra): Helm chart for engine-adapter | [#782](https://github.com/zynax-io/zynax/issues/782) | ✅ Merged |
 | A.4 feat(infra): Helm chart for task-broker | [#783](https://github.com/zynax-io/zynax/issues/783) | ✅ Merged |
 | A.5 feat(infra): Helm chart for agent-registry | [#784](https://github.com/zynax-io/zynax/issues/784) | ✅ Merged |
-| A.6–A.13: remaining stories | [#785](https://github.com/zynax-io/zynax/issues/785)–[#792](https://github.com/zynax-io/zynax/issues/792) | ⬜ Pending |
+| A.6 feat(infra): Helm chart placeholder for event-bus | [#785](https://github.com/zynax-io/zynax/issues/785) | ✅ Merged |
+| A.7–A.13: remaining stories | [#786](https://github.com/zynax-io/zynax/issues/786)–[#792](https://github.com/zynax-io/zynax/issues/792) | ⬜ Pending |
 
 ### M6.Images — Single Source of Truth for Container Image References (#855) — ⬜ Canvas Aligned, not started
 
