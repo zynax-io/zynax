@@ -55,6 +55,10 @@ jobs:
           mkdir -p /tmp/ct-bin
           tar -C /tmp/ct-bin -xzf /tmp/ct.tar.gz
           sudo install /tmp/ct-bin/ct /usr/local/bin/ct
+          # Install ct default config files so chart_schema.yaml is found.
+          mkdir -p ~/.ct
+          cp /tmp/ct-bin/etc/ct/chart_schema.yaml ~/.ct/
+          cp /tmp/ct-bin/etc/ct/lintconf.yaml ~/.ct/
           ct version
 
       - name: Add Helm repositories
