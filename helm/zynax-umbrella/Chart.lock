@@ -29,5 +29,8 @@ dependencies:
 - name: zynax-temporal
   repository: file://../charts/temporal
   version: 0.1.0
-digest: sha256:1ceb35101957f8673000d72e4cee6e8cadaae20c0f374b196a6d4cbbb83a663b
-generated: "2026-06-04T22:34:31.534875381+02:00"
+- name: zynax-cert-manager
+  repository: file://../charts/cert-manager
+  version: 0.1.0
+digest: sha256:532ebd3e5ece019cbac61215db6f9555ae5d7cff473e9d11e33e04933cc7f14f
+generated: "2026-06-04T22:56:52.220854846+02:00"
