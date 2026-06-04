@@ -1,0 +1,9 @@
+Zynax Engine Adapter deployed as {{ include "zynax.fullname" . }}.
+
+  Service (gRPC): {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}
+  Health check:   http://{{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.env.metricsPort }}/livez
+
+  Dispatch a workflow via grpcurl:
+    grpcurl -plaintext \
+      {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }} \
+      zynax.v1.EngineAdapterService/DispatchWorkflow

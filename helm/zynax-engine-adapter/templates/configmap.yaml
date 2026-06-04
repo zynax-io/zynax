@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zynax.fullname" . }}
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+data:
+  grpc-port: {{ .Values.env.grpcPort | quote }}
+  metrics-port: {{ .Values.env.metricsPort | quote }}
+  log-level: {{ .Values.env.logLevel | quote }}
+  temporal-host-port: {{ .Values.env.temporalHostPort | quote }}
+  temporal-namespace: {{ .Values.env.temporalNamespace | quote }}
+  temporal-task-queue: {{ .Values.env.temporalTaskQueue | quote }}
+  task-broker-addr: {{ .Values.env.taskBrokerAddr | quote }}
+  active-engine: {{ .Values.env.activeEngine | quote }}
+  grpc-call-timeout-s: {{ .Values.env.grpcCallTimeoutS | quote }}
+  max-activity-attempts: {{ .Values.env.maxActivityAttempts | quote }}
+  liveness-threshold-s: {{ .Values.env.livenessThresholdS | quote }}

@@ -123,7 +123,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 3. **[A.2]** ✅ Create `helm/zynax-workflow-compiler` chart (same structure as A.1).
 
-4. **[A.3]** Create `helm/zynax-engine-adapter` chart (same structure as A.1).
+4. **[A.3]** ✅ Create `helm/zynax-engine-adapter` chart (same structure as A.1).
 
 5. **[A.4]** Create `helm/zynax-task-broker` chart: same structure + `secretRef` for `ZYNAX_DB_DSN` (ADR-021 wiring); init-container field documented in `values.yaml` comment.
 

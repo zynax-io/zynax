@@ -1,0 +1,154 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zynax.fullname" . }}
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "zynax.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9095"
+      labels:
+        {{- include "zynax.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "zynax.serviceAccountName" . }}
+      securityContext:
+        {{- include "zynax.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: engine-adapter
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- include "zynax.containerSecurityContext" . | nindent 12 }}
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.env.grpcPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.env.metricsPort }}
+              protocol: TCP
+          env:
+            - name: ZYNAX_ENGINE_ADAPTER_GRPC_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: grpc-port
+            - name: ZYNAX_ENGINE_ADAPTER_METRICS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: metrics-port
+            - name: ZYNAX_ENGINE_ADAPTER_LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: log-level
+            - name: ZYNAX_ENGINE_ADAPTER_TEMPORAL_HOST_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: temporal-host-port
+            - name: ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: temporal-namespace
+            - name: ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: temporal-task-queue
+            - name: ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: task-broker-addr
+            - name: ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: active-engine
+            - name: ZYNAX_ENGINE_ADAPTER_GRPC_CALL_TIMEOUT_S
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: grpc-call-timeout-s
+            - name: ZYNAX_ENGINE_MAX_ACTIVITY_ATTEMPTS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: max-activity-attempts
+            - name: ZYNAX_ENGINE_ADAPTER_LIVENESS_THRESHOLD_S
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: liveness-threshold-s
+            {{- if .Values.tlsSecretName }}
+            - name: ZYNAX_TLS_CERT
+              value: /tls/tls.crt
+            - name: ZYNAX_TLS_KEY
+              value: /tls/tls.key
+            - name: ZYNAX_TLS_CA
+              value: /tls/ca.crt
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /startupz
+              port: metrics
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: metrics
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.tlsSecretName }}
+          volumeMounts:
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+          {{- end }}
+      {{- if .Values.tlsSecretName }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ .Values.tlsSecretName }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

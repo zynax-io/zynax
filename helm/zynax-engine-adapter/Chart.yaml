@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v2
+name: zynax-engine-adapter
+description: >
+  Helm chart for the Zynax Engine Adapter — stateless gRPC service that runs
+  Temporal workflows (IRInterpreterWorkflow) and dispatches capabilities to
+  task-broker.
+type: application
+version: 0.1.0
+appVersion: "0.4.0"
+dependencies:
+  - name: zynax-lib
+    version: "0.1.0"
+    repository: "file://../zynax-lib"

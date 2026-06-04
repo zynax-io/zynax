@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: Apache-2.0
+replicaCount: 1
+
+image:
+  repository: ghcr.io/zynax-io/zynax/engine-adapter
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to .Chart.AppVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 50055
+
+# Non-secret env vars (prefix: ZYNAX_ENGINE_ADAPTER_)
+env:
+  grpcPort: 50055
+  metricsPort: 9095
+  logLevel: "info"
+  temporalHostPort: "temporal-frontend:7233"
+  temporalNamespace: "default"
+  temporalTaskQueue: "engine-adapter"
+  taskBrokerAddr: "zynax-task-broker:50053"
+  activeEngine: "temporal"
+  grpcCallTimeoutS: 30
+  maxActivityAttempts: 3
+  livenessThresholdS: 60
+
+# mTLS secret — set to empty string to disable TLS (dev only).
+# When set, the secret must contain tls.crt, tls.key, and ca.crt.
+tlsSecretName: ""
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
