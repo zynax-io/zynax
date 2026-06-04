@@ -131,7 +131,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 7. **[A.6]** ✅ Create `helm/zynax-event-bus` placeholder chart: `image.tag: placeholder`, NOTES.txt states "Awaiting EPIC I (#772) implementation"; `ct lint` passes.
 
-8. **[A.7]** Create `helm/zynax-memory-service` chart: stateless Deployment for Go pod + separate Redis `StatefulSet` with PVC; `image.tag: placeholder` for memory-service image; NOTES.txt states "Awaiting EPIC J (#773) implementation and single-store decision"; `ct lint` passes.
+8. **[A.7]** ✅ Create `helm/zynax-memory-service` chart: stateless Deployment for Go pod + separate Redis `StatefulSet` with PVC; `image.tag: placeholder` for memory-service image; NOTES.txt states "Awaiting EPIC J (#773) implementation and single-store decision"; `ct lint` passes.
 
 9. **[A.8]** Create `helm/charts/nats` subchart: wraps `nats/nats` community chart; adds JetStream stream config `ConfigMap`; pins dependency chart SHA in `Chart.lock`.
 

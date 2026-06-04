@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v2
+name: zynax-memory-service
+description: >
+  Helm chart placeholder for the Zynax Memory Service — stateless gRPC service
+  providing namespaced KV (Redis) and vector (pgvector) storage (EPIC J / #773).
+  Redis StatefulSet is dedicated to this chart (ADR-008).
+  Do not set image.tag away from "placeholder" until EPIC J merges.
+type: application
+version: 0.1.0
+appVersion: "placeholder"
+dependencies:
+  - name: zynax-lib
+    version: "0.1.0"
+    repository: "file://../zynax-lib"

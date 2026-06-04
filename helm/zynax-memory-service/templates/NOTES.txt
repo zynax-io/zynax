@@ -1,0 +1,21 @@
+⚠️  PLACEHOLDER CHART — Awaiting EPIC J (#773) memory-service implementation.
+
+This chart is structurally complete for CI linting but the Go service image ({{ .Values.image.tag }})
+is NOT functional. Do NOT deploy to any environment until EPIC J (#773) merges.
+
+The Redis StatefulSet is dedicated to this chart (ADR-008). No other Zynax service
+chart may reference it.
+
+When EPIC J ships:
+  1. Remove the `tag: "placeholder"` override in values.yaml
+  2. Confirm the single-store decision (Redis vs Redis Stack) from the EPIC J canvas
+  3. Wire pgvector DSN: set pgvector.secretName to the K8s Secret containing the DSN
+  4. Enable TLS via tlsSecretName (cert-manager Certificate, ADR-020)
+
+Single-store evaluation note: EPIC J canvas will resolve whether Redis Stack (unified
+KV + vector plane) or Redis + pgvector (separate stores) is used. The pgvector.secretName
+wiring is optional until that decision lands.
+
+  Service (gRPC): {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}
+  RPCs:           zynax.v1.MemoryService (10 RPCs — see protos/zynax/v1/memory.proto)
+  Redis:          {{ include "zynax.fullname" . }}-redis.{{ .Release.Namespace }}:6379 (dedicated, ADR-008)
