@@ -38,7 +38,7 @@ jobs:
     name: test-go
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:f33e9a90f6ad8fdd6404c6e7f47811b6712e62d5be295493aa19fb730004666a
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:35e84a949a1148a07e3e036afd8f94e5410b025beaf84e323286883ad39f5abc
       options: --user root
     env:
       UV_LINK_MODE: copy
