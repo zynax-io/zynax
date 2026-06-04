@@ -127,7 +127,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 5. **[A.4]** ✅ Create `helm/zynax-task-broker` chart: same structure + `secretRef` for `ZYNAX_DB_DSN` (ADR-021 wiring); init-container field documented in `values.yaml` comment.
 
-6. **[A.5]** Create `helm/zynax-agent-registry` chart: same structure as A.4 + `ZYNAX_DB_DSN` secretRef.
+6. **[A.5]** ✅ Create `helm/zynax-agent-registry` chart: same structure as A.4 + `ZYNAX_REGISTRY_DB_DSN` secretRef.
 
 7. **[A.6]** Create `helm/zynax-event-bus` placeholder chart: `image.tag: placeholder`, NOTES.txt states "Awaiting EPIC I (#772) implementation"; `ct lint` passes.
 

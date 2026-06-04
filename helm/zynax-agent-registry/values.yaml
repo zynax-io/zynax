@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: Apache-2.0
+replicaCount: 1
+
+image:
+  repository: ghcr.io/zynax-io/zynax/agent-registry
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to .Chart.AppVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 50052
+
+# Non-secret env vars (prefix: ZYNAX_REGISTRY_)
+env:
+  grpcPort: 50052
+  logLevel: "info"
+
+# Postgres DSN — sourced from a K8s Secret (ADR-021).
+# Set db.secretName to the name of the Secret containing the DSN.
+# The Secret must contain a key matching db.secretKey (default: dsn).
+# Leave db.secretName empty to skip wiring ZYNAX_REGISTRY_DB_DSN (uses in-memory repo).
+#
+# Example Secret:
+#   kubectl create secret generic agent-registry-db \
+#     --from-literal=dsn="postgres://user:pass@postgres:5432/agent_registry?sslmode=require"
+db:
+  secretName: ""
+  secretKey: "dsn"
+
+# mTLS secret — set to empty string to disable TLS (dev only).
+# When set, the secret must contain tls.crt, tls.key, and ca.crt.
+tlsSecretName: ""
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 32Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
