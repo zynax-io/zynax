@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# Headless service for the Redis StatefulSet — used by memory-service for DNS discovery.
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zynax.fullname" . }}-redis
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 6379
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    {{- include "zynax.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+{{- end }}

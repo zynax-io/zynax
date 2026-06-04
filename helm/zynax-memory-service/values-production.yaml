@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+# PLACEHOLDER — do NOT deploy until EPIC J (#773) ships.
+# Production overrides left as template for future use.
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+redis:
+  persistence:
+    storageClassName: "standard"
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Wire the cert-manager issued certificate secret (ADR-020).
+tlsSecretName: "zynax-memory-service-tls"
