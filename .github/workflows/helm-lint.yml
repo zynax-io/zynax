@@ -48,88 +48,21 @@ jobs:
           sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
           helm version --short
 
-      - name: Install chart-testing (ct)
+      - name: Install chart-testing (ct) + yamale
         run: |
           curl -sSLo /tmp/ct.tar.gz \
             "https://github.com/helm/chart-testing/releases/download/v${CT_VERSION}/chart-testing_${CT_VERSION}_linux_amd64.tar.gz"
           mkdir -p /tmp/ct-bin
           tar -C /tmp/ct-bin -xzf /tmp/ct.tar.gz
           sudo install /tmp/ct-bin/ct /usr/local/bin/ct
+          pip3 install yamale
           ct version
-
-      - name: Install yamale (required by ct for schema validation)
-        run: pip3 install yamale
 
       - name: Configure chart-testing
         run: |
           mkdir -p ~/.ct
-          # Minimal chart_schema.yaml — validates required Chart.yaml fields only.
-          cat > ~/.ct/chart_schema.yaml << 'EOF'
-          name:
-            required: true
-            type: string
-          apiVersion:
-            required: true
-            type: string
-          version:
-            required: true
-            type: string
-          description:
-            required: false
-            type: string
-          appVersion:
-            required: false
-            type: string
-          type:
-            required: false
-            type: string
-          dependencies:
-            required: false
-            type: seq
-          home:
-            required: false
-            type: string
-          sources:
-            required: false
-            type: seq
-          keywords:
-            required: false
-            type: seq
-          maintainers:
-            required: false
-            type: seq
-          icon:
-            required: false
-            type: string
-          EOF
-          # Minimal lintconf.yaml — disable strict YAML style checks for chart templates.
-          cat > ~/.ct/lintconf.yaml << 'EOF'
-          ---
-          rules:
-            braces:
-              min-spaces-inside: 0
-              max-spaces-inside: 0
-            brackets:
-              min-spaces-inside: 0
-              max-spaces-inside: 0
-            colons:
-              max-spaces-after: -1
-              max-spaces-before: 0
-            commas:
-              max-spaces-after: -1
-              min-spaces-after: 1
-              max-spaces-before: 0
-            document-start: disable
-            indentation:
-              indent-sequences: true
-              spaces: 2
-            line-length:
-              max: 160
-            trailing-spaces: enable
-            truthy:
-              allowed-values: ['true', 'false']
-              check-keys: false
-          EOF
+          cp etc/ct/chart_schema.yaml ~/.ct/chart_schema.yaml
+          cp etc/ct/lintconf.yaml ~/.ct/lintconf.yaml
 
       - name: Add Helm repositories
         run: |
