@@ -1,0 +1,6 @@
+dependencies:
+- name: zynax-lib
+  repository: file://../zynax-lib
+  version: 0.1.0
+digest: sha256:21e35bd91d2f56d36488a11b6838626b62a7415a6439ec45546bd182cd035f94
+generated: "2026-06-04T00:00:00.000000000Z"

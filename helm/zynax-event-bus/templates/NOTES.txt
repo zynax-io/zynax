@@ -1,0 +1,13 @@
+⚠️  PLACEHOLDER CHART — Awaiting EPIC I (#772) event-bus implementation.
+
+This chart is structurally complete for CI linting but the image ({{ .Values.image.tag }})
+is NOT functional. Do NOT deploy to any environment until EPIC I (#772) merges.
+
+When EPIC I ships:
+  1. Remove the `tag: "placeholder"` override in values.yaml
+  2. Wire NATS JetStream URL: set env.natsURL to the NATS subchart service DNS
+  3. Enable TLS via tlsSecretName (cert-manager Certificate, ADR-020)
+
+  Service (gRPC): {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}
+  Publish events: zynax.v1.EventBusService/Publish
+  Subscribe:      zynax.v1.EventBusService/Subscribe

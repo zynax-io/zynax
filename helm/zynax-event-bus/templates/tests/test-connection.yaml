@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# PLACEHOLDER TEST — not functional until EPIC I (#772) ships.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "zynax.fullname" . }}-test-connection
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: grpc-health-check
+      image: fullstorydev/grpcurl:v1.9.1
+      command:
+        - grpcurl
+        - -plaintext
+        - -connect-timeout
+        - "5"
+        - "{{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}"
+        - grpc.health.v1.Health/Check

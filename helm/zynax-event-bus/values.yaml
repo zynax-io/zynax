@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# PLACEHOLDER CHART — Awaiting EPIC I (#772) event-bus implementation.
+# This chart exists to establish the chart structure for CI linting before
+# the service implementation lands. Do NOT deploy until EPIC I merges.
+#
+replicaCount: 1
+
+image:
+  # TODO(EPIC-I #772): replace placeholder with actual image once event-bus ships
+  repository: ghcr.io/zynax-io/zynax/event-bus
+  pullPolicy: IfNotPresent
+  tag: "placeholder"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+service:
+  type: ClusterIP
+  # gRPC port for EventBusService (ADR-022). Port 50056 reserved for event-bus.
+  port: 50056
+
+# Non-secret env vars (prefix: ZYNAX_EVENTBUS_)
+env:
+  grpcPort: 50056
+  logLevel: "info"
+  # NATS JetStream URL — must be set to the NATS subchart service DNS when deploying.
+  # Example: nats://zynax-nats:4222
+  natsURL: "nats://zynax-nats:4222"
+
+# mTLS secret — set to empty string to disable TLS (dev only).
+# When set, the secret must contain tls.crt, tls.key, and ca.crt.
+tlsSecretName: ""
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 32Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

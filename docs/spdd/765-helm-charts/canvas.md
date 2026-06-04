@@ -129,7 +129,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 6. **[A.5]** ✅ Create `helm/zynax-agent-registry` chart: same structure as A.4 + `ZYNAX_REGISTRY_DB_DSN` secretRef.
 
-7. **[A.6]** Create `helm/zynax-event-bus` placeholder chart: `image.tag: placeholder`, NOTES.txt states "Awaiting EPIC I (#772) implementation"; `ct lint` passes.
+7. **[A.6]** ✅ Create `helm/zynax-event-bus` placeholder chart: `image.tag: placeholder`, NOTES.txt states "Awaiting EPIC I (#772) implementation"; `ct lint` passes.
 
 8. **[A.7]** Create `helm/zynax-memory-service` chart: stateless Deployment for Go pod + separate Redis `StatefulSet` with PVC; `image.tag: placeholder` for memory-service image; NOTES.txt states "Awaiting EPIC J (#773) implementation and single-store decision"; `ct lint` passes.
 
