@@ -133,7 +133,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 8. **[A.7]** ✅ Create `helm/zynax-memory-service` chart: stateless Deployment for Go pod + separate Redis `StatefulSet` with PVC; `image.tag: placeholder` for memory-service image; NOTES.txt states "Awaiting EPIC J (#773) implementation and single-store decision"; `ct lint` passes.
 
-9. **[A.8]** Create `helm/charts/nats` subchart: wraps `nats/nats` community chart; adds JetStream stream config `ConfigMap`; pins dependency chart SHA in `Chart.lock`.
+9. **[A.8]** ✅ Create `helm/charts/nats` subchart: wraps `nats/nats` community chart; adds JetStream stream config `ConfigMap`; pins dependency chart SHA in `Chart.lock`.
 
 10. **[A.9]** Create `helm/charts/postgres` subchart: Bitnami `postgresql` dependency pinned; `values.yaml` exposes `postgresql.auth.database` per service (task-broker, agent-registry, memory-service schemas); init-container migration hook documented.
 

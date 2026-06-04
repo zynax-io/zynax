@@ -227,7 +227,8 @@ Canvas: `docs/spdd/765-helm-charts/canvas.md` — Status: **Aligned** ✅
 | A.5 feat(infra): Helm chart for agent-registry | [#784](https://github.com/zynax-io/zynax/issues/784) | ✅ Merged |
 | A.6 feat(infra): Helm chart placeholder for event-bus | [#785](https://github.com/zynax-io/zynax/issues/785) | ✅ Merged |
 | A.7 feat(infra): Helm chart for memory-service | [#786](https://github.com/zynax-io/zynax/issues/786) | ✅ Merged |
-| A.8–A.13: remaining stories | [#787](https://github.com/zynax-io/zynax/issues/787)–[#792](https://github.com/zynax-io/zynax/issues/792) | ⬜ Pending |
+| A.8 feat(infra): NATS JetStream subchart | [#787](https://github.com/zynax-io/zynax/issues/787) | ✅ Merged |
+| A.9–A.13: remaining stories | [#788](https://github.com/zynax-io/zynax/issues/788)–[#792](https://github.com/zynax-io/zynax/issues/792) | ⬜ Pending |
 
 ### M6.Images — Single Source of Truth for Container Image References (#855) — ⬜ Canvas Aligned, not started
 

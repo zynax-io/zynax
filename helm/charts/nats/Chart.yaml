@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v2
+name: zynax-nats
+description: >
+  NATS JetStream subchart for Zynax — wraps the community nats/nats chart and
+  adds Zynax-specific JetStream stream configuration (ConfigMap). Used as the
+  event backbone for EventBusService (ADR-022).
+type: application
+version: 0.1.0
+appVersion: "2.14.0"
+dependencies:
+  - name: nats
+    version: "2.14.0"
+    repository: "https://nats-io.github.io/k8s/helm/charts/"
