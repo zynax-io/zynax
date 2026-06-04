@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Bootstrap ClusterIssuer — used only to sign the zynax root CA certificate.
+# This issuer has no external trust anchor; it is not used for service certs.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.selfSignedIssuerName }}
+  labels:
+    app.kubernetes.io/name: zynax-cert-manager
+    app.kubernetes.io/part-of: zynax
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  selfSigned: {}

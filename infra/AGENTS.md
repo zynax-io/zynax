@@ -17,9 +17,23 @@ helm/
 ├── charts/
 │   ├── nats/                  ← NATS JetStream subchart (wraps nats/nats)
 │   ├── postgres/              ← Postgres 16 subchart (wraps bitnami/postgresql)
-│   └── temporal/              ← Temporal subchart (wraps temporalio/temporal v1.2.0)
+│   ├── temporal/              ← Temporal subchart (wraps temporalio/temporal v1.2.0)
+│   └── cert-manager/          ← cert-manager resources: ClusterIssuer + per-service Certificates (ADR-020)
 └── zynax-umbrella/            ← umbrella chart — deploys the full platform
 ```
+
+### cert-manager prerequisite (ADR-020 mTLS)
+
+`helm/charts/cert-manager/` creates ClusterIssuer and Certificate resources — it does **not** install cert-manager itself. cert-manager must be pre-installed before enabling this chart:
+
+```bash
+helm repo add jetstack https://charts.jetstack.io
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager --create-namespace \
+  --set crds.enabled=true
+```
+
+Enable in the umbrella chart with `--set zynax-cert-manager.enabled=true`. See [docs/infra/environment-parity.md](../docs/infra/environment-parity.md) for per-environment TLS settings.
 
 `helm/zynax-umbrella/` aggregates all 7 service charts and the 3 cluster dependency
 subcharts. Use it for e2e harness (EPIC G #770) and staging/production deployments.

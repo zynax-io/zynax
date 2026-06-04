@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Per-service Certificate resources for inter-service mTLS (ADR-020).
+# Each Certificate requests a TLS secret from the CA ClusterIssuer.
+# The generated Secret (tls.crt, tls.key, ca.crt) is mounted by the service
+# chart when .Values.tlsSecretName is set to the matching secretName.
+{{- range $svcName, $svc := .Values.certificates.services }}
+{{- if $svc.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: zynax-{{ $svcName }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: zynax-cert-manager
+    app.kubernetes.io/part-of: zynax
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+spec:
+  secretName: {{ $svc.secretName }}
+  duration: {{ $.Values.certificates.duration }}
+  renewBefore: {{ $.Values.certificates.renewBefore }}
+  issuerRef:
+    name: {{ $.Values.caIssuerName }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+  commonName: zynax-{{ $svcName }}
+  dnsNames:
+    - zynax-{{ $svcName }}
+    - zynax-{{ $svcName }}.{{ $.Release.Namespace }}
+    - zynax-{{ $svcName }}.{{ $.Release.Namespace }}.svc.cluster.local
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+{{- end }}
+{{- end }}

@@ -64,6 +64,9 @@ paths       = [
   '''infra/AGENTS\.md''',
   '''agents/.*/AGENTS\.md''',
   '''docs/knowledge-base-policy\.md''',
+  # Helm templates legitimately use cluster-local DNS names (svc.cluster.local)
+  '''helm/.*\.yaml$''',
+  '''helm/.*\.txt$''',
 ]
 
 [[rules]]
