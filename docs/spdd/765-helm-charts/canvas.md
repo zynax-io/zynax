@@ -137,7 +137,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 10. **[A.9]** ✅ Create `helm/charts/postgres` subchart: Bitnami `postgresql` dependency pinned; `values.yaml` exposes `postgresql.auth.database` per service (task-broker, agent-registry, memory-service schemas); init-container migration hook documented.
 
-11. **[A.10]** Create `helm/zynax-umbrella` chart: aggregates all 7 service charts + NATS + Postgres + Temporal dependencies; `helm dependency update` passes; basic `ct lint` passes.
+11. **[A.10]** ✅ Create `helm/zynax-umbrella` chart: aggregates all 7 service charts + NATS + Postgres + Temporal dependencies; `helm dependency update` passes; basic `ct lint` passes.
 
 12. **[A.11]** Create cert-manager `ClusterIssuer` + per-service `Certificate` resources in `helm/charts/cert-manager/`; update `infra/AGENTS.md` Helm section with cert-manager prerequisite note; integrates with ADR-020 mTLS wiring (#488).
 

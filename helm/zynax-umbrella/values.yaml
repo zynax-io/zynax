@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Zynax umbrella chart default values.
+#
+# Each top-level key matches the dependency name in Chart.yaml.
+# Values nested under a key are passed through to the sub-chart's values.
+# See individual chart values.yaml files for all configurable fields.
+#
+# Secrets (DB DSNs, TLS certs, API keys) are NEVER stored here.
+# Provide them as K8s Secrets referenced via <chart>.db.secretName etc.
+
+# ── Service charts ────────────────────────────────────────────────────────────
+
+zynax-api-gateway:
+  enabled: true
+  replicaCount: 1
+  env:
+    compilerAddr: "zynax-workflow-compiler:50054"
+    engineAddr: "zynax-engine-adapter:50055"
+    registryAddr: "zynax-agent-registry:50052"
+    logLevel: "info"
+
+zynax-workflow-compiler:
+  enabled: true
+  replicaCount: 1
+  env:
+    logLevel: "info"
+
+zynax-engine-adapter:
+  enabled: true
+  replicaCount: 1
+  env:
+    logLevel: "info"
+    # Set temporalHostPort to the Temporal Frontend address within the cluster.
+    # Default assumes the umbrella chart's zynax-temporal subchart is enabled.
+    temporalHostPort: "zynax-umbrella-zynax-temporal-temporal-frontend:7233"
+    taskBrokerAddr: "zynax-task-broker:50053"
+    registryAddr: "zynax-agent-registry:50052"
+
+zynax-task-broker:
+  enabled: true
+  replicaCount: 1
+  env:
+    registryAddr: "zynax-agent-registry:50052"
+    logLevel: "info"
+  # Set db.secretName to the K8s Secret containing ZYNAX_BROKER_DB_DSN.
+  db:
+    secretName: ""
+
+zynax-agent-registry:
+  enabled: true
+  replicaCount: 1
+  env:
+    logLevel: "info"
+  # Set db.secretName to the K8s Secret containing ZYNAX_REGISTRY_DB_DSN.
+  db:
+    secretName: ""
+
+# Placeholder — disabled until EPIC I (#772) implementation merges.
+zynax-event-bus:
+  enabled: false
+
+# Placeholder — disabled until EPIC J (#773) implementation merges.
+zynax-memory-service:
+  enabled: false
+
+# ── Cluster dependency subcharts ──────────────────────────────────────────────
+
+zynax-nats:
+  enabled: true
+
+zynax-postgres:
+  enabled: true
+
+zynax-temporal:
+  enabled: true

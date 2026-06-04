@@ -1,0 +1,33 @@
+dependencies:
+- name: zynax-api-gateway
+  repository: file://../zynax-api-gateway
+  version: 0.1.0
+- name: zynax-workflow-compiler
+  repository: file://../zynax-workflow-compiler
+  version: 0.1.0
+- name: zynax-engine-adapter
+  repository: file://../zynax-engine-adapter
+  version: 0.1.0
+- name: zynax-task-broker
+  repository: file://../zynax-task-broker
+  version: 0.1.0
+- name: zynax-agent-registry
+  repository: file://../zynax-agent-registry
+  version: 0.1.0
+- name: zynax-event-bus
+  repository: file://../zynax-event-bus
+  version: 0.1.0
+- name: zynax-memory-service
+  repository: file://../zynax-memory-service
+  version: 0.1.0
+- name: zynax-nats
+  repository: file://../charts/nats
+  version: 0.1.0
+- name: zynax-postgres
+  repository: file://../charts/postgres
+  version: 0.1.0
+- name: zynax-temporal
+  repository: file://../charts/temporal
+  version: 0.1.0
+digest: sha256:1ceb35101957f8673000d72e4cee6e8cadaae20c0f374b196a6d4cbbb83a663b
+generated: "2026-06-04T22:34:31.534875381+02:00"
