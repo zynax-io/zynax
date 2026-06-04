@@ -141,7 +141,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 12. **[A.11]** ✅ Create cert-manager `ClusterIssuer` + per-service `Certificate` resources in `helm/charts/cert-manager/`; update `infra/AGENTS.md` Helm section with cert-manager prerequisite note; integrates with ADR-020 mTLS wiring (#488).
 
-13. **[A.12]** Add `.github/workflows/helm-lint.yml`: runs `ct lint` on PRs touching `helm/` or `infra/`; pinned SHA for `helm/chart-testing-action`; closes #242.
+13. **[A.12]** ✅ Add `.github/workflows/helm-lint.yml`: runs `ct lint` on PRs touching `helm/` or `infra/`; pinned SHA for `helm/chart-testing-action`; closes #242.
 
 14. **[A.13]** Add `docs/infra/environment-parity.md`: table of dev/staging/prod value differences (replica counts, resource limits, image tag strategy, TLS disabled vs enabled); closes #243.
 
