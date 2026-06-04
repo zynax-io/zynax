@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Cert-manager resources for Zynax mTLS (ADR-020).
+# This chart creates ClusterIssuers and per-service Certificates.
+# cert-manager itself must be pre-installed in the cluster.
+
+# Namespace where cert-manager controller is installed.
+# The CA ClusterIssuer's backing secret must be stored here.
+certManagerNamespace: cert-manager
+
+# Bootstrap: self-signed ClusterIssuer used only to sign the root CA cert.
+selfSignedIssuerName: zynax-selfsigned
+
+# Root CA certificate (stored in certManagerNamespace).
+ca:
+  name: zynax-ca
+  secretName: zynax-ca-secret
+  duration: "87600h"    # 10 years
+  renewBefore: "720h"   # 30 days
+
+# CA ClusterIssuer — signs all per-service certificates.
+caIssuerName: zynax-ca
+
+# Per-service certificates.
+# Each entry creates a Certificate resource in .Release.Namespace.
+# The generated Secret (secretName) must match the chart's tlsSecretName value.
+certificates:
+  duration: "8760h"    # 1 year
+  renewBefore: "720h"  # 30 days
+  services:
+    api-gateway:
+      enabled: true
+      secretName: zynax-api-gateway-tls
+    workflow-compiler:
+      enabled: true
+      secretName: zynax-workflow-compiler-tls
+    engine-adapter:
+      enabled: true
+      secretName: zynax-engine-adapter-tls
+    task-broker:
+      enabled: true
+      secretName: zynax-task-broker-tls
+    agent-registry:
+      enabled: true
+      secretName: zynax-agent-registry-tls
+    event-bus:
+      enabled: true
+      secretName: zynax-event-bus-tls
+    memory-service:
+      enabled: true
+      secretName: zynax-memory-service-tls

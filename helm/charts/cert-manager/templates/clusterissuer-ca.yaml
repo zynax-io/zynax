@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# CA ClusterIssuer — signs all per-service mTLS certificates.
+# References the root CA secret created by certificate-ca.yaml.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.caIssuerName }}
+  labels:
+    app.kubernetes.io/name: zynax-cert-manager
+    app.kubernetes.io/part-of: zynax
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  ca:
+    secretName: {{ .Values.ca.secretName }}

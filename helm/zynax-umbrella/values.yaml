@@ -74,3 +74,9 @@ zynax-postgres:
 
 zynax-temporal:
   enabled: true
+
+# cert-manager resources — disabled by default.
+# Enable only when cert-manager is pre-installed in the cluster.
+# See helm/charts/cert-manager/templates/NOTES.txt for prerequisites.
+zynax-cert-manager:
+  enabled: false

@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v2
+name: zynax-cert-manager
+description: >
+  cert-manager resources for the Zynax platform: a self-signed bootstrap
+  ClusterIssuer, a root CA Certificate, a CA ClusterIssuer, and per-service
+  Certificate CRDs for mTLS (ADR-020).
+
+  PREREQUISITE: cert-manager must be installed in the cluster before this
+  chart is installed. Install cert-manager with its CRDs using:
+    helm install cert-manager jetstack/cert-manager \
+      --namespace cert-manager --create-namespace \
+      --set crds.enabled=true
+
+  This chart does NOT install cert-manager itself — it only creates the
+  ClusterIssuer and Certificate resources that cert-manager manages.
+type: application
+version: 0.1.0
+appVersion: "1.16.0"

@@ -1,0 +1,30 @@
+Zynax cert-manager resources installed.
+
+PREREQUISITE CHECK — verify cert-manager is running:
+  kubectl get pods -n cert-manager
+
+If cert-manager is not installed, run:
+  helm repo add jetstack https://charts.jetstack.io
+  helm install cert-manager jetstack/cert-manager \
+    --namespace cert-manager --create-namespace \
+    --set crds.enabled=true
+
+Resources created by this chart:
+  ClusterIssuer/{{ .Values.selfSignedIssuerName }} — bootstrap self-signed issuer
+  Certificate/{{ .Values.ca.name }} (namespace: {{ .Values.certManagerNamespace }}) — root CA
+  ClusterIssuer/{{ .Values.caIssuerName }} — CA issuer for service certificates
+
+Per-service TLS secrets (in namespace {{ .Release.Namespace }}):
+{{- range $svcName, $svc := .Values.certificates.services }}
+{{- if $svc.enabled }}
+  Secret/{{ $svc.secretName }} — TLS cert for zynax-{{ $svcName }}
+{{- end }}
+{{- end }}
+
+To enable mTLS in service charts, set:
+  helm upgrade <service-release> helm/zynax-<service>/ \
+    --set tlsSecretName=zynax-<service>-tls
+
+Verify certificates are issued:
+  kubectl get certificates -n {{ .Release.Namespace }}
+  kubectl get clusterissuers

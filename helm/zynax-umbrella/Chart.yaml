@@ -58,3 +58,10 @@ dependencies:
     version: "0.1.0"
     repository: "file://../charts/temporal"
     condition: zynax-temporal.enabled
+  # cert-manager resources (ClusterIssuer + per-service Certificates).
+  # Disabled by default; enable when cert-manager is installed in the cluster.
+  # See helm/charts/cert-manager/templates/NOTES.txt for prerequisites.
+  - name: zynax-cert-manager
+    version: "0.1.0"
+    repository: "file://../charts/cert-manager"
+    condition: zynax-cert-manager.enabled
