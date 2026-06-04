@@ -1,0 +1,13 @@
+Zynax Temporal subchart installed.
+
+Temporal server {{ .Chart.AppVersion }} is starting. The Frontend service is accessible at:
+  {{ .Release.Name }}-temporal-frontend.{{ .Release.Namespace }}:7233
+
+Engine-adapter connects to this address via ZYNAX_ENGINE_TEMPORAL_HOSTPORT.
+
+Temporal UI is available on port 8080 within the cluster.
+To access locally:
+  kubectl port-forward svc/{{ .Release.Name }}-temporal-ui {{ .Release.Namespace }} 8080:8080
+
+Note: This chart uses the bundled Cassandra backend by default. For production,
+configure an external Cassandra cluster or switch to the PostgreSQL visibility store.

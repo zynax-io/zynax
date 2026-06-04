@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v2
+name: zynax-umbrella
+description: >
+  Umbrella chart for the full Zynax platform. Aggregates all 7 service charts
+  (api-gateway, workflow-compiler, engine-adapter, task-broker, agent-registry,
+  event-bus, memory-service) and the cluster dependency subcharts (NATS JetStream,
+  Postgres 16, Temporal). Used as the deployment unit for the e2e harness (EPIC G
+  #770) and staging/production cluster deployments.
+
+  Placeholder charts (event-bus, memory-service) are disabled by default until
+  their implementation EPICs (I #772, J #773) merge.
+type: application
+version: 0.1.0
+appVersion: "0.5.0"
+dependencies:
+  # ── Service charts ────────────────────────────────────────────────────────
+  - name: zynax-api-gateway
+    version: "0.1.0"
+    repository: "file://../zynax-api-gateway"
+    condition: zynax-api-gateway.enabled
+  - name: zynax-workflow-compiler
+    version: "0.1.0"
+    repository: "file://../zynax-workflow-compiler"
+    condition: zynax-workflow-compiler.enabled
+  - name: zynax-engine-adapter
+    version: "0.1.0"
+    repository: "file://../zynax-engine-adapter"
+    condition: zynax-engine-adapter.enabled
+  - name: zynax-task-broker
+    version: "0.1.0"
+    repository: "file://../zynax-task-broker"
+    condition: zynax-task-broker.enabled
+  - name: zynax-agent-registry
+    version: "0.1.0"
+    repository: "file://../zynax-agent-registry"
+    condition: zynax-agent-registry.enabled
+  # Placeholder — disabled until EPIC I (#772) ships.
+  - name: zynax-event-bus
+    version: "0.1.0"
+    repository: "file://../zynax-event-bus"
+    condition: zynax-event-bus.enabled
+  # Placeholder — disabled until EPIC J (#773) ships.
+  - name: zynax-memory-service
+    version: "0.1.0"
+    repository: "file://../zynax-memory-service"
+    condition: zynax-memory-service.enabled
+  # ── Cluster dependency subcharts ──────────────────────────────────────────
+  - name: zynax-nats
+    version: "0.1.0"
+    repository: "file://../charts/nats"
+    condition: zynax-nats.enabled
+  - name: zynax-postgres
+    version: "0.1.0"
+    repository: "file://../charts/postgres"
+    condition: zynax-postgres.enabled
+  - name: zynax-temporal
+    version: "0.1.0"
+    repository: "file://../charts/temporal"
+    condition: zynax-temporal.enabled

@@ -1,0 +1,35 @@
+Zynax platform umbrella chart installed.
+
+Enabled components:
+{{- if index .Values "zynax-api-gateway" "enabled" }}
+  api-gateway (HTTP REST):  {{ .Release.Name }}-zynax-api-gateway.{{ .Release.Namespace }}:8080
+{{- end }}
+{{- if index .Values "zynax-workflow-compiler" "enabled" }}
+  workflow-compiler (gRPC):  {{ .Release.Name }}-zynax-workflow-compiler.{{ .Release.Namespace }}:50054
+{{- end }}
+{{- if index .Values "zynax-engine-adapter" "enabled" }}
+  engine-adapter (gRPC):     {{ .Release.Name }}-zynax-engine-adapter.{{ .Release.Namespace }}:50055
+{{- end }}
+{{- if index .Values "zynax-task-broker" "enabled" }}
+  task-broker (gRPC):        {{ .Release.Name }}-zynax-task-broker.{{ .Release.Namespace }}:50053
+{{- end }}
+{{- if index .Values "zynax-agent-registry" "enabled" }}
+  agent-registry (gRPC):     {{ .Release.Name }}-zynax-agent-registry.{{ .Release.Namespace }}:50052
+{{- end }}
+{{- if index .Values "zynax-nats" "enabled" }}
+  NATS JetStream:            {{ .Release.Name }}-zynax-nats.{{ .Release.Namespace }}:4222
+{{- end }}
+{{- if index .Values "zynax-postgres" "enabled" }}
+  Postgres 16:               {{ .Release.Name }}-zynax-postgres-postgresql.{{ .Release.Namespace }}:5432
+{{- end }}
+{{- if index .Values "zynax-temporal" "enabled" }}
+  Temporal Frontend:         {{ .Release.Name }}-zynax-temporal-temporal-frontend.{{ .Release.Namespace }}:7233
+{{- end }}
+
+Placeholder charts (disabled until implementation EPICs merge):
+  event-bus  — enable after EPIC I (#772): --set zynax-event-bus.enabled=true
+  memory-service — enable after EPIC J (#773): --set zynax-memory-service.enabled=true
+
+To apply a workflow manifest:
+  kubectl port-forward svc/{{ .Release.Name }}-zynax-api-gateway 8080:8080
+  zynax apply /path/to/workflow.yaml

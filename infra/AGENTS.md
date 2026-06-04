@@ -6,6 +6,27 @@
 
 ---
 
+## Helm Chart Layout
+
+All Helm charts live in `helm/`:
+
+```
+helm/
+├── zynax-lib/                 ← shared library chart (macros only, no installable templates)
+├── zynax-<service>/           ← one chart per Go service (7 total)
+├── charts/
+│   ├── nats/                  ← NATS JetStream subchart (wraps nats/nats)
+│   ├── postgres/              ← Postgres 16 subchart (wraps bitnami/postgresql)
+│   └── temporal/              ← Temporal subchart (wraps temporalio/temporal v1.2.0)
+└── zynax-umbrella/            ← umbrella chart — deploys the full platform
+```
+
+`helm/zynax-umbrella/` aggregates all 7 service charts and the 3 cluster dependency
+subcharts. Use it for e2e harness (EPIC G #770) and staging/production deployments.
+Run `helm dependency update helm/zynax-umbrella/` after any sub-chart version bump.
+
+The `ct lint` gate (A.12 #791) enforces required resources on every `helm/` change.
+
 ## Required Helm Chart Resources
 
 Every service chart MUST include (chart-testing enforces this):

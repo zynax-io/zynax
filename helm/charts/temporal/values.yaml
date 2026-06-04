@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Zynax Temporal subchart values.
+# Overrides for the temporalio/temporal chart are nested under the `temporal:` key.
+# See: https://github.com/temporalio/helm-charts
+#
+# Persistence: Temporal uses the cluster Postgres instance (zynax-postgres subchart,
+# ADR-021). Two schemas required: `temporal` (default store) and `temporal_visibility`
+# (visibility store). Create them and the K8s Secret before installing:
+#
+#   kubectl create secret generic temporal-db \
+#     --from-literal=password="<postgres-password>"
+#
+# The default connectAddr points to the zynax-postgres-postgresql Service created by
+# the umbrella chart. Adjust if using an external Postgres.
+
+# temporalio/temporal chart overrides
+temporal:
+  server:
+    replicaCount: 1
+    image:
+      repository: temporalio/server
+      tag: "1.31.0"
+      pullPolicy: IfNotPresent
+    config:
+      persistence:
+        defaultStore: default
+        visibilityStore: visibility
+        numHistoryShards: 512
+        datastores:
+          default:
+            sql:
+              pluginName: postgres12_pgx
+              driverName: postgres12_pgx
+              databaseName: temporal
+              connectAddr: "zynax-postgres-postgresql:5432"
+              connectProtocol: "tcp"
+              user: zynax
+              existingSecret: temporal-db
+              secretKey: password
+              maxConns: 20
+              maxIdleConns: 20
+              maxConnLifetime: "1h"
+          visibility:
+            sql:
+              pluginName: postgres12_pgx
+              driverName: postgres12_pgx
+              databaseName: temporal_visibility
+              connectAddr: "zynax-postgres-postgresql:5432"
+              connectProtocol: "tcp"
+              user: zynax
+              existingSecret: temporal-db
+              secretKey: password
+              maxConns: 20
+              maxIdleConns: 20
+              maxConnLifetime: "1h"
+    metrics:
+      annotations:
+        enabled: true
+      serviceMonitor:
+        enabled: false
+
+  # Temporal UI — exposes the workflow visibility UI on port 8080.
+  ui:
+    enabled: true
+    image:
+      repository: temporalio/ui
+      tag: "2.34.0"
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 8080
