@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: Apache-2.0
+# Helm chart linting gate — runs ct lint on every PR or push touching helm/ or infra/.
+# Closes #242.
+#
+# ct lint validates chart structure, required resources, and YAML syntax.
+# It does NOT install charts (that is the EPIC G e2e harness, #770).
+#
+# All actions pinned to SHA (project standard — see CONTRIBUTING.md §CI Rules).
+
+name: Helm Lint
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "helm/**"
+      - "infra/**"
+  push:
+    branches: [main]
+    paths:
+      - "helm/**"
+      - "infra/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: helm-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  helm-lint:
+    name: ct lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.1
+        with:
+          version: v3.17.0
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@0d27833985e9ab9b3b0fddf0afd58c7843f2c3e4 # v2.7.0
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add nats https://nats-io.github.io/k8s/helm/charts
+          helm repo add temporalio https://temporalio.github.io/helm-charts
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+
+      - name: Build chart dependencies
+        run: |
+          # Build dependencies for charts that reference local file:// charts so
+          # that ct lint can resolve them. The .tgz files are already committed;
+          # this step is a no-op if all deps are satisfied.
+          for dir in helm/zynax-*/; do
+            if [ -f "$dir/Chart.yaml" ] && grep -q "file://" "$dir/Chart.yaml" 2>/dev/null; then
+              echo "Building deps for $dir"
+              helm dependency build "$dir" 2>&1 || true
+            fi
+          done
+          if grep -q "file://" helm/zynax-umbrella/Chart.yaml 2>/dev/null; then
+            echo "Building deps for helm/zynax-umbrella/"
+            helm dependency build helm/zynax-umbrella/ 2>&1 || true
+          fi
+
+      - name: Run ct lint
+        run: |
+          ct lint \
+            --chart-dirs helm \
+            --validate-maintainers false \
+            --all \
+            --debug

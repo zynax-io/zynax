@@ -231,7 +231,7 @@ Canvas: `docs/spdd/765-helm-charts/canvas.md` — Status: **Aligned** ✅
 | A.9 feat(infra): Postgres 16 subchart | [#788](https://github.com/zynax-io/zynax/issues/788) | ✅ Merged |
 | A.10 feat(infra): Temporal + zynax-umbrella chart | [#789](https://github.com/zynax-io/zynax/issues/789) | ✅ Merged |
 | A.11 feat(infra): cert-manager ClusterIssuer + Certificates | [#790](https://github.com/zynax-io/zynax/issues/790) | ✅ Merged |
-| A.12 ci: helm lint gate | [#791](https://github.com/zynax-io/zynax/issues/791) | ⬜ Pending |
+| A.12 ci: helm lint gate | [#791](https://github.com/zynax-io/zynax/issues/791) | ✅ Merged |
 | A.13 docs: environment parity manifest | [#792](https://github.com/zynax-io/zynax/issues/792) | ⬜ Pending |
 
 ### M6.Images — Single Source of Truth for Container Image References (#855) — ⬜ Canvas Aligned, not started
