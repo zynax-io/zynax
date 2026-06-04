@@ -57,6 +57,9 @@ jobs:
           sudo install /tmp/ct-bin/ct /usr/local/bin/ct
           ct version
 
+      - name: Install yamale (required by ct for schema validation)
+        run: pip3 install yamale
+
       - name: Configure chart-testing
         run: |
           mkdir -p ~/.ct
