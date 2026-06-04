@@ -135,7 +135,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 9. **[A.8]** ✅ Create `helm/charts/nats` subchart: wraps `nats/nats` community chart; adds JetStream stream config `ConfigMap`; pins dependency chart SHA in `Chart.lock`.
 
-10. **[A.9]** Create `helm/charts/postgres` subchart: Bitnami `postgresql` dependency pinned; `values.yaml` exposes `postgresql.auth.database` per service (task-broker, agent-registry, memory-service schemas); init-container migration hook documented.
+10. **[A.9]** ✅ Create `helm/charts/postgres` subchart: Bitnami `postgresql` dependency pinned; `values.yaml` exposes `postgresql.auth.database` per service (task-broker, agent-registry, memory-service schemas); init-container migration hook documented.
 
 11. **[A.10]** Create `helm/zynax-umbrella` chart: aggregates all 7 service charts + NATS + Postgres + Temporal dependencies; `helm dependency update` passes; basic `ct lint` passes.
 
