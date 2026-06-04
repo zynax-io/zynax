@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v2
+name: zynax-task-broker
+description: >
+  Helm chart for the Zynax Task Broker — stateless gRPC service that manages
+  capability dispatch tasks between engine-adapter Temporal activities and
+  registered adapters. Tracks task lifecycle: pending → claimed → completed/failed.
+type: application
+version: 0.1.0
+appVersion: "0.4.0"
+dependencies:
+  - name: zynax-lib
+    version: "0.1.0"
+    repository: "file://../zynax-lib"
