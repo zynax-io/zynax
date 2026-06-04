@@ -1,0 +1,16 @@
+Zynax Task Broker deployed as {{ include "zynax.fullname" . }}.
+
+  Service (gRPC): {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}
+  Health check:   grpc_health_probe -addr={{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}
+
+  Dispatch a task via grpcurl:
+    grpcurl -plaintext \
+      {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }} \
+      zynax.v1.TaskBrokerService/CreateTask
+
+{{- if not .Values.db.secretName }}
+
+  NOTE: Running with in-memory task repository (db.secretName not set).
+  Wire ZYNAX_BROKER_DB_DSN from a K8s Secret for persistent storage (ADR-021).
+  See values.yaml db.* for configuration.
+{{- end }}

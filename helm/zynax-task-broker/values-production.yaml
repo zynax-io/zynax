@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+# Production overrides — do NOT store secret values here.
+# DB DSN and TLS are wired from K8s Secrets (see values.yaml db.* and tlsSecretName).
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+# Wire the Postgres DSN secret created by the Postgres subchart or external secret operator.
+db:
+  secretName: "task-broker-db"
+  secretKey: "dsn"
+
+# Wire the cert-manager issued certificate secret (ADR-020).
+tlsSecretName: "zynax-task-broker-tls"

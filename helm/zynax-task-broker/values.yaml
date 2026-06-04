@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: Apache-2.0
+replicaCount: 1
+
+image:
+  repository: ghcr.io/zynax-io/zynax/task-broker
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to .Chart.AppVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 50053
+
+# Non-secret env vars (prefix: ZYNAX_BROKER_)
+env:
+  grpcPort: 50053
+  registryAddr: "zynax-agent-registry:50052"
+  logLevel: "info"
+  grpcCallTimeoutS: 30
+
+# Postgres DSN — sourced from a K8s Secret (ADR-021).
+# Set db.secretName to the name of the Secret containing the DSN.
+# The Secret must contain a key matching db.secretKey (default: dsn).
+# Leave db.secretName empty to skip wiring ZYNAX_BROKER_DB_DSN (uses in-memory repo).
+#
+# Example Secret:
+#   kubectl create secret generic task-broker-db \
+#     --from-literal=dsn="postgres://user:pass@postgres:5432/task_broker?sslmode=require"
+db:
+  secretName: ""
+  secretKey: "dsn"
+
+# mTLS secret — set to empty string to disable TLS (dev only).
+# When set, the secret must contain tls.crt, tls.key, and ca.crt.
+tlsSecretName: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
