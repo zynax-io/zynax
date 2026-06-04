@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-04 (A.12 #791 merged — helm lint CI gate)
+> Generated: 2026-06-02 · Last updated: 2026-06-04 (A.13 #792 merged — environment parity manifest; M6.Helm #765 COMPLETE)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -71,8 +71,8 @@
 | A.9 feat(infra): Postgres 16 subchart | [#788](https://github.com/zynax-io/zynax/issues/788) | Infra | — | ✅ Merged |
 | A.10 feat(infra): Temporal + zynax-umbrella chart | [#789](https://github.com/zynax-io/zynax/issues/789) | Infra | — | ✅ Merged |
 | A.11 feat(infra): cert-manager ClusterIssuer + Certificates | [#790](https://github.com/zynax-io/zynax/issues/790) | Infra | #896 | ✅ Merged |
-| A.12 ci: helm lint gate | [#791](https://github.com/zynax-io/zynax/issues/791) | CI | — | ✅ Merged |
-| A.13 docs(infra): environment parity manifest | [#792](https://github.com/zynax-io/zynax/issues/792) | Docs | — | ⬜ Open |
+| A.12 ci: helm lint gate | [#791](https://github.com/zynax-io/zynax/issues/791) | CI | #897 | ✅ Merged |
+| A.13 docs(infra): environment parity manifest | [#792](https://github.com/zynax-io/zynax/issues/792) | Docs | — | ✅ Merged |
 
 **M6.Build — Native multi-arch build pipeline** (EPIC [#837](https://github.com/zynax-io/zynax/issues/837); SPDD-exempt; no canvas required)
 
