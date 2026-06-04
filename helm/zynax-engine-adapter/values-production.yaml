@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+# Production overrides — apply with: helm install ... -f values.yaml -f values-production.yaml
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 256Mi
+  limits:
+    cpu: 2000m
+    memory: 1Gi
+
+env:
+  logLevel: "warn"
+  # Temporal frontend address in production cluster
+  temporalHostPort: "temporal-frontend.temporal:7233"
+
+# Enable mTLS in production (cert-manager Certificate name).
+tlsSecretName: "zynax-engine-adapter-tls"
