@@ -11,7 +11,6 @@ import (
 	"time"
 
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/zynax-io/zynax/services/task-broker/internal/domain"
 	"github.com/zynax-io/zynax/services/task-broker/internal/infrastructure/postgres"
@@ -26,11 +25,7 @@ func setupContainer(t *testing.T) (repo *postgres.TaskRepository, cleanup func()
 		tcpostgres.WithDatabase("task_broker_test"),
 		tcpostgres.WithUsername("test"),
 		tcpostgres.WithPassword("test"),
-		tcpostgres.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(60*time.Second),
-		),
+		tcpostgres.BasicWaitStrategies(),
 	)
 	if err != nil {
 		t.Fatalf("start postgres container: %v", err)
