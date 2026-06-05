@@ -115,6 +115,26 @@ services:
             -extfile <(printf "subjectAltName=DNS:$$svc,DNS:localhost")
         done
 
+  # ── Zynax service Postgres (separate from Temporal's Postgres) ──────────
+  # task-broker and agent-registry each own a separate database in this instance.
+  # Never used by Temporal. Connection string: postgres://zynax:zynax@postgres-zynax:5432/<db>?sslmode=disable
+
+  postgres-zynax:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zynax
+      POSTGRES_PASSWORD: zynax
+      POSTGRES_DB: zynax
+    volumes:
+      - postgres-zynax-data:/var/lib/postgresql/data
+      - ./postgres-zynax-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zynax"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
   # ── Platform services ───────────────────────────────────────────────────
 
   agent-registry:
@@ -141,8 +161,12 @@ services:
       ZYNAX_BROKER_GRPC_PORT: "50053"
       ZYNAX_BROKER_REGISTRY_ADDR: "agent-registry:50052"
       ZYNAX_BROKER_LOG_LEVEL: info
+      ZYNAX_BROKER_DB_ENABLED: "true"
+      ZYNAX_BROKER_DB_DSN: "postgres://zynax:zynax@postgres-zynax:5432/task_broker?sslmode=disable"
     depends_on:
       agent-registry:
+        condition: service_healthy
+      postgres-zynax:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "/healthcheck", "tcp://localhost:50053"]
@@ -306,5 +330,6 @@ services:
 
 volumes:
   postgres-data:
+  postgres-zynax-data:
   nats-data:
   certs-data:
