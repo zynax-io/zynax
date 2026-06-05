@@ -219,14 +219,14 @@ Canvas: `docs/spdd/765-helm-charts/canvas.md` — Status: **Implemented** ✅
 
 All 14 O-steps merged. ✅ EPIC COMPLETE.
 
-### M6.H — Postgres-Backed Repositories (#626) — 🔄 In Progress
+### M6.H — Postgres-Backed Repositories (#626) — ✅ COMPLETE
 
-Canvas: `docs/spdd/626-postgres-repos/canvas.md` — Status: **Aligned**
+Canvas: `docs/spdd/626-postgres-repos/canvas.md` — Status: Implemented
 
 | Story | Issue | Status |
 |-------|-------|--------|
 | O1 feat(task-broker): Postgres TaskRepository | [#793](https://github.com/zynax-io/zynax/issues/793) | ✅ Merged (#900) |
-| O2 feat(agent-registry): Postgres AgentRepository | [#794](https://github.com/zynax-io/zynax/issues/794) | 🔄 PR open |
+| O2 feat(agent-registry): Postgres AgentRepository | [#794](https://github.com/zynax-io/zynax/issues/794) | ✅ Merged (#901) |
 
 ### M6.Images — Single Source of Truth for Container Image References (#855) — ⬜ Canvas Aligned, not started
 

@@ -7,7 +7,7 @@
 **Issue:** #626
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-02
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #793 (J.0 task-broker Postgres repo) · #794 (J.1 agent-registry Postgres repo)
 
