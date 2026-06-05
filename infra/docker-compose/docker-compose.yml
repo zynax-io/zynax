@@ -145,6 +145,11 @@ services:
     environment:
       ZYNAX_REGISTRY_GRPC_PORT: "50052"
       ZYNAX_REGISTRY_LOG_LEVEL: info
+      ZYNAX_REGISTRY_DB_ENABLED: "true"
+      ZYNAX_REGISTRY_DB_DSN: "postgres://zynax:zynax@postgres-zynax:5432/agent_registry?sslmode=disable"
+    depends_on:
+      postgres-zynax:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "/healthcheck", "tcp://localhost:50052"]
       interval: 10s

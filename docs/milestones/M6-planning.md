@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-05 (M6.H O1 #793 in progress)
+> Generated: 2026-06-02 · Last updated: 2026-06-05 (M6.H O2 #794 in progress — agent-registry Postgres repo)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -37,8 +37,8 @@
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
-| O1 feat(task-broker): Postgres TaskRepository — pgx/v5 + migrations | [#793](https://github.com/zynax-io/zynax/issues/793) | task-broker | — | ⬜ Open |
-| O2 feat(agent-registry): Postgres AgentRepository — pgx/v5 + migrations | [#794](https://github.com/zynax-io/zynax/issues/794) | agent-registry | — | ⬜ Open (depends on O1) |
+| O1 feat(task-broker): Postgres TaskRepository — pgx/v5 + migrations | [#793](https://github.com/zynax-io/zynax/issues/793) | task-broker | #900 | ✅ Merged |
+| O2 feat(agent-registry): Postgres AgentRepository — pgx/v5 + migrations | [#794](https://github.com/zynax-io/zynax/issues/794) | agent-registry | — | 🔄 PR open |
 
 **M6.Images — Single source of truth for container-image references** (EPIC #855; canvas `docs/spdd/855-images-sot/canvas.md` — Status: **Aligned**)
 
