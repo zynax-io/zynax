@@ -225,8 +225,8 @@ Canvas: `docs/spdd/626-postgres-repos/canvas.md` — Status: **Aligned**
 
 | Story | Issue | Status |
 |-------|-------|--------|
-| O1 feat(task-broker): Postgres TaskRepository | [#793](https://github.com/zynax-io/zynax/issues/793) | 🔄 PR open |
-| O2 feat(agent-registry): Postgres AgentRepository | [#794](https://github.com/zynax-io/zynax/issues/794) | ⬜ Pending O1 |
+| O1 feat(task-broker): Postgres TaskRepository | [#793](https://github.com/zynax-io/zynax/issues/793) | ✅ Merged (#900) |
+| O2 feat(agent-registry): Postgres AgentRepository | [#794](https://github.com/zynax-io/zynax/issues/794) | 🔄 PR open |
 
 ### M6.Images — Single Source of Truth for Container Image References (#855) — ⬜ Canvas Aligned, not started
 
