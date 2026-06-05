@@ -154,7 +154,7 @@ func (r *AgentRepository) FindByCapability(ctx context.Context, name string) ([]
 		  AND capabilities @> $2::jsonb
 		ORDER BY registered_at ASC, id ASC`,
 		int32(domain.AgentStatusRegistered),
-		fmt.Sprintf(`[{"name":%q}]`, name),
+		fmt.Sprintf(`[{"Name":%q}]`, name),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("postgres agent-registry: find by capability %q: %w", name, err)
