@@ -213,26 +213,11 @@ Canvas: `docs/spdd/464-mtls/canvas.md` — Status: Implemented
 
 Canvas: `docs/spdd/465-supply-chain/canvas.md` — Status: Implemented
 
-### M6.Helm — Helm Charts for All Services (#765) — 🔄 In Progress
+### M6.Helm — Helm Charts for All Services (#765) — ✅ COMPLETE
 
-Canvas: `docs/spdd/765-helm-charts/canvas.md` — Status: **Aligned** ✅
+Canvas: `docs/spdd/765-helm-charts/canvas.md` — Status: **Implemented** ✅
 
-| Story | Issue | Status |
-|-------|-------|--------|
-| A.0 feat(infra): shared zynax-lib library chart | [#779](https://github.com/zynax-io/zynax/issues/779) | ✅ Merged (#872) |
-| A.1 feat(infra): Helm chart for api-gateway | [#780](https://github.com/zynax-io/zynax/issues/780) | ✅ Merged (#886) |
-| A.2 feat(infra): Helm chart for workflow-compiler | [#781](https://github.com/zynax-io/zynax/issues/781) | ✅ Merged |
-| A.3 feat(infra): Helm chart for engine-adapter | [#782](https://github.com/zynax-io/zynax/issues/782) | ✅ Merged |
-| A.4 feat(infra): Helm chart for task-broker | [#783](https://github.com/zynax-io/zynax/issues/783) | ✅ Merged |
-| A.5 feat(infra): Helm chart for agent-registry | [#784](https://github.com/zynax-io/zynax/issues/784) | ✅ Merged |
-| A.6 feat(infra): Helm chart placeholder for event-bus | [#785](https://github.com/zynax-io/zynax/issues/785) | ✅ Merged |
-| A.7 feat(infra): Helm chart for memory-service | [#786](https://github.com/zynax-io/zynax/issues/786) | ✅ Merged |
-| A.8 feat(infra): NATS JetStream subchart | [#787](https://github.com/zynax-io/zynax/issues/787) | ✅ Merged |
-| A.9 feat(infra): Postgres 16 subchart | [#788](https://github.com/zynax-io/zynax/issues/788) | ✅ Merged |
-| A.10 feat(infra): Temporal + zynax-umbrella chart | [#789](https://github.com/zynax-io/zynax/issues/789) | ✅ Merged |
-| A.11 feat(infra): cert-manager ClusterIssuer + Certificates | [#790](https://github.com/zynax-io/zynax/issues/790) | ✅ Merged |
-| A.12 ci: helm lint gate | [#791](https://github.com/zynax-io/zynax/issues/791) | ✅ Merged |
-| A.13 docs: environment parity manifest | [#792](https://github.com/zynax-io/zynax/issues/792) | ⬜ Pending |
+All 14 O-steps merged. ✅ EPIC COMPLETE.
 
 ### M6.Images — Single Source of Truth for Container Image References (#855) — ⬜ Canvas Aligned, not started
 

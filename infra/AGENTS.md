@@ -41,6 +41,10 @@ Run `helm dependency update helm/zynax-umbrella/` after any sub-chart version bu
 
 The `ct lint` gate (A.12 #791) enforces required resources on every `helm/` change.
 
+See [docs/infra/environment-parity.md](../docs/infra/environment-parity.md) for a table
+of value differences between dev, staging, and production (replica counts, resource
+limits, image tag strategy, TLS enabled/disabled, autoscaling, log level).
+
 ## Required Helm Chart Resources
 
 Every service chart MUST include (chart-testing enforces this):

@@ -7,7 +7,7 @@
 **Issue:** #765
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-02
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #779 (A.0) · #780 (A.1) · #781 (A.2) · #782 (A.3) · #783 (A.4) · #784 (A.5) · #785 (A.6) · #786 (A.7) · #787 (A.8) · #788 (A.9) · #789 (A.10) · #790 (A.11) · #791 (A.12) · #792 (A.13)
 
@@ -143,7 +143,7 @@ Each O-step ships as its own PR. A.0 must merge first; A.1–A.11 may proceed in
 
 13. **[A.12]** ✅ Add `.github/workflows/helm-lint.yml`: runs `ct lint` on PRs touching `helm/` or `infra/`; pinned SHA for `helm/chart-testing-action`; closes #242.
 
-14. **[A.13]** Add `docs/infra/environment-parity.md`: table of dev/staging/prod value differences (replica counts, resource limits, image tag strategy, TLS disabled vs enabled); closes #243.
+14. **[A.13]** ✅ Add `docs/infra/environment-parity.md`: table of dev/staging/prod value differences (replica counts, resource limits, image tag strategy, TLS disabled vs enabled); closes #243.
 
 ---
 
