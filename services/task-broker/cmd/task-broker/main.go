@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package main is the entry point for the task-broker service.
-// It wires the in-memory repository, agent registry finder, agent executor,
+// It wires the repository (memory or Postgres), agent registry finder, agent executor,
 // and gRPC server. All business logic lives in internal/.
 package main
 
@@ -25,6 +25,7 @@ import (
 	"github.com/zynax-io/zynax/services/task-broker/internal/api"
 	"github.com/zynax-io/zynax/services/task-broker/internal/domain"
 	"github.com/zynax-io/zynax/services/task-broker/internal/infrastructure"
+	"github.com/zynax-io/zynax/services/task-broker/internal/infrastructure/postgres"
 )
 
 type config struct {
@@ -35,6 +36,8 @@ type config struct {
 	TLSCert          string `envconfig:"TLS_CERT"`
 	TLSKey           string `envconfig:"TLS_KEY"`
 	TLSCA            string `envconfig:"TLS_CA"`
+	DBEnabled        bool   `envconfig:"DB_ENABLED" default:"false"`
+	DBDSN            string `envconfig:"DB_DSN"`
 }
 
 func main() {
@@ -53,6 +56,9 @@ func main() {
 }
 
 func run(cfg config) error {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
 	creds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
 		return fmt.Errorf("task-broker: tls credentials: %w", err)
@@ -65,7 +71,19 @@ func run(cfg config) error {
 	}
 	defer finderCleanup()
 
-	repo := infrastructure.NewMemoryRepo()
+	var repo domain.TaskRepository
+	if cfg.DBEnabled {
+		pgRepo, err := postgres.New(ctx, cfg.DBDSN)
+		if err != nil {
+			return fmt.Errorf("task-broker: postgres repository: %w", err)
+		}
+		defer pgRepo.Close()
+		repo = pgRepo
+		slog.Info("task-broker: using postgres repository")
+	} else {
+		repo = infrastructure.NewMemoryRepo()
+		slog.Info("task-broker: using in-memory repository")
+	}
 	executor := infrastructure.NewAgentExecutor(creds)
 	svc := domain.NewTaskService(repo, finder, executor)
 
@@ -81,9 +99,6 @@ func run(cfg config) error {
 	if err != nil {
 		return fmt.Errorf("task-broker: listen: %w", err)
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer stop()
 
 	go func() {
 		slog.Info("task-broker started", "grpc_port", cfg.GRPCPort)
