@@ -255,12 +255,12 @@ lint-protos: ensure-tools ## buf lint + format check on all proto files
 security: security-go security-go-adapters security-agents ## Full security scan (govulncheck + bandit + pip-audit + trivy)
 
 scan-image: ## Scan one service container image for CVEs: make scan-image SVC=agent-registry
-	docker build -f services/$(SVC)/Dockerfile -t zynax/$(SVC):scan .
+	docker build -f infra/docker/Dockerfile.service --build-arg SVC=$(SVC) -t zynax/$(SVC):scan .
 	trivy image --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore zynax/$(SVC):scan
 	docker rmi zynax/$(SVC):scan
 
 sbom: ensure-tools ## Generate CycloneDX SBOM for one service image: make sbom SVC=api-gateway
-	docker build -f services/$(SVC)/Dockerfile -t $(REGISTRY)/zynax-$(SVC):local .
+	docker build -f infra/docker/Dockerfile.service --build-arg SVC=$(SVC) -t $(REGISTRY)/zynax-$(SVC):local .
 	docker run --rm \
 	  -v /var/run/docker.sock:/var/run/docker.sock \
 	  -v "$(CURDIR):/workspace" -w /workspace \
@@ -306,11 +306,11 @@ audit: ensure-tools ## Dependency vulnerability audit (govulncheck + pip-audit);
 # ── Build images ───────────────────────────────────────────────────────────
 .PHONY: build build-svc build-agent
 build: check-docker ## Build all Docker images
-	@for svc in $(GO_SERVICES); do docker build -f services/$$svc/Dockerfile -t $(REGISTRY)/zynax-$$svc:local .; done
+	@for svc in $(GO_SERVICES); do docker build -f infra/docker/Dockerfile.service --build-arg SVC=$$svc -t $(REGISTRY)/zynax-$$svc:local .; done
 	@for a in $(AGENTS); do [ -f "agents/examples/$$a/Dockerfile" ] && docker build agents/examples/$$a -t $(REGISTRY)/zynax-agent-$$a:local || true; done
 
 build-svc: ## Build one service image: make build-svc SVC=agent-registry
-	docker build -f services/$(SVC)/Dockerfile -t $(REGISTRY)/zynax-$(SVC):local .
+	docker build -f infra/docker/Dockerfile.service --build-arg SVC=$(SVC) -t $(REGISTRY)/zynax-$(SVC):local .
 
 build-agent: ## Build one agent image: make build-agent AGENT=summarizer
 	docker build agents/examples/$(AGENT) -t $(REGISTRY)/zynax-agent-$(AGENT):local
