@@ -8,6 +8,7 @@ use (
 	./agents/adapters/ci
 	./agents/adapters/git
 	./agents/adapters/http
+	./libs/zynaxconfig
 	./protos/generated/go
 	./services/agent-registry
 	./services/api-gateway

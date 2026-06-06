@@ -272,6 +272,14 @@ All PRs merged 2026-06-03.
 | docs(contributing): merge policy | [#846](https://github.com/zynax-io/zynax/issues/846) | #851 | ✅ Merged |
 | docs(milestones): tracking + ROADMAP expansion | — | #852 | ✅ Merged |
 
+### M6.F — Platform Configuration Convergence (#670) — 🔄 In Progress
+
+| Story | Issue | Status |
+|-------|-------|--------|
+| refactor: libs/zynaxconfig shared config + task-broker migration | [#667](https://github.com/zynax-io/zynax/issues/667) | ✅ PR pending |
+| chore(infra): Dockerfile template consolidation | [#668](https://github.com/zynax-io/zynax/issues/668) | ⬜ Next |
+| ci: go.mod version-alignment gate | [#669](https://github.com/zynax-io/zynax/issues/669) | ⬜ Pending |
+
 ### M6.DevAuto — Self-hosting dev-automation (#873) — 🔄 In Progress
 
 Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is BLOCKED on #626 + #772)
