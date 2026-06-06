@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-06 (M6.F #669 PR#910 Merged, EPIC #670 ✅ Complete)
+> Generated: 2026-06-02 · Last updated: 2026-06-06 (M6.Images O1 #856 ✅ Implemented)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -46,7 +46,7 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
-| O1 chore(ci): images/images.yaml — schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | CI tooling | — | ⬜ Open |
+| O1 chore(ci): images/images.yaml — schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | CI tooling | — | ✅ Implemented |
 | O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | CI tooling | — | ⬜ Open |
 | O3 ci: wire drift-check into pr-checks.yml + ci.yml | [#858](https://github.com/zynax-io/zynax/issues/858) | CI | — | ⬜ Open (ships with O2) |
 | O4 chore(infra): Dockerfile ARG migration | [#859](https://github.com/zynax-io/zynax/issues/859) | Infra | — | ⬜ Open |

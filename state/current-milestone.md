@@ -228,13 +228,13 @@ Canvas: `docs/spdd/626-postgres-repos/canvas.md` — Status: Implemented
 | O1 feat(task-broker): Postgres TaskRepository | [#793](https://github.com/zynax-io/zynax/issues/793) | ✅ Merged (#900) |
 | O2 feat(agent-registry): Postgres AgentRepository | [#794](https://github.com/zynax-io/zynax/issues/794) | ✅ Merged (#901) |
 
-### M6.Images — Single Source of Truth for Container Image References (#855) — ⬜ Canvas Aligned, not started
+### M6.Images — Single Source of Truth for Container Image References (#855) — 🔄 In Progress
 
 Canvas: `docs/spdd/855-images-sot/canvas.md` — Status: **Aligned** ✅
 
 | Story | Issue | Status |
 |-------|-------|--------|
-| O1 chore(ci): images/images.yaml schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | ⬜ Open |
+| O1 chore(ci): images/images.yaml schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | ✅ Implemented |
 | O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | ⬜ Open |
 | O3 ci: wire drift-check into CI | [#858](https://github.com/zynax-io/zynax/issues/858) | ⬜ Open (**ships with O2**) |
 | O4 chore(infra): Dockerfile ARG migration | [#859](https://github.com/zynax-io/zynax/issues/859) | ⬜ Open |
