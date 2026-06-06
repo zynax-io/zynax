@@ -307,6 +307,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Verify all consumer files match images/images.yaml
+        env:
+          GOPROXY: https://proxy.golang.org,direct
+          GONOSUMDB: "*"
         run: |
           cd cmd/zynax-ci
           GOWORK=off go run . images check --root "$GITHUB_WORKSPACE"
