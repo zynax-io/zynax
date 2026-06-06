@@ -272,13 +272,13 @@ All PRs merged 2026-06-03.
 | docs(contributing): merge policy | [#846](https://github.com/zynax-io/zynax/issues/846) | #851 | ✅ Merged |
 | docs(milestones): tracking + ROADMAP expansion | — | #852 | ✅ Merged |
 
-### M6.F — Platform Configuration Convergence (#670) — 🔄 In Progress
+### M6.F — Platform Configuration Convergence (#670) — ✅ Complete
 
 | Story | Issue | Status |
 |-------|-------|--------|
 | refactor: libs/zynaxconfig shared config + task-broker migration | [#667](https://github.com/zynax-io/zynax/issues/667) | ✅ Merged (PR #907) |
 | chore(infra): Dockerfile template consolidation | [#668](https://github.com/zynax-io/zynax/issues/668) | ✅ Merged (PR #909) |
-| ci: go.mod version-alignment gate | [#669](https://github.com/zynax-io/zynax/issues/669) | ✅ Implemented |
+| ci: go.mod version-alignment gate | [#669](https://github.com/zynax-io/zynax/issues/669) | ✅ Merged (PR #910) |
 
 ### M6.DevAuto — Self-hosting dev-automation (#873) — 🔄 In Progress
 
