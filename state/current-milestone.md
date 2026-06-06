@@ -235,7 +235,7 @@ Canvas: `docs/spdd/855-images-sot/canvas.md` — Status: **Aligned** ✅
 | Story | Issue | Status |
 |-------|-------|--------|
 | O1 chore(ci): images/images.yaml schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | ✅ Implemented |
-| O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | ⬜ Open |
+| O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | ✅ Implemented |
 | O3 ci: wire drift-check into CI | [#858](https://github.com/zynax-io/zynax/issues/858) | ⬜ Open (**ships with O2**) |
 | O4 chore(infra): Dockerfile ARG migration | [#859](https://github.com/zynax-io/zynax/issues/859) | ⬜ Open |
 | O5 chore(ci): bump flow rewrite (closes #844) | [#860](https://github.com/zynax-io/zynax/issues/860) | ⬜ Open |

@@ -35,6 +35,7 @@ cmd/zynax-ci/
     validate_policies.go   zynax-ci validate policies <dir>
     check_ai_context.go    zynax-ci check ai-context
     check_deps.go          zynax-ci check deps
+    images.go              zynax-ci images sync / check
   validate/
     canvas.go              Canvas validator (seven REASONS sections, header fields, Status)
     canvas_test.go
@@ -45,6 +46,11 @@ cmd/zynax-ci/
   check/
     context.go             AI context line-count reporter (advisory, always exits 0)
     deps.go                go.mod version alignment checker (exits 1 on divergence)
+  internal/images/
+    schema.go              YAML types + Load() for images/images.yaml
+    sync.go                Sync() — stamps consumer files with canonical digests
+    check.go               Check() — verifies consumer files match images.yaml
+    images_test.go         Unit tests
 ```
 
 ## Hard Constraints
