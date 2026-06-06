@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-06 (M6.F #667 ⬜→✅ libs/zynaxconfig + task-broker migration)
+> Generated: 2026-06-02 · Last updated: 2026-06-06 (M6.F #667 PR#907 MERGED — reconcile "PR pending" → Merged)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -114,7 +114,7 @@ DevAuto.8 is aspirational (Zynax AgentDef workflows) — gated by `automation/te
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
-| refactor: introduce libs/zynaxconfig shared config package — migrate task-broker | [#667](https://github.com/zynax-io/zynax/issues/667) | infra/libs | — | ✅ Implemented (PR pending) |
+| refactor: introduce libs/zynaxconfig shared config package — migrate task-broker | [#667](https://github.com/zynax-io/zynax/issues/667) | infra/libs | #907 | ✅ Merged |
 | chore(infra): consolidate five service Dockerfiles into single parameterized template | [#668](https://github.com/zynax-io/zynax/issues/668) | Infra | — | ⬜ Open |
 | ci: add go.mod version-alignment gate | [#669](https://github.com/zynax-io/zynax/issues/669) | CI | — | ⬜ Open |
 
