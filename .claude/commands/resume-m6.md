@@ -8,6 +8,13 @@ argument-hint: "[optional: epic issue number or story issue number to prefer, e.
 Pick the next ready EPIC, decompose it into story issues via `/spdd-story`, ship each story as its
 own PR in O-step order, merge them in order, leave every state file consistent, then stop.
 
+> **Parallel-session safety.** Multiple sessions may run concurrently. Two mechanisms prevent
+> duplicate work: (1) a pre-filter in STEP 2 and STEP 3C that skips EPICs/stories whose branch or
+> open PR already exists on the remote; (2) an atomic claim in STEP 4 that pushes the empty branch
+> to GitHub immediately — only one `git push -u origin $BRANCH` wins when two sessions race.
+> If your push is rejected (branch already exists), treat that story as claimed and return to STEP 3C
+> to pick the next available one. Never assume a story is free just because you read it as open.
+
 **EPIC-canvas model:** every `feat:` EPIC has exactly **one** REASONS Canvas at
 `docs/spdd/<epic-issue>-<slug>/canvas.md`. That canvas's O steps map 1-to-1 to story PRs. Story
 issues are created in GitHub by `/spdd-story` — they reference the parent EPIC and carry full
@@ -133,6 +140,25 @@ Apply the **Resumption tree** (bottom) and report the matching row before taking
 | 10 | M6.I event-bus | #772 | ADR-022 Accepted (#764 closed) — no canvas yet; run `/spdd-reasons-canvas 772` first |
 | 11 | M6.G e2e harness | #770 | canvas `Aligned` `docs/spdd/770-e2e-harness/canvas.md`; children #809–#813; BLOCKED on EPIC A + I + J + B |
 
+**Pre-filter: skip EPICs already claimed by another session**
+
+```bash
+# Collect all open remote branches and open PR head-refs (includes drafts)
+git fetch origin --prune
+CLAIMED_BRANCHES=$(git ls-remote origin 'refs/heads/*' | awk '{print $2}' | sed 's|refs/heads/||')
+CLAIMED_PRS=$(gh pr list --state open --json headRefName --jq '.[].headRefName')
+CLAIMED=$(printf '%s\n%s\n' "$CLAIMED_BRANCHES" "$CLAIMED_PRS" | sort -u)
+
+# For each EPIC candidate (in priority order), check if any story branch is already on remote.
+# Branch names follow: <type>/<story-issue-N>-<slug>
+# Pattern: any branch whose name contains the story issue numbers for this EPIC
+# Example — EPIC #765 has stories #779–#792; skip #765 if any of those branches exist:
+echo "$CLAIMED" | grep -E "^(feat|fix|refactor|docs|ci|chore)/(779|780|781|782|783|784|785|786|787|788|789|790|791|792)-"
+# If any match → EPIC #765 is in-flight in another session → move to next priority
+```
+
+After confirming the EPIC is unclaimed:
+
 ```bash
 gh issue view <EPIC_N> --json number,title,body,labels,state,milestone,comments
 ls docs/spdd/ | grep -E "^<EPIC_N>-"   # check if EPIC canvas already exists
@@ -220,9 +246,20 @@ gh issue list --label "milestone: M6" --state open --json number,title \
 gh issue list --label "milestone: M6" --state closed --json number,title,body \
   --jq '.[] | select(.body | test("#<EPIC_N>.*step")) | {n:.number,title}'
 
-# Pick the lowest open step number
+# Collect all open/draft PR head-refs and remote branches (parallel-session filter)
+git fetch origin --prune
+CLAIMED=$(printf '%s\n%s\n' \
+  "$(git ls-remote origin 'refs/heads/*' | awk '{print $2}' | sed 's|refs/heads/||')" \
+  "$(gh pr list --state open --json headRefName --jq '.[].headRefName')" \
+  | sort -u)
+
+# List open story issues for this EPIC (lowest step number first), skip already-claimed ones
 gh issue list --label "milestone: M6" --state open --json number,title,body \
-  --jq '.[] | select(.body | test("#<EPIC_N>.*step")) | {n:.number,title}' | head -10
+  --jq '.[] | select(.body | test("#<EPIC_N>.*step")) | {n:.number,title}' \
+  | head -10
+# For each candidate story #N: check if any branch matching <type>/<N>-* is in $CLAIMED
+# echo "$CLAIMED" | grep -E "^[a-z]+/<N>-"
+# If a match is found → another session owns that story → skip to the next step number
 ```
 
 **One O-step at a time.** The cluster for this session = one EPIC's next ≤3 O-steps (if they
@@ -269,7 +306,22 @@ EOF
 ```bash
 git fetch origin --prune && git checkout main && git pull --rebase origin main
 [ "$(git rev-parse main)" = "$(git rev-parse origin/main)" ] || { echo "main diverged"; exit 1; }
-git checkout -b <type>/<story-issue-N>-<short-slug>
+BRANCH=<type>/<story-issue-N>-<short-slug>
+git checkout -b "$BRANCH"
+
+# ── Atomic claim ─────────────────────────────────────────────────────────────
+# Push the empty branch to GitHub NOW (before any code). GitHub serialises branch
+# creation: only one push wins when two sessions race on the same branch name.
+# A rejected push means another session already claimed this story → go back to
+# STEP 3C and pick the next available O-step.
+if ! git push -u origin "$BRANCH" 2>&1; then
+  echo "CLAIMED: branch $BRANCH already on remote — story #<story-issue-N> taken by another session"
+  git checkout main && git branch -D "$BRANCH"
+  echo "→ return to STEP 3C and pick the next open O-step"
+  exit 1
+fi
+echo "CLAIMED: story #<story-issue-N> → $BRANCH pushed to origin"
+# ─────────────────────────────────────────────────────────────────────────────
 ```
 
 **Stacking:** if O-step 2 depends on O-step 1's types/files, stack B off A (`git checkout -b ... A`).
@@ -338,7 +390,8 @@ Assisted-by: Claude/<model-id-from-this-session>"
 ## STEP 8 — Open all story PRs in parallel (no auto-merge yet)
 
 ```bash
-git push -u origin HEAD
+# Branch already exists on remote from the STEP 4 claim — force-push the commits
+git push --force-with-lease
 echo -n "<type>(<scope>): <subject>" | wc -c   # ≤ 72
 gh pr create --base <main|branch-below> \
   --title "<type>(<scope>): <subject>" \
@@ -401,6 +454,7 @@ Mark the EPIC canvas `Status: Implemented` (small docs: commit). Post the sessio
 | All story PRs open, none merged | Resume STEP 9 from O-step 1 |
 | EPIC fully merged | STEP 10 summary. STOP. |
 | Local branch w/ uncommitted work, no PR | Finish STEP 5→8 |
+| STEP 4 branch push rejected (branch exists on remote) | Another session claimed that story — return to STEP 3C, pick next open O-step |
 | No in-flight work, EPIC has stories created | Pick next O-step → STEP 4 |
 | EPIC has canvas Aligned but no story issues | STEP 3B: create stories, then STEP 4 |
 | EPIC has no canvas | STEP 3A: full pipeline |
