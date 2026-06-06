@@ -83,7 +83,7 @@ dev-restart: ## Rebuild one service: make dev-restart SVC=agent-registry
 	@test -n "$(SVC)" || (echo "Usage: make dev-restart SVC=<n>" && exit 1)
 	$(COMPOSE) up -d --build $(SVC)
 
-.PHONY: run-local stop-local logs-local install-cli
+.PHONY: run-local stop-local logs-local install-cli install-ci-tools sync-images check-images
 run-local: check-docker ## ★ Build images + start local stack (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)
 	$(COMPOSE) up -d --build
 	@echo ""
@@ -104,6 +104,12 @@ install-cli: ## Build and install zynax CLI to ~/bin/zynax (requires Go 1.26.3)
 install-ci-tools: ## Build and install zynax-ci toolchain to ~/bin/zynax-ci (requires Go 1.26.3)
 	cd cmd/zynax-ci && GOWORK=off go build -trimpath -o ~/bin/zynax-ci .
 	@echo "✅ zynax-ci installed → ~/bin/zynax-ci  (ensure ~/bin is on your PATH)"
+
+sync-images: ## Stamp all consumer files with digests from images/images.yaml
+	cd cmd/zynax-ci && GOWORK=off go run . images sync --root "$(CURDIR)"
+
+check-images: ## Verify all consumer files match images/images.yaml digests
+	cd cmd/zynax-ci && GOWORK=off go run . images check --root "$(CURDIR)"
 
 # ── Local CI gate ──────────────────────────────────────────────────────────
 .PHONY: ci
