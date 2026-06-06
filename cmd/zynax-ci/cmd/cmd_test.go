@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -329,5 +330,130 @@ func TestRunCheckAIContext_DotRoot(t *testing.T) {
 	cmd := fakeCmd(t)
 	if err := runCheckAIContext(cmd, nil); err != nil {
 		t.Errorf("unexpected error for dot root: %v", err)
+	}
+}
+
+// ── images sync + check ──────────────────────────────────────────────────────
+
+func TestResolveRoot_NonDot(t *testing.T) {
+	dir := t.TempDir()
+	got, err := resolveRoot(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != dir {
+		t.Errorf("resolveRoot(%q) = %q, want %q", dir, got, dir)
+	}
+}
+
+func TestResolveRoot_Dot(t *testing.T) {
+	got, err := resolveRoot(".")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got == "" || got == "." {
+		t.Errorf("resolveRoot('.') = %q, expected a real path", got)
+	}
+}
+
+func TestPrintDiff_SameContent(_ *testing.T) {
+	printDiff("abc\ndef", "abc\ndef")
+}
+
+func TestPrintDiff_DifferentLines(_ *testing.T) {
+	printDiff("old line\ncommon", "new line\ncommon")
+}
+
+// testImagesYAML is a minimal images/images.yaml for isolated tests.
+// The consumer file uses only a raw digest (no ref prefix) so the sync
+// fallback path (`sha256Re.ReplaceAllString`) is exercised.
+const testImagesYAML = `images:
+  - name: myimage
+    ref: example.com/myimage
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    consumers:
+      - consumer.txt
+`
+
+func writeImagesRepo(t *testing.T, consumerContent string) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "images"), 0o750); err != nil { //nolint:gosec
+		t.Fatalf("mkdir images: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "images", "images.yaml"), []byte(testImagesYAML), 0o600); err != nil { //nolint:gosec
+		t.Fatalf("write images.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "consumer.txt"), []byte(consumerContent), 0o600); err != nil { //nolint:gosec
+		t.Fatalf("write consumer.txt: %v", err)
+	}
+	return root
+}
+
+const goodDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+const staleDigest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+func TestRunImagesSync_AllAlready(t *testing.T) {
+	root := writeImagesRepo(t, goodDigest+"\n")
+	imagesRoot = root
+	imagesDryRun = false
+	defer func() { imagesRoot = "."; imagesDryRun = false }()
+	if err := runImagesSync(fakeCmd(t), nil); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRunImagesSync_DryRun(t *testing.T) {
+	root := writeImagesRepo(t, staleDigest+"\n")
+	imagesRoot = root
+	imagesDryRun = true
+	defer func() { imagesRoot = "."; imagesDryRun = false }()
+	if err := runImagesSync(fakeCmd(t), nil); err != nil {
+		t.Errorf("unexpected error with dry-run: %v", err)
+	}
+	got, _ := os.ReadFile(filepath.Join(root, "consumer.txt")) //nolint:gosec
+	if !strings.Contains(string(got), "bbbb") {
+		t.Error("dry-run must not modify the file")
+	}
+}
+
+func TestRunImagesSync_WritesUpdates(t *testing.T) {
+	root := writeImagesRepo(t, staleDigest+"\n")
+	imagesRoot = root
+	imagesDryRun = false
+	defer func() { imagesRoot = "."; imagesDryRun = false }()
+	if err := runImagesSync(fakeCmd(t), nil); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	got, _ := os.ReadFile(filepath.Join(root, "consumer.txt")) //nolint:gosec
+	if !strings.Contains(string(got), "aaaa") {
+		t.Errorf("expected updated digest, got: %s", got)
+	}
+}
+
+func TestRunImagesCheck_Pass(t *testing.T) {
+	root := writeImagesRepo(t, goodDigest+"\n")
+	imagesRoot = root
+	defer func() { imagesRoot = "." }()
+	if err := runImagesCheck(fakeCmd(t), nil); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRunImagesCheck_Fail(t *testing.T) {
+	root := writeImagesRepo(t, staleDigest+"\n")
+	imagesRoot = root
+	defer func() { imagesRoot = "." }()
+	if err := runImagesCheck(fakeCmd(t), nil); err == nil {
+		t.Error("expected error for mismatched digest")
+	}
+}
+
+func TestRunImagesCheck_RealRepo(t *testing.T) {
+	root := repoRoot(t)
+	imagesRoot = root
+	defer func() { imagesRoot = "." }()
+	if err := runImagesCheck(fakeCmd(t), nil); err != nil {
+		t.Errorf("real repo should pass images check: %v", err)
 	}
 }
