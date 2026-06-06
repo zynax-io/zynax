@@ -296,6 +296,25 @@ jobs:
           fi
           echo "✅ No conflict markers found"
 
+# ── Image Digest Alignment ───────────────────────────────────────────────────
+  image-digest-alignment:
+    name: Image digest alignment (images.yaml SoT)
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:35e84a949a1148a07e3e036afd8f94e5410b025beaf84e323286883ad39f5abc
+      options: --user root
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Verify all consumer files match images/images.yaml
+        env:
+          GOPROXY: https://proxy.golang.org,direct
+          GONOSUMDB: "*"
+        run: |
+          cd cmd/zynax-ci
+          GOWORK=off go run . images check --root "$GITHUB_WORKSPACE"
+          echo "✅ All consumer digests match images/images.yaml"
+
 # ── Secret Scan (gitleaks) ────────────────────────────────────────────────────
   gitleaks-scan:
     name: Secret scan (gitleaks)

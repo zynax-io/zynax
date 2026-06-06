@@ -438,6 +438,12 @@ jobs:
           GOWORK=off go run . check deps --root "$GITHUB_WORKSPACE"
           echo "✅ go.mod version alignment check passed"
 
+      - name: zynax-ci check images (digest drift detection)
+        run: |
+          cd cmd/zynax-ci
+          GOWORK=off go run . images check --root "$GITHUB_WORKSPACE"
+          echo "✅ Image digest alignment check passed"
+
 # ── Lint: Python agents and SDK ───────────────────────────────────────────────
   lint-python:
     name: lint-python
