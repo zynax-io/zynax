@@ -234,15 +234,13 @@ Canvas: `docs/spdd/855-images-sot/canvas.md` — Status: **Aligned** ✅
 
 | Story | Issue | Status |
 |-------|-------|--------|
-| O1 chore(ci): images/images.yaml schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | ✅ Implemented |
-| O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | ✅ Implemented |
-| O3 ci: wire drift-check into CI | [#858](https://github.com/zynax-io/zynax/issues/858) | ✅ Implemented |
+| O1 chore(ci): images/images.yaml schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | ✅ Merged (PR #913) |
+| O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | ✅ Merged (PR #915) |
+| O3 ci: wire drift-check into CI | [#858](https://github.com/zynax-io/zynax/issues/858) | ✅ Merged (PR #916) |
 | O4 chore(infra): Dockerfile ARG migration | [#859](https://github.com/zynax-io/zynax/issues/859) | ⬜ Open |
 | O5 chore(ci): bump flow rewrite (closes #844) | [#860](https://github.com/zynax-io/zynax/issues/860) | ⬜ Open |
 | O6 docs: propagation | [#861](https://github.com/zynax-io/zynax/issues/861) | ⬜ Open |
 | O7 docs: ADR-024 | [#862](https://github.com/zynax-io/zynax/issues/862) | ⬜ Open |
-
-**Keystone**: O2 + O3 must ship in the same sprint; neither is done without the other.
 
 ### M6.Images — GHCR Package Hygiene — ⬜ Ready to implement
 
