@@ -141,7 +141,9 @@ services:
     image: ghcr.io/zynax-io/zynax/agent-registry:main
     build:
       context: ../..
-      dockerfile: services/agent-registry/Dockerfile
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SVC: agent-registry
     environment:
       ZYNAX_REGISTRY_GRPC_PORT: "50052"
       ZYNAX_REGISTRY_LOG_LEVEL: info
@@ -161,7 +163,9 @@ services:
     image: ghcr.io/zynax-io/zynax/task-broker:main
     build:
       context: ../..
-      dockerfile: services/task-broker/Dockerfile
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SVC: task-broker
     environment:
       ZYNAX_BROKER_GRPC_PORT: "50053"
       ZYNAX_BROKER_REGISTRY_ADDR: "agent-registry:50052"
@@ -184,7 +188,9 @@ services:
     image: ghcr.io/zynax-io/zynax/workflow-compiler:main
     build:
       context: ../..
-      dockerfile: services/workflow-compiler/Dockerfile
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SVC: workflow-compiler
     environment:
       ZYNAX_WC_PORT: "50054"
       ZYNAX_WC_METRICS_PORT: "9094"
@@ -200,7 +206,9 @@ services:
     image: ghcr.io/zynax-io/zynax/engine-adapter:main
     build:
       context: ../..
-      dockerfile: services/engine-adapter/Dockerfile
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SVC: engine-adapter
     environment:
       ZYNAX_ENGINE_ADAPTER_GRPC_PORT: "50055"
       ZYNAX_ENGINE_ADAPTER_METRICS_PORT: "9095"
@@ -226,7 +234,9 @@ services:
     image: ghcr.io/zynax-io/zynax/api-gateway:main
     build:
       context: ../..
-      dockerfile: services/api-gateway/Dockerfile
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SVC: api-gateway
     environment:
       ZYNAX_GW_HTTP_PORT: "8080"
       ZYNAX_GW_COMPILER_ADDR: workflow-compiler:50054
