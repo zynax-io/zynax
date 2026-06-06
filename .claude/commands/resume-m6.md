@@ -27,10 +27,11 @@ not a per-story canvas.
 > obey them. This file is only the *session loop*.
 
 **Session policy.** One **EPIC** per session. Each O-step ships as its **own** PR (= one story
-issue). Open all story-PRs in the cluster in parallel after stories are created, then merge them
-**strictly in O-step order**. Never enable auto-merge on >1 PR at once. Never merge by hand. Every
-PR flips its own story-issue row in `docs/milestones/M6-planning.md` and updates
-`state/current-milestone.md` in its own diff.
+issue). Open all story-PRs in the cluster, enable auto-merge on the first PR, and **stop** — do not
+block waiting for CI. The STEP 1.5 merge pass at the start of the *next* session merges green PRs in
+O-step order and enables auto-merge on the next one. `Closes #<story-N>` in the PR body closes the
+story issue automatically on squash-merge. Every PR flips its own story-issue row in
+`docs/milestones/M6-planning.md` and updates `state/current-milestone.md` in its own diff.
 
 ---
 
@@ -113,6 +114,43 @@ gh pr list --author "@me" --state open --json number,title,headRefName,statusChe
 git branch -a | grep -E "^\* (feat|fix|refactor|docs|test|ci|chore)/"; git status --porcelain
 ```
 Apply the **Resumption tree** (bottom) and report the matching row before taking any action.
+
+**Health gate rule:** only block the session if a required check is **RED** (failed/error). Checks
+that are pending or running are not a blocker — proceed to STEP 1.5 and then pick new work. Never
+`--watch` CI here.
+
+**1.5 — Quick merge pass (non-blocking, run every session)**
+
+Before picking new work, sweep all your open PRs and merge any that are already green. This clears
+the queue in ≤30 s without blocking on CI.
+
+```bash
+# Get all open PRs sorted by number (= O-step order)
+OPEN_PRS=$(gh pr list --author "@me" --state open \
+  --json number,headRefName,statusCheckRollup,mergeStateStatus \
+  --jq 'sort_by(.number) | .[] |
+    [.number, .headRefName, .mergeStateStatus,
+     ([ .statusCheckRollup[]? | select(.isRequired==true) | .conclusion ] | unique | tostring)
+    ] | @tsv')
+
+# Merge only PRs where mergeStateStatus=="CLEAN" and no required check failed
+while IFS=$'\t' read -r PR_N BR MERGE_STATE REQ_CONCLUSIONS; do
+  if [[ "$MERGE_STATE" == "CLEAN" ]] && ! echo "$REQ_CONCLUSIONS" | grep -qE 'FAILURE|ERROR|TIMED_OUT'; then
+    echo "Merging PR #$PR_N ($BR) — all required checks green"
+    git fetch origin --prune
+    git checkout "$BR" && git rebase origin/main && git push --force-with-lease
+    gh pr merge "$PR_N" --squash
+    until [ "$(gh pr view "$PR_N" --json state --jq .state)" = "MERGED" ]; do sleep 10; done
+    git push origin --delete "$BR" 2>/dev/null || true
+    git checkout main && git pull --rebase origin main
+  else
+    echo "Skipping PR #$PR_N ($BR) — not yet green (state=$MERGE_STATE)"
+  fi
+done <<< "$OPEN_PRS"
+```
+
+After the pass: if all your PRs merged and the EPIC is complete → STEP 10 + stop.
+Otherwise pick new work below.
 
 ---
 
@@ -387,7 +425,7 @@ Assisted-by: Claude/<model-id-from-this-session>"
 
 ---
 
-## STEP 8 — Open all story PRs in parallel (no auto-merge yet)
+## STEP 8 — Open all story PRs in parallel
 
 ```bash
 # Branch already exists on remote from the STEP 4 claim — force-push the commits
@@ -400,31 +438,49 @@ gh pr create --base <main|branch-below> \
   --body-file pr-body-<N>.md
 ```
 
-Open **all** cluster story PRs before STEP 9. Verify no other open PR of yours has red checks.
+**Required in every PR body** (`pr-body-<N>.md`): include `Closes #<story-issue-N>` — this closes
+the story issue automatically on squash-merge (do not rely solely on the commit message). Fill all
+test plan checkboxes with evidence before opening.
+
+Open **all** cluster story PRs before STEP 9. Verify no other open PR of yours has **red** checks
+(running/pending checks are fine — the STEP 1.5 merge pass handles them next session).
 
 ---
 
-## STEP 9 — Ordered merge (one PR at a time)
+## STEP 9 — Enable auto-merge + stop (do NOT block on CI)
 
-For `i = 1…n` in O-step order:
+Once all story PRs are open, rebase each branch off `origin/main`, enable auto-merge on the
+**first** O-step PR, then **stop the session**. CI runs asynchronously. The STEP 1.5 merge pass
+in the next session detects green PRs, merges them in O-step order, and enables auto-merge on the
+next PR in sequence.
+
 ```bash
-PR=<pr_i>; BR=<branch_i>; STORY=<story_issue_i>
-git fetch origin --prune && git checkout main && git pull --rebase origin main
-git checkout "$BR" && gh pr edit "$PR" --base main 2>/dev/null || true
-git rebase origin/main || { echo "rebase conflict — resolve or stop+ask"; exit 1; }
-git push --force-with-lease
-gh pr checks "$PR" --watch --interval 30
-gh pr merge "$PR" --squash
-until [ "$(gh pr view "$PR" --json state --jq .state)" = "MERGED" ]; do sleep 30; done
-git push origin --delete "$BR" 2>/dev/null || true
+# Rebase every branch off current origin/main before enabling auto-merge
+for BR in <branch_1> <branch_2> ...; do
+  git fetch origin --prune
+  git checkout "$BR"
+  git rebase origin/main || { echo "CONFLICT on $BR — resolve before stopping"; exit 1; }
+  git push --force-with-lease
+done
+git checkout main
+
+# Enable auto-merge on O-step 1 only; subsequent PRs get auto-merge enabled by the merge pass
+# after the preceding PR merges (to respect O-step order).
+gh pr merge <pr_1> --auto --squash
+echo "Auto-merge enabled on PR #<pr_1>. Session complete — CI is running."
 ```
 
-**After each merge (9.R):**
-```bash
-[ "$(gh issue view "$STORY" --json state --jq .state)" = "CLOSED" ] || gh issue close "$STORY" --reason completed
-git fetch origin && git checkout main && git pull --rebase origin main
-grep -nE "#?$STORY\b" docs/milestones/M6-planning.md   # row must be ✅
-```
+**Why stop here?** `gh pr checks --watch` freezes the session slot (typically 5–15 min) without
+doing useful work. In a parallel setup this means no new issues get picked up. The merge pass is
+the right place to detect and act on CI results.
+
+**If `--auto` is unavailable** (repo has it disabled): leave branches rebased and pushed; the
+STEP 1.5 pass will check `mergeStateStatus` and merge when green.
+
+**Post-merge cleanup happens automatically:**
+- Story issue closes via `Closes #<N>` in PR body (squash-merge carries it)
+- `M6-planning.md` row ⬜→✅ is in the PR diff — merged with the code
+- After the merge pass, verify: `grep -nE "#?$STORY\b" docs/milestones/M6-planning.md` — row must be ✅
 
 ---
 
@@ -449,9 +505,11 @@ Mark the EPIC canvas `Status: Implemented` (small docs: commit). Post the sessio
 
 | Observed | Action |
 |---|---|
-| Open PR of mine with red required checks | Fix first; do not advance or start new cluster |
-| Some story PRs merged, others open for same EPIC | Resume STEP 9 on remaining in O-step order |
-| All story PRs open, none merged | Resume STEP 9 from O-step 1 |
+| Open PR of mine with **red** required checks | Fix first; do not advance or start new cluster |
+| Open PR of mine with checks **running/pending** | STEP 1.5 merge pass (skip non-green PRs); then pick next unclaimed O-step → STEP 4 |
+| Open PR of mine, all checks **green** (CLEAN) | STEP 1.5 merge pass → merge now; continue to remaining O-steps or STEP 10 |
+| Some story PRs merged, others open for same EPIC | STEP 1.5 merge pass; if unmerged PRs still running, pick next unclaimed O-step |
+| All story PRs open, none merged | STEP 1.5 merge pass; if none green yet, pick next unclaimed O-step if EPIC has more stories |
 | EPIC fully merged | STEP 10 summary. STOP. |
 | Local branch w/ uncommitted work, no PR | Finish STEP 5→8 |
 | STEP 4 branch push rejected (branch exists on remote) | Another session claimed that story — return to STEP 3C, pick next open O-step |
