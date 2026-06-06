@@ -34,6 +34,7 @@ cmd/zynax-ci/
     validate_capabilities.go  zynax-ci validate capabilities <dir>
     validate_policies.go   zynax-ci validate policies <dir>
     check_ai_context.go    zynax-ci check ai-context
+    check_deps.go          zynax-ci check deps
   validate/
     canvas.go              Canvas validator (seven REASONS sections, header fields, Status)
     canvas_test.go
@@ -43,6 +44,7 @@ cmd/zynax-ci/
     helpers.go             Shared ValidationError helpers
   check/
     context.go             AI context line-count reporter (advisory, always exits 0)
+    deps.go                go.mod version alignment checker (exits 1 on divergence)
 ```
 
 ## Hard Constraints

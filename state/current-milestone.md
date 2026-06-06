@@ -277,8 +277,8 @@ All PRs merged 2026-06-03.
 | Story | Issue | Status |
 |-------|-------|--------|
 | refactor: libs/zynaxconfig shared config + task-broker migration | [#667](https://github.com/zynax-io/zynax/issues/667) | ✅ Merged (PR #907) |
-| chore(infra): Dockerfile template consolidation | [#668](https://github.com/zynax-io/zynax/issues/668) | ✅ Implemented |
-| ci: go.mod version-alignment gate | [#669](https://github.com/zynax-io/zynax/issues/669) | ⬜ Pending |
+| chore(infra): Dockerfile template consolidation | [#668](https://github.com/zynax-io/zynax/issues/668) | ✅ Merged (PR #909) |
+| ci: go.mod version-alignment gate | [#669](https://github.com/zynax-io/zynax/issues/669) | ✅ Implemented |
 
 ### M6.DevAuto — Self-hosting dev-automation (#873) — 🔄 In Progress
 

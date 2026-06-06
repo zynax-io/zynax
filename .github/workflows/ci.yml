@@ -195,7 +195,7 @@ jobs:
             if echo "$f" | grep -qE '^(protos/|spec/|CLAUDE\.md|AGENTS\.md|.*/AGENTS\.md|docs/ai-assistant-setup\.md|\.ai/|\.claude/)'; then
               proto=true
             fi
-            if echo "$f" | grep -qE '^(services/|protos/|cmd/|agents/adapters/)'; then
+            if echo "$f" | grep -qE '^(services/|protos/|cmd/|agents/adapters/|libs/|go\.work(\.sum)?$)'; then
               go=true
             fi
             if echo "$f" | grep -qE '^agents/' && ! echo "$f" | grep -qE '^agents/adapters/'; then
@@ -431,6 +431,12 @@ jobs:
             fi
           done
           $failed && exit 1 || echo "✅ CLI tool lint passed"
+
+      - name: zynax-ci check deps (go.mod version alignment)
+        run: |
+          cd cmd/zynax-ci
+          GOWORK=off go run . check deps --root "$GITHUB_WORKSPACE"
+          echo "✅ go.mod version alignment check passed"
 
 # ── Lint: Python agents and SDK ───────────────────────────────────────────────
   lint-python:
