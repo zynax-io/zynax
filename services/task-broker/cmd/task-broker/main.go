@@ -15,12 +15,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kelseyhightower/envconfig"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/zynax-io/zynax/libs/zynaxconfig"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/task-broker/internal/api"
 	"github.com/zynax-io/zynax/services/task-broker/internal/domain"
@@ -29,9 +29,8 @@ import (
 )
 
 type config struct {
-	GRPCPort         int    `envconfig:"GRPC_PORT" default:"50053"`
+	zynaxconfig.Base
 	RegistryAddr     string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
-	LogLevel         string `envconfig:"LOG_LEVEL" default:"info"`
 	GRPCCallTimeoutS int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
 	TLSCert          string `envconfig:"TLS_CERT"`
 	TLSKey           string `envconfig:"TLS_KEY"`
@@ -41,14 +40,13 @@ type config struct {
 }
 
 func main() {
-	var cfg config
-	if err := envconfig.Process("ZYNAX_BROKER", &cfg); err != nil {
+	cfg := config{}
+	cfg.GRPCPort = 50053 // service default; ZYNAX_BROKER_GRPC_PORT overrides
+	if err := zynaxconfig.Load("BROKER", &cfg); err != nil {
 		slog.Error("config error", "err", err)
 		os.Exit(1)
 	}
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: parseLogLevel(cfg.LogLevel),
-	})))
+	zynaxconfig.SetDefaultLogger(cfg.LogLevel)
 	if err := run(cfg); err != nil {
 		slog.Error("fatal error", "err", err)
 		os.Exit(1)
@@ -111,17 +109,4 @@ func run(cfg config) error {
 	slog.Info("shutting down")
 	srv.GracefulStop()
 	return nil
-}
-
-func parseLogLevel(level string) slog.Level {
-	switch level {
-	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
 }

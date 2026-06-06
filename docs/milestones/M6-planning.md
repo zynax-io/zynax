@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-05 (M6.H COMPLETE — #626 closed; PRs #900 + #901 merged)
+> Generated: 2026-06-02 · Last updated: 2026-06-06 (M6.F #667 ⬜→✅ libs/zynaxconfig + task-broker migration)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -109,6 +109,15 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 
 **Two-plane note:** DevAuto.1–7 + DevAuto.9–10 are near-term (GitHub Actions + Claude Code, no Zynax runtime dependency).
 DevAuto.8 is aspirational (Zynax AgentDef workflows) — gated by `automation/tests/test_platform_readiness.py` xfail test; BLOCKED until M6.H #626 + M6.I #772 complete.
+
+**M6.F — Platform Configuration Convergence** (EPIC [#670](https://github.com/zynax-io/zynax/issues/670); SPDD-exempt: refactor:/chore:/ci:)
+
+| Story | Issue | Area | PR | Status |
+|-------|-------|------|-----|--------|
+| refactor: introduce libs/zynaxconfig shared config package — migrate task-broker | [#667](https://github.com/zynax-io/zynax/issues/667) | infra/libs | — | ✅ Implemented (PR pending) |
+| chore(infra): consolidate five service Dockerfiles into single parameterized template | [#668](https://github.com/zynax-io/zynax/issues/668) | Infra | — | ⬜ Open |
+| ci: add go.mod version-alignment gate | [#669](https://github.com/zynax-io/zynax/issues/669) | CI | — | ⬜ Open |
+
 
 ---
 
