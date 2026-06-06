@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-06 (M6.F #668 PR#909 Merged, #669 ⬜→✅)
+> Generated: 2026-06-02 · Last updated: 2026-06-06 (M6.F #669 PR#910 Merged, EPIC #670 ✅ Complete)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -110,13 +110,13 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 **Two-plane note:** DevAuto.1–7 + DevAuto.9–10 are near-term (GitHub Actions + Claude Code, no Zynax runtime dependency).
 DevAuto.8 is aspirational (Zynax AgentDef workflows) — gated by `automation/tests/test_platform_readiness.py` xfail test; BLOCKED until M6.H #626 + M6.I #772 complete.
 
-**M6.F — Platform Configuration Convergence** (EPIC [#670](https://github.com/zynax-io/zynax/issues/670); SPDD-exempt: refactor:/chore:/ci:)
+**M6.F — Platform Configuration Convergence** ✅ **COMPLETE** (EPIC [#670](https://github.com/zynax-io/zynax/issues/670); SPDD-exempt: refactor:/chore:/ci:)
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
 | refactor: introduce libs/zynaxconfig shared config package — migrate task-broker | [#667](https://github.com/zynax-io/zynax/issues/667) | infra/libs | #907 | ✅ Merged |
 | chore(infra): consolidate five service Dockerfiles into single parameterized template | [#668](https://github.com/zynax-io/zynax/issues/668) | Infra | #909 | ✅ Merged |
-| ci: add go.mod version-alignment gate | [#669](https://github.com/zynax-io/zynax/issues/669) | CI | — | ✅ Implemented |
+| ci: add go.mod version-alignment gate | [#669](https://github.com/zynax-io/zynax/issues/669) | CI | #910 | ✅ Merged |
 
 
 ---
@@ -588,7 +588,7 @@ Stateless Deployments (all Go services + adapters):
 
 | Repo Epic | Status | Canvas | Stories |
 |-----------|--------|--------|---------|
-| M6.F #670 Platform Config Convergence | 🔜 Not started | — | #667 (shared config lib), #668 (Dockerfile template), #669 (go.mod version gate) |
+| M6.F #670 Platform Config Convergence | ✅ Complete | — | #667 PR#907, #668 PR#909, #669 PR#910 — all merged |
 | M6.H #626 Postgres-backed repos | 🔜 Not started | — | Become J.0–J.1 above |
 | M6.A #463 Health Probe Semantics | 🟡 Canvas exists | `docs/spdd/463-health-probes/canvas.md` | Becomes C.2–C.3 above |
 | M6.B #464 mTLS | 🟡 Canvas exists | `docs/spdd/464-mtls/canvas.md` | Becomes C.4–C.5 above |
