@@ -44,7 +44,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -58,7 +58,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     steps:
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6
@@ -87,7 +87,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -141,7 +141,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -185,7 +185,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -264,7 +264,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -301,7 +301,7 @@ jobs:
     name: Image digest alignment (images.yaml SoT)
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -320,7 +320,7 @@ jobs:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

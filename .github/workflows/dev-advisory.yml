@@ -42,7 +42,7 @@ jobs:
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     env:
       EXPERT_NAME: arch-adr
@@ -131,7 +131,7 @@ jobs:
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     env:
       EXPERT_NAME: api-contract
@@ -219,7 +219,7 @@ jobs:
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     env:
       EXPERT_NAME: ci-release
@@ -306,7 +306,7 @@ jobs:
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     env:
       EXPERT_NAME: docs-agents
@@ -395,7 +395,7 @@ jobs:
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     env:
       EXPERT_NAME: persistence-state
@@ -486,7 +486,7 @@ jobs:
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     env:
       EXPERT_NAME: planning-task-split
@@ -573,7 +573,7 @@ jobs:
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     env:
       EXPERT_NAME: qa-bdd
@@ -660,7 +660,7 @@ jobs:
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     env:
       EXPERT_NAME: security-supply-chain
