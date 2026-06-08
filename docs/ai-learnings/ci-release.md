@@ -195,3 +195,38 @@ If a merged PR references the issue: stop immediately, report the merge SHA and 
   advances while CI runs. Fix: `git pull --rebase origin main && git push --force-with-lease`,
   then retry merge (or use `--auto` flag).
   Seen in: #877 PR #969. Date: 2026-06-08.
+
+- **`docker buildx imagetools create` does NOT copy OCI annotations from source manifests.**
+  When merging per-platform digests into a multi-arch index, add explicit `--annotation` flags:
+  `--annotation "index:org.opencontainers.image.description=..."`. Without this, report-image-meta
+  gates that check for OCI annotations will fail even though the image was pushed.
+  The `index:` prefix targets the manifest list (not individual platform manifests).
+  Fix path: add four annotation flags (description, title, source, revision) to imagetools create.
+  Seen in: #866 gate / #977 regression. Date: 2026-06-08.
+
+- **Schema `additionalProperties: false` blocks forward-looking example files.**
+  If a JSON schema uses `additionalProperties: false` and an example YAML uses a field not
+  yet declared, tests fail on main rather than only on the PR that adds the field.
+  Always audit example files when tightening schema strictness. The `output` field in
+  action definitions was used in `spec/workflows/examples/code-review.yaml` but absent
+  from the schema, causing three test failures on main.
+  Seen in: #976 PR test-go. Date: 2026-06-08.
+
+- **`tools-image.yml` path filter excludes `.github/workflows/` — the new workflow is inert
+  until a Dockerfile or `cmd/zynax-ci/**` change triggers it.**
+  PR #975 changed only `tools-image.yml` itself, which is not in the workflow's `paths:` filter.
+  The native arm64 3-job workflow is on main but has never been exercised. Verify path filters
+  match the actual files being changed when updating CI infrastructure.
+  Seen in: #839 post-merge. Date: 2026-06-08.
+
+- **Report-step failure ≠ image not pushed.** When a composite action used in a "Report" step
+  fails, GitHub marks the job as failed but preceding build+push steps already succeeded and
+  images are in GHCR. Post-merge verifier must check GHCR directly via API rather than relying
+  on workflow conclusion.
+  Seen in: #839 post-merge. Date: 2026-06-08.
+
+- **Hidden image consumers not in `images/images.yaml` consumers list cause silent drift.**
+  `dev-advisory.yml` had 8 occurrences of the ci-runner digest but was not listed in the
+  `consumers:` array, so `make check-images` passed while the file drifted. Expand the
+  consumers list whenever a new workflow is added that references a tracked image digest.
+  Seen in: #839 post-merge. Date: 2026-06-08.

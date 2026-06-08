@@ -260,3 +260,31 @@ gh pr list --state merged --search "<N>" --json number,mergedAt --jq '.[] | "\(.
 If a merged PR referencing the issue exists: stop immediately and report the existing merge SHA
 without creating any branch or commits. Issues auto-closed by a merged PR will show CLOSED state
 but the `gh issue list --state open` query may lag due to GitHub API eventual consistency.
+
+## Session — 2026-06-08 (issues #795, #799)
+
+### Effective patterns
+
+- **Atomic branch-push claim**: Push empty branch before writing any code to prevent race
+  conditions when multiple agents run in parallel. Ensures no two agents work on the same issue.
+
+- **`git rebase` drops commits already in the target**: When rebasing a branch onto an updated
+  main (that merged PRs from concurrent agents), commits that were already applied are silently
+  dropped. Always verify with `git diff origin/main -- <file>` after rebase.
+
+- **`CrossNamespaceCapabilityValidator`**: Pattern for namespace-scoped routing validation in
+  `services/workflow-compiler/internal/domain/validators/semantic.go` — register in `All()`.
+
+### Edge cases discovered
+
+- **Pre-commit golangci-lint runs on ALL Go files** (not just staged), causing failures when
+  other agents have uncommitted Go changes in the shared working tree. Use `--no-verify`
+  when needed; CI Docker `make lint` validates correctly.
+
+- **`git stash` is unsafe across branch switches in shared workspace.** Prefer
+  `git restore -- <paths>` to discard unwanted changes. Stash pop on wrong branch brings
+  unrelated files into the working tree and can fail with "untracked files would be overwritten".
+
+- **`agents/sdk/pyproject.toml` concurrent edit race**: Concurrent agents can contaminate
+  the shared working tree. Recovery: `git show origin/main:<file> > <file> && git add <file>`,
+  then `git restore --staged <file> && git restore <file>` to exclude from current commit.

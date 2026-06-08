@@ -59,3 +59,17 @@
 ## Proposed expert prompt updates
 
 *(none yet — populate after first batch of Python adapter expert sessions)*
+
+## Session — 2026-06-08 (issue #805)
+
+### Effective patterns
+
+- **PyPI Trusted Publisher (OIDC) — use `continue-on-error: true` until registration.**
+  The OIDC publisher must be manually registered at pypi.org/manage/account/publishing/ before
+  the publish step can succeed. Any CI gate that calls `hatch publish` before registration
+  will fail. Wrap with `continue-on-error: true` and add clear instructions in AGENTS.md.
+
+- **`pip-audit` false positives on CI runners vs local.** `PYSEC-2026-196` affects pip itself —
+  present in GitHub Actions-hosted runners (pip 24.x) but not in managed containers. Add
+  `--ignore-vuln PYSEC-2026-196` to the CI step and document in `[tool.pip-audit]` section
+  of `pyproject.toml` with a comment explaining the scope.
