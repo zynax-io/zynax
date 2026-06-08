@@ -116,3 +116,18 @@ Use `gh api "/orgs/zynax-io/packages/container/${PKG}/versions" --paginate` to l
 **Seen in:** #867. **Date:** 2026-06-08
 
 Background agent branch switching causes commits to land on wrong branches. Rescue: `SHA=$(git rev-parse HEAD) && git checkout <correct-branch> && git reset --hard origin/main && git cherry-pick $SHA && git push --force-with-lease`.
+
+## Session — 2026-06-08 (orchestrator batch #824,#816,#860)
+
+### Claim-check: verify closed issues before any work
+**Seen in:** #860. **Date:** 2026-06-08
+
+`gh issue list --state open` can return issues already closed by a prior session in the same day
+(GitHub API eventual consistency lag). Before opening any branch:
+
+```bash
+gh issue view <N> --json state --jq .state           # must be OPEN
+gh pr list --state merged --search "<N>" --json number,mergedAt | jq .
+```
+
+If a merged PR references the issue: stop immediately, report the merge SHA and PR number.
