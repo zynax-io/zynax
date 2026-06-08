@@ -146,3 +146,35 @@ Always read the generated `.pb.go` file to get exact field names before writing 
 ### Proposed expert prompt update
 
 If a branch falls behind main during CI wait, never use GitHub's 'Update branch' button or API — it creates an unsigned merge commit that fails DCO. Always rebase: `git pull --rebase origin main && git push --force-with-lease`. After any force-push, verify `git log origin/main..origin/<branch>` shows only your commits; if sibling changes appear, reset and cherry-pick.
+
+## Session — 2026-06-08 (issues #818, #826)
+
+### Shell state reset pattern (critical — shared workspace)
+**Seen in:** #818, #826. **Date:** 2026-06-08
+
+The active git branch and shell cwd reset between every Bash tool call on a shared workspace.
+- Always include `git checkout <branch>` as the **first command** of any Bash call involving file edits or commits
+- Use `;` not `&&` for compound commands that must run sequentially (permission gating differs)
+- Prefer `git add <specific files>` over `git add .` — avoids staging stash-pop contamination from sibling agents
+- When `go.mod` needs updating across branch operations, use the Edit tool directly rather than `go mod tidy` (which reverts on branch switch)
+
+### Stash is dangerous across branches
+**Seen in:** #818. **Date:** 2026-06-08
+
+`git stash pop` on a different branch brings unrelated modifications into the working tree.
+Safer: `git restore -- <paths>` to discard unrelated tracked-file changes rather than stashing.
+
+### handler.go carried forward from prior step
+**Seen in:** #818. **Date:** 2026-06-08
+
+When a prior step (#817) left `handler.go` already fully wired, the current step scope was narrower than the issue implied (integration test + go.mod only). Always read `handler.go` first — don't assume UNIMPLEMENTED stubs remain.
+
+### testcontainers without modules/redis
+**Seen in:** #818. **Date:** 2026-06-08
+
+Use `testcontainers.GenericContainer{Image: "redis:7-alpine", ExposedPorts: []string{"6379/tcp"}, WaitingFor: wait.ForLog("Ready to accept connections")}` from the base `testcontainers-go` module (already an indirect dep). Avoids adding the `modules/redis` sub-dependency.
+
+### NATS DLQ pattern
+**Seen in:** #826. **Date:** 2026-06-08
+
+JetStream DLQ wiring: create `zynax.dlq.<topic>` stream with `retention=WorkQueue, MaxConsumers=1`; set `DeadLetterSubject` on the consumer; configure `BackOff: []time.Duration{1s, 5s, 30s, 120s, 300s}` matching `MaxDeliver=5`. `Unsubscribe` = delete the durable consumer by subscriber_id; handle not-found gracefully with `codes.NotFound`.
