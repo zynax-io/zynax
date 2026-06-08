@@ -6,7 +6,7 @@ import grpc
 from zynax.v1 import workflow_compiler_pb2 as zynax_dot_v1_dot_workflow__compiler__pb2
 
 
-class WorkflowCompilerServiceStub(object):
+class WorkflowCompilerServiceStub:
     """WorkflowCompilerService transforms YAML manifests into engine-agnostic IR."""
 
     def __init__(self, channel):
@@ -35,7 +35,7 @@ class WorkflowCompilerServiceStub(object):
         )
 
 
-class WorkflowCompilerServiceServicer(object):
+class WorkflowCompilerServiceServicer:
     """WorkflowCompilerService transforms YAML manifests into engine-agnostic IR."""
 
     def CompileWorkflow(self, request, context):
@@ -102,7 +102,7 @@ def add_WorkflowCompilerServiceServicer_to_server(servicer, server):
 
 
 # This class is part of an EXPERIMENTAL API.
-class WorkflowCompilerService(object):
+class WorkflowCompilerService:
     """WorkflowCompilerService transforms YAML manifests into engine-agnostic IR."""
 
     @staticmethod

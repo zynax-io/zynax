@@ -789,6 +789,160 @@ func (x *WatchWorkflowRequest) GetRunId() string {
 	return ""
 }
 
+// ArgoConfig carries the connection and dispatch parameters for the Argo
+// Workflows execution engine. It is supplied as part of EngineConfig when
+// the caller selects the "argo" engine hint.
+//
+// Design: all connection details are abstract names (resolved at runtime via
+// environment variables or operator config) so that no real hostname or
+// credential ever appears in a WorkflowIR payload.
+type ArgoConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Abstract endpoint identifier for the Argo Workflows server.
+	// The adapter resolves this name to an actual URL at runtime.
+	// Example: "argo-default", "argo-prod". Never a raw http:// URL.
+	ArgoServerUrl string `protobuf:"bytes,1,opt,name=argo_server_url,json=argoServerUrl,proto3" json:"argo_server_url,omitempty"`
+	// Kubernetes namespace in which Argo Workflows resources are created.
+	// Defaults to the WorkflowIR namespace when empty.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Kubernetes service account used by Argo to execute workflow pods.
+	// Defaults to "default" when empty.
+	ServiceAccountName string `protobuf:"bytes,3,opt,name=service_account_name,json=serviceAccountName,proto3" json:"service_account_name,omitempty"`
+	// Name of the Argo WorkflowTemplate to use as the execution template.
+	// The adapter submits a Workflow referencing this template.
+	WorkflowTemplateRef string `protobuf:"bytes,4,opt,name=workflow_template_ref,json=workflowTemplateRef,proto3" json:"workflow_template_ref,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *ArgoConfig) Reset() {
+	*x = ArgoConfig{}
+	mi := &file_zynax_v1_engine_adapter_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArgoConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArgoConfig) ProtoMessage() {}
+
+func (x *ArgoConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_zynax_v1_engine_adapter_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArgoConfig.ProtoReflect.Descriptor instead.
+func (*ArgoConfig) Descriptor() ([]byte, []int) {
+	return file_zynax_v1_engine_adapter_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ArgoConfig) GetArgoServerUrl() string {
+	if x != nil {
+		return x.ArgoServerUrl
+	}
+	return ""
+}
+
+func (x *ArgoConfig) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ArgoConfig) GetServiceAccountName() string {
+	if x != nil {
+		return x.ServiceAccountName
+	}
+	return ""
+}
+
+func (x *ArgoConfig) GetWorkflowTemplateRef() string {
+	if x != nil {
+		return x.WorkflowTemplateRef
+	}
+	return ""
+}
+
+// EngineConfig carries engine-specific connection and dispatch parameters.
+// Exactly one option should be set; the adapter selects the corresponding
+// engine implementation.
+type EngineConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Engine:
+	//
+	//	*EngineConfig_Argo
+	Engine        isEngineConfig_Engine `protobuf_oneof:"engine"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EngineConfig) Reset() {
+	*x = EngineConfig{}
+	mi := &file_zynax_v1_engine_adapter_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EngineConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EngineConfig) ProtoMessage() {}
+
+func (x *EngineConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_zynax_v1_engine_adapter_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EngineConfig.ProtoReflect.Descriptor instead.
+func (*EngineConfig) Descriptor() ([]byte, []int) {
+	return file_zynax_v1_engine_adapter_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *EngineConfig) GetEngine() isEngineConfig_Engine {
+	if x != nil {
+		return x.Engine
+	}
+	return nil
+}
+
+func (x *EngineConfig) GetArgo() *ArgoConfig {
+	if x != nil {
+		if x, ok := x.Engine.(*EngineConfig_Argo); ok {
+			return x.Argo
+		}
+	}
+	return nil
+}
+
+type isEngineConfig_Engine interface {
+	isEngineConfig_Engine()
+}
+
+type EngineConfig_Argo struct {
+	// Configuration for the Argo Workflows execution engine.
+	Argo *ArgoConfig `protobuf:"bytes,1,opt,name=argo,proto3,oneof"`
+}
+
+func (*EngineConfig_Argo) isEngineConfig_Engine() {}
+
 var File_zynax_v1_engine_adapter_proto protoreflect.FileDescriptor
 
 const file_zynax_v1_engine_adapter_proto_rawDesc = "" +
@@ -851,7 +1005,16 @@ const file_zynax_v1_engine_adapter_proto_rawDesc = "" +
 	"\x18GetWorkflowStatusRequest\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\"-\n" +
 	"\x14WatchWorkflowRequest\x12\x15\n" +
-	"\x06run_id\x18\x01 \x01(\tR\x05runId*\xc5\x01\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x05runId\"\xb8\x01\n" +
+	"\n" +
+	"ArgoConfig\x12&\n" +
+	"\x0fargo_server_url\x18\x01 \x01(\tR\rargoServerUrl\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x120\n" +
+	"\x14service_account_name\x18\x03 \x01(\tR\x12serviceAccountName\x122\n" +
+	"\x15workflow_template_ref\x18\x04 \x01(\tR\x13workflowTemplateRef\"D\n" +
+	"\fEngineConfig\x12*\n" +
+	"\x04argo\x18\x01 \x01(\v2\x14.zynax.v1.ArgoConfigH\x00R\x04argoB\b\n" +
+	"\x06engine*\xc5\x01\n" +
 	"\x0eWorkflowStatus\x12\x1f\n" +
 	"\x1bWORKFLOW_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17WORKFLOW_STATUS_PENDING\x10\x01\x12\x1b\n" +
@@ -879,7 +1042,7 @@ func file_zynax_v1_engine_adapter_proto_rawDescGZIP() []byte {
 }
 
 var file_zynax_v1_engine_adapter_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_zynax_v1_engine_adapter_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_zynax_v1_engine_adapter_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_zynax_v1_engine_adapter_proto_goTypes = []any{
 	(WorkflowStatus)(0),              // 0: zynax.v1.WorkflowStatus
 	(*WorkflowRun)(nil),              // 1: zynax.v1.WorkflowRun
@@ -892,39 +1055,42 @@ var file_zynax_v1_engine_adapter_proto_goTypes = []any{
 	(*CancelWorkflowResponse)(nil),   // 8: zynax.v1.CancelWorkflowResponse
 	(*GetWorkflowStatusRequest)(nil), // 9: zynax.v1.GetWorkflowStatusRequest
 	(*WatchWorkflowRequest)(nil),     // 10: zynax.v1.WatchWorkflowRequest
-	nil,                              // 11: zynax.v1.WorkflowRun.LabelsEntry
-	nil,                              // 12: zynax.v1.SubmitWorkflowRequest.LabelsEntry
-	(*timestamppb.Timestamp)(nil),    // 13: google.protobuf.Timestamp
-	(*WorkflowIR)(nil),               // 14: zynax.v1.WorkflowIR
+	(*ArgoConfig)(nil),               // 11: zynax.v1.ArgoConfig
+	(*EngineConfig)(nil),             // 12: zynax.v1.EngineConfig
+	nil,                              // 13: zynax.v1.WorkflowRun.LabelsEntry
+	nil,                              // 14: zynax.v1.SubmitWorkflowRequest.LabelsEntry
+	(*timestamppb.Timestamp)(nil),    // 15: google.protobuf.Timestamp
+	(*WorkflowIR)(nil),               // 16: zynax.v1.WorkflowIR
 }
 var file_zynax_v1_engine_adapter_proto_depIdxs = []int32{
 	0,  // 0: zynax.v1.WorkflowRun.status:type_name -> zynax.v1.WorkflowStatus
-	11, // 1: zynax.v1.WorkflowRun.labels:type_name -> zynax.v1.WorkflowRun.LabelsEntry
-	13, // 2: zynax.v1.WorkflowRun.submitted_at:type_name -> google.protobuf.Timestamp
-	13, // 3: zynax.v1.WorkflowRun.started_at:type_name -> google.protobuf.Timestamp
-	13, // 4: zynax.v1.WorkflowRun.finished_at:type_name -> google.protobuf.Timestamp
+	13, // 1: zynax.v1.WorkflowRun.labels:type_name -> zynax.v1.WorkflowRun.LabelsEntry
+	15, // 2: zynax.v1.WorkflowRun.submitted_at:type_name -> google.protobuf.Timestamp
+	15, // 3: zynax.v1.WorkflowRun.started_at:type_name -> google.protobuf.Timestamp
+	15, // 4: zynax.v1.WorkflowRun.finished_at:type_name -> google.protobuf.Timestamp
 	0,  // 5: zynax.v1.WorkflowEvent.status:type_name -> zynax.v1.WorkflowStatus
-	13, // 6: zynax.v1.WorkflowEvent.timestamp:type_name -> google.protobuf.Timestamp
-	14, // 7: zynax.v1.SubmitWorkflowRequest.workflow_ir:type_name -> zynax.v1.WorkflowIR
-	12, // 8: zynax.v1.SubmitWorkflowRequest.labels:type_name -> zynax.v1.SubmitWorkflowRequest.LabelsEntry
-	13, // 9: zynax.v1.SubmitWorkflowResponse.submitted_at:type_name -> google.protobuf.Timestamp
-	13, // 10: zynax.v1.SignalWorkflowResponse.signalled_at:type_name -> google.protobuf.Timestamp
-	13, // 11: zynax.v1.CancelWorkflowResponse.cancelled_at:type_name -> google.protobuf.Timestamp
-	3,  // 12: zynax.v1.EngineAdapterService.SubmitWorkflow:input_type -> zynax.v1.SubmitWorkflowRequest
-	5,  // 13: zynax.v1.EngineAdapterService.SignalWorkflow:input_type -> zynax.v1.SignalWorkflowRequest
-	7,  // 14: zynax.v1.EngineAdapterService.CancelWorkflow:input_type -> zynax.v1.CancelWorkflowRequest
-	9,  // 15: zynax.v1.EngineAdapterService.GetWorkflowStatus:input_type -> zynax.v1.GetWorkflowStatusRequest
-	10, // 16: zynax.v1.EngineAdapterService.WatchWorkflow:input_type -> zynax.v1.WatchWorkflowRequest
-	4,  // 17: zynax.v1.EngineAdapterService.SubmitWorkflow:output_type -> zynax.v1.SubmitWorkflowResponse
-	6,  // 18: zynax.v1.EngineAdapterService.SignalWorkflow:output_type -> zynax.v1.SignalWorkflowResponse
-	8,  // 19: zynax.v1.EngineAdapterService.CancelWorkflow:output_type -> zynax.v1.CancelWorkflowResponse
-	1,  // 20: zynax.v1.EngineAdapterService.GetWorkflowStatus:output_type -> zynax.v1.WorkflowRun
-	2,  // 21: zynax.v1.EngineAdapterService.WatchWorkflow:output_type -> zynax.v1.WorkflowEvent
-	17, // [17:22] is the sub-list for method output_type
-	12, // [12:17] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	15, // 6: zynax.v1.WorkflowEvent.timestamp:type_name -> google.protobuf.Timestamp
+	16, // 7: zynax.v1.SubmitWorkflowRequest.workflow_ir:type_name -> zynax.v1.WorkflowIR
+	14, // 8: zynax.v1.SubmitWorkflowRequest.labels:type_name -> zynax.v1.SubmitWorkflowRequest.LabelsEntry
+	15, // 9: zynax.v1.SubmitWorkflowResponse.submitted_at:type_name -> google.protobuf.Timestamp
+	15, // 10: zynax.v1.SignalWorkflowResponse.signalled_at:type_name -> google.protobuf.Timestamp
+	15, // 11: zynax.v1.CancelWorkflowResponse.cancelled_at:type_name -> google.protobuf.Timestamp
+	11, // 12: zynax.v1.EngineConfig.argo:type_name -> zynax.v1.ArgoConfig
+	3,  // 13: zynax.v1.EngineAdapterService.SubmitWorkflow:input_type -> zynax.v1.SubmitWorkflowRequest
+	5,  // 14: zynax.v1.EngineAdapterService.SignalWorkflow:input_type -> zynax.v1.SignalWorkflowRequest
+	7,  // 15: zynax.v1.EngineAdapterService.CancelWorkflow:input_type -> zynax.v1.CancelWorkflowRequest
+	9,  // 16: zynax.v1.EngineAdapterService.GetWorkflowStatus:input_type -> zynax.v1.GetWorkflowStatusRequest
+	10, // 17: zynax.v1.EngineAdapterService.WatchWorkflow:input_type -> zynax.v1.WatchWorkflowRequest
+	4,  // 18: zynax.v1.EngineAdapterService.SubmitWorkflow:output_type -> zynax.v1.SubmitWorkflowResponse
+	6,  // 19: zynax.v1.EngineAdapterService.SignalWorkflow:output_type -> zynax.v1.SignalWorkflowResponse
+	8,  // 20: zynax.v1.EngineAdapterService.CancelWorkflow:output_type -> zynax.v1.CancelWorkflowResponse
+	1,  // 21: zynax.v1.EngineAdapterService.GetWorkflowStatus:output_type -> zynax.v1.WorkflowRun
+	2,  // 22: zynax.v1.EngineAdapterService.WatchWorkflow:output_type -> zynax.v1.WorkflowEvent
+	18, // [18:23] is the sub-list for method output_type
+	13, // [13:18] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_zynax_v1_engine_adapter_proto_init() }
@@ -933,13 +1099,16 @@ func file_zynax_v1_engine_adapter_proto_init() {
 		return
 	}
 	file_zynax_v1_workflow_compiler_proto_init()
+	file_zynax_v1_engine_adapter_proto_msgTypes[11].OneofWrappers = []any{
+		(*EngineConfig_Argo)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zynax_v1_engine_adapter_proto_rawDesc), len(file_zynax_v1_engine_adapter_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   12,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
