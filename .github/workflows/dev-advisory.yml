@@ -1,20 +1,24 @@
 # SPDX-License-Identifier: Apache-2.0
-# Zynax — Dev Advisory Workflow (Wave 0)
+# Zynax — Dev Advisory Workflow (Wave 0 + Wave 1)
 #
 # Plane: near-term
 #
-# Runs 8 expert subagents in parallel on pull_request events.  Each expert
-# receives a context slice (git diff filtered to its declared glob patterns)
-# and writes its output to the GitHub Actions job summary.  A final collation
-# job posts all expert outputs as a single PR comment.
+# Wave 0: Runs 8 expert subagents in parallel on pull_request events.  Each
+# expert receives a context slice (git diff filtered to its declared glob
+# patterns) and writes its output to the GitHub Actions job summary.
+#
+# Wave 1: After all expert jobs complete, an orchestrator subagent reads all
+# expert outputs, applies the aggregation protocol
+# (automation/orchestrator/config.yaml), and posts one consolidated
+# decision-support PR comment plus uploads a decision-log JSON artifact.
 #
 # Humans decide all actions.  No automated merge, push, or code changes.
 # No Zynax gRPC calls, no agent-registry lookups — pure claude CLI invocation.
 #
-# Issue: #877 (M6.DevAuto — DevAuto.4)
+# Issue: #877 (M6.DevAuto — DevAuto.4), #878 (M6.DevAuto — DevAuto.5)
 # Depends on: #875 (automation/experts/*.yaml), #876 (orchestrator config)
 
-name: Dev Advisory (Wave 0)
+name: Dev Advisory (Wave 0 + Wave 1)
 
 on:
   pull_request:
@@ -827,3 +831,244 @@ jobs:
           gh pr comment "${PR_NUM}" \
             --repo "$REPO" \
             --body-file /tmp/pr-comment.md
+
+# ── Orchestrator: Wave 1 — aggregate expert outputs into decision-support ─────
+# Plane: near-term
+  orchestrate-and-comment:
+    name: "Orchestrator: Wave 1 aggregation"
+    # Runs on hosted runner (not ci-runner container) — gh CLI is not in ci-runner.
+    # Claude CLI is installed via npm at runtime.
+    runs-on: ubuntu-24.04
+    needs:
+      - expert-arch-adr
+      - expert-api-contract
+      - expert-ci-release
+      - expert-docs-agents
+      - expert-persistence
+      - expert-planning
+      - expert-qa-bdd
+      - expert-security
+    if: always()
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install claude CLI
+        run: npm install -g @anthropic-ai/claude-code 2>/dev/null || true
+
+      - name: Build orchestrator input and run aggregation
+        id: orchestrator
+        env:
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_ID: ${{ github.run_id }}
+          OUT_ARCH: ${{ needs.expert-arch-adr.outputs.expert_output }}
+          OUT_API: ${{ needs.expert-api-contract.outputs.expert_output }}
+          OUT_CI: ${{ needs.expert-ci-release.outputs.expert_output }}
+          OUT_DOCS: ${{ needs.expert-docs-agents.outputs.expert_output }}
+          OUT_PERS: ${{ needs.expert-persistence.outputs.expert_output }}
+          OUT_PLAN: ${{ needs.expert-planning.outputs.expert_output }}
+          OUT_QA: ${{ needs.expert-qa-bdd.outputs.expert_output }}
+          OUT_SEC: ${{ needs.expert-security.outputs.expert_output }}
+        run: |
+          ARCH="${OUT_ARCH:-No output (expert skipped or context slice empty)}"
+          API="${OUT_API:-No output (expert skipped or context slice empty)}"
+          CI_OUT="${OUT_CI:-No output (expert skipped or context slice empty)}"
+          DOCS="${OUT_DOCS:-No output (expert skipped or context slice empty)}"
+          PERS="${OUT_PERS:-No output (expert skipped or context slice empty)}"
+          PLAN="${OUT_PLAN:-No output (expert skipped or context slice empty)}"
+          QA="${OUT_QA:-No output (expert skipped or context slice empty)}"
+          SEC="${OUT_SEC:-No output (expert skipped or context slice empty)}"
+
+          # Build YAML-format orchestrator input (avoids JSON escaping issues)
+          {
+            printf 'trigger: pull_request\n'
+            printf 'pr_number: %s\n' "$PR_NUM"
+            printf 'pr_title: %s\n' "$PR_TITLE"
+            printf 'base_sha: %s\n' "$BASE_SHA"
+            printf 'head_sha: %s\n' "$HEAD_SHA"
+            printf 'wave: 1\n'
+            printf 'expert_outputs:\n'
+            printf '  arch-adr: |\n'
+            printf '%s\n' "$ARCH" | sed 's/^/    /'
+            printf '  api-contract: |\n'
+            printf '%s\n' "$API" | sed 's/^/    /'
+            printf '  ci-release: |\n'
+            printf '%s\n' "$CI_OUT" | sed 's/^/    /'
+            printf '  docs-agents: |\n'
+            printf '%s\n' "$DOCS" | sed 's/^/    /'
+            printf '  persistence-state: |\n'
+            printf '%s\n' "$PERS" | sed 's/^/    /'
+            printf '  planning-task-split: |\n'
+            printf '%s\n' "$PLAN" | sed 's/^/    /'
+            printf '  qa-bdd: |\n'
+            printf '%s\n' "$QA" | sed 's/^/    /'
+            printf '  security-supply-chain: |\n'
+            printf '%s\n' "$SEC" | sed 's/^/    /'
+          } > /tmp/orchestrator-input.txt
+
+          ORCH_OUTPUT=$(claude -p "$(cat "automation/orchestrator/aggregation-protocol.md")" \
+            < /tmp/orchestrator-input.txt 2>/dev/null \
+            || printf "Orchestrator invocation failed or claude CLI not available.")
+
+          printf '## Orchestrator (Wave 1)\n\n%s\n' "$ORCH_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            printf 'ORCH_OUTPUT<<ORCH_EOF\n'
+            printf '%s\n' "$ORCH_OUTPUT"
+            printf 'ORCH_EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build decision-log JSON artifact
+        id: decision-log
+        env:
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_ID: ${{ github.run_id }}
+          ORCH_OUTPUT: ${{ steps.orchestrator.outputs.ORCH_OUTPUT }}
+          OUT_ARCH: ${{ needs.expert-arch-adr.outputs.expert_output }}
+          OUT_API: ${{ needs.expert-api-contract.outputs.expert_output }}
+          OUT_CI: ${{ needs.expert-ci-release.outputs.expert_output }}
+          OUT_DOCS: ${{ needs.expert-docs-agents.outputs.expert_output }}
+          OUT_PERS: ${{ needs.expert-persistence.outputs.expert_output }}
+          OUT_PLAN: ${{ needs.expert-planning.outputs.expert_output }}
+          OUT_QA: ${{ needs.expert-qa-bdd.outputs.expert_output }}
+          OUT_SEC: ${{ needs.expert-security.outputs.expert_output }}
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Derive confidence and escalation from orchestrator output (best-effort parse)
+          CONFIDENCE="medium"
+          ESCALATED="false"
+          ESCALATION_REASON=""
+          VERDICT="needs_review"
+
+          if printf '%s' "$ORCH_OUTPUT" | grep -qiE 'confidence.*high|high.*confidence'; then
+            CONFIDENCE="high"
+          elif printf '%s' "$ORCH_OUTPUT" | grep -qiE 'confidence.*low|low.*confidence'; then
+            CONFIDENCE="low"
+          fi
+
+          if printf '%s' "$ORCH_OUTPUT" | grep -qiE 'escalat'; then
+            ESCALATED="true"
+            ESCALATION_REASON=$(printf '%s' "$ORCH_OUTPUT" | grep -iE 'escalat' | head -1 \
+              | sed 's/["\]/\\&/g' | tr -d '\n')
+            VERDICT="escalate"
+          elif printf '%s' "$ORCH_OUTPUT" | grep -qiE '\bpass\b'; then
+            VERDICT="pass"
+          fi
+
+          LOG_ID="dev-auto-decision-log-${RUN_ID}"
+
+          mkdir -p .automation/decision-logs
+
+          # Write decision-log JSON (conforms to decision-log-schema.yaml)
+          {
+            printf '{\n'
+            printf '  "run_id": "%s",\n' "$RUN_ID"
+            printf '  "timestamp": "%s",\n' "$TIMESTAMP"
+            printf '  "trigger": {\n'
+            printf '    "event": "pull_request",\n'
+            printf '    "pr_number": %s,\n' "$PR_NUM"
+            printf '    "pr_title": "%s",\n' "$(printf '%s' "$PR_TITLE" | sed 's/["\]/\\&/g')"
+            printf '    "base_sha": "%s",\n' "$BASE_SHA"
+            printf '    "head_sha": "%s"\n'  "$HEAD_SHA"
+            printf '  },\n'
+            printf '  "expert_outputs": [\n'
+            for name in arch-adr api-contract ci-release docs-agents \
+                        persistence-state planning-task-split qa-bdd security-supply-chain; do
+              case "$name" in
+                arch-adr)             raw="$OUT_ARCH" ;;
+                api-contract)         raw="$OUT_API"  ;;
+                ci-release)           raw="$OUT_CI"   ;;
+                docs-agents)          raw="$OUT_DOCS" ;;
+                persistence-state)    raw="$OUT_PERS" ;;
+                planning-task-split)  raw="$OUT_PLAN" ;;
+                qa-bdd)               raw="$OUT_QA"   ;;
+                security-supply-chain) raw="$OUT_SEC" ;;
+              esac
+              summary=$(printf '%s' "${raw:-No output}" | head -5 | tr '"\\' "  " | tr '\n' ' ')
+              printf '    {"expert_name": "%s", "summary": "%s", "recommended_actions": [], "confidence": "low", "flags": []},\n' \
+                "$name" "$summary"
+            done | sed '$ s/,$//'
+            printf '  ],\n'
+            printf '  "aggregated_verdict": {\n'
+            printf '    "action": "%s",\n' "$VERDICT"
+            printf '    "rationale": "%s",\n' \
+              "$(printf '%s' "$ORCH_OUTPUT" | head -3 | tr '"\\' "  " | tr '\n' ' ')"
+            printf '    "confidence": "%s",\n' "$CONFIDENCE"
+            printf '    "escalated": %s' "$ESCALATED"
+            if [ -n "$ESCALATION_REASON" ]; then
+              printf ',\n    "escalation_reason": "%s"' "$ESCALATION_REASON"
+            fi
+            printf '\n  },\n'
+            printf '  "human_action_required": {\n'
+            if [ "$ESCALATED" = "true" ]; then
+              printf '    "required": true,\n'
+              printf '    "reason": "Orchestrator escalated — human review needed"\n'
+            else
+              printf '    "required": false\n'
+            fi
+            printf '  }\n'
+            printf '}\n'
+          } > ".automation/decision-logs/${LOG_ID}.json"
+
+          printf 'LOG_ID=%s\n' "$LOG_ID" >> "$GITHUB_OUTPUT"
+          printf 'VERDICT=%s\n' "$VERDICT" >> "$GITHUB_OUTPUT"
+          printf 'CONFIDENCE=%s\n' "$CONFIDENCE" >> "$GITHUB_OUTPUT"
+          printf 'ESCALATED=%s\n' "$ESCALATED" >> "$GITHUB_OUTPUT"
+
+      - name: Upload decision-log artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.decision-log.outputs.LOG_ID }}
+          path: .automation/decision-logs/
+          retention-days: 90
+
+      - name: Post orchestrator summary PR comment
+        env:
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          ORCH_OUTPUT: ${{ steps.orchestrator.outputs.ORCH_OUTPUT }}
+          LOG_ID: ${{ steps.decision-log.outputs.LOG_ID }}
+          VERDICT: ${{ steps.decision-log.outputs.VERDICT }}
+          CONFIDENCE: ${{ steps.decision-log.outputs.CONFIDENCE }}
+          ESCALATED: ${{ steps.decision-log.outputs.ESCALATED }}
+        run: |
+          RUN_URL="${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}"
+          ORCH_TEXT="${ORCH_OUTPUT:-Orchestrator invocation failed or claude CLI not available.}"
+
+          ESCALATE_BANNER=""
+          if [ "$ESCALATED" = "true" ]; then
+            ESCALATE_BANNER=$'\n> **[ESCALATE] Human review required** — orchestrator raised an escalation flag. @zynax-io/maintainers please review.\n'
+          fi
+
+          {
+            printf '%s\n\n' "## Dev Advisory — Orchestrator Summary (Wave 1)"
+            printf '%s\n' "> **Advisory only.** Orchestrator output is a recommendation; humans decide all actions."
+            printf '%s\n' "> Run: [${RUN_ID}](${RUN_URL}) · Decision-log artifact: \`${LOG_ID}\`"
+            printf '%s\n\n' "> Individual expert outputs are available in each job's step summary."
+            if [ -n "$ESCALATE_BANNER" ]; then
+              printf '%s\n\n' "$ESCALATE_BANNER"
+            fi
+            printf '%s\n\n' "---"
+            printf '**Overall confidence:** %s  \n' "$CONFIDENCE"
+            printf '**Verdict:** %s\n\n' "$VERDICT"
+            printf '%s\n\n' "---"
+            printf '%s\n\n' "### Orchestrator Analysis"
+            printf '%s\n\n' "$ORCH_TEXT"
+            printf '%s\n' "---"
+            printf '%s\n' "*Generated by dev-advisory.yml (DevAuto.5 / issue #878)*"
+          } > /tmp/orch-comment.md
+
+          gh pr comment "${PR_NUM}" \
+            --repo "$REPO" \
+            --body-file /tmp/orch-comment.md
