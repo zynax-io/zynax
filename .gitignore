@@ -49,3 +49,6 @@ pr-body.md
 
 # Generated proto stubs ARE committed — do not add protos/generated/ here
 docs/spdd/**/canvas.private.md
+
+# DevAuto orchestrator decision logs — CI artifact, never committed
+.automation/decision-logs/

@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/orchestrator/config.yaml
+#
+# Orchestrator runtime configuration — fan-out protocol, aggregation weights,
+# conflict-resolution rules, escalation thresholds, and human-in-the-loop policy.
+#
+# Plane: near-term
+# Issue: #876 (M6.DevAuto — DevAuto.3)
+# Depends-on: automation/experts/*.yaml (DevAuto.2 — #875 CLOSED)
+
+version: "1.0"
+plane: near-term
+experts_dir: ../experts/
+
+# ---------------------------------------------------------------------------
+# Fan-out protocol
+# All 9 domain experts are invoked in parallel. The orchestrator collects
+# structured outputs and then applies the aggregation strategy below.
+# Each expert runs in its own bounded context (see context_slice.max_tokens
+# in each expert YAML). Expert slots must not share context; they receive
+# only their declared context_slice files.
+# ---------------------------------------------------------------------------
+fan_out:
+  mode: parallel          # invoke all experts simultaneously
+  timeout_seconds: 300    # per-expert timeout; orchestrator continues with partial outputs
+  experts:
+    # Expert name maps directly to automation/experts/<name>.yaml
+    # max_tokens mirrors each expert's context_slice.max_tokens
+    - name: api-contract
+      max_tokens: 4000
+    - name: arch-adr
+      max_tokens: 4000
+    - name: ci-release
+      max_tokens: 3000
+    - name: docs-agents
+      max_tokens: 2000
+    - name: persistence-state
+      max_tokens: 3000
+    - name: planning-task-split
+      max_tokens: 3000
+    - name: qa-bdd
+      max_tokens: 3000
+    - name: security-supply-chain
+      max_tokens: 3000
+    - name: orchestrator         # self-referential read; computes final verdict
+      max_tokens: 8000
+
+  context_budget:
+    # Each expert's context window is hard-capped at its declared max_tokens.
+    # Expert contexts do NOT overlap — each expert sees only its context_slice files.
+    # The orchestrator expert receives all other expert outputs (not raw code files)
+    # as its context, up to its own max_tokens cap of 8000.
+    isolation: strict
+    overflow_policy: truncate_oldest_files  # if context_slice files exceed budget, drop older ones
+
+# ---------------------------------------------------------------------------
+# Aggregation strategy
+# After all expert outputs are collected the orchestrator computes a weighted
+# consensus verdict. Expert type multipliers are defined per expert's
+# aggregation_weight field in their YAML (range 0.1–5.0).
+# ---------------------------------------------------------------------------
+aggregation:
+  strategy: weighted_consensus
+
+  # Formula: vote_weight = aggregation_weight * confidence_score
+  # Where confidence_score: low=1, medium=2, high=3
+  # An action must accumulate aggregate_weight_minimum across supporting
+  # experts before it is included in the final verdict.
+  aggregate_weight_minimum: 3.0
+
+  conflict_resolution: highest_confidence_wins
+  # Rule: when two experts recommend contradictory actions, the expert with
+  # the higher weighted vote wins — UNLESS the escalation thresholds below
+  # are triggered, in which case the run escalates to human.
+
+  escalation_threshold:
+    # Escalate to human when ANY of these conditions are met:
+    conflicting_high_confidence: 2   # ≥2 high-conf experts disagree on the same action → escalate
+    any_critical_flag: true          # any tier-2 security flag in any expert's flags[] → escalate
+    top_action_confidence: low       # aggregate confidence for the top recommended action is low
+    # These mirror the escalation_threshold block in automation/experts/orchestrator.yaml
+
+# ---------------------------------------------------------------------------
+# Decision log
+# A JSON decision-log artifact is written for every orchestrator run.
+# Schema is defined in decision-log-schema.yaml (same directory).
+# The output_path is gitignored; CI uploads it as a GH Actions artifact.
+# ---------------------------------------------------------------------------
+decision_log:
+  schema: decision-log-schema.yaml
+  output_path: .automation/decision-logs/      # gitignored; CI artifact
+  artifact_name: "dev-auto-decision-log-{run_id}.json"
+  retention_days: 90
+
+# ---------------------------------------------------------------------------
+# Human-in-the-loop policy
+# auto_allowed actions may be executed automatically in Wave 2+.
+# never_auto actions MUST NOT be executed without explicit human approval.
+# ---------------------------------------------------------------------------
+human_in_the_loop:
+  auto_allowed:
+    - auto-label
+    - auto-assign
+    - draft-issue
+    - post-pr-comment
+
+  never_auto:
+    - merge
+    - push
+    - bump-dependency
+    - close-issue
+    - delete-branch
+    - force-push
