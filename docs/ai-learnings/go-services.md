@@ -114,3 +114,35 @@ vec := pgvector.NewVector([]float32{1, 0, 0})
 
 ### Proposed expert prompt update
 Add to commit/merge section: "Never use `gh api .../update-branch` to update a BEHIND branch — it creates an unsigned merge commit that fails DCO. Use: `git reset --hard origin/main && git cherry-pick <impl-commit-sha> && git push --force-with-lease`."
+
+---
+
+## Session — 2026-06-08 (issue #817)
+
+### Effective patterns
+
+- `git pull --rebase origin main` + `git push --force-with-lease` before `gh pr merge --squash --auto` is the right rebase flow when a PR falls behind main.
+- Always stage with explicit file paths (`git add services/memory-service/...`) not `git add .` — in a shared workspace, other agents' uncommitted changes appear in `git status`.
+
+### Edge cases discovered
+
+- **gosec G115 false positive on `int32(len(slice))`:** golangci-lint with gosec flags this as potential integer overflow. Suppress with `//nolint:gosec // count is bounded by proto message size limits`.
+- **Proto field names differ from .proto source:** Read the generated `.pb.go` getter functions directly — `StoreVectorRequest` has no `id` field (service must generate UUID); `QueryVectorRequest` uses `Embedding` not `Vector`; `ListKeysRequest` uses `Prefix` not `Pattern`; `MSetRequest` uses `Entries []*MSetEntry` with per-entry TTL.
+- **`git stash pop` after branch switch fails on untracked files:** "untracked files would be overwritten" — fix with `git checkout <target-branch> -- <file>` before the pop.
+
+### Proposed expert prompt update
+
+Always read the generated `.pb.go` file to get exact field names before writing handler code — proto source and generated structs often differ. Stage with explicit file paths in shared workspaces to avoid pulling in other agents' changes.
+
+---
+
+## Session — 2026-06-08 (issue #825)
+
+### Edge cases discovered (orchestrator-level)
+
+- **GitHub `update-branch` API creates unsigned merge commits that fail DCO.** Never use the GitHub API's 'Update branch' button — it creates an unsigned merge commit with no `Signed-off-by`. Always rebase: `git pull --rebase origin main && git push --force-with-lease`.
+- **Rebase after fast-forward through a merge commit replays sibling changes.** If a branch was updated via GitHub's unsigned merge commit, pulling fast-forwards to it; then `git rebase origin/main` replays ALL the merge's contents including unrelated sibling changes already in main. Fix: check `git log origin/main..origin/<branch>` — if sibling commits appear, `git reset --hard origin/main && git cherry-pick <only-your-commit>`.
+
+### Proposed expert prompt update
+
+If a branch falls behind main during CI wait, never use GitHub's 'Update branch' button or API — it creates an unsigned merge commit that fails DCO. Always rebase: `git pull --rebase origin main && git push --force-with-lease`. After any force-push, verify `git log origin/main..origin/<branch>` shows only your commits; if sibling changes appear, reset and cherry-pick.
