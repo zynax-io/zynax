@@ -13,7 +13,12 @@
 #   :main-<sha>  (immutable per-commit tag)
 #   :v*.*.*      (on version tag pushes)
 #
-# Digest for ci-runner is recorded in config/ci-runner-digest.txt after each build.
+# Build strategy (#839):
+#   Job A (ubuntu-24.04):      build tools:amd64   + ci-runner:amd64   (by-digest, no tag)
+#   Job B (ubuntu-24.04-arm):  build tools:arm64   + ci-runner:arm64   (by-digest, no tag)
+#   Job C (ubuntu-24.04):      imagetools merge → cosign sign → SBOM → prune
+#
+# No docker/setup-qemu-action — each platform compiles natively for < 15 min wall-clock.
 
 name: tools-image
 
@@ -41,10 +46,16 @@ env:
   SYFT_VERSION: "1.44.0"
   GHCR_KEEP_VERSIONS: "5"
 
+# ---------------------------------------------------------------------------
+# Job A — amd64 platform builds (ubuntu-24.04)
+# ---------------------------------------------------------------------------
 jobs:
-  build-push:
-    name: Build and push tools image
+  build-amd64:
+    name: Build amd64 (tools + ci-runner)
     runs-on: ubuntu-24.04
+    outputs:
+      tools-digest-amd64:     ${{ steps.build-tools-amd64.outputs.digest }}
+      ci-runner-digest-amd64: ${{ steps.build-ci-runner-amd64.outputs.digest }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -55,61 +66,174 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          labels: |
-            org.opencontainers.image.title=Zynax Developer Tools
-            org.opencontainers.image.description=Developer tools image for Zynax local make commands. Pre-baked with protoc, buf, golangci-lint, govulncheck, mockery, gitleaks, and zynax-ci.
-
-      - name: Compute image tags
-        id: tags
-        run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-          SHA_TAG="${IMAGE}:main-${{ github.sha }}"
-
-          if echo "${{ github.ref }}" | grep -q '^refs/tags/v'; then
-            VERSION_TAG="${IMAGE}:${{ github.ref_name }}"
-            echo "tags=${IMAGE}:latest,${VERSION_TAG},${SHA_TAG}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tags=${IMAGE}:latest,${SHA_TAG}" >> "$GITHUB_OUTPUT"
-          fi
-
-      # provenance=true (default) attaches SLSA Build L1 attestation manifests.
-      # These appear as "unknown/unknown" rows in GHCR — expected, not broken.
-      # Each image gets two attestation entries: one for linux/amd64, one for linux/arm64.
-      # Manifest size ~565 bytes. See ADR-025: docs/adr/ADR-025-slsa-provenance-attestation.md
-      - name: Build and push
-        id: build-tools
+      - name: Build and push tools:amd64
+        id: build-tools-amd64
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           file: infra/docker/Dockerfile.tools
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
-          tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha,scope=tools
-          cache-to: type=gha,mode=max,scope=tools
-          labels: ${{ steps.meta.outputs.labels }}
-          annotations: ${{ steps.meta.outputs.annotations }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-${{ github.sha }}
+          cache-from: type=gha,scope=tools-amd64
+          cache-to: type=gha,mode=max,scope=tools-amd64
+          provenance: false
 
+      - name: Build and push ci-runner:amd64
+        id: build-ci-runner-amd64
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: infra/docker/Dockerfile.ci-runner
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}:amd64-${{ github.sha }}
+          cache-from: type=gha,scope=ci-runner-amd64
+          cache-to: type=gha,mode=max,scope=ci-runner-amd64
+          provenance: false
+
+# ---------------------------------------------------------------------------
+# Job B — arm64 platform builds (ubuntu-24.04-arm — native, no QEMU)
+# ---------------------------------------------------------------------------
+  build-arm64:
+    name: Build arm64 (tools + ci-runner)
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      tools-digest-arm64:     ${{ steps.build-tools-arm64.outputs.digest }}
+      ci-runner-digest-arm64: ${{ steps.build-ci-runner-arm64.outputs.digest }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Build and push tools:arm64
+        id: build-tools-arm64
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: infra/docker/Dockerfile.tools
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${{ github.sha }}
+          cache-from: type=gha,scope=tools-arm64
+          cache-to: type=gha,mode=max,scope=tools-arm64
+          provenance: false
+
+      - name: Build and push ci-runner:arm64
+        id: build-ci-runner-arm64
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: infra/docker/Dockerfile.ci-runner
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}:arm64-${{ github.sha }}
+          cache-from: type=gha,scope=ci-runner-arm64
+          cache-to: type=gha,mode=max,scope=ci-runner-arm64
+          provenance: false
+
+# ---------------------------------------------------------------------------
+# Job C — merge manifests, sign, SBOM, prune
+# ---------------------------------------------------------------------------
+  merge-sign-sbom:
+    name: Merge manifests, sign, SBOM, prune
+    runs-on: ubuntu-24.04
+    needs: [build-amd64, build-arm64]
+    outputs:
+      tools-digest:     ${{ steps.create-tools-manifest.outputs.digest }}
+      ci-runner-digest: ${{ steps.create-ci-runner-manifest.outputs.digest }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      # --- Merge manifests via imagetools (no re-build) ---
+      - name: Create tools multi-arch manifest
+        id: create-tools-manifest
+        run: |
+          TOOLS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          AMD64="${TOOLS}@${{ needs.build-amd64.outputs.tools-digest-amd64 }}"
+          ARM64="${TOOLS}@${{ needs.build-arm64.outputs.tools-digest-arm64 }}"
+
+          # Build final tag list
+          FINAL_TAGS=""
+          FINAL_TAGS="${TOOLS}:main-${{ github.sha }}"
+          if echo "${{ github.ref }}" | grep -q '^refs/tags/v'; then
+            FINAL_TAGS="${FINAL_TAGS} ${TOOLS}:${{ github.ref_name }}"
+          fi
+          FINAL_TAGS="${FINAL_TAGS} ${TOOLS}:latest"
+
+          # Create manifest for each tag
+          for TAG in $FINAL_TAGS; do
+            docker buildx imagetools create -t "$TAG" "$AMD64" "$ARM64"
+          done
+
+          # Capture final digest
+          DIGEST=$(docker buildx imagetools inspect "${TOOLS}:latest" --format '{{json .Manifest}}' | jq -r '.digest')
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      # --- Merge ci-runner manifest ---
+      - name: Create ci-runner multi-arch manifest
+        id: create-ci-runner-manifest
+        run: |
+          RUNNER="${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}"
+          AMD64="${RUNNER}@${{ needs.build-amd64.outputs.ci-runner-digest-amd64 }}"
+          ARM64="${RUNNER}@${{ needs.build-arm64.outputs.ci-runner-digest-arm64 }}"
+
+          FINAL_TAGS="${RUNNER}:main-${{ github.sha }}"
+          if echo "${{ github.ref }}" | grep -q '^refs/tags/v'; then
+            FINAL_TAGS="${FINAL_TAGS} ${RUNNER}:${{ github.ref_name }}"
+          fi
+          FINAL_TAGS="${FINAL_TAGS} ${RUNNER}:latest"
+
+          for TAG in $FINAL_TAGS; do
+            docker buildx imagetools create -t "$TAG" "$AMD64" "$ARM64"
+          done
+
+          DIGEST=$(docker buildx imagetools inspect "${RUNNER}:latest" --format '{{json .Manifest}}' | jq -r '.digest')
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      # --- Report image metadata ---
       - name: Report tools image size
         uses: ./.github/actions/report-image-meta
         with:
           image-name: ${{ env.IMAGE_NAME }}
           image-label: tools
-          digest: ${{ steps.build-tools.outputs.digest }}
+          digest: ${{ steps.create-tools-manifest.outputs.digest }}
           token: ${{ secrets.GITHUB_TOKEN }}
           image-type: tooling
 
+      - name: Report ci-runner digest and sizes
+        uses: ./.github/actions/report-image-meta
+        with:
+          image-name: ${{ env.CI_RUNNER_IMAGE }}
+          image-label: ci-runner
+          digest: ${{ steps.create-ci-runner-manifest.outputs.digest }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-type: tooling
+          extra-summary: >
+            Update `images/images.yaml` ci-runner digest and run `make sync-images`.
+
+      # --- cosign sign (tag builds + workflow_dispatch) ---
       - name: Install cosign
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
@@ -118,8 +242,15 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
           cosign sign --yes \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-tools.outputs.digest }}"
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.create-tools-manifest.outputs.digest }}"
 
+      - name: Sign ci-runner image
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        run: |
+          cosign sign --yes \
+            "${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}@${{ steps.create-ci-runner-manifest.outputs.digest }}"
+
+      # --- Syft SBOM ---
       - name: Install syft ${{ env.SYFT_VERSION }}
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
@@ -129,13 +260,21 @@ jobs:
           tar -xzf /tmp/syft.tar.gz -C /usr/local/bin syft
           rm /tmp/syft.tar.gz
 
-      - name: Generate SBOM (SPDX)
+      - name: Generate tools SBOM (SPDX)
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
           syft \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-tools.outputs.digest }}" \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.create-tools-manifest.outputs.digest }}" \
             -o spdx-json \
             --file tools-sbom.spdx.json
+
+      - name: Generate ci-runner SBOM (SPDX)
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        run: |
+          syft \
+            "${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}@${{ steps.create-ci-runner-manifest.outputs.digest }}" \
+            -o spdx-json \
+            --file ci-runner-sbom.spdx.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
@@ -144,6 +283,29 @@ jobs:
           path: tools-sbom.spdx.json
           retention-days: 7
 
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        with:
+          name: sbom-ci-runner
+          path: ci-runner-sbom.spdx.json
+          retention-days: 7
+
+      # --- Open ci-runner bump issue ---
+      - name: Open ci-runner bump issue
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIGEST: ${{ steps.create-ci-runner-manifest.outputs.digest }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          SHORT="${DIGEST:7:16}"
+          gh issue create \
+            --title "chore(ci): bump ci-runner digest to ${SHORT}" \
+            --label "type: chore,area: ci" \
+            --body "$(printf '## ci-runner digest bump\n\n**New digest:** `%s`\n**Built by:** %s\n\n## Steps\n\n```bash\n# 1. Edit images/images.yaml — update ci-runner digest\n# 2. make sync-images\n# 3. Verify: make check-images\n# 4. Open PR, CI green, squash-merge, delete branch\n```\n\n## Checklist\n\n- [ ] `images/images.yaml` updated with new digest `%s`\n- [ ] `make sync-images` ran (all consumers stamped)\n- [ ] `make check-images` exits 0\n- [ ] PR merged (squash), branch deleted\n' \
+              "$DIGEST" "$RUN_URL" "$DIGEST")"
+
+      # --- Prune old builds ---
       - name: Prune old tools builds
         if: github.event_name == 'push'
         env:
@@ -160,92 +322,6 @@ jobs:
           echo "$IDS" | while read -r ID; do
             gh api -X DELETE "/orgs/zynax-io/packages/container/${PKG}/versions/${ID}" && echo "Deleted version ${ID}"
           done
-
-  build-push-ci-runner:
-    name: Build and push ci-runner image
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Log in to GHCR
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=main-,format=long
-            type=semver,pattern={{version}}
-          labels: |
-            org.opencontainers.image.title=Zynax CI Runner
-            org.opencontainers.image.description=Purpose-built GitHub Actions container for Zynax CI. Pre-baked with golangci-lint, govulncheck, godog, mockery, actionlint, gitleaks, buf, zynax-ci, uv, ruff, mypy, bandit, pip-audit, and pytest — zero runtime downloads.
-
-      # provenance=true (default) attaches SLSA Build L1 attestation manifests.
-      # These appear as "unknown/unknown" rows in GHCR — expected, not broken.
-      # Each image gets two attestation entries: one for linux/amd64, one for linux/arm64.
-      # Manifest size ~565 bytes. See ADR-025: docs/adr/ADR-025-slsa-provenance-attestation.md
-      - name: Build and push ci-runner
-        id: build-ci-runner
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
-        with:
-          context: .
-          file: infra/docker/Dockerfile.ci-runner
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha,scope=ci-runner
-          cache-to: type=gha,mode=max,scope=ci-runner
-          labels: ${{ steps.meta.outputs.labels }}
-          annotations: ${{ steps.meta.outputs.annotations }}
-
-      - name: Report ci-runner digest and sizes
-        uses: ./.github/actions/report-image-meta
-        with:
-          image-name: ${{ env.CI_RUNNER_IMAGE }}
-          image-label: ci-runner
-          digest: ${{ steps.build-ci-runner.outputs.digest }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          image-type: tooling
-          extra-summary: >
-            Update `config/ci-runner-digest.txt` and all `ci.yml / pr-checks.yml / _test-*.yml`
-            references to `${{ steps.build-ci-runner.outputs.digest }}`
-
-      - name: Open ci-runner bump issue
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DIGEST: ${{ steps.build-ci-runner.outputs.digest }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          SHORT="${DIGEST:7:16}"
-          gh issue create \
-            --title "chore(ci): bump ci-runner digest to ${SHORT}" \
-            --label "type: chore,area: ci" \
-            --body "$(printf '## ci-runner digest bump\n\n**New digest:** `%s`\n**Built by:** %s\n\n## Steps\n\n```bash\n# 1. Edit images/images.yaml — update ci-runner digest\n# 2. make sync-images\n# 3. Verify: make check-images\n# 4. Open PR, CI green, squash-merge, delete branch\n```\n\n## Checklist\n\n- [ ] `images/images.yaml` updated with new digest `%s`\n- [ ] `make sync-images` ran (all consumers stamped)\n- [ ] `make check-images` exits 0\n- [ ] PR merged (squash), branch deleted\n' \
-              "$DIGEST" "$RUN_URL" "$DIGEST")"
-
-      - name: Install cosign
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
-
-      - name: Sign ci-runner image
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-        run: |
-          cosign sign --yes \
-            "${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}@${{ steps.build-ci-runner.outputs.digest }}"
 
       - name: Prune old ci-runner builds
         if: github.event_name == 'push'
