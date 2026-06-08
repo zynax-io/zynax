@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/experts/qa-bdd.yaml
+#
+# QA/BDD expert — reviews Gherkin feature files, BDD test coverage at gRPC
+# boundaries, and coverage reports.  Enforces ADR-016: .feature file committed
+# before any implementation for new gRPC boundaries.
+#
+# Plane: near-term
+# Issue: #875 (M6.DevAuto — DevAuto.2)
+
+name: qa-bdd
+version: "1.0"
+plane: near-term
+
+context_slice:
+  files:
+    - "protos/tests/**/*.feature"
+    - "protos/tests/**/*_test.go"
+    - "docs/adr/ADR-016-*.md"
+    - "coverage/**/*.out"
+    - "coverage/**/*.xml"
+  max_tokens: 3000
+
+input_contract:
+  required:
+    - trigger
+    - diff_summary
+    - changed_files
+    - context_slice
+  optional:
+    - pr_number
+    - pr_title
+    - coverage_report       # coverage summary (post_merge trigger)
+
+output_contract:
+  summary: string
+  recommended_actions: "array<{action: string, rationale: string, priority: low|medium|high}>"
+  reasons_decisions: "array<string>"
+  confidence: "low|medium|high"
+  flags: "array<string>"
+  extra_fields:
+    bdd_coverage_gaps: "array<string>"    # gRPC methods lacking a .feature scenario
+    feature_file_missing: boolean         # true if new boundary has no .feature file (ADR-016)
+    domain_coverage_below_threshold: boolean  # true if domain/ coverage drops below 90%
+    flaky_tests_detected: "array<string>" # test names that appear to be non-deterministic
+    new_scenarios_added: integer          # count of new Gherkin scenarios in this diff
+
+aggregation_weight: 1.0

@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/experts/planning-task-split.yaml
+#
+# Planning/task-split expert — reviews changes against the active milestone
+# plan, checks issue scope conformance (one PR per issue, one commit per
+# logical change), and detects scope creep or missing prerequisite issues.
+#
+# Plane: near-term
+# Issue: #875 (M6.DevAuto — DevAuto.2)
+
+name: planning-task-split
+version: "1.0"
+plane: near-term
+
+context_slice:
+  files:
+    - "state/current-milestone.md"
+    - "docs/milestones/M6-planning.md"
+    - "docs/milestones/M5-plan.md"
+  max_tokens: 3000
+
+input_contract:
+  required:
+    - trigger
+    - diff_summary
+    - changed_files
+    - context_slice
+  optional:
+    - pr_number
+    - pr_title
+    - pr_labels
+    - open_issues           # list of last 50 open issues (title + number + labels)
+    - pr_linked_issues      # list of issue numbers referenced in PR body
+
+output_contract:
+  summary: string
+  recommended_actions: "array<{action: string, rationale: string, priority: low|medium|high}>"
+  reasons_decisions: "array<string>"
+  confidence: "low|medium|high"
+  flags: "array<string>"
+  extra_fields:
+    scope_creep_detected: boolean         # true if PR touches files outside stated issue scope
+    missing_prerequisite_issues: "array<string>"  # issues that should be open/closed first
+    pr_size_lines: integer                # total changed lines (excluding generated files)
+    pr_size_status: string                # ok | warn (201-400) | justify (401-900) | blocked (>900)
+    multiple_logical_changes: boolean     # true if commits appear to bundle unrelated work
+    milestone_alignment: string           # on-track | at-risk | out-of-scope
+
+aggregation_weight: 1.0

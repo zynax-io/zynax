@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/experts/orchestrator.yaml
+#
+# Orchestrator expert — fans out to all 9 domain experts and aggregates their
+# structured outputs into a single verdict.  This is the only expert that sees
+# all other expert outputs; domain experts never see each other's outputs.
+#
+# Plane: near-term
+# Issue: #875 (M6.DevAuto — DevAuto.2)
+
+name: orchestrator
+version: "1.0"
+plane: near-term
+
+context_slice:
+  files:
+    - "state/current-milestone.md"
+    - "automation/experts/*.yaml"
+    - "automation/orchestrator/config.yaml"
+    - "automation/orchestrator/decision-log-schema.yaml"
+  max_tokens: 8000
+
+input_contract:
+  required:
+    - trigger               # pull_request | push | post_merge
+    - pr_number             # integer; required when trigger == pull_request
+    - diff_summary          # git diff --stat output (string)
+    - changed_files         # list of changed file paths
+    - expert_outputs        # map<expert_name, ExpertOutput> — collected from fan-out
+  optional:
+    - base_sha              # base commit SHA for diff range
+    - head_sha              # head commit SHA for diff range
+    - pr_title              # PR title string (pull_request trigger only)
+    - pr_labels             # list of current PR labels
+    - wave                  # 0 | 1 | 2 | 3 — orchestrator behaviour varies by wave
+
+output_contract:
+  summary: string
+  recommended_actions: "array<{action: string, rationale: string, priority: low|medium|high}>"
+  reasons_decisions: "array<string>"
+  confidence: "low|medium|high"
+  flags: "array<string>"
+  extra_fields:
+    verdict: string                   # aggregated decision: pass | needs_review | escalate
+    escalation_required: boolean      # true if any expert raised a flag or contradiction found
+    expert_votes: object              # map<action, {weight: float, supporting_experts: [string]}>
+    decision_log_artifact: string     # path to the JSON decision-log artifact produced this run
+    auto_actions_taken: "array<string>"  # actions executed automatically (Wave 2+)
+
+aggregation_weight: 1.0
+
+aggregation_protocol:
+  weighting_scheme:
+    # Expert-type multiplier applied to confidence score before summing votes.
+    # Formula: vote_weight = base_weight * type_multiplier * confidence_score
+    # Where confidence_score: low=1, medium=2, high=3
+    type_multipliers:
+      security-supply-chain: 1.5
+      arch-adr: 1.5
+      api-contract: 1.5
+      qa-bdd: 1.0
+      ci-release: 1.0
+      persistence-state: 1.0
+      docs-agents: 1.0
+      planning-task-split: 1.0
+    base_weight: 1.0
+
+  confidence_multipliers:
+    high: 3
+    medium: 2
+    low: 1
+
+  escalation_threshold:
+    # Escalate to human when ANY of these conditions are met:
+    contradictory_high_confidence: 2   # ≥2 high-confidence experts recommend contradictory actions
+    any_flag_raised: true              # any expert's flags array is non-empty
+    top_action_confidence: low         # aggregate confidence for top-recommended action is low
+    aggregate_weight_minimum: 3.0      # action must reach this weight to be included in verdict
+
+  auto_allowed_actions:
+    # Wave 2 only — orchestrator may execute these without human approval
+    - auto-label-pr
+    - auto-assign-reviewer
+    - draft-issue
+    - request-changes     # security expert only; logged in decision-log
+
+  prohibited_auto_actions:
+    # Never executed automatically at any wave
+    - merge
+    - push
+    - bump-dependency
+    - close-issue
+    - delete-branch
+    - force-push
+
+  decision_log:
+    format: json
+    schema_ref: "automation/orchestrator/decision-log-schema.yaml"
+    storage: ci-artifact         # stored as GitHub Actions artifact per run
+    artifact_name: "dev-auto-decision-log-{run_id}.json"
+    retention_days: 90

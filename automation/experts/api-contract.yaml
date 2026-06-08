@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/experts/api-contract.yaml
+#
+# API/contract expert — reviews proto changes for backward-compatibility
+# (buf breaking), AsyncAPI event schema correctness, capability registration
+# conformance, and contract-before-implementation rule (ADR-016).
+#
+# Plane: near-term
+# Issue: #875 (M6.DevAuto — DevAuto.2)
+
+name: api-contract
+version: "1.0"
+plane: near-term
+
+context_slice:
+  files:
+    - "protos/zynax/v1/**/*.proto"
+    - "protos/buf.yaml"
+    - "protos/buf.gen.yaml"
+    - "spec/schemas/**/*.json"
+    - "spec/asyncapi/zynax-events.yaml"
+    - "spec/workflows/capability-registrations/**/*.yaml"
+    - "protos/AGENTS.md"
+  max_tokens: 4000
+
+input_contract:
+  required:
+    - trigger
+    - diff_summary
+    - changed_files
+    - context_slice
+  optional:
+    - pr_number
+    - pr_title
+
+output_contract:
+  summary: string
+  recommended_actions: "array<{action: string, rationale: string, priority: low|medium|high}>"
+  reasons_decisions: "array<string>"
+  confidence: "low|medium|high"
+  flags: "array<string>"
+  extra_fields:
+    breaking_changes: "array<string>"     # field removals, renames, type changes
+    missing_bdd_contract: boolean         # true if new gRPC boundary lacks .feature file (ADR-016)
+    asyncapi_schema_errors: "array<string>"
+    capability_registration_issues: "array<string>"
+    proto_naming_violations: "array<string>"
+
+aggregation_weight: 1.5

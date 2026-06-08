@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/experts/ci-release.yaml
+#
+# CI/release expert — reviews workflow changes, image build/push pipelines,
+# images.yaml SoT drift, SBOM/cosign release steps, and post-merge triggers.
+# Explicitly covers post-merge completeness: image tests, drift check, and
+# security rescan triggers (Wave 3).
+#
+# Plane: near-term
+# Issue: #875 (M6.DevAuto — DevAuto.2)
+
+name: ci-release
+version: "1.0"
+plane: near-term
+
+context_slice:
+  files:
+    - ".github/workflows/*.yml"
+    - "images/images.yaml"
+    - "Makefile"
+    - "tools/Dockerfile"
+    - "services/*/Dockerfile"
+    - "release/**/*"
+  max_tokens: 3000
+
+input_contract:
+  required:
+    - trigger
+    - diff_summary
+    - changed_files
+    - context_slice
+  optional:
+    - pr_number
+    - pr_title
+    - workflow_run_conclusion   # success | failure | cancelled (post_merge trigger)
+    - workflow_run_name         # name of the completed workflow (post_merge trigger)
+    - image_build_logs          # truncated logs from service-release.yml run
+    - drift_check_result        # output from images.yaml drift check (post_merge trigger)
+
+output_contract:
+  summary: string
+  recommended_actions: "array<{action: string, rationale: string, priority: low|medium|high}>"
+  reasons_decisions: "array<string>"
+  confidence: "low|medium|high"
+  flags: "array<string>"
+  extra_fields:
+    # Post-merge completeness fields (Wave 3 triggers)
+    post_merge_triggers:
+      image_test_required: boolean          # true when service-release.yml completes
+      drift_check_required: boolean         # true on every main push (requires M6.Images O1)
+      security_rescan_required: boolean     # true on services/ or dependency merge
+    # Pipeline health fields
+    broken_workflow_steps: "array<string>"  # workflow steps that are malformed or missing
+    images_yaml_drift: "array<string>"      # images not pinned to digest in images.yaml
+    missing_cosign_sign_step: boolean       # true if a release workflow lacks cosign signing
+    missing_sbom_step: boolean              # true if a release workflow lacks SBOM generation
+    pr_size_gate_status: string             # pass | fail | not_run
+    release_pipeline_complete: boolean      # true if all O1–O7 of M6.Images SoT are present
+
+aggregation_weight: 1.0
