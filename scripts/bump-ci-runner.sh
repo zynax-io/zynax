@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 #
+# DEPRECATED: This script is superseded by the images.yaml-based bump flow.
+# Use the new flow instead:
+#   1. Edit images/images.yaml — update the ci-runner digest field
+#   2. make sync-images        — stamp all consumer files from images.yaml
+#   3. make check-images       — verify all consumers match images.yaml
+#   4. Open PR, CI green, squash-merge, delete branch
+#
+# This script is kept for backward compatibility and will be removed in M7.
+#
 # bump-ci-runner.sh — update every ci-runner digest reference in the repo.
 #
 # Usage:

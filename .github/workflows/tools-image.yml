@@ -240,8 +240,8 @@ jobs:
           gh issue create \
             --title "chore(ci): bump ci-runner digest to ${SHORT}" \
             --label "type: chore,area: ci" \
-            --body "$(printf '## ci-runner digest bump\n\n**New digest:** `%s`\n**Built by:** %s\n\n## Steps\n\n```bash\nmake bump-ci-runner NEW_DIGEST=%s\nscripts/bump-ci-runner.sh --check %s\n```\n\nThen open a PR: branch off `main`, commit, push, CI green, `gh pr merge --rebase`, delete branch.\n\n## Checklist\n\n- [ ] `make bump-ci-runner NEW_DIGEST=%s` ran\n- [ ] `--check` exits 0\n- [ ] PR merged (rebase), branch deleted\n' \
-              "$DIGEST" "$RUN_URL" "$DIGEST" "$DIGEST" "$DIGEST")"
+            --body "$(printf '## ci-runner digest bump\n\n**New digest:** `%s`\n**Built by:** %s\n\n## Steps\n\n```bash\n# 1. Edit images/images.yaml — update ci-runner digest\n# 2. make sync-images\n# 3. Verify: make check-images\n# 4. Open PR, CI green, squash-merge, delete branch\n```\n\n## Checklist\n\n- [ ] `images/images.yaml` updated with new digest `%s`\n- [ ] `make sync-images` ran (all consumers stamped)\n- [ ] `make check-images` exits 0\n- [ ] PR merged (squash), branch deleted\n' \
+              "$DIGEST" "$RUN_URL" "$DIGEST")"
 
       - name: Install cosign
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
