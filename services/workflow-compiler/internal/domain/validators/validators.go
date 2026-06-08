@@ -40,5 +40,6 @@ func All() []Validator {
 		EventNameValidator{},
 		NamespaceValidator{},
 		TransitionSetValidator{},
+		CrossNamespaceCapabilityValidator{},
 	}
 }
