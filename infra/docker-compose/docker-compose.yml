@@ -17,7 +17,7 @@
 #   agent-registry :50052, task-broker :50053
 #
 # Not included (M6+):
-#   memory-service, event-bus
+#   memory-service
 
 services:
 
@@ -202,6 +202,27 @@ services:
       retries: 10
       start_period: 15s
 
+  event-bus:
+    image: ghcr.io/zynax-io/zynax/event-bus:main
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SVC: event-bus
+    environment:
+      ZYNAX_EVENTBUS_GRPC_PORT: "50056"
+      ZYNAX_EVENTBUS_LOG_LEVEL: info
+      ZYNAX_EVENTBUS_NATS_URL: "nats://nats:4222"
+    depends_on:
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/healthcheck", "tcp://localhost:50056"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
   engine-adapter:
     image: ghcr.io/zynax-io/zynax/engine-adapter:main
     build:
@@ -217,11 +238,14 @@ services:
       ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE: default
       ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE: engine-adapter
       ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR: "task-broker:50053"
+      ZYNAX_ENGINE_ADAPTER_EVENTBUS_ADDR: "event-bus:50056"
       ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE: temporal
     depends_on:
       temporal:
         condition: service_healthy
       task-broker:
+        condition: service_healthy
+      event-bus:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "/healthcheck", "http://localhost:9095/readyz"]
@@ -249,7 +273,28 @@ services:
     depends_on:
       workflow-compiler:
         condition: service_healthy
-      engine-adapter:
+      event-bus:
+    image: ghcr.io/zynax-io/zynax/event-bus:main
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SVC: event-bus
+    environment:
+      ZYNAX_EVENTBUS_GRPC_PORT: "50056"
+      ZYNAX_EVENTBUS_LOG_LEVEL: info
+      ZYNAX_EVENTBUS_NATS_URL: "nats://nats:4222"
+    depends_on:
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/healthcheck", "tcp://localhost:50056"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  engine-adapter:
         condition: service_healthy
       agent-registry:
         condition: service_healthy
