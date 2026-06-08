@@ -220,3 +220,39 @@ message WatchWorkflowRequest {
   // Required: empty string returns INVALID_ARGUMENT.
   string run_id = 1;
 }
+
+// ArgoConfig carries the connection and dispatch parameters for the Argo
+// Workflows execution engine. It is supplied as part of EngineConfig when
+// the caller selects the "argo" engine hint.
+//
+// Design: all connection details are abstract names (resolved at runtime via
+// environment variables or operator config) so that no real hostname or
+// credential ever appears in a WorkflowIR payload.
+message ArgoConfig {
+  // Abstract endpoint identifier for the Argo Workflows server.
+  // The adapter resolves this name to an actual URL at runtime.
+  // Example: "argo-default", "argo-prod". Never a raw http:// URL.
+  string argo_server_url = 1;
+
+  // Kubernetes namespace in which Argo Workflows resources are created.
+  // Defaults to the WorkflowIR namespace when empty.
+  string namespace = 2;
+
+  // Kubernetes service account used by Argo to execute workflow pods.
+  // Defaults to "default" when empty.
+  string service_account_name = 3;
+
+  // Name of the Argo WorkflowTemplate to use as the execution template.
+  // The adapter submits a Workflow referencing this template.
+  string workflow_template_ref = 4;
+}
+
+// EngineConfig carries engine-specific connection and dispatch parameters.
+// Exactly one option should be set; the adapter selects the corresponding
+// engine implementation.
+message EngineConfig {
+  oneof engine {
+    // Configuration for the Argo Workflows execution engine.
+    ArgoConfig argo = 1;
+  }
+}
