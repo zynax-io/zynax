@@ -45,6 +45,14 @@ COPY agents/adapters/llm/src/ /app/src/
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src:/protos"
 
+LABEL org.opencontainers.image.title="Zynax LLM Adapter" \
+      org.opencontainers.image.description="Zynax capability adapter for LLM inference. Supports multiple providers: OpenAI, Ollama, Amazon Bedrock." \
+      org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/agents/adapters/llm/Dockerfile" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Zynax"
+
 USER zynax
 
 CMD ["python", "-m", "llm_adapter"]

@@ -27,4 +27,11 @@ FROM gcr.io/distroless/static:nonroot@${DISTROLESS_DIGEST}
 COPY --from=builder /git-adapter /git-adapter
 COPY --from=builder /healthcheck /healthcheck
 COPY --from=builder /workspace/agents/adapters/git/agent-def.yaml.example /etc/git-adapter/config.yaml
+LABEL org.opencontainers.image.title="Zynax Git Adapter" \
+      org.opencontainers.image.description="Zynax capability adapter for Git repository operations. Provides GitClone and GitCommit gRPC capabilities." \
+      org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/agents/adapters/git/Dockerfile" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Zynax"
 ENTRYPOINT ["/git-adapter"]

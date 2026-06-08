@@ -322,6 +322,15 @@ jobs:
       # provenance=true (default) attaches SLSA Build L1 attestation manifests.
       # These appear as "unknown/unknown" rows in GHCR — expected, not broken.
       # See docs/adr/ADR-025-slsa-provenance-attestation.md for the keep decision.
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          labels: |
+            org.opencontainers.image.title=zynax-${{ matrix.service }}
+            org.opencontainers.image.description=Zynax ${{ matrix.service }} service image
+
       - name: Build and push
         id: build
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
@@ -332,11 +341,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.img.outputs.tags }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.created=${{ steps.img.outputs.created }}
-            org.opencontainers.image.version=${{ steps.ver.outputs.version }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
 
       - name: Report image sizes
         env:

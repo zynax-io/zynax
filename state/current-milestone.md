@@ -251,7 +251,7 @@ Delivery order (each is its own PR):
 | Story | Issue | Status |
 |-------|-------|--------|
 | docs(adr): ADR-025 — keep vs disable SLSA attestations | [#868](https://github.com/zynax-io/zynax/issues/868) | ✅ Done |
-| ci: OCI manifest annotations (fix "no description") | [#865](https://github.com/zynax-io/zynax/issues/865) | ⬜ Open — depends on #868 |
+| ci: OCI manifest annotations (fix "no description") | [#865](https://github.com/zynax-io/zynax/issues/865) | ✅ Done |
 | ci: description-present gate + size-budget check | [#866](https://github.com/zynax-io/zynax/issues/866) | ⬜ Open — depends on #865 |
 | chore(ci): GHCR retention cap (last 5 builds) | [#867](https://github.com/zynax-io/zynax/issues/867) | ⬜ Open |
 | docs: document unknown/unknown attestation manifests | [#869](https://github.com/zynax-io/zynax/issues/869) | ⬜ Open — depends on #868 |
