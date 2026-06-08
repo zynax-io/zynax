@@ -131,3 +131,67 @@ gh pr list --state merged --search "<N>" --json number,mergedAt | jq .
 ```
 
 If a merged PR references the issue: stop immediately, report the merge SHA and PR number.
+
+---
+
+## Session — 2026-06-08 (#838 native arm64 + #877 dev-advisory + #862 ADR-024)
+
+### Effective patterns
+
+- **Split-arch matrix + `merge-and-sign` is the correct native multi-arch pattern (no QEMU).**
+  Use `resolve-matrix` to output a `platform_matrix` (services × platforms), then
+  `build-platform` with `runs-on: ${{ matrix.platform == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}`,
+  then a `merge-and-sign` fan-in using `docker buildx imagetools create` to assemble the
+  multi-arch index. `provenance: false` on intermediate per-platform images avoids duplicate
+  attestations — apply only to the merged manifest index in `merge-and-sign`.
+  Seen in: #838 PR #968–#971. Date: 2026-06-08.
+
+- **`docker buildx imagetools inspect --format '{{json .Manifest.Digest}}'` captures the merged index digest for cosign.**
+  This is the reliable way to get the merged manifest digest after `imagetools create`.
+  Seen in: #838. Date: 2026-06-08.
+
+- **Temp-file approach for complex CI multi-line output (not shell heredocs).**
+  Write intermediate results to /tmp files using `printf '%s\n' "$var"` chains.
+  Heredocs inside `run:` blocks break YAML parsing (YAML treats `<<` as anchor reference).
+  Seen in: #877 PR #969. Date: 2026-06-08.
+
+- **Context slice via `grep -E` on `git diff --name-only`.**
+  To filter PR files by expert glob patterns (`context_slice.files`), convert `**` → `[^/]*`
+  and `*` → `.*` for extended regex. Clean and fast for advisory workflows.
+  Seen in: #877 PR #969. Date: 2026-06-08.
+
+- **Job-level `outputs:` declaration is required for cross-job result passing.**
+  Each expert job must declare `outputs: expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}`
+  and write `EXPERT_OUTPUT<<EXPERT_EOF` heredoc to `$GITHUB_OUTPUT`. Without the job-level
+  `outputs:` block, the collate job cannot consume the result.
+  Seen in: #877 PR #969. Date: 2026-06-08.
+
+### Edge cases discovered
+
+- **NEVER use the `update-branch` API (`gh api -X PUT .../pulls/N/update-branch`) in multi-agent environments.**
+  It creates an unsigned merge commit in GitHub's internal state that contaminates concurrent PRs
+  via the shared ref namespace — causes DCO failures and cross-PR squash-merge pollution.
+  Fix: `git fetch origin main && git rebase origin/main && git push --force-with-lease origin <branch>`.
+  If GitHub still shows `BEHIND`: use `gh pr merge --squash --auto` and wait for self-resolution.
+  Seen in: #838 (release.yml changes landed in ADR-024 PR #970). Date: 2026-06-08.
+
+- **`gh` CLI is NOT installed in the `ci-runner` container.**
+  Jobs needing `gh` (PR comments, API calls) must run on `ubuntu-24.04` (hosted runner),
+  not the `ci-runner` container. Use `continue-on-error: true` for advisory-only steps.
+  Seen in: #877 PR #969. Date: 2026-06-08.
+
+- **`printf 'string with -- dashes\n'` fails in dash shell inside containers.**
+  Bash interprets `--` as end-of-options and `printf` treats it as an invalid option flag.
+  Fix: store the string in a variable first — `DIVIDER='---'; printf '%s\n' "$DIVIDER"`.
+  Seen in: #877 PR #969. Date: 2026-06-08.
+
+- **`git rebase` silently skips commits already present in the rebase target.**
+  When two agents race and one's changes land in main before the other rebases, `git rebase`
+  outputs `warning: skipped already applied commit`. Always verify `git diff origin/main -- <file>`
+  after rebase to confirm the expected diff is present.
+  Seen in: #838. Date: 2026-06-08.
+
+- **`gh pr merge --squash` fails with "not mergeable: head branch not up to date"** when main
+  advances while CI runs. Fix: `git pull --rebase origin main && git push --force-with-lease`,
+  then retry merge (or use `--auto` flag).
+  Seen in: #877 PR #969. Date: 2026-06-08.
