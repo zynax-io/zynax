@@ -1,0 +1,829 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — Dev Advisory Workflow (Wave 0)
+#
+# Plane: near-term
+#
+# Runs 8 expert subagents in parallel on pull_request events.  Each expert
+# receives a context slice (git diff filtered to its declared glob patterns)
+# and writes its output to the GitHub Actions job summary.  A final collation
+# job posts all expert outputs as a single PR comment.
+#
+# Humans decide all actions.  No automated merge, push, or code changes.
+# No Zynax gRPC calls, no agent-registry lookups — pure claude CLI invocation.
+#
+# Issue: #877 (M6.DevAuto — DevAuto.4)
+# Depends on: #875 (automation/experts/*.yaml), #876 (orchestrator config)
+
+name: Dev Advisory (Wave 0)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: dev-advisory-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+# ── Expert: Architecture / ADR ────────────────────────────────────────────────
+  expert-arch-adr:
+    name: "Expert: arch-adr"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    outputs:
+      expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      options: --user root
+    env:
+      EXPERT_NAME: arch-adr
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Allow git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Fetch base branch for diff
+        run: |
+          git fetch --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Build context slice and run expert
+        id: expert
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          CHANGED=$(git diff --name-only "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                    git diff --name-only "FETCH_HEAD..HEAD" 2>/dev/null || printf "")
+
+          SLICE=""
+          for pat in "AGENTS.md" "services/AGENTS.md" "agents/AGENTS.md" \
+                     "protos/AGENTS.md" "cmd/zynax/AGENTS.md" \
+                     "docs/adr/INDEX.md" "docs/adr/.*.md"; do
+            m=$(printf '%s\n' "$CHANGED" | grep -E "^${pat}$" || true)
+            SLICE="${SLICE}${m}"$'\n'
+          done
+
+          DIFF_CONTENT=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ -f "$f" ] || continue
+            chunk=$(git diff "${BASE_SHA}..${HEAD_SHA}" -- "$f" 2>/dev/null || \
+                    git diff "FETCH_HEAD..HEAD" -- "$f" 2>/dev/null || true)
+            DIFF_CONTENT="${DIFF_CONTENT}=== ${f} ===${chunk}"$'\n'
+          done <<< "$SLICE"
+
+          if [ -z "$(printf '%s' "$DIFF_CONTENT" | tr -d '[:space:]')" ]; then
+            printf '## Expert: arch-adr\n\nNo files matching this context slice changed.\n' \
+              >> "$GITHUB_STEP_SUMMARY"
+            printf 'EXPERT_OUTPUT=No files matching arch-adr context slice changed.\n' \
+              >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          DIFF_STAT=$(git diff --stat "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                      git diff --stat "FETCH_HEAD..HEAD" 2>/dev/null || printf "unavailable")
+
+          # Write input to temp file to avoid shell quoting issues
+          {
+            printf 'trigger: pull_request\n'
+            printf 'pr_number: %s\n' "$PR_NUM"
+            printf 'pr_title: %s\n' "$PR_TITLE"
+            printf 'diff_summary: |\n'
+            printf '%s\n' "$DIFF_STAT" | sed 's/^/  /'
+            printf 'changed_files:\n'
+            printf '%s\n' "$CHANGED" | sed '/^$/d; s/^/  - /'
+            printf 'context_slice: |\n'
+            printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
+          } > /tmp/expert-input.txt
+
+          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
+            < /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed or claude CLI not available.")
+
+          printf '## Expert: arch-adr\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            printf 'EXPERT_OUTPUT<<EXPERT_EOF\n'
+            printf '%s\n' "$EXPERT_OUTPUT"
+            printf 'EXPERT_EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+# ── Expert: API / Contract ────────────────────────────────────────────────────
+  expert-api-contract:
+    name: "Expert: api-contract"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    outputs:
+      expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      options: --user root
+    env:
+      EXPERT_NAME: api-contract
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Allow git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Fetch base branch for diff
+        run: |
+          git fetch --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Build context slice and run expert
+        id: expert
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          CHANGED=$(git diff --name-only "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                    git diff --name-only "FETCH_HEAD..HEAD" 2>/dev/null || printf "")
+
+          SLICE=""
+          for pat in "protos/zynax/v1/.*.proto" "protos/buf.yaml" "protos/buf.gen.yaml" \
+                     "spec/schemas/.*.json" "spec/asyncapi/zynax-events.yaml" \
+                     "spec/workflows/capability-registrations/.*.yaml" "protos/AGENTS.md"; do
+            m=$(printf '%s\n' "$CHANGED" | grep -E "$pat" || true)
+            SLICE="${SLICE}${m}"$'\n'
+          done
+
+          DIFF_CONTENT=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ -f "$f" ] || continue
+            chunk=$(git diff "${BASE_SHA}..${HEAD_SHA}" -- "$f" 2>/dev/null || \
+                    git diff "FETCH_HEAD..HEAD" -- "$f" 2>/dev/null || true)
+            DIFF_CONTENT="${DIFF_CONTENT}=== ${f} ===${chunk}"$'\n'
+          done <<< "$SLICE"
+
+          if [ -z "$(printf '%s' "$DIFF_CONTENT" | tr -d '[:space:]')" ]; then
+            printf '## Expert: api-contract\n\nNo files matching this context slice changed.\n' \
+              >> "$GITHUB_STEP_SUMMARY"
+            printf 'EXPERT_OUTPUT=No files matching api-contract context slice changed.\n' \
+              >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          DIFF_STAT=$(git diff --stat "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                      git diff --stat "FETCH_HEAD..HEAD" 2>/dev/null || printf "unavailable")
+
+          {
+            printf 'trigger: pull_request\n'
+            printf 'pr_number: %s\n' "$PR_NUM"
+            printf 'pr_title: %s\n' "$PR_TITLE"
+            printf 'diff_summary: |\n'
+            printf '%s\n' "$DIFF_STAT" | sed 's/^/  /'
+            printf 'changed_files:\n'
+            printf '%s\n' "$CHANGED" | sed '/^$/d; s/^/  - /'
+            printf 'context_slice: |\n'
+            printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
+          } > /tmp/expert-input.txt
+
+          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
+            < /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed or claude CLI not available.")
+
+          printf '## Expert: api-contract\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            printf 'EXPERT_OUTPUT<<EXPERT_EOF\n'
+            printf '%s\n' "$EXPERT_OUTPUT"
+            printf 'EXPERT_EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+# ── Expert: CI / Release ──────────────────────────────────────────────────────
+  expert-ci-release:
+    name: "Expert: ci-release"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    outputs:
+      expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      options: --user root
+    env:
+      EXPERT_NAME: ci-release
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Allow git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Fetch base branch for diff
+        run: |
+          git fetch --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Build context slice and run expert
+        id: expert
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          CHANGED=$(git diff --name-only "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                    git diff --name-only "FETCH_HEAD..HEAD" 2>/dev/null || printf "")
+
+          SLICE=""
+          for pat in ".github/workflows/.*.yml" "images/images.yaml" "Makefile" \
+                     "tools/Dockerfile" "services/.*/Dockerfile" "release/.*"; do
+            m=$(printf '%s\n' "$CHANGED" | grep -E "$pat" || true)
+            SLICE="${SLICE}${m}"$'\n'
+          done
+
+          DIFF_CONTENT=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ -f "$f" ] || continue
+            chunk=$(git diff "${BASE_SHA}..${HEAD_SHA}" -- "$f" 2>/dev/null || \
+                    git diff "FETCH_HEAD..HEAD" -- "$f" 2>/dev/null || true)
+            DIFF_CONTENT="${DIFF_CONTENT}=== ${f} ===${chunk}"$'\n'
+          done <<< "$SLICE"
+
+          if [ -z "$(printf '%s' "$DIFF_CONTENT" | tr -d '[:space:]')" ]; then
+            printf '## Expert: ci-release\n\nNo files matching this context slice changed.\n' \
+              >> "$GITHUB_STEP_SUMMARY"
+            printf 'EXPERT_OUTPUT=No files matching ci-release context slice changed.\n' \
+              >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          DIFF_STAT=$(git diff --stat "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                      git diff --stat "FETCH_HEAD..HEAD" 2>/dev/null || printf "unavailable")
+
+          {
+            printf 'trigger: pull_request\n'
+            printf 'pr_number: %s\n' "$PR_NUM"
+            printf 'pr_title: %s\n' "$PR_TITLE"
+            printf 'diff_summary: |\n'
+            printf '%s\n' "$DIFF_STAT" | sed 's/^/  /'
+            printf 'changed_files:\n'
+            printf '%s\n' "$CHANGED" | sed '/^$/d; s/^/  - /'
+            printf 'context_slice: |\n'
+            printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
+          } > /tmp/expert-input.txt
+
+          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
+            < /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed or claude CLI not available.")
+
+          printf '## Expert: ci-release\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            printf 'EXPERT_OUTPUT<<EXPERT_EOF\n'
+            printf '%s\n' "$EXPERT_OUTPUT"
+            printf 'EXPERT_EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+# ── Expert: Docs / AGENTS ─────────────────────────────────────────────────────
+  expert-docs-agents:
+    name: "Expert: docs-agents"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    outputs:
+      expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      options: --user root
+    env:
+      EXPERT_NAME: docs-agents
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Allow git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Fetch base branch for diff
+        run: |
+          git fetch --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Build context slice and run expert
+        id: expert
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          CHANGED=$(git diff --name-only "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                    git diff --name-only "FETCH_HEAD..HEAD" 2>/dev/null || printf "")
+
+          SLICE=""
+          for pat in "AGENTS.md" "services/AGENTS.md" "agents/AGENTS.md" \
+                     "protos/AGENTS.md" "cmd/zynax/AGENTS.md" \
+                     "README.md" "CONTRIBUTING.md" "docs/ARCHITECTURE.md" \
+                     "docs/adr/INDEX.md"; do
+            m=$(printf '%s\n' "$CHANGED" | grep -E "^${pat}$" || true)
+            SLICE="${SLICE}${m}"$'\n'
+          done
+
+          DIFF_CONTENT=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ -f "$f" ] || continue
+            chunk=$(git diff "${BASE_SHA}..${HEAD_SHA}" -- "$f" 2>/dev/null || \
+                    git diff "FETCH_HEAD..HEAD" -- "$f" 2>/dev/null || true)
+            DIFF_CONTENT="${DIFF_CONTENT}=== ${f} ===${chunk}"$'\n'
+          done <<< "$SLICE"
+
+          if [ -z "$(printf '%s' "$DIFF_CONTENT" | tr -d '[:space:]')" ]; then
+            printf '## Expert: docs-agents\n\nNo files matching this context slice changed.\n' \
+              >> "$GITHUB_STEP_SUMMARY"
+            printf 'EXPERT_OUTPUT=No files matching docs-agents context slice changed.\n' \
+              >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          DIFF_STAT=$(git diff --stat "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                      git diff --stat "FETCH_HEAD..HEAD" 2>/dev/null || printf "unavailable")
+
+          {
+            printf 'trigger: pull_request\n'
+            printf 'pr_number: %s\n' "$PR_NUM"
+            printf 'pr_title: %s\n' "$PR_TITLE"
+            printf 'diff_summary: |\n'
+            printf '%s\n' "$DIFF_STAT" | sed 's/^/  /'
+            printf 'changed_files:\n'
+            printf '%s\n' "$CHANGED" | sed '/^$/d; s/^/  - /'
+            printf 'context_slice: |\n'
+            printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
+          } > /tmp/expert-input.txt
+
+          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
+            < /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed or claude CLI not available.")
+
+          printf '## Expert: docs-agents\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            printf 'EXPERT_OUTPUT<<EXPERT_EOF\n'
+            printf '%s\n' "$EXPERT_OUTPUT"
+            printf 'EXPERT_EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+# ── Expert: Persistence / State ───────────────────────────────────────────────
+  expert-persistence:
+    name: "Expert: persistence-state"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    outputs:
+      expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      options: --user root
+    env:
+      EXPERT_NAME: persistence-state
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Allow git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Fetch base branch for diff
+        run: |
+          git fetch --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Build context slice and run expert
+        id: expert
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          CHANGED=$(git diff --name-only "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                    git diff --name-only "FETCH_HEAD..HEAD" 2>/dev/null || printf "")
+
+          SLICE=""
+          for pat in "services/.*/internal/domain/.*.go" \
+                     "services/.*/internal/adapters/postgres/.*.go" \
+                     "services/.*/internal/adapters/redis/.*.go" \
+                     "services/.*/migrations/.*.sql" \
+                     "docs/adr/ADR-008-.*.md" \
+                     "docs/adr/ADR-021-.*.md"; do
+            m=$(printf '%s\n' "$CHANGED" | grep -E "$pat" || true)
+            SLICE="${SLICE}${m}"$'\n'
+          done
+
+          DIFF_CONTENT=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ -f "$f" ] || continue
+            chunk=$(git diff "${BASE_SHA}..${HEAD_SHA}" -- "$f" 2>/dev/null || \
+                    git diff "FETCH_HEAD..HEAD" -- "$f" 2>/dev/null || true)
+            DIFF_CONTENT="${DIFF_CONTENT}=== ${f} ===${chunk}"$'\n'
+          done <<< "$SLICE"
+
+          if [ -z "$(printf '%s' "$DIFF_CONTENT" | tr -d '[:space:]')" ]; then
+            printf '## Expert: persistence-state\n\nNo files matching this context slice changed.\n' \
+              >> "$GITHUB_STEP_SUMMARY"
+            printf 'EXPERT_OUTPUT=No files matching persistence-state context slice changed.\n' \
+              >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          DIFF_STAT=$(git diff --stat "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                      git diff --stat "FETCH_HEAD..HEAD" 2>/dev/null || printf "unavailable")
+
+          {
+            printf 'trigger: pull_request\n'
+            printf 'pr_number: %s\n' "$PR_NUM"
+            printf 'pr_title: %s\n' "$PR_TITLE"
+            printf 'diff_summary: |\n'
+            printf '%s\n' "$DIFF_STAT" | sed 's/^/  /'
+            printf 'changed_files:\n'
+            printf '%s\n' "$CHANGED" | sed '/^$/d; s/^/  - /'
+            printf 'context_slice: |\n'
+            printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
+          } > /tmp/expert-input.txt
+
+          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
+            < /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed or claude CLI not available.")
+
+          printf '## Expert: persistence-state\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            printf 'EXPERT_OUTPUT<<EXPERT_EOF\n'
+            printf '%s\n' "$EXPERT_OUTPUT"
+            printf 'EXPERT_EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+# ── Expert: Planning / Task Split ─────────────────────────────────────────────
+  expert-planning:
+    name: "Expert: planning-task-split"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    outputs:
+      expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      options: --user root
+    env:
+      EXPERT_NAME: planning-task-split
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Allow git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Fetch base branch for diff
+        run: |
+          git fetch --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Build context slice and run expert
+        id: expert
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          CHANGED=$(git diff --name-only "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                    git diff --name-only "FETCH_HEAD..HEAD" 2>/dev/null || printf "")
+
+          SLICE=""
+          for pat in "state/current-milestone.md" "docs/milestones/M6-planning.md" \
+                     "docs/milestones/M5-plan.md"; do
+            m=$(printf '%s\n' "$CHANGED" | grep -E "^${pat}$" || true)
+            SLICE="${SLICE}${m}"$'\n'
+          done
+
+          DIFF_CONTENT=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ -f "$f" ] || continue
+            chunk=$(git diff "${BASE_SHA}..${HEAD_SHA}" -- "$f" 2>/dev/null || \
+                    git diff "FETCH_HEAD..HEAD" -- "$f" 2>/dev/null || true)
+            DIFF_CONTENT="${DIFF_CONTENT}=== ${f} ===${chunk}"$'\n'
+          done <<< "$SLICE"
+
+          if [ -z "$(printf '%s' "$DIFF_CONTENT" | tr -d '[:space:]')" ]; then
+            printf '## Expert: planning-task-split\n\nNo files matching this context slice changed.\n' \
+              >> "$GITHUB_STEP_SUMMARY"
+            printf 'EXPERT_OUTPUT=No files matching planning-task-split context slice changed.\n' \
+              >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          DIFF_STAT=$(git diff --stat "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                      git diff --stat "FETCH_HEAD..HEAD" 2>/dev/null || printf "unavailable")
+
+          {
+            printf 'trigger: pull_request\n'
+            printf 'pr_number: %s\n' "$PR_NUM"
+            printf 'pr_title: %s\n' "$PR_TITLE"
+            printf 'diff_summary: |\n'
+            printf '%s\n' "$DIFF_STAT" | sed 's/^/  /'
+            printf 'changed_files:\n'
+            printf '%s\n' "$CHANGED" | sed '/^$/d; s/^/  - /'
+            printf 'context_slice: |\n'
+            printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
+          } > /tmp/expert-input.txt
+
+          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
+            < /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed or claude CLI not available.")
+
+          printf '## Expert: planning-task-split\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            printf 'EXPERT_OUTPUT<<EXPERT_EOF\n'
+            printf '%s\n' "$EXPERT_OUTPUT"
+            printf 'EXPERT_EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+# ── Expert: QA / BDD ──────────────────────────────────────────────────────────
+  expert-qa-bdd:
+    name: "Expert: qa-bdd"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    outputs:
+      expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      options: --user root
+    env:
+      EXPERT_NAME: qa-bdd
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Allow git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Fetch base branch for diff
+        run: |
+          git fetch --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Build context slice and run expert
+        id: expert
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          CHANGED=$(git diff --name-only "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                    git diff --name-only "FETCH_HEAD..HEAD" 2>/dev/null || printf "")
+
+          SLICE=""
+          for pat in "protos/tests/.*.feature" "protos/tests/.*_test.go" \
+                     "docs/adr/ADR-016-.*.md" "coverage/.*.out" "coverage/.*.xml"; do
+            m=$(printf '%s\n' "$CHANGED" | grep -E "$pat" || true)
+            SLICE="${SLICE}${m}"$'\n'
+          done
+
+          DIFF_CONTENT=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ -f "$f" ] || continue
+            chunk=$(git diff "${BASE_SHA}..${HEAD_SHA}" -- "$f" 2>/dev/null || \
+                    git diff "FETCH_HEAD..HEAD" -- "$f" 2>/dev/null || true)
+            DIFF_CONTENT="${DIFF_CONTENT}=== ${f} ===${chunk}"$'\n'
+          done <<< "$SLICE"
+
+          if [ -z "$(printf '%s' "$DIFF_CONTENT" | tr -d '[:space:]')" ]; then
+            printf '## Expert: qa-bdd\n\nNo files matching this context slice changed.\n' \
+              >> "$GITHUB_STEP_SUMMARY"
+            printf 'EXPERT_OUTPUT=No files matching qa-bdd context slice changed.\n' \
+              >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          DIFF_STAT=$(git diff --stat "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                      git diff --stat "FETCH_HEAD..HEAD" 2>/dev/null || printf "unavailable")
+
+          {
+            printf 'trigger: pull_request\n'
+            printf 'pr_number: %s\n' "$PR_NUM"
+            printf 'pr_title: %s\n' "$PR_TITLE"
+            printf 'diff_summary: |\n'
+            printf '%s\n' "$DIFF_STAT" | sed 's/^/  /'
+            printf 'changed_files:\n'
+            printf '%s\n' "$CHANGED" | sed '/^$/d; s/^/  - /'
+            printf 'context_slice: |\n'
+            printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
+          } > /tmp/expert-input.txt
+
+          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
+            < /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed or claude CLI not available.")
+
+          printf '## Expert: qa-bdd\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            printf 'EXPERT_OUTPUT<<EXPERT_EOF\n'
+            printf '%s\n' "$EXPERT_OUTPUT"
+            printf 'EXPERT_EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+# ── Expert: Security / Supply Chain ──────────────────────────────────────────
+  expert-security:
+    name: "Expert: security-supply-chain"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    outputs:
+      expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
+      options: --user root
+    env:
+      EXPERT_NAME: security-supply-chain
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Allow git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Fetch base branch for diff
+        run: |
+          git fetch --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Build context slice and run expert
+        id: expert
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          CHANGED=$(git diff --name-only "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                    git diff --name-only "FETCH_HEAD..HEAD" 2>/dev/null || printf "")
+
+          SLICE=""
+          for pat in ".github/workflows/.*.yml" "SECURITY.md" "images/images.yaml" \
+                     "tools/Dockerfile" "services/.*/Dockerfile"; do
+            m=$(printf '%s\n' "$CHANGED" | grep -E "$pat" || true)
+            SLICE="${SLICE}${m}"$'\n'
+          done
+
+          DIFF_CONTENT=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ -f "$f" ] || continue
+            chunk=$(git diff "${BASE_SHA}..${HEAD_SHA}" -- "$f" 2>/dev/null || \
+                    git diff "FETCH_HEAD..HEAD" -- "$f" 2>/dev/null || true)
+            DIFF_CONTENT="${DIFF_CONTENT}=== ${f} ===${chunk}"$'\n'
+          done <<< "$SLICE"
+
+          if [ -z "$(printf '%s' "$DIFF_CONTENT" | tr -d '[:space:]')" ]; then
+            printf '## Expert: security-supply-chain\n\nNo files matching this context slice changed.\n' \
+              >> "$GITHUB_STEP_SUMMARY"
+            printf 'EXPERT_OUTPUT=No files matching security-supply-chain context slice changed.\n' \
+              >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          DIFF_STAT=$(git diff --stat "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || \
+                      git diff --stat "FETCH_HEAD..HEAD" 2>/dev/null || printf "unavailable")
+
+          {
+            printf 'trigger: pull_request\n'
+            printf 'pr_number: %s\n' "$PR_NUM"
+            printf 'pr_title: %s\n' "$PR_TITLE"
+            printf 'diff_summary: |\n'
+            printf '%s\n' "$DIFF_STAT" | sed 's/^/  /'
+            printf 'changed_files:\n'
+            printf '%s\n' "$CHANGED" | sed '/^$/d; s/^/  - /'
+            printf 'context_slice: |\n'
+            printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
+          } > /tmp/expert-input.txt
+
+          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
+            < /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed or claude CLI not available.")
+
+          printf '## Expert: security-supply-chain\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            printf 'EXPERT_OUTPUT<<EXPERT_EOF\n'
+            printf '%s\n' "$EXPERT_OUTPUT"
+            printf 'EXPERT_EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+# ── Collation: post single PR comment with all expert outputs ─────────────────
+  collate-and-comment:
+    name: "Collate expert outputs -> PR comment"
+    # Runs on the hosted runner (not ci-runner container) because gh CLI is
+    # not installed in the ci-runner image — only the expert jobs need it.
+    runs-on: ubuntu-24.04
+    needs:
+      - expert-arch-adr
+      - expert-api-contract
+      - expert-ci-release
+      - expert-docs-agents
+      - expert-persistence
+      - expert-planning
+      - expert-qa-bdd
+      - expert-security
+    if: always()
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Post collated PR comment
+        env:
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          OUT_ARCH: ${{ needs.expert-arch-adr.outputs.expert_output }}
+          OUT_API: ${{ needs.expert-api-contract.outputs.expert_output }}
+          OUT_CI: ${{ needs.expert-ci-release.outputs.expert_output }}
+          OUT_DOCS: ${{ needs.expert-docs-agents.outputs.expert_output }}
+          OUT_PERS: ${{ needs.expert-persistence.outputs.expert_output }}
+          OUT_PLAN: ${{ needs.expert-planning.outputs.expert_output }}
+          OUT_QA: ${{ needs.expert-qa-bdd.outputs.expert_output }}
+          OUT_SEC: ${{ needs.expert-security.outputs.expert_output }}
+        run: |
+          RUN_URL="${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}"
+          ARCH="${OUT_ARCH:-No output (context slice empty or expert skipped)}"
+          API="${OUT_API:-No output (context slice empty or expert skipped)}"
+          CI_OUT="${OUT_CI:-No output (context slice empty or expert skipped)}"
+          DOCS="${OUT_DOCS:-No output (context slice empty or expert skipped)}"
+          PERS="${OUT_PERS:-No output (context slice empty or expert skipped)}"
+          PLAN="${OUT_PLAN:-No output (context slice empty or expert skipped)}"
+          QA="${OUT_QA:-No output (context slice empty or expert skipped)}"
+          SEC="${OUT_SEC:-No output (context slice empty or expert skipped)}"
+
+          DIVIDER="---"
+
+          {
+            printf '%s\n\n' "## Dev Advisory: Expert Review (Wave 0)"
+            printf '%s\n' "> **Advisory only.** Expert outputs are recommendations; humans decide all actions."
+            printf '%s\n\n' "> Run: [${RUN_ID}](${RUN_URL})"
+            printf '%s\n\n' "$DIVIDER"
+            printf '%s\n\n' "### arch-adr"
+            printf '%s\n\n' "$ARCH"
+            printf '%s\n\n' "$DIVIDER"
+            printf '%s\n\n' "### api-contract"
+            printf '%s\n\n' "$API"
+            printf '%s\n\n' "$DIVIDER"
+            printf '%s\n\n' "### ci-release"
+            printf '%s\n\n' "$CI_OUT"
+            printf '%s\n\n' "$DIVIDER"
+            printf '%s\n\n' "### docs-agents"
+            printf '%s\n\n' "$DOCS"
+            printf '%s\n\n' "$DIVIDER"
+            printf '%s\n\n' "### persistence-state"
+            printf '%s\n\n' "$PERS"
+            printf '%s\n\n' "$DIVIDER"
+            printf '%s\n\n' "### planning-task-split"
+            printf '%s\n\n' "$PLAN"
+            printf '%s\n\n' "$DIVIDER"
+            printf '%s\n\n' "### qa-bdd"
+            printf '%s\n\n' "$QA"
+            printf '%s\n\n' "$DIVIDER"
+            printf '%s\n\n' "### security-supply-chain"
+            printf '%s\n\n' "$SEC"
+            printf '%s\n\n' "$DIVIDER"
+            printf '%s\n' "*Generated by dev-advisory.yml (DevAuto.4 / issue #877)*"
+          } > /tmp/pr-comment.md
+
+          gh pr comment "${PR_NUM}" \
+            --repo "$REPO" \
+            --edit-last \
+            --body-file /tmp/pr-comment.md \
+            2>/dev/null || \
+          gh pr comment "${PR_NUM}" \
+            --repo "$REPO" \
+            --body-file /tmp/pr-comment.md
