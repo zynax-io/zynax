@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 )
 
 // Handler implements zynaxv1.EventBusServiceServer.
-// O1–O3: Publish and Subscribe paths wired; Unsubscribe remains UNIMPLEMENTED (O4).
+// O1–O4: Publish, Subscribe, and Unsubscribe paths are fully wired.
 type Handler struct {
 	zynaxv1.UnimplementedEventBusServiceServer
 	bus domain.EventBus
@@ -121,6 +122,29 @@ func (h *Handler) Subscribe(req *zynaxv1.SubscribeRequest, stream grpc.ServerStr
 			}
 		}
 	}
+}
+
+// Unsubscribe removes the durable JetStream consumer for the given subscriber_id.
+// Returns INVALID_ARGUMENT when subscriber_id is empty.
+// Returns NOT_FOUND when the subscriber does not exist (has not subscribed or was
+// already unsubscribed).
+func (h *Handler) Unsubscribe(ctx context.Context, req *zynaxv1.UnsubscribeRequest) (*zynaxv1.UnsubscribeResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, status.FromContextError(err).Err()
+	}
+
+	if req.GetSubscriberId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "subscriber_id must not be empty")
+	}
+
+	if err := h.bus.Unsubscribe(ctx, req.GetSubscriberId()); err != nil {
+		if errors.Is(err, domain.ErrSubscriberNotFound) {
+			return nil, status.Errorf(codes.NotFound, "subscriber %s not found", req.GetSubscriberId())
+		}
+		return nil, status.Errorf(codes.Internal, "unsubscribe failed: %v", err)
+	}
+
+	return &zynaxv1.UnsubscribeResponse{}, nil
 }
 
 // domainEventToProto converts a domain.CloudEvent to its proto representation.
