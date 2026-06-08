@@ -19,6 +19,11 @@ import (
 type stubArgoClient struct {
 	submitErr error
 	sendErr   error
+	getWFErr  error
+	delWFErr  error
+
+	// getWFResult controls the ArgoWorkflow returned by GetWorkflow.
+	getWFResult *ArgoWorkflow
 
 	// Captured arguments for assertion.
 	lastSubmitNamespace string
@@ -26,6 +31,10 @@ type stubArgoClient struct {
 	lastSendNamespace   string
 	lastSendDiscrim     string
 	lastSendPayload     []byte
+	lastGetNamespace    string
+	lastGetName         string
+	lastDelNamespace    string
+	lastDelName         string
 }
 
 func (s *stubArgoClient) SubmitWorkflow(_ context.Context, namespace string, wf *ArgoWorkflow) error {
@@ -39,6 +48,18 @@ func (s *stubArgoClient) SendEvent(_ context.Context, namespace, discriminator s
 	s.lastSendDiscrim = discriminator
 	s.lastSendPayload = payload
 	return s.sendErr
+}
+
+func (s *stubArgoClient) GetWorkflow(_ context.Context, namespace, name string) (*ArgoWorkflow, error) {
+	s.lastGetNamespace = namespace
+	s.lastGetName = name
+	return s.getWFResult, s.getWFErr
+}
+
+func (s *stubArgoClient) DeleteWorkflow(_ context.Context, namespace, name string) error {
+	s.lastDelNamespace = namespace
+	s.lastDelName = name
+	return s.delWFErr
 }
 
 const (

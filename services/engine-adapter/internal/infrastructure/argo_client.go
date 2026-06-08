@@ -9,20 +9,49 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 )
 
 // ArgoWorkflow is a minimal representation of an Argo Workflows Workflow resource
-// submitted via the Argo Workflows REST API. Only the fields required for Submit
-// and Signal are included here; B.3 will add status-query fields.
+// submitted via the Argo Workflows REST API.
 type ArgoWorkflow struct {
-	APIVersion string           `json:"apiVersion"`
-	Kind       string           `json:"kind"`
-	Metadata   ArgoObjectMeta   `json:"metadata"`
-	Spec       ArgoWorkflowSpec `json:"spec"`
+	APIVersion string             `json:"apiVersion"`
+	Kind       string             `json:"kind"`
+	Metadata   ArgoObjectMeta     `json:"metadata"`
+	Spec       ArgoWorkflowSpec   `json:"spec"`
+	Status     ArgoWorkflowStatus `json:"status,omitempty"`
 }
+
+// ArgoWorkflowStatus holds the runtime status returned by the Argo Workflows API.
+// Only the fields needed for GetStatus and Watch are mapped here.
+type ArgoWorkflowStatus struct {
+	// Phase is the overall phase of the workflow: Pending, Running, Succeeded,
+	// Failed, Error, or Skipped.
+	Phase string `json:"phase,omitempty"`
+
+	// Message contains a human-readable error or completion message.
+	Message string `json:"message,omitempty"`
+
+	// StartedAt is the RFC3339 timestamp when the workflow entered Running.
+	StartedAt string `json:"startedAt,omitempty"`
+
+	// FinishedAt is the RFC3339 timestamp when the workflow reached a terminal phase.
+	FinishedAt string `json:"finishedAt,omitempty"`
+}
+
+// Argo phase constants mirror the Argo Workflows NodePhase string values.
+// These are the only values the Argo REST API returns for Workflow.Status.Phase.
+const (
+	ArgoPhaseRunning   = "Running"
+	ArgoPhasePending   = "Pending"
+	ArgoPhaseSucceeded = "Succeeded"
+	ArgoPhaseFailed    = "Failed"
+	ArgoPhaseError     = "Error"
+	ArgoPhaseSkipped   = "Skipped"
+)
 
 // ArgoObjectMeta holds the identifying metadata for an Argo resource.
 type ArgoObjectMeta struct {
@@ -63,6 +92,10 @@ type ArgoWorkflowEventBinding struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
+// errArgoNotFound is a sentinel error used by httpArgoClient to signal 404 responses.
+// ArgoEngine wraps this in domain.ErrExecutionNotFound.
+var errArgoNotFound = errors.New("workflow not found")
+
 // ArgoClient is the port that ArgoEngine uses to communicate with the Argo
 // Workflows REST API. It is defined as an interface so ArgoEngine can be
 // tested with a mock without a live Argo server.
@@ -76,6 +109,14 @@ type ArgoClient interface {
 	// discriminator must match the WorkflowEventBinding selector configured in
 	// the Argo Workflow resource.
 	SendEvent(ctx context.Context, namespace, discriminator string, payload []byte) error
+
+	// GetWorkflow retrieves an existing Argo Workflow resource by name.
+	// Returns (nil, errArgoNotFound) if the workflow does not exist.
+	GetWorkflow(ctx context.Context, namespace, name string) (*ArgoWorkflow, error)
+
+	// DeleteWorkflow deletes an Argo Workflow resource by name, which causes Argo
+	// to stop all running pods.
+	DeleteWorkflow(ctx context.Context, namespace, name string) error
 }
 
 // httpArgoClient is the production ArgoClient that talks to the Argo Workflows
@@ -127,6 +168,67 @@ func (c *httpArgoClient) SubmitWorkflow(ctx context.Context, namespace string, w
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("argo_client: submit workflow %q: HTTP %d: %s", wf.Metadata.Name, resp.StatusCode, string(b))
+	}
+	return nil
+}
+
+// GetWorkflow retrieves an Argo Workflow resource via the Argo REST API.
+// Returns a wrapped errArgoNotFound on HTTP 404.
+func (c *httpArgoClient) GetWorkflow(ctx context.Context, namespace, name string) (*ArgoWorkflow, error) {
+	url := fmt.Sprintf("%s/api/v1/workflows/%s/%s", c.serverURL, namespace, name)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("argo_client: create get-workflow request: %w", err)
+	}
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("argo_client: get workflow %q: %w", name, err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("argo_client: get workflow %q: %w", name, errArgoNotFound)
+	}
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("argo_client: get workflow %q: HTTP %d: %s", name, resp.StatusCode, string(b))
+	}
+
+	var wf ArgoWorkflow
+	if err := json.NewDecoder(resp.Body).Decode(&wf); err != nil {
+		return nil, fmt.Errorf("argo_client: decode workflow %q: %w", name, err)
+	}
+	return &wf, nil
+}
+
+// DeleteWorkflow sends a DELETE request to the Argo REST API to stop a workflow.
+// Returns a wrapped errArgoNotFound on HTTP 404.
+func (c *httpArgoClient) DeleteWorkflow(ctx context.Context, namespace, name string) error {
+	url := fmt.Sprintf("%s/api/v1/workflows/%s/%s", c.serverURL, namespace, name)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("argo_client: create delete-workflow request: %w", err)
+	}
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("argo_client: delete workflow %q: %w", name, err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("argo_client: delete workflow %q: %w", name, errArgoNotFound)
+	}
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("argo_client: delete workflow %q: HTTP %d: %s", name, resp.StatusCode, string(b))
 	}
 	return nil
 }
