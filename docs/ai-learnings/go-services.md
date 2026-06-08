@@ -242,3 +242,21 @@ To simulate "consumer offline → event published → reconnect → catch-up": S
 **Seen in:** #819. **Date:** 2026-06-08
 
 After extracting go.mod/go.sum from a stash onto a new branch, run `GOWORK=off go mod tidy` to ensure consistency. Pre-commit hook (`golangci-lint`) auto-formats test files in-place — always re-stage after first commit attempt fails with "files were modified by hook".
+
+## Session — 2026-06-08 (orchestrator batch #824,#816,#860)
+
+### Cross-session idempotency: claim-check before any branch push
+**Seen in:** #824, #816 (and #860 ci-rel). **Date:** 2026-06-08
+
+In a multi-session environment, `gh issue list --state open` can return issues that were already
+merged by an earlier session in the same day. The claim-check step is not optional. Before the
+atomic branch push, always run both:
+
+```bash
+gh issue view <N> --json state --jq .state  # must be OPEN
+gh pr list --state merged --search "<N>" --json number,mergedAt --jq '.[] | "\(.number) \(.mergedAt)"'
+```
+
+If a merged PR referencing the issue exists: stop immediately and report the existing merge SHA
+without creating any branch or commits. Issues auto-closed by a merged PR will show CLOSED state
+but the `gh issue list --state open` query may lag due to GitHub API eventual consistency.
