@@ -24,7 +24,7 @@ collect results → persist learnings → report.
 ```bash
 # Expert files live under .claude/commands/experts/
 ls .claude/commands/experts/
-# go-services.md | infra-helm.md | ci-release.md | spdd-canvas.md | python-adapters.md | bdd-contract.md
+# go-services.md | infra-helm.md | ci-release.md | spdd-canvas.md | python-adapters.md | bdd-contract.md | post-merge.md
 ```
 
 Do not read the expert file contents now — they are injected into subagents at dispatch time.
@@ -202,6 +202,16 @@ Agent({
     4. Wait for CI. Report result.
     5. End your response with the ## Session Learnings block (required).
 
+    ## Result format (required — orchestrator parses these for post-merge dispatch)
+    ```
+    ## Result
+    - Issue: #NNN
+    - PR: #NNN
+    - Merge SHA: <full sha of squash merge commit on main, or "not merged">
+    - CI: green / red / pending
+    - Affected services: <comma-separated list, e.g. "memory-service,event-bus" or "none">
+    ```
+
     ## Constraints
     - Context budget: stay under 12K tokens. Read only files named above.
     - Never read files outside the issue scope.
@@ -219,6 +229,7 @@ As each agent completes, extract:
 1. Issue number + PR URL
 2. CI status (green / red / pending)
 3. `## Session Learnings` block
+4. `## Result` block — especially `Merge SHA` and `Affected services`
 
 Emit a log line as each result arrives. Extract context stats from the agent's Session Learnings
 block (look for `ctx_peak` and `compressions` fields if the expert emitted them):
@@ -239,10 +250,86 @@ Do not retry automatically — human intervention required for CI failures.
 
 ---
 
+## STEP 7.5 — Post-merge verification (dispatch one post-mrg agent per merged PR)
+
+For every domain agent that reported a merged PR (CI: green, Merge SHA present), dispatch
+a `post-merge` expert subagent **in background**. Run all post-merge agents in parallel.
+
+```bash
+echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] POST_MERGE: dispatching verifiers for merged PRs"
+```
+
+For each merged PR N with merge SHA S and affected services A, log before spawning:
+
+```bash
+echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] POST_MERGE_DISPATCH: PR #$PR_N (merge=$S affected=$A)"
+```
+
+Then spawn:
+
+```
+Agent({
+  description: "Post-merge verify PR #PR_N (issue #N)",
+  subagent_type: "claude",
+  run_in_background: true,
+  prompt: """
+    You are the Post-Merge Verifier. Read the full expert guide first:
+
+    <full content of .claude/commands/experts/post-merge.md>
+
+    ---
+
+    Your task: verify post-merge CI, artifacts, and digest pins for:
+
+    PR_NUMBER:    <PR_N>
+    MERGE_SHA:    <S>
+    ISSUE_NUMBER: <issue N>
+    SESSION_DATE: <date>
+
+    ## Delivery contract
+    1. Identify affected services from PR file changes (gh pr view PR_N --json files).
+    2. Find and wait for post-merge workflow runs (release.yml, tools-image.yml) — max 20 min.
+    3. Verify GHCR images for services in the release.yml matrix.
+    4. Update digest pins in docker-compose.services.yml if stale.
+    5. Update images/images.yaml if ci-runner or a base image was rebuilt; run make sync-images.
+    6. Find all open "bump <image> digest" issues; close stale duplicates; implement newest.
+    7. Commit all digest updates as a single chore(ci) PR; squash-merge.
+    8. Output the full ## Post-Merge Evidence block.
+    9. End with ## Session Learnings.
+
+    ## Constraints
+    - Context budget: stay under 20K tokens.
+    - Always `git checkout <branch>` as first command in any Bash call (shared workspace).
+    - Never add service images to images/images.yaml — only base images belong there.
+    - Stage specific files only, never `git add .`.
+    - `gh pr merge --squash` only.
+    - If no images were built and no digest issues are open: emit SKIP with evidence and exit.
+  """
+})
+```
+
+Collect post-merge agent results the same way as domain agents (wait for completion).
+
+Emit on each post-merge agent completing:
+
+```bash
+# Success (with updates):
+echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] POST_MERGE_DONE: PR #$PR_N — digest-PR:#$D_PR workflows:$W_CONCLUSION  [ctx: ~${PMG_CTX_INIT}K→~${PMG_CTX_FINAL}K | compress=${PMG_COMPRESSIONS} | msgs=${PMG_MSGS}]"
+# Skip (no images, no open bump issues):
+echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] POST_MERGE_SKIP: PR #$PR_N — $SKIP_REASON"
+# Failure:
+echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] POST_MERGE_FAIL: PR #$PR_N — $FAIL_REASON"
+```
+
+Note: both `ctx_initial` and `ctx_final` are reported (evidence of growth across GHCR/workflow API calls).
+
+---
+
 ## STEP 8 — Persist learnings
 
-For each completed `## Session Learnings` block, append the relevant entries to the
-appropriate `docs/ai-learnings/<domain>.md` file:
+For each completed `## Session Learnings` block (domain experts + post-merge experts), append
+the relevant entries to the appropriate `docs/ai-learnings/<domain>.md` file.
+Post-merge learnings go to `docs/ai-learnings/ci-release.md`:
 
 ```bash
 # Example: append go-services learnings
@@ -254,6 +341,7 @@ EOF
 ```
 
 Open a `docs:` PR for the learnings update if any new entries were added:
+
 ```bash
 LEARN_BRANCH="docs/ai-learnings-$(date +%Y%m%d%H%M)"
 git checkout -b "$LEARN_BRANCH"
@@ -278,11 +366,20 @@ gh pr merge "$LEARN_PR" --squash --auto
 === Orchestrator Session — <date> ===
 Batch size: N issues
 
+### Domain Delivery
+
 | Issue | Expert | PR | CI | Status |
 |---|---|---|---|---|
 | #NNN | go-services | #NNN | green | MERGED |
-| #NNN | ci-release | #NNN | pending | PR open |
-| #NNN | infra-helm | #NNN | red | BLOCKED |
+| #NNN | ci-release  | #NNN | pending | PR open |
+| #NNN | infra-helm  | #NNN | red | BLOCKED |
+
+### Post-Merge Verification
+
+| PR | Workflows | Images verified | Digest pins updated | Bump issues | Digest PR | ctx initial→final |
+|---|---|---|---|---|---|---|
+| #NNN | release.yml: success | api-gateway ✅ | docker-compose.services.yml ✅ | #912,#917 closed; #931 → PR #NNN | #NNN merged | ~10K→~18K |
+| #NNN | none (docs-only) | — | — | — | — | SKIP |
 
 Learnings: appended to docs/ai-learnings/ — PR #NNN opened for review.
 Next: run /m6-plan to see the next available batch.
@@ -299,6 +396,9 @@ Next: run /m6-plan to see the next available batch.
 | GitHub issue list (JSON) | Any test output |
 | Open PR list (JSON) | Any workflow file contents |
 | Remote branch list | Any proto definitions |
+
+Post-merge subagents read only GitHub API + GHCR API + the two digest-pin files
+(`infra/docker-compose/docker-compose.services.yml` and `images/images.yaml`).
 
 If you find yourself reading a code file in the orchestrator context: stop. Spawn an expert
 subagent instead.
@@ -318,7 +418,8 @@ echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] <PHASE>: <desc>  [c
 Heuristics:
 - After STEP 1 (reading 2 files + GitHub JSON): **~15K**
 - Each expert subagent result added: **+2–5K**
-- Expected peak for a 3-agent batch: **~30–40K**
+- Each post-merge subagent result added: **+3–6K**
+- Expected peak for a 3-agent batch + 3 post-merge verifiers: **~40–60K**
 
 ### Orchestrator split thresholds
 

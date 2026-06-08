@@ -40,6 +40,7 @@ type config struct {
 	TemporalNamespace   string
 	TemporalTaskQueue   string
 	TaskBrokerAddr      string
+	EventBusAddr        string
 	ActiveEngine        string
 	GRPCCallTimeoutS    int
 	MaxActivityAttempts int32
@@ -58,6 +59,7 @@ func loadConfig() config {
 		TemporalNamespace:   getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE", "default"),
 		TemporalTaskQueue:   getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE", "engine-adapter"),
 		TaskBrokerAddr:      getEnv("ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR", "localhost:50053"),
+		EventBusAddr:        getEnv("ZYNAX_ENGINE_ADAPTER_EVENTBUS_ADDR", "localhost:50056"),
 		ActiveEngine:        getEnv("ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE", "temporal"),
 		GRPCCallTimeoutS:    getEnvInt("ZYNAX_ENGINE_ADAPTER_GRPC_CALL_TIMEOUT_S", 30),
 		MaxActivityAttempts: getEnvInt32("ZYNAX_ENGINE_MAX_ACTIVITY_ATTEMPTS", 3),
@@ -144,31 +146,27 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientConn, e
 		return nil, func() {}, nil, fmt.Errorf("temporal client: %w", err)
 	}
 
-	brokerCreds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	brokerConn, eventBusConn, err := dialGRPCClients(cfg)
 	if err != nil {
 		tc.Close()
-		return nil, func() {}, nil, fmt.Errorf("tls credentials: %w", err)
-	}
-	brokerConn, err := grpc.NewClient(
-		cfg.TaskBrokerAddr,
-		grpc.WithTransportCredentials(brokerCreds),
-	)
-	if err != nil {
-		tc.Close()
-		return nil, func() {}, nil, fmt.Errorf("task-broker dial: %w", err)
+		return nil, func() {}, nil, err
 	}
 
 	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
 	dispatcher := domain.NewCapabilityDispatcher(zynaxv1.NewTaskBrokerServiceClient(brokerConn), callTimeout)
+	activityWorker := &infrastructure.ActivityWorker{
+		EventBus: zynaxv1.NewEventBusServiceClient(eventBusConn),
+	}
 
 	w := worker.New(tc, cfg.TemporalTaskQueue, worker.Options{})
 	w.RegisterWorkflow(infrastructure.IRInterpreterWorkflow)
 	w.RegisterActivity(dispatcher.DispatchCapabilityActivity)
-	w.RegisterActivity(infrastructure.PublishLifecycleEventActivity)
+	w.RegisterActivity(activityWorker.PublishLifecycleEventActivity)
 
 	if err := w.Start(); err != nil {
 		tc.Close()
 		_ = brokerConn.Close()
+		_ = eventBusConn.Close()
 		return nil, func() {}, nil, fmt.Errorf("temporal worker: %w", err)
 	}
 
@@ -176,9 +174,36 @@ func buildEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientConn, e
 		w.Stop()
 		tc.Close()
 		_ = brokerConn.Close()
+		_ = eventBusConn.Close()
 	}
 
 	return infrastructure.NewTemporalEngine(tc, cfg.TemporalTaskQueue, cfg.TemporalNamespace), cleanup, brokerConn, nil
+}
+
+// dialGRPCClients creates lazy gRPC connections to task-broker and event-bus.
+// grpc.NewClient never blocks — connections are established on first use (lazy dial).
+func dialGRPCClients(cfg config) (*grpc.ClientConn, *grpc.ClientConn, error) {
+	creds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	if err != nil {
+		return nil, nil, fmt.Errorf("tls credentials: %w", err)
+	}
+	brokerConn, err := grpc.NewClient(cfg.TaskBrokerAddr, grpc.WithTransportCredentials(creds))
+	if err != nil {
+		return nil, nil, fmt.Errorf("task-broker dial: %w", err)
+	}
+	// Dial EventBusService with lazy connection — a non-reachable event bus must
+	// not prevent startup. grpc.NewClient defers connection until first RPC call.
+	eventBusCreds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	if err != nil {
+		_ = brokerConn.Close()
+		return nil, nil, fmt.Errorf("event-bus tls credentials: %w", err)
+	}
+	eventBusConn, err := grpc.NewClient(cfg.EventBusAddr, grpc.WithTransportCredentials(eventBusCreds))
+	if err != nil {
+		_ = brokerConn.Close()
+		return nil, nil, fmt.Errorf("event-bus dial: %w", err)
+	}
+	return brokerConn, eventBusConn, nil
 }
 
 func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*grpc.Server, error) {
