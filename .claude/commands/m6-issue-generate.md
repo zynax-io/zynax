@@ -89,6 +89,32 @@ echo "Claimed issue #$ISSUE_N (label added, self-assigned)."
 
 ---
 
+## STEP 2.5 — Create isolated worktree
+
+Create a throw-away checkout so the rest of the skill runs on a guaranteed clean tree,
+completely isolated from the caller's working directory.
+
+```bash
+WORKTREE_PATH="/tmp/zynax-auto-${ISSUE_N}"
+
+# Remove any leftover from a previous crashed run
+git worktree remove "$WORKTREE_PATH" --force 2>/dev/null || true
+rm -rf "$WORKTREE_PATH" 2>/dev/null || true
+
+# Create a fresh worktree based on current origin/main
+git fetch origin --prune
+git worktree add "$WORKTREE_PATH" origin/main
+
+# All subsequent steps run from this directory
+cd "$WORKTREE_PATH"
+echo "Worktree ready: $WORKTREE_PATH"
+```
+
+> Every file read, edit, build, and commit from this point on happens inside
+> `$WORKTREE_PATH`. The caller's workspace is untouched.
+
+---
+
 ## STEP 3 — Read the issue
 
 ```bash
@@ -210,20 +236,7 @@ STORY_COUNT=$(gh issue list --milestone "K8s Production-Ready (M6)" --state all 
 ## STEP 5 — Sync main + create branch (atomic hard claim)
 
 ```bash
-git fetch origin --prune
-git checkout main
-git pull --rebase origin main
-[ "$(git rev-parse main)" = "$(git rev-parse origin/main)" ] || {
-  echo "main diverged — STOP"
-  gh issue edit "$ISSUE_N" --remove-label "status: in-progress"
-  exit 1
-}
-[ -z "$(git status --porcelain)" ] || {
-  echo "dirty working tree — STOP"
-  git status
-  gh issue edit "$ISSUE_N" --remove-label "status: in-progress"
-  exit 1
-}
+# Worktree was created from origin/main in STEP 2.5 — already clean and up to date.
 
 # Derive branch name from issue title: <type>/<N>-<slug>
 SLUG=$(echo "$ISSUE_TITLE" | sed 's|[^a-zA-Z0-9 ]||g' | tr '[:upper:]' '[:lower:]' \
@@ -569,6 +582,12 @@ Artifacts:   $([ "$TOUCHES_IMAGE" -gt 0 ] && echo "Docker images verified ✓" |
 Issue state: CLOSED ✓
 Next:        Run /m6-plan to see what to pick up next.
 EOF
+
+# Remove the isolated worktree — all work is merged, nothing to keep
+cd /tmp   # leave the worktree directory before removing it
+git -C "$OLDPWD" worktree remove "$WORKTREE_PATH" --force 2>/dev/null || true
+rm -rf "$WORKTREE_PATH" 2>/dev/null || true
+echo "Worktree $WORKTREE_PATH removed."
 ```
 
 ---
