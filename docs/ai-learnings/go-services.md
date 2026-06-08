@@ -214,3 +214,31 @@ When refactoring a string-replace template engine to `text/template`:
 3. Add `template.FuncMap{"default": func(fallback, val string) string { if val == "" { return fallback }; return val }}` for fallback values.
 4. Change return type to `([]byte, error)` and propagate at all call sites.
 5. Use `text/template` (not `html/template`) for JSON payloads to avoid HTML escaping.
+
+---
+
+## Session — 2026-06-08 (issues #819, #828, #827)
+
+### Multi-agent working tree chaos — mitigation patterns
+**Seen in:** #819, #828, #827. **Date:** 2026-06-08
+
+Background subagents in the same working directory continuously switch branches. Reliable mitigations:
+- Always `git branch --show-current` before any git operation — never assume branch is correct
+- Use `git stash push -m "<name>" <specific-files>` and `git checkout stash@{N} -- <path>` (not pop) to extract specific files without cross-branch contamination
+- Cherry-pick to rescue a commit on wrong branch: `SHA=$(git rev-parse HEAD) && git checkout <correct-branch> && git reset --hard origin/main && git cherry-pick $SHA`
+- Use absolute file paths for file writes/edits since CWD changes between Bash tool calls
+
+### NATS JetStream BDD with testcontainers
+**Seen in:** #828. **Date:** 2026-06-08
+
+Use `testcontainers.GenericContainer{Image: "nats:2.10-alpine", Cmd: []string{"-js"}, WaitingFor: wait.ForLog("Server is ready")}` for real JetStream in BDD tests. Override `infrastructure.RetryBackoff` to `[50ms, 100ms, ...]` before retry/DLQ scenarios — exported for this purpose. For retry/DLQ tests, bypass `NATSEventBus.Subscribe` and use raw `js.SubscribeSync` with explicit `Nak()`/`NakWithDelay()` since the bus auto-acks and cannot simulate subscriber failure.
+
+### Durable consumer offline/catch-up pattern
+**Seen in:** #828. **Date:** 2026-06-08
+
+To simulate "consumer offline → event published → reconnect → catch-up": Subscribe (creates durable consumer), cancel context (goroutine stops, durable consumer RETAINED on NATS server), publish, resubscribe with same SubscriberID. `NATSEventBus.Unsubscribe()` DELETES the durable consumer — for "offline" simulation only cancel the context.
+
+### go.mod tidy after stash-extracted files
+**Seen in:** #819. **Date:** 2026-06-08
+
+After extracting go.mod/go.sum from a stash onto a new branch, run `GOWORK=off go mod tidy` to ensure consistency. Pre-commit hook (`golangci-lint`) auto-formats test files in-place — always re-stage after first commit attempt fails with "files were modified by hook".
