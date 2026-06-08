@@ -297,3 +297,18 @@ inferring image state from the workflow conclusion.
 
 **Reminder:** The annotation-check failure in PR #977 was fixed by PR #979 (added `--annotation` flags
 to `imagetools create`). A re-sign pass was not performed; the Jun-8 `main` images remain unsigned.
+
+## Session — 2026-06-09 (issues #840, #878, post-mrg #796)
+
+### #840 — Python adapters in multi-arch release pipeline
+- **`svc_dockerfile` associative array is the extension point**: When adding adapters to `release.yml`, check the `svc_dockerfile` pattern (not just matrix entries). The `http-adapter` entry was the correct reference. Seen in: #840.
+- **ci-adapter and git-adapter are Go-based, not Python**: Despite the "Python adapter images" issue title, ci-adapter and git-adapter use Go/distroless base images. Python adapters watch `protos/generated/python/` for change detection; Go adapters watch `protos/generated/go/`. Seen in: #840.
+- **All 4 adapter Dockerfiles already had OCI LABEL annotations**: No Dockerfile changes were needed — annotations had been added in an earlier session. Seen in: #840.
+
+### #878 — Wave 1 orchestrator aggregation (dual-runtime design)
+- **`aggregation-protocol.md` as dual-runtime document**: Rewriting this file as a `claude -p` system prompt (not just documentation) enables the same protocol to be used in both the GHA CI orchestrator job and the CLI `/m6-orchestrate` command. One config, two runtimes. Seen in: #878.
+- **Orchestrator job must use `ubuntu-24.04`, not `ci-runner`**: The `gh` CLI is not installed in the ci-runner container. Any job that posts PR comments must run on the hosted runner. Seen in: #878 (same pattern as #877).
+
+### post-mrg #796 — engine-adapter
+- **engine-adapter is NOT pinned in docker-compose.services.yml**: Only `http-adapter` has a digest pin there. engine-adapter uses a mutable `:main` tag in the dev docker-compose. No digest update needed post-merge. Seen in: post-mrg #796.
+- **Release workflow annotation check failure ≠ image not published**: The `report-image-meta` action checks annotations after `imagetools create` pushes the image. If the annotation check fails, the image is already in GHCR — verify separately with `gh api /orgs/zynax-io/packages/container/zynax%2F<svc>/versions`. This is a recurring pattern. Seen in: post-mrg #796, #839, #977.
