@@ -34,6 +34,10 @@ make bootstrap    # pulls ghcr.io/zynax-io/zynax/tools:latest from GHCR — run 
 
 Everything else runs inside containers. No Go, Python, or buf installation needed locally.
 
+> **Image digests** are managed via `images/images.yaml` — the single source of truth.
+> Do not hand-edit banner-marked regions in workflow files or Dockerfiles.
+> Use `make sync-images` to update them and `make check-images` to verify they match.
+
 ---
 
 ## Daily commands
