@@ -216,8 +216,9 @@ jobs:
     needs: [changes]
     runs-on: ubuntu-24.04
     outputs:
-      matrix: ${{ steps.build.outputs.matrix }}
-      any:    ${{ steps.build.outputs.any }}
+      matrix:          ${{ steps.build.outputs.matrix }}
+      platform_matrix: ${{ steps.build.outputs.platform_matrix }}
+      any:             ${{ steps.build.outputs.any }}
     steps:
       - id: build
         run: |
@@ -227,31 +228,157 @@ jobs:
           [[ "${{ github.event_name }}" == "workflow_dispatch" ]]     && force="true"
           [[ "${{ inputs.rebuild_all }}" == "true" ]]                 && force="true"
 
-          svc() { printf '{"service":"%s"}' "$1"; }
+          # Build per-service entries (service name + optional dockerfile override)
+          declare -A svc_dockerfile
           entries=()
-          [[ "$force" == "true" || "${{ needs.changes.outputs.api_gateway }}"       == "true" ]] && entries+=("$(svc api-gateway)")
-          [[ "$force" == "true" || "${{ needs.changes.outputs.engine_adapter }}"    == "true" ]] && entries+=("$(svc engine-adapter)")
-          [[ "$force" == "true" || "${{ needs.changes.outputs.workflow_compiler }}" == "true" ]] && entries+=("$(svc workflow-compiler)")
-          [[ "$force" == "true" || "${{ needs.changes.outputs.task_broker }}"       == "true" ]] && entries+=("$(svc task-broker)")
-          [[ "$force" == "true" || "${{ needs.changes.outputs.agent_registry }}"    == "true" ]] && entries+=("$(svc agent-registry)")
-          [[ "$force" == "true" || "${{ needs.changes.outputs.http_adapter }}"      == "true" ]] && entries+=('{"service":"http-adapter","dockerfile":"agents/adapters/http/Dockerfile"}')
+          [[ "$force" == "true" || "${{ needs.changes.outputs.api_gateway }}"       == "true" ]] && entries+=(api-gateway)
+          [[ "$force" == "true" || "${{ needs.changes.outputs.engine_adapter }}"    == "true" ]] && entries+=(engine-adapter)
+          [[ "$force" == "true" || "${{ needs.changes.outputs.workflow_compiler }}" == "true" ]] && entries+=(workflow-compiler)
+          [[ "$force" == "true" || "${{ needs.changes.outputs.task_broker }}"       == "true" ]] && entries+=(task-broker)
+          [[ "$force" == "true" || "${{ needs.changes.outputs.agent_registry }}"    == "true" ]] && entries+=(agent-registry)
+          [[ "$force" == "true" || "${{ needs.changes.outputs.http_adapter }}"      == "true" ]] && entries+=(http-adapter)
+          svc_dockerfile[http-adapter]="agents/adapters/http/Dockerfile"
 
           if [[ ${#entries[@]} -eq 0 ]]; then
             echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+            echo 'platform_matrix={"include":[]}' >> "$GITHUB_OUTPUT"
             echo 'any=false' >> "$GITHUB_OUTPUT"
             echo "ℹ️  No service images changed — build skipped."
           else
-            printf -v joined '%s,' "${entries[@]}"
-            echo "matrix={\"include\":[${joined%,}]}" >> "$GITHUB_OUTPUT"
+            # Service-only matrix (used by merge-and-sign)
+            svc_items=()
+            for svc in "${entries[@]}"; do
+              df="${svc_dockerfile[$svc]:-}"
+              if [[ -n "$df" ]]; then
+                svc_items+=("{\"service\":\"${svc}\",\"dockerfile\":\"${df}\"}")
+              else
+                svc_items+=("{\"service\":\"${svc}\"}")
+              fi
+            done
+            printf -v svc_joined '%s,' "${svc_items[@]}"
+            echo "matrix={\"include\":[${svc_joined%,}]}" >> "$GITHUB_OUTPUT"
+
+            # Platform matrix — cross-product: each service × {amd64, arm64}
+            plat_items=()
+            for svc in "${entries[@]}"; do
+              df="${svc_dockerfile[$svc]:-}"
+              for plat in amd64 arm64; do
+                if [[ -n "$df" ]]; then
+                  plat_items+=("{\"service\":\"${svc}\",\"platform\":\"${plat}\",\"dockerfile\":\"${df}\"}")
+                else
+                  plat_items+=("{\"service\":\"${svc}\",\"platform\":\"${plat}\"}")
+                fi
+              done
+            done
+            printf -v plat_joined '%s,' "${plat_items[@]}"
+            echo "platform_matrix={\"include\":[${plat_joined%,}]}" >> "$GITHUB_OUTPUT"
+
             echo 'any=true' >> "$GITHUB_OUTPUT"
-            echo "✓ Building ${#entries[@]} service(s)"
+            echo "✓ Building ${#entries[@]} service(s) × 2 platforms"
           fi
 
-# ── Service images + CycloneDX SBOMs ─────────────────────────────────────────
+# ── Native per-platform service image builds (no QEMU) ───────────────────────
+# Each job builds one service for one platform natively:
+#   amd64 → ubuntu-24.04 runner
+#   arm64 → ubuntu-24.04-arm runner
+# The amd64 job also runs Trivy scan (representative CVE gate for both arches).
+# Digests are uploaded as artifacts for the merge-and-sign fan-in job.
 
-  build-push-images:
-    name: Image & SBOM — ${{ matrix.service }}
+  build-platform:
+    name: Build ${{ matrix.service }} (${{ matrix.platform }})
     needs: [resolve-matrix]
+    if: needs.resolve-matrix.outputs.any == 'true'
+    runs-on: ${{ matrix.platform == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.resolve-matrix.outputs.platform_matrix) }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      # ── Trivy pre-push scan (amd64 only — representative gate for both arches) ─
+      - name: Build image for trivy scan
+        if: matrix.platform == 'amd64'
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile || 'infra/docker/Dockerfile.service' }}
+          build-args: SVC=${{ matrix.service }}
+          platforms: linux/amd64
+          load: true
+          tags: scan-${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}-amd64
+
+      - name: Trivy container scan
+        if: matrix.platform == 'amd64'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: scan-${{ matrix.service }}:${{ github.sha }}
+          format: sarif
+          output: trivy-results-${{ matrix.service }}.sarif
+          severity: CRITICAL
+          exit-code: 1
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+
+      - name: Upload trivy SARIF to GitHub Security tab
+        if: matrix.platform == 'amd64' && always()
+        uses: github/codeql-action/upload-sarif@03e4368ac7daa2bd82b3e85262f3bf87ee112f57 # v3.36.0
+        with:
+          sarif_file: trivy-results-${{ matrix.service }}.sarif
+          category: container-${{ matrix.service }}
+
+      # ── Native single-platform push ───────────────────────────────────────────
+      # Tag: :<service>-<platform>-<sha> — intermediate; merged by merge-and-sign.
+      # provenance=false on single-arch intermediates — provenance is added
+      # to the merged manifest index in merge-and-sign (ADR-025).
+      - name: Build and push (native ${{ matrix.platform }})
+        id: build
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile || 'infra/docker/Dockerfile.service' }}
+          build-args: SVC=${{ matrix.service }}
+          platforms: linux/${{ matrix.platform }}
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ matrix.service }}-${{ matrix.platform }}-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}-${{ matrix.platform }}
+          cache-to: type=gha,scope=${{ matrix.service }}-${{ matrix.platform }},mode=max
+          provenance: false
+
+      # Save digest for fan-in (merge-and-sign)
+      - name: Save digest artifact
+        run: |
+          mkdir -p /tmp/digests
+          echo "${{ steps.build.outputs.digest }}" \
+            > "/tmp/digests/${{ matrix.service }}-${{ matrix.platform }}.digest"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: digest-${{ matrix.service }}-${{ matrix.platform }}
+          path: /tmp/digests/${{ matrix.service }}-${{ matrix.platform }}.digest
+          retention-days: 1
+
+# ── Merge manifest indexes + sign + SBOM (fan-in) ────────────────────────────
+# Runs once all platform builds succeed. For each service:
+#   1. docker buildx imagetools create — multi-arch manifest index
+#   2. cosign sign (tag + release only)
+#   3. syft SBOM from merged index (tag + release only)
+# The final multi-arch tags (main / main-sha8 / vX.Y.Z / latest) are applied here.
+# provenance attestations attached by buildx imagetools create (SLSA L1 — ADR-025).
+
+  merge-and-sign:
+    name: Merge & sign — ${{ matrix.service }}
+    needs: [resolve-matrix, build-platform]
     if: needs.resolve-matrix.outputs.any == 'true'
     runs-on: ubuntu-24.04
     strategy:
@@ -266,18 +393,19 @@ jobs:
           TAG="${{ inputs.tag || github.ref_name }}"
           echo "version=${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Compute image tags
+      - name: Compute final image tags
         id: img
         run: |
           PREFIX="${{ env.IMAGE_PREFIX }}/${{ matrix.service }}"
           SHA="${{ github.sha }}"
           if [[ "${{ github.ref_type }}" == "branch" && "${{ github.event_name }}" != "workflow_dispatch" ]]; then
             echo "tags=${PREFIX}:main,${PREFIX}:main-${SHA:0:8}" >> "$GITHUB_OUTPUT"
+            echo "primary=${PREFIX}:main-${SHA:0:8}" >> "$GITHUB_OUTPUT"
           else
             TAG="${{ steps.ver.outputs.version }}"
             echo "tags=${PREFIX}:${TAG},${PREFIX}:latest" >> "$GITHUB_OUTPUT"
+            echo "primary=${PREFIX}:${TAG}" >> "$GITHUB_OUTPUT"
           fi
-          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
@@ -289,69 +417,49 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
-      # ── Trivy pre-push scan — single-platform build then scan, block on CRITICAL ─
-      - name: Build image for trivy scan (linux/amd64)
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+      # Download per-platform digests written by build-platform jobs
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          context: .
-          file: ${{ matrix.dockerfile || 'infra/docker/Dockerfile.service' }}
-          build-args: SVC=${{ matrix.service }}
-          platforms: linux/amd64
-          load: true
-          tags: scan-${{ matrix.service }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.service }}
+          name: digest-${{ matrix.service }}-amd64
+          path: /tmp/digests
 
-      - name: Trivy container scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          image-ref: scan-${{ matrix.service }}:${{ github.sha }}
-          format: sarif
-          output: trivy-results-${{ matrix.service }}.sarif
-          severity: CRITICAL
-          exit-code: 1
-          ignore-unfixed: true
-          trivyignores: .trivyignore
+          name: digest-${{ matrix.service }}-arm64
+          path: /tmp/digests
 
-      - name: Upload trivy SARIF to GitHub Security tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@03e4368ac7daa2bd82b3e85262f3bf87ee112f57 # v3.36.0
-        with:
-          sarif_file: trivy-results-${{ matrix.service }}.sarif
-          category: container-${{ matrix.service }}
+      - name: Merge multi-arch manifest index
+        id: merge
+        run: |
+          PREFIX="${{ env.IMAGE_PREFIX }}/${{ matrix.service }}"
 
-      # ── Multi-arch push (only reached if trivy scan above exits 0) ────────────
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        with:
-          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
-          labels: |
-            org.opencontainers.image.title=zynax-${{ matrix.service }}
-            org.opencontainers.image.description=Zynax ${{ matrix.service }} service image
+          AMD64_DIGEST=$(cat "/tmp/digests/${{ matrix.service }}-amd64.digest")
+          ARM64_DIGEST=$(cat "/tmp/digests/${{ matrix.service }}-arm64.digest")
 
-      # provenance=true (default) attaches SLSA Build L1 attestation manifests.
-      # These appear as "unknown/unknown" rows in GHCR — expected, not broken.
-      # Each image gets two attestation entries: one for linux/amd64, one for linux/arm64.
-      # Manifest size ~565 bytes. See ADR-025: docs/adr/ADR-025-slsa-provenance-attestation.md
-      - name: Build and push
-        id: build
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
-        with:
-          context: .
-          file: ${{ matrix.dockerfile || 'infra/docker/Dockerfile.service' }}
-          build-args: SVC=${{ matrix.service }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.img.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          annotations: ${{ steps.meta.outputs.annotations }}
+          # Build -t flags from comma-separated tag list
+          TAG_ARGS=()
+          IFS=',' read -ra TAGS <<< "${{ steps.img.outputs.tags }}"
+          for t in "${TAGS[@]}"; do
+            TAG_ARGS+=(-t "$t")
+          done
+
+          docker buildx imagetools create \
+            "${TAG_ARGS[@]}" \
+            "${PREFIX}@${AMD64_DIGEST}" \
+            "${PREFIX}@${ARM64_DIGEST}"
+
+          # Capture merged index digest for signing / SBOM
+          MERGED_DIGEST=$(docker buildx imagetools inspect \
+            --format '{{json .Manifest.Digest}}' \
+            "${{ steps.img.outputs.primary }}" | tr -d '"')
+          echo "digest=${MERGED_DIGEST}" >> "$GITHUB_OUTPUT"
 
       - name: Report image sizes
         uses: ./.github/actions/report-image-meta
         with:
           image-name: zynax-io/zynax/${{ matrix.service }}
           image-label: ${{ matrix.service }}
-          digest: ${{ steps.build.outputs.digest }}
+          digest: ${{ steps.merge.outputs.digest }}
           token: ${{ secrets.GITHUB_TOKEN }}
           image-type: service
 
@@ -377,11 +485,13 @@ jobs:
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
-      - name: Sign image
+      - name: Sign merged manifest index
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: |
           cosign sign --yes \
-            "${{ env.IMAGE_PREFIX }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}"
+            "${{ env.IMAGE_PREFIX }}/${{ matrix.service }}@${{ steps.merge.outputs.digest }}"
+        env:
+          COSIGN_EXPERIMENTAL: "1"
 
       - name: Install syft ${{ env.SYFT_VERSION }}
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
@@ -392,11 +502,12 @@ jobs:
           tar -xzf /tmp/syft.tar.gz -C /usr/local/bin syft
           rm /tmp/syft.tar.gz
 
-      - name: Generate SBOM (SPDX)
+      # SBOM generated from merged manifest index — covers both arches
+      - name: Generate SBOM (SPDX) from merged index
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
         run: |
           syft \
-            "${{ env.IMAGE_PREFIX }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}" \
+            "${{ env.IMAGE_PREFIX }}/${{ matrix.service }}@${{ steps.merge.outputs.digest }}" \
             -o spdx-json \
             --file "${{ matrix.service }}-sbom.spdx.json"
 
@@ -411,7 +522,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build-cli, build-zynax-ci, build-push-images]
+    needs: [build-cli, build-zynax-ci, merge-and-sign]
     if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
