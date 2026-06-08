@@ -26,11 +26,13 @@ const (
 
 // Action is a single capability invocation within a state. It holds no proto
 // types — the api layer maps Action to ActionIR when building WorkflowIR.
+//
+// Note: output mapping is not yet implemented (tracked for M7+). The parser
+// rejects any action that sets output: with ErrorCodeInvalidFieldValue.
 type Action struct {
 	Capability string
 	Timeout    time.Duration // zero means no timeout
 	Input      map[string]interface{}
-	Output     map[string]interface{}
 	Async      bool
 }
 
@@ -250,11 +252,19 @@ func convertState( //nolint:funlen // validates type + actions + transitions in 
 				})
 			}
 		}
+		if len(ya.Output) > 0 {
+			errs = append(errs, ParseError{
+				Code:      ErrorCodeInvalidFieldValue,
+				Message:   fmt.Sprintf("state %q: action %q uses output: which is not yet implemented; remove it or upgrade to M7+", name, ya.Capability),
+				Line:      line,
+				StateName: name,
+			})
+			continue
+		}
 		st.Actions = append(st.Actions, Action{
 			Capability: ya.Capability,
 			Timeout:    d,
 			Input:      ya.Input,
-			Output:     ya.Output,
 			Async:      ya.Async,
 		})
 	}

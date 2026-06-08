@@ -44,8 +44,6 @@ spec:
           timeout: 30s
           input:
             text: "{{ .ctx.doc }}"
-          output:
-            ctx.summary: "{{ .result.summary }}"
         - capability: notify
           async: true
       on:
@@ -318,6 +316,44 @@ spec:
 	}
 	if errs[0].Code != ErrorCodeInvalidFieldValue {
 		t.Errorf("code = %v, want ErrorCodeInvalidFieldValue", errs[0].Code)
+	}
+}
+
+func TestParseManifest_ActionOutputRejected(t *testing.T) {
+	data := []byte(`
+kind: Workflow
+apiVersion: zynax.io/v1
+metadata:
+  name: wf
+spec:
+  initial_state: s
+  states:
+    s:
+      type: terminal
+      actions:
+        - capability: summarize
+          output:
+            ctx.result: "{{ .result.text }}"
+`)
+	_, errs := ParseManifest(context.Background(), data)
+	if len(errs) == 0 {
+		t.Fatal("expected error when output: is used on an action")
+	}
+	found := false
+	for _, e := range errs {
+		if e.Code == ErrorCodeInvalidFieldValue {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected ErrorCodeInvalidFieldValue for output: usage, got %v", errs)
+	}
+	// Verify the error message is descriptive enough to guide the user.
+	if len(errs) > 0 {
+		msg := errs[0].Message
+		if msg == "" {
+			t.Error("expected non-empty error message for output: usage")
+		}
 	}
 }
 

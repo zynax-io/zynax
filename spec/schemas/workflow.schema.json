@@ -155,11 +155,6 @@
           "type": "object",
           "description": "Key-value input template passed to the agent. Values may reference workflow context with expression syntax '{{ .ctx.key }}' or trigger data '{{ .trigger.field }}'.",
           "additionalProperties": true
-        },
-        "output": {
-          "type": "object",
-          "description": "Mapping from capability result fields to workflow context keys. Allows the result of this action to be consumed by subsequent states.",
-          "additionalProperties": true
         }
       }
     },
