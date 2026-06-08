@@ -533,6 +533,10 @@ jobs:
 # ── test-unit: required-check wrapper (branch protection gate) ────────────────
 # Branch protection requires "test-unit" to pass. This wrapper job fulfils
 # that requirement by waiting for test-go + test-python.
+# IMPORTANT: must use `if: always()` unconditionally. Using
+# `!contains(needs.*.result, 'failure')` causes the job to be SKIPPED (not
+# failed) when an upstream job fails — GitHub treats SKIPPED as neutral and
+# allows the merge, bypassing the required-check gate entirely (#986).
   test-unit:
     name: test-unit
     runs-on: ubuntu-24.04
@@ -540,13 +544,18 @@ jobs:
       image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
     needs: [test-go, test-python]
-    if: >-
-      always() &&
-      !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.result, 'cancelled')
+    if: always()
     steps:
       - name: All tests passed
-        run: echo "✅ test-go=${{ needs.test-go.result }}  test-python=${{ needs.test-python.result }}"
+        run: |
+          tg="${{ needs.test-go.result }}"
+          tp="${{ needs.test-python.result }}"
+          echo "test-go=${tg}  test-python=${tp}"
+          if [[ "${tg}" == "failure" || "${tp}" == "failure" ]]; then
+            echo "::error::test-go=${tg}  test-python=${tp}"
+            exit 1
+          fi
+          echo "✅ all tests passed or skipped"
 
 # ── Integration Tests ─────────────────────────────────────────────────────────
 # No-op skeleton until real integration tests exist (#227 / M7.C).
