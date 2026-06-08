@@ -101,7 +101,7 @@ services/memory-service/
 
 ## O — Operations
 
-1. **[J.2]** Scaffold memory-service: `go.mod`, `cmd/memory-service/main.go` (compiles; returns UNIMPLEMENTED on all RPCs), `internal/domain/kv.go`, `vector.go`, `namespace.go`, `errors.go`. `GOWORK=off go build ./...` succeeds.
+1. ✅ **[J.2]** Scaffold memory-service: `go.mod`, `cmd/memory-service/main.go` (compiles; returns UNIMPLEMENTED on all RPCs), `internal/domain/kv.go`, `vector.go`, `namespace.go`, `errors.go`. `GOWORK=off go build ./...` succeeds.
 
 2. **[J.3]** Implement `infrastructure/redis_kv.go`: `go-redis/v9`; `Set/Get/Delete/ListKeys/MGet/MSet/DeleteNamespace` with `{ns}:{key}` key prefix; TTL via Redis `EXPIRE`; unit tests with `miniredis` mock; `GOWORK=off go test ./... -race` passes.
 

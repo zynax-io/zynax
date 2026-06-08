@@ -14,5 +14,6 @@ use (
 	./services/api-gateway
 	./services/engine-adapter
 	./services/task-broker
+	./services/memory-service
 	./services/workflow-compiler
 )
