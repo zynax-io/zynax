@@ -22,6 +22,7 @@ import (
 	"github.com/zynax-io/zynax/libs/zynaxconfig"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/memory-service/internal/api"
+	"github.com/zynax-io/zynax/services/memory-service/internal/domain"
 	"github.com/zynax-io/zynax/services/memory-service/internal/infrastructure"
 )
 
@@ -57,9 +58,20 @@ func run(cfg config) error {
 		return fmt.Errorf("memory-service: tls credentials: %w", err)
 	}
 
-	// J.2 scaffold: KVStore and VectorStore are nil; all RPCs return UNIMPLEMENTED.
-	// J.3 will wire the Redis KV adapter; J.4 will wire the pgvector adapter.
-	handler := api.NewHandler(nil, nil)
+	// J.3: wire the Redis KV adapter when ZYNAX_REDIS_DSN is set.
+	// J.4 will wire the pgvector adapter; VectorStore remains nil until then.
+	var kv domain.KVStore
+	if cfg.RedisDSN != "" {
+		rdb, err := infrastructure.NewRedisKVFromDSN(cfg.RedisDSN)
+		if err != nil {
+			return fmt.Errorf("memory-service: redis kv adapter: %w", err)
+		}
+		kv = rdb
+		slog.Info("redis kv adapter wired")
+	} else {
+		slog.Warn("ZYNAX_MEMORY_REDIS_DSN not set; KV RPCs will return UNIMPLEMENTED")
+	}
+	handler := api.NewHandler(kv, nil)
 
 	srv := grpc.NewServer(grpc.Creds(creds))
 	reflection.Register(srv)
