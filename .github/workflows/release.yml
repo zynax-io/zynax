@@ -444,6 +444,10 @@ jobs:
           done
 
           docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.description=Zynax ${{ matrix.service }} service" \
+            --annotation "index:org.opencontainers.image.title=${{ matrix.service }}" \
+            --annotation "index:org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --annotation "index:org.opencontainers.image.revision=${{ github.sha }}" \
             "${TAG_ARGS[@]}" \
             "${PREFIX}@${AMD64_DIGEST}" \
             "${PREFIX}@${ARM64_DIGEST}"
