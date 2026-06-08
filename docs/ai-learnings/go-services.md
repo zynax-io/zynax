@@ -288,3 +288,18 @@ but the `gh issue list --state open` query may lag due to GitHub API eventual co
 - **`agents/sdk/pyproject.toml` concurrent edit race**: Concurrent agents can contaminate
   the shared working tree. Recovery: `git show origin/main:<file> > <file> && git add <file>`,
   then `git restore --staged <file> && git restore <file>` to exclude from current commit.
+
+## Session — 2026-06-09 (issue #796)
+
+### Effective patterns
+- **ArgoClient as interface before httpArgoClient**: Defining `ArgoClient` as an interface before implementing `httpArgoClient` enabled clean mock injection — identical to the `temporalClient` pattern in the same package. Seen in: #796.
+- **`protojson.MarshalOptions{UseProtoNames: true}`**: Use this for WorkflowIR serialisation to keep proto field names canonical for downstream template consumption. Seen in: #796.
+- **Test constants for repeated string literals**: Extracting test constants (`testArgoNamespace`, `testWorkflowTemplate`, `testServiceAccount`) avoids goconst lint violations on repeated string literals. Seen in: #796.
+
+### Edge cases discovered
+- **Cross-agent branch contamination via empty claim**: Another agent accidentally pushed a commit to the working branch between the empty claim push and the implementation push — this contaminated the PR diff with 310 extra lines, causing the PR-size check to fail. Recovery: `git push --force-with-lease`. Seen in: #796 (agents #796 and #878 both operated on branches simultaneously).
+- **`replace_all` flag in Edit replaces all occurrences including inside `const` block**: Don't use `replace_all` when the old string appears in its own definition. Seen in: #796.
+- **gitleaks triggers on example URLs with internal-sounding hostnames**: Comments containing example hostnames matching internal infrastructure patterns (e.g. cluster-internal service addresses) trigger the secret scan. Use generic descriptions instead. Seen in: #796.
+
+### Failed approaches
+- **`git commit` failing with `cannot lock ref 'HEAD': is at X but expected Y`**: Another agent switched the worktree between staging and commit. Fix: `git checkout <your-branch>` to restore HEAD, restage all files, retry commit. Seen in: #796.
