@@ -17,6 +17,15 @@ import (
 	"github.com/zynax-io/zynax/services/event-bus/internal/domain"
 )
 
+// Shared test constants to satisfy the goconst linter threshold.
+const (
+	testWorkflowID      = "wf-99"
+	testRunID           = "run-5"
+	testNamespace       = "prod"
+	testCapabilityName  = "echo"
+	testDataContentType = "application/json"
+)
+
 // fakeEventBus is an in-memory test double for domain.EventBus.
 // It records published events and allows callers to inject errors.
 type fakeEventBus struct {
@@ -137,11 +146,11 @@ func TestPublish_ExtensionFieldsPropagated(t *testing.T) {
 	fake := &fakeEventBus{}
 	h := api.NewHandler(fake)
 	ev := validEvent()
-	ev.WorkflowId = "wf-99"
-	ev.RunId = "run-5"
-	ev.Namespace = "prod"
-	ev.CapabilityName = "echo"
-	ev.Datacontenttype = "application/json"
+	ev.WorkflowId = testWorkflowID
+	ev.RunId = testRunID
+	ev.Namespace = testNamespace
+	ev.CapabilityName = testCapabilityName
+	ev.Datacontenttype = testDataContentType
 
 	_, err := h.Publish(context.Background(), &zynaxv1.PublishRequest{Event: ev})
 	if err != nil {
@@ -151,20 +160,20 @@ func TestPublish_ExtensionFieldsPropagated(t *testing.T) {
 		t.Fatalf("expected 1 published event, got %d", len(fake.published))
 	}
 	got := fake.published[0]
-	if got.WorkflowID != "wf-99" {
-		t.Errorf("WorkflowID: got %q, want wf-99", got.WorkflowID)
+	if got.WorkflowID != testWorkflowID {
+		t.Errorf("WorkflowID: got %q, want %q", got.WorkflowID, testWorkflowID)
 	}
-	if got.RunID != "run-5" {
-		t.Errorf("RunID: got %q, want run-5", got.RunID)
+	if got.RunID != testRunID {
+		t.Errorf("RunID: got %q, want %q", got.RunID, testRunID)
 	}
-	if got.Namespace != "prod" {
-		t.Errorf("Namespace: got %q, want prod", got.Namespace)
+	if got.Namespace != testNamespace {
+		t.Errorf("Namespace: got %q, want %q", got.Namespace, testNamespace)
 	}
-	if got.CapabilityName != "echo" {
-		t.Errorf("CapabilityName: got %q, want echo", got.CapabilityName)
+	if got.CapabilityName != testCapabilityName {
+		t.Errorf("CapabilityName: got %q, want %q", got.CapabilityName, testCapabilityName)
 	}
-	if got.DataContentType != "application/json" {
-		t.Errorf("DataContentType: got %q, want application/json", got.DataContentType)
+	if got.DataContentType != testDataContentType {
+		t.Errorf("DataContentType: got %q, want %q", got.DataContentType, testDataContentType)
 	}
 }
 
