@@ -45,7 +45,7 @@ services/memory-service/
 └── Dockerfile
 ```
 
-Config env prefix: `ZYNAX_MEMORY_` · gRPC port: 50053
+Config env prefix: `ZYNAX_MEMORY_` · gRPC port: 50057
 
 ---
 
