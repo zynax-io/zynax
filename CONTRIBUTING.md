@@ -417,7 +417,58 @@ extra scrutiny and versioning discipline.
 
 ---
 
-## 14. First Contribution
+## 14. GHCR Package Hygiene
+
+### OCI labels vs manifest annotations
+
+Docker image metadata published to GHCR requires **both** Docker labels (for runtime
+tools like `docker inspect`) and OCI manifest annotations (for the registry UI).
+Labels are set via `org.opencontainers.image.*` in the `docker/metadata-action` labels
+block; annotations are the corresponding entries forwarded via the `annotations:` key
+in `docker/build-push-action`.  If annotations are omitted, the package description
+appears blank in the GHCR web UI even though `docker inspect` shows the correct label.
+
+### unknown/unknown rows are expected — do not delete them
+
+Every multi-arch push produces two extra entries in the GHCR Packages UI listed with
+no platform tag (`unknown/unknown`).  These are **SLSA Build L1 provenance attestation
+manifests** generated automatically by `docker buildx` (`--provenance=mode=min`).
+
+- One entry per platform variant (linux/amd64, linux/arm64).
+- Manifest size ~565 bytes; contains build invocation, GitHub Actions run ID, source
+  commit, and SLSA Build L1 statement.
+- Media type: `application/vnd.oci.image.manifest.v1+json` with
+  `vnd.docker.reference.type: attestation-manifest`.
+
+**Decision:** keep attestations enabled (see
+[ADR-025](docs/adr/ADR-025-slsa-provenance-attestation.md)).  Disabling them drops
+SLSA provenance, weakens the OpenSSF Scorecard posture, and breaks
+`cosign verify-attestation`.  The `unknown/unknown` appearance is a GHCR UI cosmetic
+issue — do not set `provenance: false` to work around it.
+
+### Verifying a published image
+
+```bash
+# Inspect the full manifest index (shows platform entries + attestation refs):
+docker buildx imagetools inspect ghcr.io/zynax-io/zynax/<image>:<tag> --raw
+
+# Verify SLSA attestation:
+cosign verify-attestation --type slsaprovenance \
+  ghcr.io/zynax-io/zynax/<image>@sha256:<digest>
+
+# Verify cosign signature (tag builds only):
+cosign verify ghcr.io/zynax-io/zynax/<image>:<version>
+```
+
+### Retention policy
+
+GHCR is capped at the last **5** `main-sha` builds per image.  `:latest` and
+`v*.*.*` tags are never pruned.  The cleanup job runs automatically after every
+successful multi-arch push (see `tools-image.yml` and `release.yml`).
+
+---
+
+## 15. First Contribution
 
 If this is your first contribution to Zynax, welcome. Here is the fastest path to
 your first merged PR:

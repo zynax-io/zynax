@@ -115,16 +115,63 @@ See #549 for the full per-module granularity enhancement.
 ## Release Artifacts (supply chain)
 
 The unified release workflow (`release.yml`) produces:
-- CLI binary `zynax` for darwin/linux × amd64/arm64 (4 platforms)
-- `zynax-ci` binary for the same platforms
+- CLI binary `zynax` for darwin/linux/windows × amd64/arm64 (5 platforms)
+- `zynax-ci` binary for darwin/linux × amd64/arm64 (4 platforms)
 - Service Docker images pushed to GHCR (`ghcr.io/zynax-io/zynax/<service>:v<version>`)
+- SPDX SBOM per service image (syft — attached to GitHub Release)
+- cosign keyless signature per image (tag builds and `workflow_dispatch` only)
+- SLSA Build L1 provenance attestation — generated automatically by `docker/build-push-action`
+  (see [ADR-025](../../adr/ADR-025-slsa-provenance-attestation.md) and the GHCR Package Hygiene
+  section below)
 
-**Planned (M6, #489):**
-- SBOM per artifact (syft SPDX format via `anchore/sbom-action`)
-- cosign keyless signing (`cosign sign --keyless`)
-- SLSA L2 provenance (via `slsa-framework/slsa-github-generator`)
+---
 
-Until these are implemented, do NOT claim supply-chain security in documentation.
+## GHCR Package Hygiene
+
+### OCI labels vs manifest annotations
+
+Docker image metadata requires **both** Docker labels (for `docker inspect`) and OCI
+manifest annotations (for the GHCR web UI).  Labels are set via
+`org.opencontainers.image.*` in the `docker/metadata-action` labels block; annotations
+are forwarded via the `annotations:` key in `docker/build-push-action`.  Omitting
+annotations leaves the package description blank in the GHCR UI.
+
+### unknown/unknown rows are expected — do not delete them
+
+Every multi-arch push produces two extra entries in the GHCR Packages UI labelled
+`unknown/unknown`.  These are **SLSA Build L1 provenance attestation manifests**
+generated automatically by `docker buildx` (`--provenance=mode=min`).
+
+- One entry per platform variant (linux/amd64, linux/arm64).
+- Manifest size ~565 bytes; encodes build invocation, GitHub Actions run ID, source
+  commit, and SLSA Build L1 statement.
+- Media type: `application/vnd.oci.image.manifest.v1+json` with
+  `vnd.docker.reference.type: attestation-manifest`.
+
+**Decision:** keep attestations enabled. See
+[ADR-025](../../adr/ADR-025-slsa-provenance-attestation.md).  Do **not** set
+`provenance: false` — it drops SLSA provenance, weakens the OpenSSF Scorecard posture,
+and breaks `cosign verify-attestation`.
+
+### Verifying a published image
+
+```bash
+# Inspect the full manifest index (shows platform entries + attestation refs):
+docker buildx imagetools inspect ghcr.io/zynax-io/zynax/<image>:<tag> --raw
+
+# Verify SLSA attestation:
+cosign verify-attestation --type slsaprovenance \
+  ghcr.io/zynax-io/zynax/<image>@sha256:<digest>
+
+# Verify cosign signature (tag builds only):
+cosign verify ghcr.io/zynax-io/zynax/<image>:<version>
+```
+
+### Retention policy
+
+GHCR is capped at the last **5** `main-sha` builds per image.  `:latest` and `v*.*.*`
+tags are never pruned.  The cleanup job runs automatically in `tools-image.yml` and
+`release.yml` after every successful multi-arch push.
 
 ---
 
