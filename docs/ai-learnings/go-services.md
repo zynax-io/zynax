@@ -303,3 +303,25 @@ but the `gh issue list --state open` query may lag due to GitHub API eventual co
 
 ### Failed approaches
 - **`git commit` failing with `cannot lock ref 'HEAD': is at X but expected Y`**: Another agent switched the worktree between staging and commit. Fix: `git checkout <your-branch>` to restore HEAD, restage all files, retry commit. Seen in: #796.
+
+## Session — 2026-06-09 (issue #797)
+
+### Effective patterns
+- **Two-file atomic writes**: When extending an interface (`ArgoClient`) and its consumers (`ArgoEngine`) in the same PR, write both files with `Write` tool in the same turn before running `go build`. Writing them one at a time causes an inconsistent state that the background linter can catch and revert.
+- **`git rebase --signoff`**: Required when main advances between branch push and merge attempt. Pair with `--force-with-lease`. Triggers full CI re-run.
+- **`gh pr merge --auto`**: Use when CI hasn't yet passed after a rebase force-push; avoids manual polling for the merge.
+- **`errors.Is` with wrapped sentinels**: Use a `var` sentinel (not `fmt.Errorf`) to ensure `errors.Is` chains work correctly through `%w` wrapping layers.
+
+### Edge cases discovered
+- **Cancel race condition**: Between `GetWorkflow` (returns running) and `DeleteWorkflow`, the workflow can be concurrently deleted. Guard with `errors.Is(err, errArgoNotFound)` in the `DeleteWorkflow` error path → return `ErrExecutionNotFound`.
+- **Watch terminal-on-first-poll**: If a workflow is already terminal on the first `GetWorkflow` call, Watch must still call `send` once before returning nil. Verified by test.
+- **Invalid RFC3339 timestamps**: Argo may return empty or malformed timestamps. Silently ignore parse failures; keep `StartedAt`/`FinishedAt` as zero `time.Time`.
+- **`context.Err()` wrapping**: `wrapcheck` linter requires wrapping `ctx.Err()` with `fmt.Errorf("%w")` when returning from an interface method. `return ctx.Err()` directly fails the linter.
+- **`revive` unused-parameter**: Named parameters that are unused must be `_`. E.g. `_ string` for the `reason` param in `Cancel`.
+
+### Failed approaches
+- **Writing files one at a time**: Writing `argo_client.go` (extended interface) first caused the background linter to revert it before `argo_engine.go` was written. Write all related files in the same turn.
+- **Assuming `go build` verifies committed state**: `go build` reads the working tree, not the git index. Always verify with `git show HEAD:<path> | grep <key-symbol>` after commit.
+
+### Proposed expert prompt update — Shared workspace safety
+> **File reversion hazard**: A background linter/formatter may rewrite files between `Write` and `git add`. After each `Write`, immediately verify with `wc -l <path>`. When modifying a Go interface AND its implementations together, write all files in one turn, then build/test, then `git add` — never interleave write/build/add across separate Bash calls. After `git commit`, verify with `git show HEAD:<path> | grep <key-symbol>`.
