@@ -26,6 +26,7 @@ type stubEngine struct {
 	submitID           string
 	submitErr          error
 	capturedWorkflowID string
+	capturedNamespace  string
 	statusRun          domain.WorkflowRunSummary
 	statusErr          error
 	cancelErr          error
@@ -33,8 +34,9 @@ type stubEngine struct {
 	watchErr           error
 }
 
-func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _, workflowID string) (string, error) {
+func (s *stubEngine) SubmitWorkflow(_ context.Context, _ []byte, _, workflowID, namespace string) (string, error) {
 	s.capturedWorkflowID = workflowID
+	s.capturedNamespace = namespace
 	return s.submitID, s.submitErr
 }
 
@@ -373,5 +375,57 @@ func TestApplyService_ApplyWorkflow_New_UsesHashID(t *testing.T) {
 	}
 	if engine.capturedWorkflowID != wfID {
 		t.Errorf("new workflow must use hash ID %q, got %q", wfID, engine.capturedWorkflowID)
+	}
+}
+
+// ── Namespace propagation ────────────────────────────────────────────────────
+
+func TestApplyService_ApplyWorkflow_NamespacePropagatedToEngine(t *testing.T) {
+	manifest := []byte("kind: Workflow\nmetadata:\n  name: ns-test\n")
+	engine := &stubEngine{
+		statusErr: domain.ErrNotFound,
+		submitID:  "run-ns-001",
+	}
+	svc := domain.NewApplyService(
+		&stubCompiler{result: domain.CompileResult{
+			IRBytes:   []byte("ir"),
+			Namespace: "team-a",
+		}},
+		engine,
+		&stubRegistry{},
+	)
+	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: manifest})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if engine.capturedNamespace != "team-a" {
+		t.Errorf("engine received namespace %q, want team-a", engine.capturedNamespace)
+	}
+}
+
+func TestApplyService_ApplyWorkflow_CompiledNamespaceWins(t *testing.T) {
+	// The compiled IR namespace is authoritative; the engine uses it to enforce
+	// namespace-scoped capability routing.
+	engine := &stubEngine{
+		statusErr: domain.ErrNotFound,
+		submitID:  "run-ns-002",
+	}
+	svc := domain.NewApplyService(
+		&stubCompiler{result: domain.CompileResult{
+			IRBytes:   []byte("ir"),
+			Namespace: "ns-b",
+		}},
+		engine,
+		&stubRegistry{},
+	)
+	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
+		ManifestYAML: []byte("kind: Workflow\nmetadata:\n  name: x\n"),
+		Namespace:    "ns-a",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if engine.capturedNamespace != "ns-b" {
+		t.Errorf("engine received namespace %q, want ns-b (compiled IR namespace)", engine.capturedNamespace)
 	}
 }

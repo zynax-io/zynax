@@ -107,6 +107,9 @@ func (s *ApplyService) ApplyWorkflow(ctx context.Context, req ApplyRequest) (App
 //   - Running  → return existing run_id with Status "existing"
 //   - Completed → start new run with a timestamp-suffixed ID (re-run)
 //   - Not found / failed / other terminal → start new run with hash ID
+//
+// The compiled namespace is forwarded to EnginePort.SubmitWorkflow so that
+// the engine can enforce namespace-scoped capability routing.
 func (s *ApplyService) submit(ctx context.Context, manifestYAML []byte, compiled CompileResult, engineHint string) (ApplyResult, error) {
 	workflowID := ManifestWorkflowID(manifestYAML)
 
@@ -123,7 +126,7 @@ func (s *ApplyService) submit(ctx context.Context, manifestYAML []byte, compiled
 		}
 	}
 
-	runID, err := s.engine.SubmitWorkflow(ctx, compiled.IRBytes, engineHint, workflowID)
+	runID, err := s.engine.SubmitWorkflow(ctx, compiled.IRBytes, engineHint, workflowID, compiled.Namespace)
 	if err != nil {
 		return ApplyResult{}, fmt.Errorf("api-gateway: %w", err)
 	}

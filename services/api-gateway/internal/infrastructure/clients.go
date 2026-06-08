@@ -105,7 +105,9 @@ func (c *GatewayClients) CompileWorkflow(ctx context.Context, manifestYAML []byt
 // SubmitWorkflow implements domain.EnginePort.
 // workflowID overrides the compiler-assigned WorkflowId in the IR so that
 // Temporal uses the hash-derived deterministic identifier for deduplication.
-func (c *GatewayClients) SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint, workflowID string) (string, error) {
+// namespace is set explicitly on the request so the engine-adapter can enforce
+// namespace-scoped capability routing without re-parsing the IR bytes.
+func (c *GatewayClients) SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint, workflowID, namespace string) (string, error) {
 	ir := &zynaxv1.WorkflowIR{}
 	if err := proto.Unmarshal(irBytes, ir); err != nil {
 		return "", fmt.Errorf("api-gateway: unmarshal IR: %w", err)
@@ -116,6 +118,7 @@ func (c *GatewayClients) SubmitWorkflow(ctx context.Context, irBytes []byte, eng
 	resp, err := c.engine.SubmitWorkflow(callCtx, &zynaxv1.SubmitWorkflowRequest{
 		WorkflowIr: ir,
 		EngineHint: engineHint,
+		Namespace:  namespace,
 	})
 	if err != nil {
 		return "", mapEngineGRPCError(err)
@@ -311,6 +314,7 @@ func compileResultFromProto(resp *zynaxv1.CompileWorkflowResponse) domain.Compil
 	}
 	if ir := resp.GetWorkflowIr(); ir != nil {
 		result.IRBytes, _ = proto.Marshal(ir)
+		result.Namespace = ir.GetNamespace()
 	}
 	return result
 }

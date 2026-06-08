@@ -21,15 +21,19 @@ func TestCapabilityRefValidator(t *testing.T) {
 		{"multi_word", "fetch_and_parse", false},
 		{"with_digits", "run_step_2", false},
 		{"single_char", "a", false},
+		{"qualified_same_ns", "team-a/send_email", false},
+		{"qualified_numeric_ns", "ns1/summarize", false},
 		{"empty", "", true},
 		{"uppercase", "Summarize", true},
 		{"leading_underscore", "_summarize", true},
 		{"trailing_underscore", "summarize_", true},
 		{"double_underscore", "send__email", true},
 		{"hyphen", "send-email", true},
+		{"qualified_invalid_cap", "ns-a/send-email", true},
 		{"reserved_zynax", "zynax_exec", true},
 		{"reserved_system", "system_log", true},
 		{"reserved_internal", "internal_ping", true},
+		{"reserved_qualified", "ns-a/zynax_exec", true},
 	}
 
 	v := validators.CapabilityRefValidator{}
@@ -211,6 +215,101 @@ func TestTransitionSetValidator_NilSetPasses(t *testing.T) {
 	})
 	if errs := (validators.TransitionSetValidator{}).Validate(context.Background(), g); len(errs) != 0 {
 		t.Errorf("expected no errors for nil set, got %v", errs)
+	}
+}
+
+// CrossNamespaceCapabilityValidator ──────────────────────────────────────────
+
+// nsA is the test namespace used across CrossNamespaceCapabilityValidator tests.
+const nsA = "ns-a"
+
+func TestCrossNamespaceCapabilityValidator_UnqualifiedAllowed(t *testing.T) {
+	g := graphWith("a", map[string]*domain.State{
+		"a": {
+			ID:   "a",
+			Type: domain.StateTypeTerminal,
+			Actions: []domain.Action{
+				{Capability: "summarize"},
+				{Capability: "send_email"},
+			},
+		},
+	})
+	g.Namespace = nsA
+	errs := (validators.CrossNamespaceCapabilityValidator{}).Validate(context.Background(), g)
+	if len(errs) != 0 {
+		t.Errorf("unqualified capabilities must be allowed, got %v", errs)
+	}
+}
+
+func TestCrossNamespaceCapabilityValidator_SameNamespaceAllowed(t *testing.T) {
+	g := graphWith("a", map[string]*domain.State{
+		"a": {
+			ID:   "a",
+			Type: domain.StateTypeTerminal,
+			Actions: []domain.Action{
+				{Capability: nsA + "/summarize"},
+			},
+		},
+	})
+	g.Namespace = nsA
+	errs := (validators.CrossNamespaceCapabilityValidator{}).Validate(context.Background(), g)
+	if len(errs) != 0 {
+		t.Errorf("same-namespace qualified capability must be allowed, got %v", errs)
+	}
+}
+
+func TestCrossNamespaceCapabilityValidator_CrossNamespaceRejected(t *testing.T) {
+	// A workflow in ns-a must not dispatch a capability qualified with ns-b.
+	g := graphWith("a", map[string]*domain.State{
+		"a": {
+			ID:   "a",
+			Type: domain.StateTypeTerminal,
+			Actions: []domain.Action{
+				{Capability: "ns-b/send_email"},
+			},
+		},
+	})
+	g.Namespace = nsA
+	errs := (validators.CrossNamespaceCapabilityValidator{}).Validate(context.Background(), g)
+	if len(errs) == 0 {
+		t.Fatal("expected error for cross-namespace capability dispatch, got none")
+	}
+	if !hasCode(errs, domain.ErrorCodeInvalidFieldValue) {
+		t.Errorf("expected ErrorCodeInvalidFieldValue, got %v", errs)
+	}
+}
+
+func TestCrossNamespaceCapabilityValidator_MultipleActionsOneViolation(t *testing.T) {
+	g := graphWith("start", map[string]*domain.State{
+		"start": {
+			ID:   "start",
+			Type: domain.StateTypeNormal,
+			Actions: []domain.Action{
+				{Capability: "summarize"},        // ok: unqualified
+				{Capability: nsA + "/summarize"}, // ok: same namespace
+				{Capability: "ns-b/send_report"}, // violation
+			},
+			Transitions: []domain.Transition{
+				{EventType: "done", TargetState: "end"},
+			},
+		},
+		"end": terminalState(),
+	})
+	g.Namespace = nsA
+	errs := (validators.CrossNamespaceCapabilityValidator{}).Validate(context.Background(), g)
+	if len(errs) != 1 {
+		t.Errorf("expected exactly 1 error, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestCrossNamespaceCapabilityValidator_NoActions(t *testing.T) {
+	g := graphWith("s", map[string]*domain.State{
+		"s": terminalState(),
+	})
+	g.Namespace = "default"
+	errs := (validators.CrossNamespaceCapabilityValidator{}).Validate(context.Background(), g)
+	if len(errs) != 0 {
+		t.Errorf("expected no errors for graph with no actions, got %v", errs)
 	}
 }
 

@@ -66,7 +66,7 @@ type fakeEngine struct {
 	runID string
 }
 
-func (f *fakeEngine) SubmitWorkflow(_ context.Context, _ []byte, _, _ string) (string, error) {
+func (f *fakeEngine) SubmitWorkflow(_ context.Context, _ []byte, _, _, _ string) (string, error) {
 	if f.mode == engineUnavail {
 		return "", domain.ErrEngineUnavailable
 	}
