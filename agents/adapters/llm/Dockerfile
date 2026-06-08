@@ -9,8 +9,11 @@
 # Provider-specific: OPENAI_API_KEY | AWS_REGION | OLLAMA_BASE_URL
 # Optional: LLM_MODEL, LLM_MAX_TOKENS, ZYNAX_LLM_ADAPTER_GRPC_PORT (default 50057)
 
+# BEGIN zynax-ci:images:python-slim
+ARG PYTHON_SLIM_DIGEST=sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
+# END zynax-ci:images:python-slim
 # renovate: datasource=docker depName=python versioning=docker
-FROM python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203 AS builder
+FROM python:3.12-slim@${PYTHON_SLIM_DIGEST} AS builder
 
 WORKDIR /app
 
@@ -23,7 +26,7 @@ COPY agents/adapters/llm/pyproject.toml agents/adapters/llm/uv.lock ./
 RUN uv sync --no-dev --no-install-project --frozen
 
 # renovate: datasource=docker depName=python versioning=docker
-FROM python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
+FROM python:3.12-slim@${PYTHON_SLIM_DIGEST}
 
 WORKDIR /app
 
