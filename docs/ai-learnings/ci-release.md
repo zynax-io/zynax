@@ -230,3 +230,70 @@ If a merged PR references the issue: stop immediately, report the merge SHA and 
   `consumers:` array, so `make check-images` passed while the file drifted. Expand the
   consumers list whenever a new workflow is added that references a tracked image digest.
   Seen in: #839 post-merge. Date: 2026-06-08.
+
+---
+
+## Session — 2026-06-08 (post-merge sweep PRs #974, #976, #977)
+
+### test-unit SKIPPED ≠ tests passed — required-check bypass
+
+**Seen in:** PR #974. **Date:** 2026-06-08
+
+`test-unit` has `if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')`.
+When `test-go` fails, this condition evaluates to `false` — so `test-unit` is **SKIPPED**, not run.
+GitHub branch protection treats a SKIPPED required check as neutral (not blocking), allowing the merge.
+PR #974 merged despite `test-go: FAILURE` (broken test + `cmd/zynax-ci` coverage 74.6% < 80% gate) because
+`test-unit` showed SKIPPED, not FAILED, in the status checks.
+
+**Fix:** Change `test-unit` to `if: always()` and fail explicitly inside the step when upstream tests failed:
+```yaml
+test-unit:
+  if: always()
+  steps:
+    - name: All tests passed
+      run: |
+        if [[ "${{ needs.test-go.result }}" == "failure" || "${{ needs.test-python.result }}" == "failure" ]]; then
+          echo "::error::test-go=${{ needs.test-go.result }}  test-python=${{ needs.test-python.result }}"
+          exit 1
+        fi
+        echo "✅ test-go=${{ needs.test-go.result }}  test-python=${{ needs.test-python.result }}"
+```
+
+### Dockerfile.service missing libs/ copy breaks services with replace directives
+
+**Seen in:** PR #976 (triggered task-broker rebuild). **Date:** 2026-06-08
+
+`Dockerfile.service` copies only `protos/generated/go/` and `services/${SVC}/` into the build context.
+`task-broker/go.mod` has `replace github.com/zynax-io/zynax/libs/zynaxconfig => ../../libs/zynaxconfig`.
+`go mod download` inside Docker resolves this to `/workspace/libs/zynaxconfig` — which was never copied.
+The failure was latent since PR #907/909 (Jun 6) but masked because no subsequent PR triggered a
+task-broker rebuild until PR #976 changed `protos/generated/go/` (which is in the `task_broker=true`
+path-filter in `release.yml`).
+
+**Fix:** Add `COPY libs/ ./libs/` (and the corresponding `go.mod`/`go.sum` prefetch) in `Dockerfile.service`
+before the `go mod download` step. If `libs/` grows, scope it to `COPY libs/zynaxconfig/ ./libs/zynaxconfig/`.
+
+### Coverage gate is a no-op when coverage.out is absent
+
+**Seen in:** PR #974 analysis. **Date:** 2026-06-08
+
+The `cmd/zynax coverage gate` step in `_test-go.yml` opens with `if [ -f "cmd/zynax/coverage.out" ]; then … fi`
+and has **no `else` clause**. If the prior test step fails before writing `coverage.out`, the gate step
+exits 0 silently — the gate never fires. Same pattern on `cmd/zynax-ci`.
+
+**Fix:** Add `else echo "::error::coverage.out not found for cmd/zynax — aborting"; exit 1` to each gate.
+Also change the empty-total line from `exit 0` to `exit 1`.
+
+### Post-merge: check GHCR directly — Release failure ≠ image not pushed
+
+**Seen in:** PR #977 Release failure. **Date:** 2026-06-08
+
+In `merge-and-sign`, step order is: (1) `docker buildx imagetools create` → manifest pushed to GHCR,
+(2) annotation check → failed, (3) cosign sign → skipped.
+PR #977 left `workflow-compiler` and `api-gateway` in GHCR tagged `main` and `main-f11dfe34` but
+**without cosign signatures**. The Release workflow showed red but the images were already public.
+Post-merge verification must query GHCR directly (`gh api /orgs/…/packages/…/versions`) rather than
+inferring image state from the workflow conclusion.
+
+**Reminder:** The annotation-check failure in PR #977 was fixed by PR #979 (added `--annotation` flags
+to `imagetools create`). A re-sign pass was not performed; the Jun-8 `main` images remain unsigned.
