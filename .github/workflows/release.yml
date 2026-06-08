@@ -164,12 +164,16 @@ jobs:
     name: Detect changed services
     runs-on: ubuntu-24.04
     outputs:
-      api_gateway:       ${{ steps.detect.outputs.api_gateway }}
-      engine_adapter:    ${{ steps.detect.outputs.engine_adapter }}
-      workflow_compiler: ${{ steps.detect.outputs.workflow_compiler }}
-      task_broker:       ${{ steps.detect.outputs.task_broker }}
-      agent_registry:    ${{ steps.detect.outputs.agent_registry }}
-      http_adapter:      ${{ steps.detect.outputs.http_adapter }}
+      api_gateway:        ${{ steps.detect.outputs.api_gateway }}
+      engine_adapter:     ${{ steps.detect.outputs.engine_adapter }}
+      workflow_compiler:  ${{ steps.detect.outputs.workflow_compiler }}
+      task_broker:        ${{ steps.detect.outputs.task_broker }}
+      agent_registry:     ${{ steps.detect.outputs.agent_registry }}
+      http_adapter:       ${{ steps.detect.outputs.http_adapter }}
+      llm_adapter:        ${{ steps.detect.outputs.llm_adapter }}
+      langgraph_adapter:  ${{ steps.detect.outputs.langgraph_adapter }}
+      ci_adapter:         ${{ steps.detect.outputs.ci_adapter }}
+      git_adapter:        ${{ steps.detect.outputs.git_adapter }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -180,6 +184,7 @@ jobs:
         run: |
           api_gateway=false engine_adapter=false workflow_compiler=false
           task_broker=false agent_registry=false http_adapter=false
+          llm_adapter=false langgraph_adapter=false ci_adapter=false git_adapter=false
 
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_type }}" = "branch" ]; then
             if ! FILES=$(git diff --name-only HEAD^1...HEAD 2>/tmp/git-diff-err.txt); then
@@ -195,7 +200,11 @@ jobs:
                 echo "$f" | grep -qE '^(services/workflow-compiler/|protos/generated/go/|infra/docker/Dockerfile\.service)' && workflow_compiler=true
                 echo "$f" | grep -qE '^(services/task-broker/|protos/generated/go/|infra/docker/Dockerfile\.service)'      && task_broker=true
                 echo "$f" | grep -qE '^(services/agent-registry/|protos/generated/go/|infra/docker/Dockerfile\.service)'   && agent_registry=true
-                echo "$f" | grep -qE '^(agents/adapters/http/|protos/generated/go/)'      && http_adapter=true
+                echo "$f" | grep -qE '^(agents/adapters/http/|protos/generated/go/)'           && http_adapter=true
+                echo "$f" | grep -qE '^(agents/adapters/llm/|protos/generated/python/)'       && llm_adapter=true
+                echo "$f" | grep -qE '^(agents/adapters/langgraph/|protos/generated/python/)' && langgraph_adapter=true
+                echo "$f" | grep -qE '^(agents/adapters/ci/|protos/generated/go/)'            && ci_adapter=true
+                echo "$f" | grep -qE '^(agents/adapters/git/|protos/generated/go/)'           && git_adapter=true
               done <<< "$FILES"
             fi
           else
@@ -209,6 +218,10 @@ jobs:
             echo "task_broker=$task_broker"
             echo "agent_registry=$agent_registry"
             echo "http_adapter=$http_adapter"
+            echo "llm_adapter=$llm_adapter"
+            echo "langgraph_adapter=$langgraph_adapter"
+            echo "ci_adapter=$ci_adapter"
+            echo "git_adapter=$git_adapter"
           } >> "$GITHUB_OUTPUT"
 
   resolve-matrix:
@@ -237,7 +250,15 @@ jobs:
           [[ "$force" == "true" || "${{ needs.changes.outputs.task_broker }}"       == "true" ]] && entries+=(task-broker)
           [[ "$force" == "true" || "${{ needs.changes.outputs.agent_registry }}"    == "true" ]] && entries+=(agent-registry)
           [[ "$force" == "true" || "${{ needs.changes.outputs.http_adapter }}"      == "true" ]] && entries+=(http-adapter)
+          [[ "$force" == "true" || "${{ needs.changes.outputs.llm_adapter }}"       == "true" ]] && entries+=(llm-adapter)
+          [[ "$force" == "true" || "${{ needs.changes.outputs.langgraph_adapter }}" == "true" ]] && entries+=(langgraph-adapter)
+          [[ "$force" == "true" || "${{ needs.changes.outputs.ci_adapter }}"        == "true" ]] && entries+=(ci-adapter)
+          [[ "$force" == "true" || "${{ needs.changes.outputs.git_adapter }}"       == "true" ]] && entries+=(git-adapter)
           svc_dockerfile[http-adapter]="agents/adapters/http/Dockerfile"
+          svc_dockerfile[llm-adapter]="agents/adapters/llm/Dockerfile"
+          svc_dockerfile[langgraph-adapter]="agents/adapters/langgraph/Dockerfile"
+          svc_dockerfile[ci-adapter]="agents/adapters/ci/Dockerfile"
+          svc_dockerfile[git-adapter]="agents/adapters/git/Dockerfile"
 
           if [[ ${#entries[@]} -eq 0 ]]; then
             echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
@@ -630,6 +651,10 @@ jobs:
             docker pull ghcr.io/zynax-io/zynax/workflow-compiler:${{ steps.ver.outputs.version }}
             docker pull ghcr.io/zynax-io/zynax/task-broker:${{ steps.ver.outputs.version }}
             docker pull ghcr.io/zynax-io/zynax/http-adapter:${{ steps.ver.outputs.version }}
+            docker pull ghcr.io/zynax-io/zynax/llm-adapter:${{ steps.ver.outputs.version }}
+            docker pull ghcr.io/zynax-io/zynax/langgraph-adapter:${{ steps.ver.outputs.version }}
+            docker pull ghcr.io/zynax-io/zynax/ci-adapter:${{ steps.ver.outputs.version }}
+            docker pull ghcr.io/zynax-io/zynax/git-adapter:${{ steps.ver.outputs.version }}
             ```
 
             SPDX SBOMs for all service and adapter images are attached to this release. Verify image signatures with `cosign verify ghcr.io/zynax-io/zynax/<service>:<version>`.
