@@ -13,8 +13,11 @@
 # The module must be importable from the container's PYTHONPATH. Mount graph
 # modules via a volume or build a custom image extending this one.
 
+# BEGIN zynax-ci:images:python-slim
+ARG PYTHON_SLIM_DIGEST=sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
+# END zynax-ci:images:python-slim
 # renovate: datasource=docker depName=python versioning=docker
-FROM python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203 AS builder
+FROM python:3.12-slim@${PYTHON_SLIM_DIGEST} AS builder
 
 WORKDIR /app
 
@@ -27,7 +30,7 @@ COPY agents/adapters/langgraph/pyproject.toml agents/adapters/langgraph/uv.lock 
 RUN uv sync --no-dev --no-install-project --frozen
 
 # renovate: datasource=docker depName=python versioning=docker
-FROM python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
+FROM python:3.12-slim@${PYTHON_SLIM_DIGEST}
 
 WORKDIR /app
 

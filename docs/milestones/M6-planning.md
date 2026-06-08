@@ -49,7 +49,7 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 | O1 chore(ci): images/images.yaml — schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | CI tooling | #913 | ✅ Merged |
 | O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | CI tooling | #915 | ✅ Merged |
 | O3 ci: wire drift-check into pr-checks.yml + ci.yml | [#858](https://github.com/zynax-io/zynax/issues/858) | CI | #916 | ✅ Merged |
-| O4 chore(infra): Dockerfile ARG migration | [#859](https://github.com/zynax-io/zynax/issues/859) | Infra | — | ⬜ Open |
+| O4 chore(infra): Dockerfile ARG migration | [#859](https://github.com/zynax-io/zynax/issues/859) | Infra | — | ✅ Merged |
 | O5 chore(ci): bump flow rewrite | [#860](https://github.com/zynax-io/zynax/issues/860) | CI tooling | — | ⬜ Open |
 | O6 docs: single source of truth propagation | [#861](https://github.com/zynax-io/zynax/issues/861) | Docs | — | ⬜ Open |
 | O7 docs: ADR-024 | [#862](https://github.com/zynax-io/zynax/issues/862) | Docs/ADR | — | ⬜ Open |

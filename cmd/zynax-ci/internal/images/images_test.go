@@ -217,6 +217,57 @@ func TestSync_Idempotent(t *testing.T) {
 	}
 }
 
+// TestSync_BannerRegion_UpdatesOnlyTargetRegion verifies that when a consumer file
+// contains multiple banner-marked digest regions, syncing one image name only
+// updates the sha256 within that image's own banner region and leaves all other
+// banner regions untouched.
+func TestSync_BannerRegion_UpdatesOnlyTargetRegion(t *testing.T) {
+	const bannerEntry = `
+  - name: ci-runner
+    ref: ghcr.io/example/ci-runner
+    digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    consumers:
+      - Dockerfile
+`
+	// Simulate a Dockerfile with two banner-managed digests (the ci-runner one is stale).
+	const dockerfile = `# BEGIN zynax-ci:images:ci-runner
+ARG CI_RUNNER_DIGEST=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+# END zynax-ci:images:ci-runner
+# BEGIN zynax-ci:images:other-image
+ARG OTHER_DIGEST=sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+# END zynax-ci:images:other-image
+FROM ghcr.io/example/ci-runner@${CI_RUNNER_DIGEST} AS builder
+FROM other/image@${OTHER_DIGEST}
+`
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "images"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, root, "images/images.yaml", makeImagesYAML(bannerEntry))
+	writeFile(t, root, "Dockerfile", dockerfile)
+
+	f, _ := images.Load(root)
+	_, err := images.Sync(f, root, false)
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(root, "Dockerfile")) //nolint:gosec
+	content := string(data)
+
+	// ci-runner banner region must be updated to the target digest
+	// (reuse goodDigestTxt which holds the same canonical aaa digest).
+	if !strings.Contains(content, strings.TrimSpace(goodDigestTxt)) {
+		t.Errorf("ci-runner banner region was not updated:\n%s", content)
+	}
+
+	// other-image banner region must NOT be touched — its digest must remain unchanged.
+	otherDigest := "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	if !strings.Contains(content, otherDigest) {
+		t.Errorf("other-image banner region was corrupted by ci-runner sync:\n%s", content)
+	}
+}
+
 func TestPrintCheckReport_Ok(t *testing.T) {
 	r := images.CheckReport{}
 	ok := images.PrintCheckReport(os.Stdout, r)

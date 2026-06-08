@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Build context: repo root  (docker build -f agents/adapters/http/Dockerfile .)
-FROM golang:1.26.4-alpine@sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f AS builder
+# BEGIN zynax-ci:images:golang-alpine
+ARG GO_ALPINE_DIGEST=sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f
+# END zynax-ci:images:golang-alpine
+# BEGIN zynax-ci:images:distroless-static
+ARG DISTROLESS_DIGEST=sha256:dfadf31470f770fcabd48903762dce126958e98d1ce320acf1216bbfaa42d79c
+# END zynax-ci:images:distroless-static
+FROM golang:1.26.4-alpine@${GO_ALPINE_DIGEST} AS builder
 
 WORKDIR /workspace
 
@@ -17,7 +23,7 @@ RUN cd tools/healthcheck && CGO_ENABLED=0 GOWORK=off \
     go build -trimpath -ldflags "-s -w" -o /healthcheck .
 
 # renovate: datasource=docker depName=gcr.io/distroless/static
-FROM gcr.io/distroless/static:nonroot@sha256:dfadf31470f770fcabd48903762dce126958e98d1ce320acf1216bbfaa42d79c
+FROM gcr.io/distroless/static:nonroot@${DISTROLESS_DIGEST}
 COPY --from=builder /http-adapter /http-adapter
 COPY --from=builder /healthcheck /healthcheck
 LABEL org.opencontainers.image.title="Zynax HTTP Adapter" \
