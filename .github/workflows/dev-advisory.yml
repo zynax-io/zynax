@@ -36,6 +36,11 @@ defaults:
   run:
     shell: bash
 
+env:
+  LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'ollama' }}
+  LLM_MODEL:    ${{ vars.LLM_MODEL    || 'qwen2.5-coder:1.5b' }}
+  OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL || 'http://localhost:11434' }}
+
 jobs:
 
 # ── Expert: Architecture / ADR ────────────────────────────────────────────────
@@ -45,9 +50,6 @@ jobs:
     continue-on-error: true
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
-      options: --user root
     env:
       EXPERT_NAME: arch-adr
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -55,6 +57,34 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Restore Ollama model cache
+        if: ${{ env.LLM_PROVIDER == 'ollama' }}
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ env.LLM_MODEL }}
+
+      - name: Install and start Ollama
+        if: ${{ env.LLM_PROVIDER == 'ollama' && (startsWith(env.OLLAMA_BASE_URL, 'http://localhost') || startsWith(env.OLLAMA_BASE_URL, 'http://127.0.0.1')) }}
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: Pull model if not cached
+        if: ${{ env.LLM_PROVIDER == 'ollama' && steps.model-cache.outputs.cache-hit != 'true' }}
+        run: |
+          curl -sf "${{ env.OLLAMA_BASE_URL }}/api/pull" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${{ env.LLM_MODEL }}\"}" \
+            | while IFS= read -r line; do
+                STATUS=$(printf '%s' "$line" | jq -r '.status // empty' 2>/dev/null || true)
+                [ -n "$STATUS" ] && printf '%s\n' "$STATUS"
+              done
 
       - name: Allow git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -115,9 +145,9 @@ jobs:
             printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
           } > /tmp/expert-input.txt
 
-          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
-            < /tmp/expert-input.txt 2>/dev/null \
-            || printf "Expert invocation failed or claude CLI not available.")
+          EXPERT_OUTPUT=$(bash scripts/invoke-llm.sh \
+            "automation/experts/${EXPERT_NAME}.yaml" /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed (provider: ${LLM_PROVIDER:-unknown}, model: ${LLM_MODEL:-unknown}).")
 
           printf '## Expert: arch-adr\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
 
@@ -134,9 +164,6 @@ jobs:
     continue-on-error: true
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
-      options: --user root
     env:
       EXPERT_NAME: api-contract
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -144,6 +171,34 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Restore Ollama model cache
+        if: ${{ env.LLM_PROVIDER == 'ollama' }}
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ env.LLM_MODEL }}
+
+      - name: Install and start Ollama
+        if: ${{ env.LLM_PROVIDER == 'ollama' && (startsWith(env.OLLAMA_BASE_URL, 'http://localhost') || startsWith(env.OLLAMA_BASE_URL, 'http://127.0.0.1')) }}
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: Pull model if not cached
+        if: ${{ env.LLM_PROVIDER == 'ollama' && steps.model-cache.outputs.cache-hit != 'true' }}
+        run: |
+          curl -sf "${{ env.OLLAMA_BASE_URL }}/api/pull" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${{ env.LLM_MODEL }}\"}" \
+            | while IFS= read -r line; do
+                STATUS=$(printf '%s' "$line" | jq -r '.status // empty' 2>/dev/null || true)
+                [ -n "$STATUS" ] && printf '%s\n' "$STATUS"
+              done
 
       - name: Allow git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -203,9 +258,9 @@ jobs:
             printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
           } > /tmp/expert-input.txt
 
-          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
-            < /tmp/expert-input.txt 2>/dev/null \
-            || printf "Expert invocation failed or claude CLI not available.")
+          EXPERT_OUTPUT=$(bash scripts/invoke-llm.sh \
+            "automation/experts/${EXPERT_NAME}.yaml" /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed (provider: ${LLM_PROVIDER:-unknown}, model: ${LLM_MODEL:-unknown}).")
 
           printf '## Expert: api-contract\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
 
@@ -222,9 +277,6 @@ jobs:
     continue-on-error: true
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
-      options: --user root
     env:
       EXPERT_NAME: ci-release
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -232,6 +284,34 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Restore Ollama model cache
+        if: ${{ env.LLM_PROVIDER == 'ollama' }}
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ env.LLM_MODEL }}
+
+      - name: Install and start Ollama
+        if: ${{ env.LLM_PROVIDER == 'ollama' && (startsWith(env.OLLAMA_BASE_URL, 'http://localhost') || startsWith(env.OLLAMA_BASE_URL, 'http://127.0.0.1')) }}
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: Pull model if not cached
+        if: ${{ env.LLM_PROVIDER == 'ollama' && steps.model-cache.outputs.cache-hit != 'true' }}
+        run: |
+          curl -sf "${{ env.OLLAMA_BASE_URL }}/api/pull" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${{ env.LLM_MODEL }}\"}" \
+            | while IFS= read -r line; do
+                STATUS=$(printf '%s' "$line" | jq -r '.status // empty' 2>/dev/null || true)
+                [ -n "$STATUS" ] && printf '%s\n' "$STATUS"
+              done
 
       - name: Allow git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -290,9 +370,9 @@ jobs:
             printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
           } > /tmp/expert-input.txt
 
-          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
-            < /tmp/expert-input.txt 2>/dev/null \
-            || printf "Expert invocation failed or claude CLI not available.")
+          EXPERT_OUTPUT=$(bash scripts/invoke-llm.sh \
+            "automation/experts/${EXPERT_NAME}.yaml" /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed (provider: ${LLM_PROVIDER:-unknown}, model: ${LLM_MODEL:-unknown}).")
 
           printf '## Expert: ci-release\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
 
@@ -309,9 +389,6 @@ jobs:
     continue-on-error: true
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
-      options: --user root
     env:
       EXPERT_NAME: docs-agents
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -319,6 +396,34 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Restore Ollama model cache
+        if: ${{ env.LLM_PROVIDER == 'ollama' }}
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ env.LLM_MODEL }}
+
+      - name: Install and start Ollama
+        if: ${{ env.LLM_PROVIDER == 'ollama' && (startsWith(env.OLLAMA_BASE_URL, 'http://localhost') || startsWith(env.OLLAMA_BASE_URL, 'http://127.0.0.1')) }}
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: Pull model if not cached
+        if: ${{ env.LLM_PROVIDER == 'ollama' && steps.model-cache.outputs.cache-hit != 'true' }}
+        run: |
+          curl -sf "${{ env.OLLAMA_BASE_URL }}/api/pull" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${{ env.LLM_MODEL }}\"}" \
+            | while IFS= read -r line; do
+                STATUS=$(printf '%s' "$line" | jq -r '.status // empty' 2>/dev/null || true)
+                [ -n "$STATUS" ] && printf '%s\n' "$STATUS"
+              done
 
       - name: Allow git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -379,9 +484,9 @@ jobs:
             printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
           } > /tmp/expert-input.txt
 
-          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
-            < /tmp/expert-input.txt 2>/dev/null \
-            || printf "Expert invocation failed or claude CLI not available.")
+          EXPERT_OUTPUT=$(bash scripts/invoke-llm.sh \
+            "automation/experts/${EXPERT_NAME}.yaml" /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed (provider: ${LLM_PROVIDER:-unknown}, model: ${LLM_MODEL:-unknown}).")
 
           printf '## Expert: docs-agents\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
 
@@ -398,9 +503,6 @@ jobs:
     continue-on-error: true
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
-      options: --user root
     env:
       EXPERT_NAME: persistence-state
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -408,6 +510,34 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Restore Ollama model cache
+        if: ${{ env.LLM_PROVIDER == 'ollama' }}
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ env.LLM_MODEL }}
+
+      - name: Install and start Ollama
+        if: ${{ env.LLM_PROVIDER == 'ollama' && (startsWith(env.OLLAMA_BASE_URL, 'http://localhost') || startsWith(env.OLLAMA_BASE_URL, 'http://127.0.0.1')) }}
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: Pull model if not cached
+        if: ${{ env.LLM_PROVIDER == 'ollama' && steps.model-cache.outputs.cache-hit != 'true' }}
+        run: |
+          curl -sf "${{ env.OLLAMA_BASE_URL }}/api/pull" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${{ env.LLM_MODEL }}\"}" \
+            | while IFS= read -r line; do
+                STATUS=$(printf '%s' "$line" | jq -r '.status // empty' 2>/dev/null || true)
+                [ -n "$STATUS" ] && printf '%s\n' "$STATUS"
+              done
 
       - name: Allow git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -470,9 +600,9 @@ jobs:
             printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
           } > /tmp/expert-input.txt
 
-          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
-            < /tmp/expert-input.txt 2>/dev/null \
-            || printf "Expert invocation failed or claude CLI not available.")
+          EXPERT_OUTPUT=$(bash scripts/invoke-llm.sh \
+            "automation/experts/${EXPERT_NAME}.yaml" /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed (provider: ${LLM_PROVIDER:-unknown}, model: ${LLM_MODEL:-unknown}).")
 
           printf '## Expert: persistence-state\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
 
@@ -489,9 +619,6 @@ jobs:
     continue-on-error: true
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
-      options: --user root
     env:
       EXPERT_NAME: planning-task-split
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -499,6 +626,34 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Restore Ollama model cache
+        if: ${{ env.LLM_PROVIDER == 'ollama' }}
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ env.LLM_MODEL }}
+
+      - name: Install and start Ollama
+        if: ${{ env.LLM_PROVIDER == 'ollama' && (startsWith(env.OLLAMA_BASE_URL, 'http://localhost') || startsWith(env.OLLAMA_BASE_URL, 'http://127.0.0.1')) }}
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: Pull model if not cached
+        if: ${{ env.LLM_PROVIDER == 'ollama' && steps.model-cache.outputs.cache-hit != 'true' }}
+        run: |
+          curl -sf "${{ env.OLLAMA_BASE_URL }}/api/pull" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${{ env.LLM_MODEL }}\"}" \
+            | while IFS= read -r line; do
+                STATUS=$(printf '%s' "$line" | jq -r '.status // empty' 2>/dev/null || true)
+                [ -n "$STATUS" ] && printf '%s\n' "$STATUS"
+              done
 
       - name: Allow git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -557,9 +712,9 @@ jobs:
             printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
           } > /tmp/expert-input.txt
 
-          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
-            < /tmp/expert-input.txt 2>/dev/null \
-            || printf "Expert invocation failed or claude CLI not available.")
+          EXPERT_OUTPUT=$(bash scripts/invoke-llm.sh \
+            "automation/experts/${EXPERT_NAME}.yaml" /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed (provider: ${LLM_PROVIDER:-unknown}, model: ${LLM_MODEL:-unknown}).")
 
           printf '## Expert: planning-task-split\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
 
@@ -576,9 +731,6 @@ jobs:
     continue-on-error: true
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
-      options: --user root
     env:
       EXPERT_NAME: qa-bdd
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -586,6 +738,34 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Restore Ollama model cache
+        if: ${{ env.LLM_PROVIDER == 'ollama' }}
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ env.LLM_MODEL }}
+
+      - name: Install and start Ollama
+        if: ${{ env.LLM_PROVIDER == 'ollama' && (startsWith(env.OLLAMA_BASE_URL, 'http://localhost') || startsWith(env.OLLAMA_BASE_URL, 'http://127.0.0.1')) }}
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: Pull model if not cached
+        if: ${{ env.LLM_PROVIDER == 'ollama' && steps.model-cache.outputs.cache-hit != 'true' }}
+        run: |
+          curl -sf "${{ env.OLLAMA_BASE_URL }}/api/pull" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${{ env.LLM_MODEL }}\"}" \
+            | while IFS= read -r line; do
+                STATUS=$(printf '%s' "$line" | jq -r '.status // empty' 2>/dev/null || true)
+                [ -n "$STATUS" ] && printf '%s\n' "$STATUS"
+              done
 
       - name: Allow git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -644,9 +824,9 @@ jobs:
             printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
           } > /tmp/expert-input.txt
 
-          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
-            < /tmp/expert-input.txt 2>/dev/null \
-            || printf "Expert invocation failed or claude CLI not available.")
+          EXPERT_OUTPUT=$(bash scripts/invoke-llm.sh \
+            "automation/experts/${EXPERT_NAME}.yaml" /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed (provider: ${LLM_PROVIDER:-unknown}, model: ${LLM_MODEL:-unknown}).")
 
           printf '## Expert: qa-bdd\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
 
@@ -663,9 +843,6 @@ jobs:
     continue-on-error: true
     outputs:
       expert_output: ${{ steps.expert.outputs.EXPERT_OUTPUT }}
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
-      options: --user root
     env:
       EXPERT_NAME: security-supply-chain
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -673,6 +850,34 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+
+      - name: Restore Ollama model cache
+        if: ${{ env.LLM_PROVIDER == 'ollama' }}
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ env.LLM_MODEL }}
+
+      - name: Install and start Ollama
+        if: ${{ env.LLM_PROVIDER == 'ollama' && (startsWith(env.OLLAMA_BASE_URL, 'http://localhost') || startsWith(env.OLLAMA_BASE_URL, 'http://127.0.0.1')) }}
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: Pull model if not cached
+        if: ${{ env.LLM_PROVIDER == 'ollama' && steps.model-cache.outputs.cache-hit != 'true' }}
+        run: |
+          curl -sf "${{ env.OLLAMA_BASE_URL }}/api/pull" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${{ env.LLM_MODEL }}\"}" \
+            | while IFS= read -r line; do
+                STATUS=$(printf '%s' "$line" | jq -r '.status // empty' 2>/dev/null || true)
+                [ -n "$STATUS" ] && printf '%s\n' "$STATUS"
+              done
 
       - name: Allow git safe.directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -731,9 +936,9 @@ jobs:
             printf '%s\n' "$DIFF_CONTENT" | sed 's/^/  /'
           } > /tmp/expert-input.txt
 
-          EXPERT_OUTPUT=$(claude -p "$(cat "automation/experts/${EXPERT_NAME}.yaml")" \
-            < /tmp/expert-input.txt 2>/dev/null \
-            || printf "Expert invocation failed or claude CLI not available.")
+          EXPERT_OUTPUT=$(bash scripts/invoke-llm.sh \
+            "automation/experts/${EXPERT_NAME}.yaml" /tmp/expert-input.txt 2>/dev/null \
+            || printf "Expert invocation failed (provider: ${LLM_PROVIDER:-unknown}, model: ${LLM_MODEL:-unknown}).")
 
           printf '## Expert: security-supply-chain\n\n%s\n' "$EXPERT_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
 
@@ -820,7 +1025,11 @@ jobs:
             printf '%s\n\n' "### security-supply-chain"
             printf '%s\n\n' "$SEC"
             printf '%s\n\n' "$DIVIDER"
-            printf '%s\n' "*Generated by dev-advisory.yml (DevAuto.4 / issue #877)*"
+            printf '\n---\n'
+            printf '*Assisted by: `%s` via `%s`*\n' "${LLM_MODEL}" "${LLM_PROVIDER}"
+            if [ "${LLM_PROVIDER}" != "claude" ]; then
+              printf '> ⚠️ **Debug advisory** — generated by a small/local model. Results may be inaccurate and are for reference only.\n'
+            fi
           } > /tmp/pr-comment.md
 
           gh pr comment "${PR_NUM}" \
@@ -837,7 +1046,7 @@ jobs:
   orchestrate-and-comment:
     name: "Orchestrator: Wave 1 aggregation"
     # Runs on hosted runner (not ci-runner container) — gh CLI is not in ci-runner.
-    # Claude CLI is installed via npm at runtime.
+    # LLM invocation via scripts/invoke-llm.sh (LLM_PROVIDER=claude|ollama|openai-compat).
     runs-on: ubuntu-24.04
     needs:
       - expert-arch-adr
@@ -855,8 +1064,33 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Install claude CLI
-        run: npm install -g @anthropic-ai/claude-code 2>/dev/null || true
+      - name: Restore Ollama model cache
+        if: ${{ env.LLM_PROVIDER == 'ollama' }}
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-${{ env.LLM_MODEL }}
+
+      - name: Install and start Ollama
+        if: ${{ env.LLM_PROVIDER == 'ollama' && (startsWith(env.OLLAMA_BASE_URL, 'http://localhost') || startsWith(env.OLLAMA_BASE_URL, 'http://127.0.0.1')) }}
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: Pull model if not cached
+        if: ${{ env.LLM_PROVIDER == 'ollama' && steps.model-cache.outputs.cache-hit != 'true' }}
+        run: |
+          curl -sf "${{ env.OLLAMA_BASE_URL }}/api/pull" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${{ env.LLM_MODEL }}\"}" \
+            | while IFS= read -r line; do
+                STATUS=$(printf '%s' "$line" | jq -r '.status // empty' 2>/dev/null || true)
+                [ -n "$STATUS" ] && printf '%s\n' "$STATUS"
+              done
 
       - name: Build orchestrator input and run aggregation
         id: orchestrator
@@ -911,9 +1145,9 @@ jobs:
             printf '%s\n' "$SEC" | sed 's/^/    /'
           } > /tmp/orchestrator-input.txt
 
-          ORCH_OUTPUT=$(claude -p "$(cat "automation/orchestrator/aggregation-protocol.md")" \
-            < /tmp/orchestrator-input.txt 2>/dev/null \
-            || printf "Orchestrator invocation failed or claude CLI not available.")
+          ORCH_OUTPUT=$(bash scripts/invoke-llm.sh \
+            "automation/orchestrator/aggregation-protocol.md" /tmp/orchestrator-input.txt 2>/dev/null \
+            || printf "Orchestrator invocation failed (provider: ${LLM_PROVIDER:-unknown}, model: ${LLM_MODEL:-unknown}).")
 
           printf '## Orchestrator (Wave 1)\n\n%s\n' "$ORCH_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
 
@@ -1066,7 +1300,11 @@ jobs:
             printf '%s\n\n' "### Orchestrator Analysis"
             printf '%s\n\n' "$ORCH_TEXT"
             printf '%s\n' "---"
-            printf '%s\n' "*Generated by dev-advisory.yml (DevAuto.5 / issue #878)*"
+            printf '\n---\n'
+            printf '*Assisted by: `%s` via `%s`*\n' "${LLM_MODEL}" "${LLM_PROVIDER}"
+            if [ "${LLM_PROVIDER}" != "claude" ]; then
+              printf '> ⚠️ **Debug advisory** — generated by a small/local model. Results may be inaccurate and are for reference only.\n'
+            fi
           } > /tmp/orch-comment.md
 
           gh pr comment "${PR_NUM}" \
