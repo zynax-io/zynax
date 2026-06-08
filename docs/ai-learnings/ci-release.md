@@ -70,3 +70,18 @@
 ## Proposed expert prompt updates
 
 *(none yet — populate after first batch of CI/release expert sessions)*
+
+## Session — 2026-06-08 (issue #875 — expert mesh YAML configs)
+
+### Effective patterns
+- Python `yaml.safe_load` loop is the fastest local YAML validity gate before push; no yamllint config exists in repo and `make lint` doesn't cover YAML — use a quick Python snippet
+- `gh api repos/zynax-io/zynax/pulls/N --method PATCH --field title='...'` works for PR title updates when `gh pr edit` returns a GraphQL deprecation error (Projects Classic association)
+- `gh run rerun <run_id> --failed` triggers re-execution of only failed jobs without pushing a new commit — useful after fixing a PR title
+
+### Edge cases discovered
+- PR title subject length ≤72 chars is enforced by `amannn/action-semantic-pull-request`; em-dash counts as 1 char (safe to use); check with `echo -n '<subject>' | wc -m`
+- `git checkout -b <branch>` with staged files from another branch: staged files travel with the checkout — run `git restore --staged <paths>` to unstage unrelated changes before committing
+- `gh pr edit --title` can fail with GraphQL Projects Classic deprecation error; use PATCH API method instead
+
+### Proposed expert prompt update
+Add to CI/release expert guide: "After `gh pr create`, immediately check that the PR title subject is ≤72 characters: `echo -n '<subject>' | wc -m`. Fix via `gh api repos/.../pulls/<N> --method PATCH --field title='...'` (not `gh pr edit` which can fail on Projects Classic). After fixing, run `gh run rerun <run_id> --failed` to recheck without a new commit."
