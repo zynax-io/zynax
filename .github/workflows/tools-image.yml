@@ -73,6 +73,9 @@ jobs:
             echo "tags=${IMAGE}:latest,${SHA_TAG}" >> "$GITHUB_OUTPUT"
           fi
 
+      # provenance=true (default) attaches SLSA Build L1 attestation manifests.
+      # These appear as "unknown/unknown" rows in GHCR — expected, not broken.
+      # See docs/adr/ADR-025-slsa-provenance-attestation.md for the keep decision.
       - name: Build and push
         id: build-tools
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
@@ -174,6 +177,9 @@ jobs:
             type=sha,prefix=main-,format=long
             type=semver,pattern={{version}}
 
+      # provenance=true (default) attaches SLSA Build L1 attestation manifests.
+      # These appear as "unknown/unknown" rows in GHCR — expected, not broken.
+      # See docs/adr/ADR-025-slsa-provenance-attestation.md for the keep decision.
       - name: Build and push ci-runner
         id: build-ci-runner
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
