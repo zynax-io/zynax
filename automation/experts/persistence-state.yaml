@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/experts/persistence-state.yaml
+#
+# Persistence/state expert — reviews domain model changes, migration files,
+# and in-memory vs. Postgres repo patterns for correctness and ADR-008/021
+# conformance.  Context is bounded to domain internals; no gRPC or adapter
+# files are loaded.
+#
+# Plane: near-term
+# Issue: #875 (M6.DevAuto — DevAuto.2)
+
+name: persistence-state
+version: "1.0"
+plane: near-term
+
+context_slice:
+  files:
+    - "services/*/internal/domain/**/*.go"
+    - "services/*/internal/adapters/postgres/**/*.go"
+    - "services/*/internal/adapters/redis/**/*.go"
+    - "services/*/migrations/**/*.sql"
+    - "docs/adr/ADR-008-*.md"
+    - "docs/adr/ADR-021-*.md"
+  max_tokens: 3000
+
+input_contract:
+  required:
+    - trigger
+    - diff_summary
+    - changed_files
+    - context_slice
+  optional:
+    - pr_number
+    - pr_title
+
+output_contract:
+  summary: string
+  recommended_actions: "array<{action: string, rationale: string, priority: low|medium|high}>"
+  reasons_decisions: "array<string>"
+  confidence: "low|medium|high"
+  flags: "array<string>"
+  extra_fields:
+    in_memory_repo_used: boolean          # true if change introduces/modifies an in-memory repo
+    postgres_migration_present: boolean   # true if a SQL migration file is included
+    adr008_violations: "array<string>"    # shared-DB violations (ADR-008)
+    adr021_violations: "array<string>"    # repo-interface violations (ADR-021)
+    domain_invariants_at_risk: "array<string>"
+
+aggregation_weight: 1.0

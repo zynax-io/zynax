@@ -1,0 +1,154 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/experts/schema.yaml
+#
+# JSON-Schema-compatible YAML schema for expert context-slice definition files.
+# All files under automation/experts/ (except this one) MUST conform to this schema.
+# Consumed explicitly by GH Actions workflows — never auto-loaded as ambient context.
+#
+# Plane: near-term
+# Issue: #875 (M6.DevAuto — DevAuto.2)
+
+$schema: "https://json-schema.org/draft/2020-12"
+$id: "https://github.com/zynax-io/zynax/automation/experts/schema.yaml"
+title: ExpertConfig
+description: >
+  Schema for a single expert context-slice definition consumed by the
+  DevAuto orchestrator mesh (automation/experts/*.yaml).
+type: object
+required:
+  - name
+  - version
+  - plane
+  - context_slice
+  - input_contract
+  - output_contract
+  - aggregation_weight
+additionalProperties: false
+
+properties:
+  name:
+    type: string
+    description: Unique expert identifier (kebab-case).
+    pattern: "^[a-z][a-z0-9-]*$"
+
+  version:
+    type: string
+    description: Schema version; always "1.0" for this generation.
+    const: "1.0"
+
+  plane:
+    type: string
+    description: Delivery plane — near-term (runnable today) or aspirational (blocked on M6.H+I).
+    enum:
+      - near-term
+      - aspirational
+
+  context_slice:
+    type: object
+    description: Bounded set of files/globs fed to this expert's subagent invocation.
+    required:
+      - files
+      - max_tokens
+    additionalProperties: false
+    properties:
+      files:
+        type: array
+        description: Explicit file paths or globs fed to the subagent.
+        items:
+          type: string
+        minItems: 1
+      max_tokens:
+        type: integer
+        description: AI context budget (tokens) for this expert per invocation.
+        minimum: 500
+        maximum: 10000
+
+  input_contract:
+    type: object
+    description: Fields the orchestrator MUST provide when invoking this expert.
+    required:
+      - required
+    additionalProperties: false
+    properties:
+      required:
+        type: array
+        description: Required input field names.
+        items:
+          type: string
+      optional:
+        type: array
+        description: Optional input field names (expert handles absence gracefully).
+        items:
+          type: string
+
+  output_contract:
+    type: object
+    description: Structured output every expert MUST return to the orchestrator.
+    required:
+      - summary
+      - recommended_actions
+      - reasons_decisions
+      - confidence
+      - flags
+    additionalProperties: false
+    properties:
+      summary:
+        type: string
+        const: "string"
+        description: "Plain text summary, ≤200 words."
+      recommended_actions:
+        type: string
+        const: "array<{action: string, rationale: string, priority: low|medium|high}>"
+        description: Ordered list of specific actions with rationale.
+      reasons_decisions:
+        type: string
+        const: "array<string>"
+        description: Reasoning chain for each recommendation.
+      confidence:
+        type: string
+        const: "low|medium|high"
+        description: Overall confidence level for this expert's output.
+      flags:
+        type: string
+        const: "array<string>"
+        description: Tier-2 security flags or blocker flags (empty list if none).
+      extra_fields:
+        type: object
+        description: Expert-specific additional output fields (optional, schema-documented per expert).
+        additionalProperties: true
+
+  aggregation_weight:
+    type: number
+    description: >
+      Orchestrator weighting multiplier applied to this expert's outputs.
+      Security/arch/contract experts use 1.5 to reflect higher impact.
+      Can be overridden per-scenario in orchestrator config.
+    minimum: 0.1
+    maximum: 5.0
+
+  aggregation_protocol:
+    type: object
+    description: >
+      Orchestrator-only field: defines how this expert aggregates and
+      escalates across the full expert mesh. Only present in orchestrator.yaml.
+    properties:
+      weighting_scheme:
+        type: object
+        additionalProperties: true
+      confidence_multipliers:
+        type: object
+        additionalProperties: true
+      escalation_threshold:
+        type: object
+        additionalProperties: true
+      auto_allowed_actions:
+        type: array
+        items:
+          type: string
+      prohibited_auto_actions:
+        type: array
+        items:
+          type: string
+      decision_log:
+        type: object
+        additionalProperties: true

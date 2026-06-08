@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/experts/docs-agents.yaml
+#
+# Docs/AGENTS expert — reviews documentation correctness, AGENTS.md
+# consistency across all layers, and README/CONTRIBUTING/ARCHITECTURE
+# alignment with implemented reality.
+#
+# Plane: near-term
+# Issue: #875 (M6.DevAuto — DevAuto.2)
+
+name: docs-agents
+version: "1.0"
+plane: near-term
+
+context_slice:
+  files:
+    - "AGENTS.md"
+    - "services/AGENTS.md"
+    - "agents/AGENTS.md"
+    - "protos/AGENTS.md"
+    - "cmd/zynax/AGENTS.md"
+    - "README.md"
+    - "CONTRIBUTING.md"
+    - "docs/ARCHITECTURE.md"
+    - "docs/adr/INDEX.md"
+  max_tokens: 3000
+
+input_contract:
+  required:
+    - trigger
+    - diff_summary
+    - changed_files
+    - context_slice
+  optional:
+    - pr_number
+    - pr_title
+
+output_contract:
+  summary: string
+  recommended_actions: "array<{action: string, rationale: string, priority: low|medium|high}>"
+  reasons_decisions: "array<string>"
+  confidence: "low|medium|high"
+  flags: "array<string>"
+  extra_fields:
+    agents_md_out_of_date: boolean        # true if AGENTS.md doesn't reflect changed code
+    false_capability_claims: "array<string>"  # claims in docs not backed by implementation
+    missing_pointer_rows: "array<string>" # new dirs/patterns with no AGENTS.md entry
+    doc_file_unchanged_for_impacting_change: boolean  # code changed but no doc update
+
+aggregation_weight: 1.0

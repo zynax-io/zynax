@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/experts/security-supply-chain.yaml
+#
+# Security/supply-chain expert — reviews workflow security steps, SBOM/cosign
+# attestation, Scorecard posture, CodeQL alerts, and dependency audit results.
+# Raises tier-2 flags immediately; never auto-remediates.
+#
+# Plane: near-term
+# Issue: #875 (M6.DevAuto — DevAuto.2)
+
+name: security-supply-chain
+version: "1.0"
+plane: near-term
+
+context_slice:
+  files:
+    - ".github/workflows/*.yml"
+    - "SECURITY.md"
+    - "images/images.yaml"
+    - "tools/Dockerfile"
+    - "services/*/Dockerfile"
+  max_tokens: 3000
+
+input_contract:
+  required:
+    - trigger
+    - diff_summary
+    - changed_files
+    - context_slice
+  optional:
+    - pr_number
+    - pr_title
+    - scorecard_output       # JSON output from ossf/scorecard-action (post_merge trigger)
+    - codeql_alerts          # list of open CodeQL alert summaries
+    - govulncheck_output     # text output from govulncheck (post_merge trigger)
+    - bandit_output          # JSON output from bandit (post_merge trigger)
+    - pip_audit_output       # JSON output from pip-audit (post_merge trigger)
+
+output_contract:
+  summary: string
+  recommended_actions: "array<{action: string, rationale: string, priority: low|medium|high}>"
+  reasons_decisions: "array<string>"
+  confidence: "low|medium|high"
+  flags: "array<string>"      # TIER-2 flags raised here escalate immediately to human
+  extra_fields:
+    cosign_verification_status: string    # pass | fail | not_applicable
+    sbom_present: boolean                 # true if SBOM artifact exists in release
+    scorecard_score: number               # 0.0–10.0 (null if not available)
+    new_cve_findings: "array<string>"     # CVE IDs from govulncheck/pip-audit
+    workflow_permission_issues: "array<string>"  # overly-broad GH Actions permissions
+    secret_exposure_risk: boolean         # true if diff touches secrets handling paths
+
+aggregation_weight: 1.5
