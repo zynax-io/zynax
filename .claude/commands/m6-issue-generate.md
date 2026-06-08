@@ -171,12 +171,41 @@ echo "║  TAG:    $EXPERT_TAG   ISSUE: #$ISSUE_N"
 echo "║  TITLE:  $ISSUE_TITLE"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] START: $ISSUE_TITLE"
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] START: $ISSUE_TITLE  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 ```
 
 Use this log format at every subsequent step:
 ```
-[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] <PHASE>: <one-line description>
+[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] <PHASE>: <one-line description>  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]
+```
+
+Initialize context counters immediately after the banner:
+```bash
+# Context tracking — same kilotoken unit as Claude Code displays
+CTX_TOKENS=10        # starting context: system prompt + expert file ≈ 10K
+CTX_COMPRESSIONS=0   # incremented if Claude compacts context during this session
+CTX_MSGS=1           # count of messages posted so far
+
+# Helpers — call after each state change:
+ctx_file_read() { CTX_TOKENS=$((CTX_TOKENS + 1)); }        # call after each file read
+ctx_msg_sent()  { CTX_TOKENS=$((CTX_TOKENS + 1)); CTX_MSGS=$((CTX_MSGS + 1)); }
+
+# Check split thresholds before each major step:
+check_ctx_budget() {
+  if [ "$CTX_COMPRESSIONS" -ge 2 ] || [ "$CTX_TOKENS" -ge 140 ]; then
+    echo "⚠ CONTEXT SPLIT REQUIRED ($EXPERT_TAG #$ISSUE_N)"
+    echo "  Stopped at:    $(date +%H:%M:%S)  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
+    echo "  Branch:        ${BRANCH:-not yet created} (pushed: ${BRANCH_PUSHED:-no})"
+    echo "  Canvas:        ${CANVAS_PATH:-N/A} — Status: ${CANVAS_STATUS:-N/A}"
+    echo "  Resume point:  Spawn new $EXPERT_TAG agent at STEP $CURRENT_STEP with:"
+    echo "                   issue=${ISSUE_N}, branch=${BRANCH:-none}, read_these=<2-3 files>"
+    gh issue edit "$ISSUE_N" --remove-label "status: in-progress" 2>/dev/null || true
+    exit 1
+  fi
+  if [ "$CTX_COMPRESSIONS" -ge 1 ] || [ "$CTX_TOKENS" -ge 80 ]; then
+    echo "⚠ CONTEXT GROWING ($EXPERT_TAG #$ISSUE_N): ~${CTX_TOKENS}K tokens, ${CTX_COMPRESSIONS} compressions — proceed cautiously"
+  fi
+}
 ```
 
 ---
@@ -233,7 +262,8 @@ NEEDS_CANVAS=false
 Skip this step if `COMMIT_TYPE != "feat"` or if the canvas is already `Aligned`.
 
 ```bash
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CANVAS: running SPDD pipeline for EPIC #$EPIC_N"
+CURRENT_STEP="4-CANVAS"; check_ctx_budget
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CANVAS: running SPDD pipeline for EPIC #$EPIC_N  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 ```
 
 ```bash
@@ -281,7 +311,8 @@ STORY_COUNT=$(gh issue list --milestone "K8s Production-Ready (M6)" --state all 
 ## STEP 5 — Sync main + create branch (atomic hard claim)
 
 ```bash
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CLAIM: creating branch + hard claim on origin"
+CURRENT_STEP="5-CLAIM"; check_ctx_budget
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CLAIM: creating branch + hard claim on origin  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 # Worktree was created from origin/main in STEP 2.5 — already clean and up to date.
 
 # Derive branch name from issue title: <type>/<N>-<slug>
@@ -306,7 +337,8 @@ echo "Hard-claimed: branch $BRANCH pushed to origin."
 ## STEP 6 — Implement
 
 ```bash
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CODE: implementing — reading issue scope and referenced files"
+CURRENT_STEP="6-CODE"; check_ctx_budget
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CODE: implementing — reading issue scope and referenced files  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 ```
 
 For `feat:` issues with an Aligned canvas, use `/spdd-generate`:
@@ -336,7 +368,8 @@ body's scope and acceptance criteria. Read all referenced files before writing a
 ## STEP 7 — Local verification gates
 
 ```bash
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] TEST: running local gates (build, test, lint, security)"
+CURRENT_STEP="7-TEST"; check_ctx_budget
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] TEST: running local gates (build, test, lint, security)  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 ```
 
 Run all required checks before committing. Do not commit if any gate fails.
@@ -382,7 +415,8 @@ echo "All local gates passed."
 ## STEP 8 — Commit
 
 ```bash
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] COMMIT: all gates green — staging and committing"
+CURRENT_STEP="8-COMMIT"; check_ctx_budget
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] COMMIT: all gates green — staging and committing  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 # Verify title length ≤ 72 chars
 echo -n "${COMMIT_TYPE}(<scope>): <subject>" | wc -c   # replace before committing
 
@@ -444,7 +478,8 @@ git push --force-with-lease
 ## STEP 9 — Open PR
 
 ```bash
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] PR: opening pull request against main"
+CURRENT_STEP="9-PR"; check_ctx_budget
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] PR: opening pull request against main  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 echo -n "<title>" | wc -c   # must be ≤ 72 chars
 
 PR_URL=$(gh pr create \
@@ -463,7 +498,8 @@ echo "Opened PR #$PR_N: $PR_URL"
 ## STEP 10 — Wait for CI (blocking)
 
 ```bash
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CI_WAIT: PR #$PR_N — waiting for required checks"
+CURRENT_STEP="10-CI"; check_ctx_budget
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CI_WAIT: PR #$PR_N — waiting for required checks  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 ```
 
 Unlike `/resume-m6`, this command waits for CI to complete before merging. This is intentional —
@@ -515,7 +551,8 @@ done
 
 ```bash
 # Only emitted when TOUCHES_IMAGE > 0:
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] IMAGE_CHECK: verifying GHCR artifact publication"
+CURRENT_STEP="11-IMAGE"; check_ctx_budget
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] IMAGE_CHECK: verifying GHCR artifact publication  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 ```
 
 Skip this step if the PR diff does not touch `Dockerfile*`, `.github/workflows/*image*`,
@@ -565,7 +602,8 @@ fi
 ## STEP 12 — Rebase + squash-merge
 
 ```bash
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] MERGE: CI green — rebasing and squash-merging PR #$PR_N"
+CURRENT_STEP="12-MERGE"; check_ctx_budget
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] MERGE: CI green — rebasing and squash-merging PR #$PR_N  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 git fetch origin --prune
 git checkout "$BRANCH"
 git rebase origin/main || {
@@ -638,7 +676,7 @@ if [ -n "$EPIC_N" ] && [ "$EPIC_N" != "$ISSUE_N" ]; then
   fi
 fi
 
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] DONE: PR #$PR_N merged — issue #$ISSUE_N closed"
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] DONE: PR #$PR_N merged — issue #$ISSUE_N closed  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 
 cat << EOF
 === DONE: Issue #${ISSUE_N} ===

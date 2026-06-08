@@ -107,8 +107,11 @@ Using the same classification logic as `/m6-plan`:
 Report the selected batch and their expert routing before dispatching:
 
 ```bash
+# Build the issues list string for log tags
+ISSUES_LIST=$(echo "$BATCH_ISSUES" | tr ' ' ',' | sed 's/^/#/;s/,/,#/g')
+
 echo ""
-echo "=== [orchestrator $(date +%H:%M:%S)] BATCH SELECTED — $BATCH_SIZE issues ==="
+echo "=== [orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] BATCH SELECTED — $BATCH_SIZE issues ==="
 # For each issue in the batch, print: #N → <expert-tag>  <title>
 # e.g.:
 #   #823 → go-svc      feat(event-bus): service scaffold
@@ -154,7 +157,7 @@ After applying the routing table, emit one log line per issue:
 
 ```bash
 # For each issue N with resolved expert tag E:
-echo "[orchestrator $(date +%H:%M:%S)] ROUTE: #$N → $E  ($ISSUE_TITLE)"
+echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] ROUTE: #$N → $E  ($ISSUE_TITLE)"
 ```
 
 ---
@@ -166,7 +169,7 @@ Spawn one Agent per claimed issue. All are run in background (parallel).
 For each issue N with expert E, log before spawning:
 
 ```bash
-echo "[orchestrator $(date +%H:%M:%S)] DISPATCH: #$N → $E — $ISSUE_TITLE"
+echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] DISPATCH: #$N → $E — $ISSUE_TITLE"
 ```
 
 Then spawn:
@@ -217,16 +220,21 @@ As each agent completes, extract:
 2. CI status (green / red / pending)
 3. `## Session Learnings` block
 
-Emit a log line as each result arrives:
+Emit a log line as each result arrives. Extract context stats from the agent's Session Learnings
+block (look for `ctx_peak` and `compressions` fields if the expert emitted them):
 
 ```bash
 # On success:
-echo "[orchestrator $(date +%H:%M:%S)] DONE:  #$N ($E) — PR #$PR_N CI:$CI_STATUS"
+echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] DONE:  #$N ($E) — PR #$PR_N CI:$CI_STATUS  [agent ctx: ~${AGENT_CTX_PEAK}K peak | compress=${AGENT_COMPRESSIONS} | msgs=${AGENT_MSGS}]"
 # On failure:
-echo "[orchestrator $(date +%H:%M:%S)] FAIL:  #$N ($E) — $FAIL_REASON"
+echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] FAIL:  #$N ($E) — $FAIL_REASON  [agent ctx: ~${AGENT_CTX_PEAK}K peak | compress=${AGENT_COMPRESSIONS}]"
 ```
 
+Parse `AGENT_CTX_PEAK`, `AGENT_COMPRESSIONS`, `AGENT_MSGS` from the last `[ctx: ...]` line in the
+agent's output (fall back to `?` if the agent didn't emit ctx stats).
+
 For any agent that reported CI failure: report to user with the failing check name.
+For any agent with `compress >= 1` in its result: flag it — that expert may need splitting next time.
 Do not retry automatically — human intervention required for CI failures.
 
 ---
@@ -293,3 +301,27 @@ Next: run /m6-plan to see the next available batch.
 
 If you find yourself reading a code file in the orchestrator context: stop. Spawn an expert
 subagent instead.
+
+---
+
+## Orchestrator context tracking
+
+The orchestrator's own context is intentionally tiny (planning state only, no code).
+Track it with the same format as experts:
+
+```bash
+# Emit at the start and after each major step:
+echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] <PHASE>: <desc>  [ctx: ~<X>K | agents:<A>/<B> running]"
+```
+
+Heuristics:
+- After STEP 1 (reading 2 files + GitHub JSON): **~15K**
+- Each expert subagent result added: **+2–5K**
+- Expected peak for a 3-agent batch: **~30–40K**
+
+### Orchestrator split thresholds
+
+| Condition | Action |
+|-----------|--------|
+| `CTX_TOKENS > 60K` | Stop claiming new issues — only collect existing agent results |
+| `CTX_TOKENS > 100K` OR `CTX_COMPRESSIONS >= 1` | **STOP. Report collected results so far.** Let the human run `/m6-plan` for the next batch. |

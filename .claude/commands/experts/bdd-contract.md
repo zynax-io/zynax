@@ -13,7 +13,7 @@ implementation rule (ADR-016) and buf breaking compatibility gates.
 Output a progress line at the start of each phase — before any tool call for that phase:
 
 ```
-[bdd #<N> <HH:MM:SS>] <PHASE>: <one-line description>
+[bdd #<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
 ```
 
 | Phase | When to emit |
@@ -24,7 +24,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `FEATURE` | When writing or editing a `.feature` file |
 | `STEPS` | When writing Go step definitions |
 | `TEST` | Before running `make test-bdd` or `buf breaking` |
-| `COMMIT` | Before `git add` / `git commit` |
+| `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
 | `PR` | Before `gh pr create` |
 | `CI_WAIT` | On entering the CI polling loop |
 | `DONE` | On successful merge and cleanup |
@@ -32,16 +32,75 @@ Output a progress line at the start of each phase — before any tool call for t
 
 Example:
 ```
-[bdd #828 10:20:00] START: test: BDD step implementations for event_bus.feature
-[bdd #828 10:20:01] READ: loading protos/AGENTS.md + event_bus.feature + issue body
-[bdd #828 10:22:45] PLAN: 6 scenarios; testcontainers NATS; godog suite pattern
-[bdd #828 10:22:46] STEPS: writing protos/tests/event_bus_service/steps/event_bus_steps.go
-[bdd #828 10:38:10] TEST: GOWORK=off go test -tags=integration ./event_bus_service/...
-[bdd #828 10:39:40] COMMIT: all 6 scenarios green; staging files
-[bdd #828 10:39:55] PR: opening PR against main
-[bdd #828 10:40:10] CI_WAIT: waiting for required checks on PR #NNN
-[bdd #828 10:55:28] DONE: PR #NNN merged; issue #828 closed
+[bdd #828 10:20:00] START: test: BDD step implementations for event_bus.feature  [ctx: ~10K | compress=0 | msgs=1]
+[bdd #828 10:20:01] READ: loading protos/AGENTS.md + event_bus.feature + issue body  [ctx: ~13K | compress=0 | msgs=2]
+[bdd #828 10:22:45] PLAN: 6 scenarios; testcontainers NATS; godog suite pattern  [ctx: ~14K | compress=0 | msgs=3]
+[bdd #828 10:22:46] STEPS: writing protos/tests/event_bus_service/steps/event_bus_steps.go  [ctx: ~14K | compress=0 | msgs=4]
+[bdd #828 10:38:10] TEST: GOWORK=off go test -tags=integration ./event_bus_service/...  [ctx: ~16K | compress=0 | msgs=6]
+[bdd #828 10:39:40] COMMIT: all 6 scenarios green — handing off to git-ops  [ctx: ~17K | compress=0 | msgs=7]
+[bdd #828 10:55:28] DONE: PR #NNN merged; issue #828 closed  [ctx: ~18K | compress=0 | msgs=10]
 ```
+
+---
+
+## Context tracking
+
+Estimate your context size in kilotoken units (`~XK`) — same unit as Claude Code's display.
+Rough heuristics:
+- Session start (system prompt + expert file): **~10K**
+- Per file read: **+0.5–3K** depending on file size
+- Per message pair exchanged: **+0.5K**
+
+Maintain counters: `CTX_TOKENS` (estimated K), `CTX_COMPRESSIONS`, `CTX_MSGS`.
+
+### Split thresholds
+
+| Condition | Action |
+|-----------|--------|
+| `CTX_TOKENS > 80K` OR `CTX_COMPRESSIONS == 1` | Log `⚠ CONTEXT GROWING` — describe split point; continue cautiously |
+| `CTX_TOKENS > 140K` OR `CTX_COMPRESSIONS >= 2` | **STOP immediately.** Output split proposal and exit |
+
+### Split proposal format
+
+```
+⚠ CONTEXT SPLIT REQUIRED (bdd #<N>)
+  Stopped at:    <phase>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+  Branch:        <branch-name> (pushed: yes/no)
+  Feature file:  <path> — scenarios written: N/total
+  Step defs:     <path> — written: yes/no
+  Resume point:  Spawn new bdd agent at phase <PHASE> with:
+                   branch=<branch>, feature_file=<path>, remaining_scenarios=<list>
+```
+
+---
+
+## Handoff protocol
+
+You handle READ → PLAN → FEATURE → STEPS → TEST. Once all scenarios pass,
+**hand off to `git-ops`** for commit/push/PR/merge:
+
+```
+HANDOFF to git-ops:
+  from_expert:  bdd
+  issue:        #<N>
+  branch:       <branch>
+  staged_files: <feature file path + step defs path>
+  commit_msg:   |
+    <type>(<scope>): <subject>
+
+    <why sentence>
+
+    Closes #<N>
+
+    Assisted-by: Claude/claude-sonnet-4-6
+  pr_title:     <title ≤ 72 chars>
+  pr_body_file: /tmp/pr-body-<N>.md
+  next_step:    COMMIT
+```
+
+The `.feature` file commit **must** precede any implementation commit (ADR-016).
+If this is the feature-file-only commit (no step defs yet), set `next_step: COMMIT`
+and note in `pr_body_file` that implementation will follow in a separate PR.
 
 ---
 
