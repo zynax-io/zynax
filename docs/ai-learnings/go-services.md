@@ -178,3 +178,13 @@ Use `testcontainers.GenericContainer{Image: "redis:7-alpine", ExposedPorts: []st
 **Seen in:** #826. **Date:** 2026-06-08
 
 JetStream DLQ wiring: create `zynax.dlq.<topic>` stream with `retention=WorkQueue, MaxConsumers=1`; set `DeadLetterSubject` on the consumer; configure `BackOff: []time.Duration{1s, 5s, 30s, 120s, 300s}` matching `MaxDeliver=5`. `Unsubscribe` = delete the durable consumer by subscriber_id; handle not-found gracefully with `codes.NotFound`.
+
+### `gh api update-branch` creates unsigned merge commit
+**Seen in:** #826. **Date:** 2026-06-08
+
+GitHub's "Update branch" API endpoint creates a merge commit that fails DCO and `required_signatures`. Never use `gh api repos/.../pulls/.../update-branch`. Instead: `git fetch origin main && git rebase --signoff origin/main && git push --force-with-lease`.
+
+### `js.StreamNames()` returns a channel, not a slice
+**Seen in:** #826. **Date:** 2026-06-08
+
+NATS JetStream `js.StreamNames(ctx)` returns `<-chan string`, not `[]string`. Iterate with `for name := range namesCh` and check `ctx.Err()` inside the loop to handle context cancellation during the scan.
