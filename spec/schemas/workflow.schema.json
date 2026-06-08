@@ -155,6 +155,11 @@
           "type": "object",
           "description": "Key-value input template passed to the agent. Values may reference workflow context with expression syntax '{{ .ctx.key }}' or trigger data '{{ .trigger.field }}'.",
           "additionalProperties": true
+        },
+        "output": {
+          "type": "object",
+          "description": "Key-value mappings that write action result fields into the workflow context when the action completes. Keys are context paths (e.g. 'context.summary'), values are expression templates referencing the result (e.g. '{{ .result.summary }}').",
+          "additionalProperties": true
         }
       }
     },
