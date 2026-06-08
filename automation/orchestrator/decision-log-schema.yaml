@@ -1,0 +1,252 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/orchestrator/decision-log-schema.yaml
+#
+# JSON Schema (draft-07) for the decision log produced after each orchestrator run.
+# Every orchestrator invocation writes one conforming JSON document to:
+#   .automation/decision-logs/dev-auto-decision-log-{run_id}.json
+# That directory is gitignored; CI uploads it as a GitHub Actions artifact.
+#
+# Plane: near-term
+# Issue: #876 (M6.DevAuto — DevAuto.3)
+
+$schema: "http://json-schema.org/draft-07/schema#"
+$id: "https://github.com/zynax-io/zynax/automation/orchestrator/decision-log-schema.yaml"
+title: DecisionLog
+description: >
+  Structured record of one orchestrator run: trigger, per-expert outputs,
+  aggregated verdict, and post-action execution result.
+type: object
+required:
+  - run_id
+  - timestamp
+  - trigger
+  - expert_outputs
+  - aggregated_verdict
+  - human_action_required
+additionalProperties: false
+
+properties:
+
+  run_id:
+    type: string
+    description: Unique identifier for this orchestrator run (GH Actions run_id or UUID).
+    pattern: "^[a-zA-Z0-9_-]+$"
+
+  timestamp:
+    type: string
+    description: ISO 8601 UTC timestamp when the orchestrator run started.
+    format: date-time
+
+  trigger:
+    type: object
+    description: What caused this orchestrator run.
+    required:
+      - event
+    additionalProperties: false
+    properties:
+      event:
+        type: string
+        description: GitHub event type that triggered the run.
+        enum:
+          - pull_request
+          - push
+          - post_merge
+      pr_number:
+        type: integer
+        description: PR number (required when event == pull_request).
+        minimum: 1
+      pr_title:
+        type: string
+        description: PR title (pull_request event only).
+      base_sha:
+        type: string
+        description: Base commit SHA for diff range.
+        pattern: "^[0-9a-f]{40}$"
+      head_sha:
+        type: string
+        description: Head commit SHA for diff range.
+        pattern: "^[0-9a-f]{40}$"
+      diff_summary:
+        type: string
+        description: Output of `git diff --stat` for the trigger range.
+      changed_files:
+        type: array
+        description: List of changed file paths.
+        items:
+          type: string
+        minItems: 0
+
+  expert_outputs:
+    type: array
+    description: Structured output from each expert in the fan-out.
+    items:
+      $ref: "#/definitions/ExpertOutput"
+    minItems: 0
+
+  aggregated_verdict:
+    type: object
+    description: Final decision computed by the orchestrator after aggregation.
+    required:
+      - action
+      - rationale
+      - confidence
+      - escalated
+    additionalProperties: false
+    properties:
+      action:
+        type: string
+        description: Top-level recommended action (pass | needs_review | escalate).
+        enum:
+          - pass
+          - needs_review
+          - escalate
+      rationale:
+        type: string
+        description: Plain-text explanation of why this verdict was reached.
+      confidence:
+        type: string
+        description: Orchestrator's aggregate confidence in the verdict.
+        enum:
+          - low
+          - medium
+          - high
+      escalated:
+        type: boolean
+        description: True if the orchestrator escalated to human rather than auto-acting.
+      escalation_reason:
+        type: string
+        description: Reason for escalation (required when escalated == true).
+      expert_votes:
+        type: object
+        description: Map of action → vote weight and supporting experts.
+        additionalProperties:
+          type: object
+          required:
+            - weight
+            - supporting_experts
+          properties:
+            weight:
+              type: number
+              description: Aggregated weighted vote for this action.
+            supporting_experts:
+              type: array
+              items:
+                type: string
+      auto_actions_taken:
+        type: array
+        description: Actions the orchestrator executed automatically (Wave 2+ only).
+        items:
+          type: string
+
+  human_action_required:
+    type: object
+    description: Whether a human must act before the orchestrator proceeds.
+    required:
+      - required
+    additionalProperties: false
+    properties:
+      required:
+        type: boolean
+        description: True when the orchestrator cannot proceed without human approval.
+      reason:
+        type: string
+        description: Human-readable explanation (required when required == true).
+      blocking_flags:
+        type: array
+        description: Tier-2 security flags or threshold breaches that triggered escalation.
+        items:
+          type: string
+
+  execution_result:
+    type: object
+    description: >
+      Filled post-action: records what actually ran and its outcome.
+      Absent if the run escalated and no action was taken.
+    additionalProperties: false
+    properties:
+      actions_executed:
+        type: array
+        description: Actions that were executed (may be empty if escalated).
+        items:
+          type: string
+      outcome:
+        type: string
+        description: Final outcome of execution.
+        enum:
+          - success
+          - partial
+          - skipped
+          - failure
+      details:
+        type: string
+        description: Additional detail, error messages, or links to GH Actions logs.
+      completed_at:
+        type: string
+        description: ISO 8601 UTC timestamp when execution completed.
+        format: date-time
+
+definitions:
+
+  ExpertOutput:
+    type: object
+    description: Structured output from a single expert in the fan-out.
+    required:
+      - expert_name
+      - summary
+      - recommended_actions
+      - confidence
+      - flags
+    additionalProperties: true
+    properties:
+      expert_name:
+        type: string
+        description: Expert identifier matching automation/experts/<name>.yaml.
+        pattern: "^[a-z][a-z0-9-]*$"
+      summary:
+        type: string
+        description: Plain-text expert summary (≤200 words).
+      recommended_actions:
+        type: array
+        description: Ordered list of specific actions with rationale.
+        items:
+          type: object
+          required:
+            - action
+            - rationale
+            - priority
+          properties:
+            action:
+              type: string
+            rationale:
+              type: string
+            priority:
+              type: string
+              enum:
+                - low
+                - medium
+                - high
+      reasons_decisions:
+        type: array
+        description: Reasoning chain for each recommendation.
+        items:
+          type: string
+      confidence:
+        type: string
+        description: Expert's confidence in its output.
+        enum:
+          - low
+          - medium
+          - high
+      flags:
+        type: array
+        description: Tier-2 security or blocker flags (empty list if none).
+        items:
+          type: string
+      timed_out:
+        type: boolean
+        description: True if the expert did not return within timeout_seconds.
+      aggregation_weight:
+        type: number
+        description: Effective weight used for this expert in aggregation (from expert YAML).
+        minimum: 0.1
+        maximum: 5.0
