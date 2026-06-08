@@ -50,7 +50,12 @@ make generate-protos # regenerate Go + Python stubs (commit the output)
                      # when .proto or buf config files change (post-merge gate).
 make validate-spec   # AsyncAPI + capability schema validation
 make security        # govulncheck + bandit + pip-audit
+make sync-images     # update banner-marked image refs from images/images.yaml (SoT)
+make check-images    # verify banner-marked regions match images/images.yaml (CI gate)
 ```
+
+> **Image versions** are managed in `images/images.yaml`. Do not hand-edit banner-marked
+> regions in workflow files or Dockerfiles — use `make sync-images` to update them.
 
 All commands run inside Docker — only prerequisite is Docker Desktop.
 
