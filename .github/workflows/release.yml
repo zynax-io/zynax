@@ -46,6 +46,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/zynax-io/zynax
   SYFT_VERSION: "1.44.0"
+  GHCR_KEEP_VERSIONS: "5"
 
 # ── CLI binary — 5 platforms ──────────────────────────────────────────────────
 
@@ -353,6 +354,24 @@ jobs:
           digest: ${{ steps.build.outputs.digest }}
           token: ${{ secrets.GITHUB_TOKEN }}
           image-type: service
+
+      - name: Prune old service builds
+        if: github.ref_type == 'branch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SVC="${{ matrix.service }}"
+          PKG="zynax%2F${SVC}"
+          KEEP="${{ env.GHCR_KEEP_VERSIONS }}"
+          IDS=$(gh api "/orgs/zynax-io/packages/container/${PKG}/versions" --paginate \
+            --jq "[.[] | select(
+                (.metadata.container.tags | any(test(\"^main-[a-f0-9]\"))) and
+                (.metadata.container.tags | all(. != \"latest\" and . != \"main\" and (test(\"^v[0-9]\") | not)))
+            ) | {id:.id,ts:.updated_at}] | sort_by(.ts) | reverse | .[${KEEP}:] | .[].id")
+          [ -z "$IDS" ] && { echo "Nothing to prune (≤${KEEP} main-sha versions)."; exit 0; }
+          echo "$IDS" | while read -r ID; do
+            gh api -X DELETE "/orgs/zynax-io/packages/container/${PKG}/versions/${ID}" && echo "Deleted version ${ID}"
+          done
 
       - name: Install cosign
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
