@@ -27,4 +27,11 @@ FROM gcr.io/distroless/static:nonroot@${DISTROLESS_DIGEST}
 COPY --from=builder /ci-adapter /ci-adapter
 COPY --from=builder /healthcheck /healthcheck
 COPY --from=builder /workspace/agents/adapters/ci/agent-def.yaml.example /etc/ci-adapter/config.yaml
+LABEL org.opencontainers.image.title="Zynax CI Adapter" \
+      org.opencontainers.image.description="Zynax capability adapter for CI pipeline operations. Provides CI execution gRPC capabilities." \
+      org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/agents/adapters/ci/Dockerfile" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Zynax"
 ENTRYPOINT ["/ci-adapter"]

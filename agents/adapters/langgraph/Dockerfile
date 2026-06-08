@@ -52,6 +52,14 @@ COPY agents/adapters/langgraph/examples/ /app/examples/
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src:/app:/protos"
 
+LABEL org.opencontainers.image.title="Zynax LangGraph Adapter" \
+      org.opencontainers.image.description="Zynax capability adapter for LangGraph workflows. Runs LangGraph state-machine graphs as Zynax capabilities." \
+      org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
+      org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/agents/adapters/langgraph/Dockerfile" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Zynax"
+
 USER zynax
 
 CMD ["python", "-m", "langgraph_adapter"]

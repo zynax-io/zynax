@@ -61,7 +61,7 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
 | docs(adr): ADR-025 — SLSA provenance attestation keep vs disable | [#868](https://github.com/zynax-io/zynax/issues/868) | Docs/ADR | — | ✅ Done |
-| ci: add OCI manifest annotations — fix "no description" on GHCR | [#865](https://github.com/zynax-io/zynax/issues/865) | CI/Infra | — | ⬜ Open |
+| ci: add OCI manifest annotations — fix "no description" on GHCR | [#865](https://github.com/zynax-io/zynax/issues/865) | CI/Infra | — | ✅ Done |
 | ci: description-present gate + size-budget check in publish steps | [#866](https://github.com/zynax-io/zynax/issues/866) | CI | — | ⬜ Open |
 | chore(ci): GHCR retention cap — keep last 5 builds per image | [#867](https://github.com/zynax-io/zynax/issues/867) | CI | — | ⬜ Open |
 | docs: document unknown/unknown — expected SLSA provenance | [#869](https://github.com/zynax-io/zynax/issues/869) | Docs/Infra | — | ⬜ Open |
