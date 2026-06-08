@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — SDK TestPyPI Dry-Run
+#
+# Fires on pull requests that touch agents/sdk/ — validates that the
+# zynax-sdk package builds and can be published to TestPyPI without errors.
+#
+# Real PyPI publish is handled by sdk-publish.yml (F.2, #806), triggered
+# only on version tag pushes.
+#
+# Prerequisites (one-time manual setup — see agents/sdk/AGENTS.md):
+#   1. Register a Trusted Publisher on test.pypi.org for this repo.
+#   2. Workflow file name:  tools-publish.yml
+#   3. Environment name:    testpypi
+#
+# The dry-run step is skipped (with a warning) when the OIDC token cannot
+# be minted (e.g., forks without the environment configured). This ensures
+# contributor PRs from forks still pass CI without publishing access.
+
+name: SDK TestPyPI Dry-Run
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "agents/sdk/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  testpypi-dryrun:
+    name: Build & dry-run publish to TestPyPI
+    runs-on: ubuntu-24.04
+    environment: testpypi   # OIDC trusted publisher environment — must match PyPI registration
+
+    permissions:
+      contents: read
+      id-token: write       # required for OIDC token minting
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install hatch (build + publish tool)
+        run: pip install --quiet "hatch>=1.13"
+
+      - name: Build wheel and sdist
+        working-directory: agents/sdk
+        run: |
+          hatch build
+          echo "Build artifacts:"
+          ls -lh dist/
+
+      - name: Verify dist contents
+        working-directory: agents/sdk
+        run: |
+          # Confirm both wheel and sdist were produced.
+          WHL=$(ls dist/*.whl 2>/dev/null | wc -l)
+          SDT=$(ls dist/*.tar.gz 2>/dev/null | wc -l)
+          if [ "$WHL" -eq 0 ] || [ "$SDT" -eq 0 ]; then
+            echo "ERROR: expected both .whl and .tar.gz in dist/" >&2
+            exit 1
+          fi
+          echo "OK — wheel: $WHL  sdist: $SDT"
+
+      - name: Publish to TestPyPI (OIDC — Trusted Publisher)
+        # Skip gracefully on forks where the testpypi environment / OIDC is not
+        # configured, so contributor PRs are not blocked.
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: agents/sdk/dist/
+          skip-existing: true
+          verbose: true

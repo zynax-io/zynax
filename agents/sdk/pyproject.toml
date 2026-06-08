@@ -76,3 +76,14 @@ dev = [
     "bandit==1.9.*",
     "pip-audit==2.10.*",
 ]
+
+# PyPI Trusted Publisher (OIDC) — no API keys stored in secrets.
+# Hatch publish config for CI; the workflow name and environment name must
+# match the trusted publisher registration on PyPI / TestPyPI.
+# See agents/sdk/AGENTS.md §PyPI Trusted Publisher Setup for registration steps.
+[tool.hatch.publish.index]
+repo = "main"
+
+[tool.hatch.envs.hatch-publish]
+# Dependencies used only in the publish environment (not installed for normal dev).
+dependencies = ["hatch>=1.13"]
