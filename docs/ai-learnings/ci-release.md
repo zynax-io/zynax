@@ -85,3 +85,20 @@
 
 ### Proposed expert prompt update
 Add to CI/release expert guide: "After `gh pr create`, immediately check that the PR title subject is ≤72 characters: `echo -n '<subject>' | wc -m`. Fix via `gh api repos/.../pulls/<N> --method PATCH --field title='...'` (not `gh pr edit` which can fail on Projects Classic). After fixing, run `gh run rerun <run_id> --failed` to recheck without a new commit."
+
+## Session — 2026-06-08 (issue #860)
+
+### Avoid `make lint` before committing (Docker overwrites files)
+**Seen in:** #860. **Date:** 2026-06-08
+
+Docker-based `make lint` mounts the workspace and runs formatters (`gofmt`, `ruff-format`, etc.) which can overwrite uncommitted file changes. For pre-commit validation use targeted syntax checks (`bash -n <script>`, `python3 -c "import yaml; yaml.safe_load(...)"`, `yamllint`) instead of the full Docker lint. Run `make lint` only after the commit is in git history.
+
+### Staging only named files prevents unintended inclusions
+**Seen in:** #860. **Date:** 2026-06-08
+
+On a shared workspace where sibling agents have dirty tracked files, `git add .` picks up unrelated changes from other agents' work. Always stage specific files by path: `git add Makefile .github/workflows/tools-image.yml scripts/bump-ci-runner.sh`.
+
+### `gh run view --json jobs` for CI status
+**Seen in:** #860. **Date:** 2026-06-08
+
+`gh run view <run_id> --json status,conclusion,jobs --jq '.jobs[]'` gives a complete at-a-glance view of all job outcomes without repeated polling via `gh pr checks`.
