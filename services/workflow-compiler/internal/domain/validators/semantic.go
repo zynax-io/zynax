@@ -4,13 +4,21 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/domain"
 )
 
-// capabilityNameRe matches snake_case capability names: lowercase letters and
-// digits, words separated by single underscores, no leading/trailing underscore.
-var capabilityNameRe = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
+// capabilityNameRe matches snake_case capability names with an optional
+// namespace qualifier prefix. Two forms are accepted:
+//
+//   - Unqualified: snake_case only (e.g. "summarize", "send_email")
+//   - Qualified:   <namespace>/<capability> where the namespace is a DNS-label
+//     (e.g. "team-a/send_email", "ns-b/summarize")
+//
+// The cross-namespace validator checks whether the namespace prefix, if present,
+// matches the workflow's own namespace.
+var capabilityNameRe = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?/)?[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
 
 // eventNameRe matches dot-separated event names, e.g. "review.approved", "push".
 // Each segment is a lowercase identifier.
@@ -35,14 +43,19 @@ func (CapabilityRefValidator) Validate(_ context.Context, g *domain.WorkflowGrap
 			if !capabilityNameRe.MatchString(capName) {
 				errs = append(errs, domain.ParseError{
 					Code:      domain.ErrorCodeInvalidFieldValue,
-					Message:   fmt.Sprintf("state %q action[%d]: capability %q must be snake_case (e.g. summarize, send_email)", stateID, i, capName),
+					Message:   fmt.Sprintf("state %q action[%d]: capability %q must be snake_case or <namespace>/snake_case (e.g. summarize, send_email, team-a/send_email)", stateID, i, capName),
 					Line:      state.Line,
 					StateName: stateID,
 				})
 				continue
 			}
+			// Extract the bare capability name (strip optional namespace prefix).
+			bareCap := capName
+			if slashIdx := strings.IndexByte(capName, '/'); slashIdx >= 0 {
+				bareCap = capName[slashIdx+1:]
+			}
 			for _, prefix := range reservedPrefixes {
-				if len(capName) >= len(prefix) && capName[:len(prefix)] == prefix {
+				if len(bareCap) >= len(prefix) && bareCap[:len(prefix)] == prefix {
 					errs = append(errs, domain.ParseError{
 						Code:      domain.ErrorCodeInvalidFieldValue,
 						Message:   fmt.Sprintf("state %q action[%d]: capability %q uses reserved prefix %q", stateID, i, capName, prefix),
@@ -124,6 +137,48 @@ func (TransitionSetValidator) Validate(_ context.Context, g *domain.WorkflowGrap
 						StateName: stateID,
 					})
 				}
+			}
+		}
+	}
+	return errs
+}
+
+// CrossNamespaceCapabilityValidator rejects capability references that explicitly
+// target a namespace different from the workflow's own namespace.
+//
+// Capability names may optionally carry a namespace qualifier in the form
+// "<namespace>/<capability_name>". When a qualifier is present, it must match
+// WorkflowGraph.Namespace so that workflows cannot dispatch across namespace
+// boundaries at compile time. Unqualified capability names (no "/") are always
+// allowed — they resolve to agents in the workflow's own namespace at runtime.
+//
+// Example — rejected: workflow namespace "ns-a", capability "ns-b/send_email"
+// Example — allowed:  workflow namespace "ns-a", capability "summarize"
+// Example — allowed:  workflow namespace "ns-a", capability "ns-a/summarize"
+type CrossNamespaceCapabilityValidator struct{}
+
+// Validate implements Validator.
+func (CrossNamespaceCapabilityValidator) Validate(_ context.Context, g *domain.WorkflowGraph) []domain.ParseError {
+	var errs []domain.ParseError
+	for stateID, state := range g.States {
+		for i, action := range state.Actions {
+			capRef := action.Capability
+			slashIdx := strings.IndexByte(capRef, '/')
+			if slashIdx < 0 {
+				// Unqualified capability — resolves within the workflow's namespace.
+				continue
+			}
+			capNS := capRef[:slashIdx]
+			if capNS != g.Namespace {
+				errs = append(errs, domain.ParseError{
+					Code: domain.ErrorCodeInvalidFieldValue,
+					Message: fmt.Sprintf(
+						"state %q action[%d]: capability %q targets namespace %q but workflow namespace is %q; cross-namespace capability dispatch is not allowed",
+						stateID, i, capRef, capNS, g.Namespace,
+					),
+					Line:      state.Line,
+					StateName: stateID,
+				})
 			}
 		}
 	}

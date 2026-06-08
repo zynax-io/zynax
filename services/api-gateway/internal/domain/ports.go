@@ -16,11 +16,14 @@ type CompileError struct {
 
 // CompileResult carries the outcome of a WorkflowCompilerService call.
 // IRBytes is an opaque serialised WorkflowIR proto — the domain treats it
-// as an uninterpreted byte slice.
+// as an uninterpreted byte slice. Namespace mirrors the namespace embedded
+// in the compiled WorkflowIR so that the engine port can propagate it
+// without re-deserialising the IR bytes.
 type CompileResult struct {
-	IRBytes  []byte
-	Warnings []string
-	Errors   []CompileError
+	IRBytes   []byte
+	Namespace string
+	Warnings  []string
+	Errors    []CompileError
 }
 
 // WorkflowRunSummary is the domain view of a submitted workflow execution.
@@ -49,10 +52,12 @@ type CompilerPort interface {
 
 // EnginePort is the gateway's outbound dependency on EngineAdapterService.
 type EnginePort interface {
-	// SubmitWorkflow submits irBytes to the engine under the given workflowID.
-	// The engine uses workflowID as the Temporal workflow identifier so that
+	// SubmitWorkflow submits irBytes to the engine under the given workflowID
+	// within namespace. namespace is propagated to SubmitWorkflowRequest.namespace
+	// so the engine can enforce namespace-scoped capability routing at execution
+	// time. The engine uses workflowID as the Temporal workflow identifier so that
 	// subsequent DescribeWorkflowExecution lookups find the same execution.
-	SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint, workflowID string) (string, error)
+	SubmitWorkflow(ctx context.Context, irBytes []byte, engineHint, workflowID, namespace string) (string, error)
 	GetWorkflowStatus(ctx context.Context, runID string) (WorkflowRunSummary, error)
 	CancelWorkflow(ctx context.Context, runID string) error
 	// WatchWorkflow streams lifecycle events for runID, calling send for each.
