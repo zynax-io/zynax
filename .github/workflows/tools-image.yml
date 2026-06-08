@@ -39,6 +39,7 @@ env:
   IMAGE_NAME: zynax-io/zynax/tools
   CI_RUNNER_IMAGE: zynax-io/zynax/ci-runner
   SYFT_VERSION: "1.44.0"
+  GHCR_KEEP_VERSIONS: "5"
 
 jobs:
   build-push:
@@ -143,6 +144,23 @@ jobs:
           path: tools-sbom.spdx.json
           retention-days: 7
 
+      - name: Prune old tools builds
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PKG="zynax%2Ftools"
+          KEEP="${{ env.GHCR_KEEP_VERSIONS }}"
+          IDS=$(gh api "/orgs/zynax-io/packages/container/${PKG}/versions" --paginate \
+            --jq "[.[] | select(
+                (.metadata.container.tags | any(test(\"^main-[a-f0-9]\"))) and
+                (.metadata.container.tags | all(. != \"latest\" and . != \"main\" and (test(\"^v[0-9]\") | not)))
+            ) | {id:.id,ts:.updated_at}] | sort_by(.ts) | reverse | .[${KEEP}:] | .[].id")
+          [ -z "$IDS" ] && { echo "Nothing to prune (≤${KEEP} main-sha versions)."; exit 0; }
+          echo "$IDS" | while read -r ID; do
+            gh api -X DELETE "/orgs/zynax-io/packages/container/${PKG}/versions/${ID}" && echo "Deleted version ${ID}"
+          done
+
   build-push-ci-runner:
     name: Build and push ci-runner image
     runs-on: ubuntu-24.04
@@ -228,3 +246,20 @@ jobs:
         run: |
           cosign sign --yes \
             "${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}@${{ steps.build-ci-runner.outputs.digest }}"
+
+      - name: Prune old ci-runner builds
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PKG="zynax%2Fci-runner"
+          KEEP="${{ env.GHCR_KEEP_VERSIONS }}"
+          IDS=$(gh api "/orgs/zynax-io/packages/container/${PKG}/versions" --paginate \
+            --jq "[.[] | select(
+                (.metadata.container.tags | any(test(\"^main-[a-f0-9]\"))) and
+                (.metadata.container.tags | all(. != \"latest\" and . != \"main\" and (test(\"^v[0-9]\") | not)))
+            ) | {id:.id,ts:.updated_at}] | sort_by(.ts) | reverse | .[${KEEP}:] | .[].id")
+          [ -z "$IDS" ] && { echo "Nothing to prune (≤${KEEP} main-sha versions)."; exit 0; }
+          echo "$IDS" | while read -r ID; do
+            gh api -X DELETE "/orgs/zynax-io/packages/container/${PKG}/versions/${ID}" && echo "Deleted version ${ID}"
+          done
