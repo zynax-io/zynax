@@ -13,10 +13,11 @@ CREATE TABLE IF NOT EXISTS memory_vectors (
     PRIMARY KEY (namespace, id)
 );
 
--- HNSW index for approximate nearest-neighbour search (cosine distance).
-CREATE INDEX IF NOT EXISTS memory_vectors_hnsw_idx
-    ON memory_vectors
-    USING hnsw (embedding vector_cosine_ops);
+-- NOTE: An HNSW index on `embedding vector` is not created here because pgvector
+-- requires a fixed-dimension vector column (e.g. vector(1536)) for HNSW/IVFFlat
+-- indexes. Without a fixed dimension, exact cosine search via the <=> operator
+-- works correctly; an HNSW index can be added once the service is wired to a
+-- specific embedding model that fixes the dimension.
 
 -- Namespace lookup index for fast DELETE/SELECT by namespace.
 CREATE INDEX IF NOT EXISTS memory_vectors_namespace_idx
