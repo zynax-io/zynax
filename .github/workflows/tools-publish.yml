@@ -74,11 +74,14 @@ jobs:
           echo "OK — wheel: $WHL  sdist: $SDT"
 
       - name: Publish to TestPyPI (OIDC — Trusted Publisher)
-        # Skip gracefully on forks where the testpypi environment / OIDC is not
-        # configured, so contributor PRs are not blocked.
+        # Skip gracefully on forks where the testpypi environment / OIDC is not configured.
+        # continue-on-error: true allows CI to pass before the one-time manual Trusted Publisher
+        # registration is completed on test.pypi.org (see agents/sdk/AGENTS.md §PyPI Trusted
+        # Publisher Setup). Once registered, this step will pass on every PR touching agents/sdk/.
         if: >-
           github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
         uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
         with:
           repository-url: https://test.pypi.org/legacy/
