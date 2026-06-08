@@ -312,3 +312,16 @@ to `imagetools create`). A re-sign pass was not performed; the Jun-8 `main` imag
 ### post-mrg #796 — engine-adapter
 - **engine-adapter is NOT pinned in docker-compose.services.yml**: Only `http-adapter` has a digest pin there. engine-adapter uses a mutable `:main` tag in the dev docker-compose. No digest update needed post-merge. Seen in: post-mrg #796.
 - **Release workflow annotation check failure ≠ image not published**: The `report-image-meta` action checks annotations after `imagetools create` pushes the image. If the annotation check fails, the image is already in GHCR — verify separately with `gh api /orgs/zynax-io/packages/container/zynax%2F<svc>/versions`. This is a recurring pattern. Seen in: post-mrg #796, #839, #977.
+
+## Session — 2026-06-09 (issues #806, #879)
+
+### #806 — SDK PyPI publish workflow
+- **Trusted Publisher environment name**: The `environment: pypi` in sdk-publish.yml must exactly match the environment configured on pypi.org in step O1 (#805). Verify by reading the canvas O1 description or the prior PR before writing the workflow.
+- **Tag-scoped workflows don't need branch filters**: `on: push: tags: ["v*.*.*"]` is sufficient — no `branches:` filter needed. Adding an accidental `branches:` filter would silently prevent tag-triggered publishing.
+
+### #879 — Wave 2 gated actions
+- **Background agent cleanup causes shared-worktree branch switch**: When a domain agent completes (DONE phase with `git checkout main`), it switches the shared working tree to main. Any uncommitted changes on the feature branch are wiped. Pattern: commit immediately after editing, never rely on uncommitted state surviving across background agent completions.
+- **`make lint` runs in Docker and is non-destructive to files**: The lint container reads files but doesn't write them. File reversions seen mid-session were caused by shared-worktree branch switches (another agent's cleanup), not by the linter itself.
+- **Context-free agent spawning causes duplicate PRs**: Sending a context-free "proceed" message to a new agent after the original completed caused it to create a duplicate PR (#996) against already-merged work (#995). Fix: never spawn a new agent to handle a completion notification — read the current branch state directly and perform remaining steps (PR create, merge) from the orchestrator.
+- **`gh pr close <N>` is idempotent**: If a duplicate PR is already closed, `gh pr close` returns `already closed` but exits 0. Safe to call without checking.
+- **Wave 2 action-execution step placement**: The Wave 2 step belongs in the `orchestrate-and-comment` job (same job as orchestrator), not a separate job. This avoids re-running the full expert fan-out for action decisions and has access to `steps.decision-log.outputs.*`.
