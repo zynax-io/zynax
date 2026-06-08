@@ -101,27 +101,13 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
 
       - name: Report tools image size
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          DIGEST="${{ steps.build-tools.outputs.digest }}"
-          BASE="https://ghcr.io/v2/${{ env.IMAGE_NAME }}"
-          { echo "## 📦 tools"; echo "**Digest:** \`${DIGEST}\`"; echo ""; \
-            echo "| Platform | Compressed size |"; echo "|----------|-----------------|"; \
-          } >> "$GITHUB_STEP_SUMMARY"
-          INDEX=$(curl -fsSL -H "Authorization: Bearer ${TOKEN}" \
-            -H "Accept: application/vnd.oci.image.index.v1+json" \
-            "${BASE}/manifests/${DIGEST}" 2>/dev/null) || true
-          if [ -n "$INDEX" ]; then
-            while IFS='|' read -r osname arch pdigs; do
-              MF=$(curl -fsSL -H "Authorization: Bearer ${TOKEN}" \
-                -H "Accept: application/vnd.oci.image.manifest.v1+json" \
-                "${BASE}/manifests/${pdigs}" 2>/dev/null) || true
-              [ -n "$MF" ] && echo "| ${osname}/${arch} | $(echo "$MF" | jq '[.layers[].size] | add // 0' | xargs -I{} sh -c 'echo "scale=1; {} / 1048576" | bc') MB |" >> "$GITHUB_STEP_SUMMARY" \
-                           || echo "| ${osname}/${arch} | — |" >> "$GITHUB_STEP_SUMMARY"
-            done < <(echo "$INDEX" | jq -r '.manifests[] | select(.platform.architecture == "amd64" or .platform.architecture == "arm64") | select(.platform.os != "unknown") | [.platform.os, .platform.architecture, .digest] | join("|")' 2>/dev/null)
-          fi
-          echo "" >> "$GITHUB_STEP_SUMMARY"
+        uses: ./.github/actions/report-image-meta
+        with:
+          image-name: ${{ env.IMAGE_NAME }}
+          image-label: tools
+          digest: ${{ steps.build-tools.outputs.digest }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-type: tooling
 
       - name: Install cosign
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
@@ -208,28 +194,16 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
 
       - name: Report ci-runner digest and sizes
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          DIGEST="${{ steps.build-ci-runner.outputs.digest }}"
-          BASE="https://ghcr.io/v2/${{ env.CI_RUNNER_IMAGE }}"
-          { echo "## 📦 ci-runner"; echo "**Digest:** \`${DIGEST}\`"; \
-            echo ""; echo "> Update \`config/ci-runner-digest.txt\` and all \`ci.yml / pr-checks.yml / _test-*.yml\` references to \`${DIGEST}\`"; \
-            echo ""; echo "| Platform | Compressed size |"; echo "|----------|-----------------|"; \
-          } >> "$GITHUB_STEP_SUMMARY"
-          INDEX=$(curl -fsSL -H "Authorization: Bearer ${TOKEN}" \
-            -H "Accept: application/vnd.oci.image.index.v1+json" \
-            "${BASE}/manifests/${DIGEST}" 2>/dev/null) || true
-          if [ -n "$INDEX" ]; then
-            while IFS='|' read -r osname arch pdigs; do
-              MF=$(curl -fsSL -H "Authorization: Bearer ${TOKEN}" \
-                -H "Accept: application/vnd.oci.image.manifest.v1+json" \
-                "${BASE}/manifests/${pdigs}" 2>/dev/null) || true
-              [ -n "$MF" ] && echo "| ${osname}/${arch} | $(echo "$MF" | jq '[.layers[].size] | add // 0' | xargs -I{} sh -c 'echo "scale=1; {} / 1048576" | bc') MB |" >> "$GITHUB_STEP_SUMMARY" \
-                           || echo "| ${osname}/${arch} | — |" >> "$GITHUB_STEP_SUMMARY"
-            done < <(echo "$INDEX" | jq -r '.manifests[] | select(.platform.architecture == "amd64" or .platform.architecture == "arm64") | select(.platform.os != "unknown") | [.platform.os, .platform.architecture, .digest] | join("|")' 2>/dev/null)
-          fi
-          echo "" >> "$GITHUB_STEP_SUMMARY"
+        uses: ./.github/actions/report-image-meta
+        with:
+          image-name: ${{ env.CI_RUNNER_IMAGE }}
+          image-label: ci-runner
+          digest: ${{ steps.build-ci-runner.outputs.digest }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-type: tooling
+          extra-summary: >
+            Update `config/ci-runner-digest.txt` and all `ci.yml / pr-checks.yml / _test-*.yml`
+            references to `${{ steps.build-ci-runner.outputs.digest }}`
 
       - name: Open ci-runner bump issue
         if: github.event_name == 'push'
