@@ -195,7 +195,18 @@ Canvas: `docs/spdd/466-stateless-compiler/canvas.md` — Status: Implemented
 
 **ADR-022 accepted — Option 1: Full gRPC EventBusService wrapping NATS JetStream.** (PR #822)
 EPIC I (#772) unblocked. Stories created: #823 #824 #825 #826 #827 #828.
-Next: `/spdd-reasons-canvas 772` → canvas Aligned → implement I.1 (#823) first.
+Canvas: `docs/spdd/772-event-bus/canvas.md` — Status: Aligned ✅
+
+### M6.I Event Bus NATS JetStream (#772) — 🔄 In Progress
+
+| Story | Issue | Status |
+|-------|-------|--------|
+| I.1 feat(event-bus): service scaffold | [#823](https://github.com/zynax-io/zynax/issues/823) | 🔄 In Review |
+| I.2 feat(event-bus): Publish path | [#824](https://github.com/zynax-io/zynax/issues/824) | ⬜ Pending I.1 |
+| I.3 feat(event-bus): Subscribe path | [#825](https://github.com/zynax-io/zynax/issues/825) | ⬜ Pending I.2 |
+| I.4 feat(event-bus): Unsubscribe + DLQ + retry | [#826](https://github.com/zynax-io/zynax/issues/826) | ⬜ Pending I.3 |
+| I.5 feat(engine-adapter): wire PublishLifecycleEventActivity | [#827](https://github.com/zynax-io/zynax/issues/827) | ⬜ Pending I.4 |
+| I.6 test: BDD steps for event_bus.feature | [#828](https://github.com/zynax-io/zynax/issues/828) | ⬜ Pending I.4 |
 
 ### M6.B Inter-Service mTLS (#464) — ✅ COMPLETE
 
