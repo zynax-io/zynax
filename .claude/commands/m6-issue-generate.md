@@ -136,7 +136,48 @@ echo "Issue type: $COMMIT_TYPE | Is EPIC: $IS_EPIC | Needs canvas: $NEEDS_CANVAS
 ```
 
 **If this is an EPIC (`IS_EPIC = true`):** resolve the EPIC to a story issue before proceeding.
-Go to **STEP 3-EPIC**. Otherwise skip to **STEP 4**.
+Go to **STEP 3-EPIC**. Otherwise skip to **STEP 3.5**.
+
+---
+
+## STEP 3.5 — Identify expert persona and start activity log
+
+Determine which expert persona applies to this issue (same routing table as `/m6-orchestrate`):
+
+```bash
+EXPERT_TAG="general"
+EXPERT_NAME="General"
+case "$ISSUE_TITLE" in
+  *"(api-gateway)"*|*"(workflow-compiler)"*|*"(engine-adapter)"*|\
+  *"(task-broker)"*|*"(agent-registry)"*|*"(event-bus)"*|*"(memory-service)"*)
+    EXPERT_TAG="go-svc"; EXPERT_NAME="Go Services Engineer" ;;
+  *"(infra)"*|*helm*|*k8s*)
+    EXPERT_TAG="infra"; EXPERT_NAME="Infrastructure / SRE Engineer" ;;
+  *"(ci)"*|*actions*|*images.yaml*)
+    EXPERT_TAG="ci-rel"; EXPERT_NAME="CI / Release Engineer" ;;
+  *"(agents)"*|*"(sdk)"*|*python*|*adapter*)
+    EXPERT_TAG="py-adapter"; EXPERT_NAME="Python Adapter Engineer" ;;
+  test:*)
+    EXPERT_TAG="bdd"; EXPERT_NAME="BDD / Contract Engineer" ;;
+esac
+# feat: with no Aligned canvas → spdd first
+[ "$NEEDS_CANVAS" = "true" ] && [ "$CANVAS_STATUS" != "Aligned" ] && \
+  EXPERT_TAG="spdd→${EXPERT_TAG}" EXPERT_NAME="SPDD Canvas → ${EXPERT_NAME}"
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════╗"
+echo "║  EXPERT: $EXPERT_NAME"
+echo "║  TAG:    $EXPERT_TAG   ISSUE: #$ISSUE_N"
+echo "║  TITLE:  $ISSUE_TITLE"
+echo "╚══════════════════════════════════════════════════════════╝"
+echo ""
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] START: $ISSUE_TITLE"
+```
+
+Use this log format at every subsequent step:
+```
+[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] <PHASE>: <one-line description>
+```
 
 ---
 
@@ -192,6 +233,10 @@ NEEDS_CANVAS=false
 Skip this step if `COMMIT_TYPE != "feat"` or if the canvas is already `Aligned`.
 
 ```bash
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CANVAS: running SPDD pipeline for EPIC #$EPIC_N"
+```
+
+```bash
 # Find EPIC number referenced in story body (pattern: "EPIC #NNN" or "parent #NNN")
 EPIC_N=$(echo "$ISSUE" | jq -r .body | grep -oP '(?<=#)\d+' | head -1)
 [ -z "$EPIC_N" ] && EPIC_N="$ISSUE_N"   # fallback: issue is its own EPIC
@@ -236,6 +281,7 @@ STORY_COUNT=$(gh issue list --milestone "K8s Production-Ready (M6)" --state all 
 ## STEP 5 — Sync main + create branch (atomic hard claim)
 
 ```bash
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CLAIM: creating branch + hard claim on origin"
 # Worktree was created from origin/main in STEP 2.5 — already clean and up to date.
 
 # Derive branch name from issue title: <type>/<N>-<slug>
@@ -258,6 +304,10 @@ echo "Hard-claimed: branch $BRANCH pushed to origin."
 ---
 
 ## STEP 6 — Implement
+
+```bash
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CODE: implementing — reading issue scope and referenced files"
+```
 
 For `feat:` issues with an Aligned canvas, use `/spdd-generate`:
 
@@ -284,6 +334,10 @@ body's scope and acceptance criteria. Read all referenced files before writing a
 ---
 
 ## STEP 7 — Local verification gates
+
+```bash
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] TEST: running local gates (build, test, lint, security)"
+```
 
 Run all required checks before committing. Do not commit if any gate fails.
 
@@ -328,6 +382,7 @@ echo "All local gates passed."
 ## STEP 8 — Commit
 
 ```bash
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] COMMIT: all gates green — staging and committing"
 # Verify title length ≤ 72 chars
 echo -n "${COMMIT_TYPE}(<scope>): <subject>" | wc -c   # replace before committing
 
@@ -389,6 +444,7 @@ git push --force-with-lease
 ## STEP 9 — Open PR
 
 ```bash
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] PR: opening pull request against main"
 echo -n "<title>" | wc -c   # must be ≤ 72 chars
 
 PR_URL=$(gh pr create \
@@ -405,6 +461,10 @@ echo "Opened PR #$PR_N: $PR_URL"
 ---
 
 ## STEP 10 — Wait for CI (blocking)
+
+```bash
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CI_WAIT: PR #$PR_N — waiting for required checks"
+```
 
 Unlike `/resume-m6`, this command waits for CI to complete before merging. This is intentional —
 the command's contract is end-to-end autonomous delivery, not a fire-and-forget push.
@@ -453,6 +513,11 @@ done
 
 ## STEP 11 — Verify Docker artifacts (when applicable)
 
+```bash
+# Only emitted when TOUCHES_IMAGE > 0:
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] IMAGE_CHECK: verifying GHCR artifact publication"
+```
+
 Skip this step if the PR diff does not touch `Dockerfile*`, `.github/workflows/*image*`,
 `*release*`, or `*publish*` files.
 
@@ -500,6 +565,7 @@ fi
 ## STEP 12 — Rebase + squash-merge
 
 ```bash
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] MERGE: CI green — rebasing and squash-merging PR #$PR_N"
 git fetch origin --prune
 git checkout "$BRANCH"
 git rebase origin/main || {
@@ -571,6 +637,8 @@ if [ -n "$EPIC_N" ] && [ "$EPIC_N" != "$ISSUE_N" ]; then
     }
   fi
 fi
+
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] DONE: PR #$PR_N merged — issue #$ISSUE_N closed"
 
 cat << EOF
 === DONE: Issue #${ISSUE_N} ===

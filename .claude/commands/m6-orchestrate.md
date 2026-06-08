@@ -106,11 +106,15 @@ Using the same classification logic as `/m6-plan`:
 
 Report the selected batch and their expert routing before dispatching:
 
-```
-Selected for this batch:
-  #NNN → go-services expert  (feat(task-broker): ...)
-  #NNN → ci-release expert   (ci(infra): ...)
-  #NNN → infra-helm expert   (chore(infra): ...)
+```bash
+echo ""
+echo "=== [orchestrator $(date +%H:%M:%S)] BATCH SELECTED — $BATCH_SIZE issues ==="
+# For each issue in the batch, print: #N → <expert-tag>  <title>
+# e.g.:
+#   #823 → go-svc      feat(event-bus): service scaffold
+#   #865 → ci-rel      ci(infra): OCI manifest annotations
+#   #875 → ci-rel      chore(automation): expert mesh YAML configs
+echo "==="
 ```
 
 ---
@@ -146,13 +150,26 @@ Issue routing rules (apply in order — first match wins):
 Multi-expert issues: run `spdd-canvas` synchronously first (it must produce an Aligned canvas
 before implementation can start), then dispatch the domain expert for the implementation.
 
+After applying the routing table, emit one log line per issue:
+
+```bash
+# For each issue N with resolved expert tag E:
+echo "[orchestrator $(date +%H:%M:%S)] ROUTE: #$N → $E  ($ISSUE_TITLE)"
+```
+
 ---
 
 ## STEP 6 — Dispatch expert subagents in parallel
 
 Spawn one Agent per claimed issue. All are run in background (parallel).
 
-For each issue N with expert E:
+For each issue N with expert E, log before spawning:
+
+```bash
+echo "[orchestrator $(date +%H:%M:%S)] DISPATCH: #$N → $E — $ISSUE_TITLE"
+```
+
+Then spawn:
 
 ```
 Agent({
@@ -199,6 +216,15 @@ As each agent completes, extract:
 1. Issue number + PR URL
 2. CI status (green / red / pending)
 3. `## Session Learnings` block
+
+Emit a log line as each result arrives:
+
+```bash
+# On success:
+echo "[orchestrator $(date +%H:%M:%S)] DONE:  #$N ($E) — PR #$PR_N CI:$CI_STATUS"
+# On failure:
+echo "[orchestrator $(date +%H:%M:%S)] FAIL:  #$N ($E) — $FAIL_REASON"
+```
 
 For any agent that reported CI failure: report to user with the failing check name.
 Do not retry automatically — human intervention required for CI failures.
