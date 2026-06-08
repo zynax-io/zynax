@@ -86,12 +86,12 @@ If `$AFFECTED_SERVICES` is empty AND `$INFRA_CHANGED` is false, emit SKIP eviden
 ```bash
 [post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] FIND_RUNS: querying workflow runs for merge commit ${MERGE_SHA}  [ctx: ~12K | compress=0 | msgs=3]
 
-RUNS=$(gh run list --commit "${MERGE_SHA}" --limit 20 \
-  --json databaseId,name,status,conclusion,workflowName,createdAt \
-  --jq '.[]')
+# `gh run list --commit <SHA>` is NOT supported; use the REST API filtered by head_sha:
+RUNS=$(gh api "repos/zynax-io/zynax/actions/runs?per_page=50&branch=main" \
+  --jq ".workflow_runs[] | select(.head_sha == \"${MERGE_SHA}\")")
 
-RELEASE_RUN=$(echo "$RUNS" | jq -r 'select(.workflowName == "Release") | .databaseId' | head -1)
-TOOLS_RUN=$(echo "$RUNS" | jq -r 'select(.workflowName | test("tools|ci-runner"; "i")) | .databaseId' | head -1)
+RELEASE_RUN=$(echo "$RUNS" | jq -r 'select(.name == "Release") | .id' | head -1)
+TOOLS_RUN=$(echo "$RUNS" | jq -r 'select(.name | test("tools|ci-runner"; "i")) | .id' | head -1)
 ```
 
 Poll until complete (max 20 minutes, 60 s intervals):
@@ -200,7 +200,25 @@ if [ -n "$CI_RUNNER_LATEST" ]; then
       "$IMAGES_FILE"
     echo "  ci-runner: ${OLD_DIGEST:0:19}... -> ${NEW_DIGEST:0:19}..."
     YAML_PINS_UPDATED="${YAML_PINS_UPDATED} ci-runner"
-    make sync-images
+
+    # make sync-images runs in Docker. Fall back to direct substitution if Docker unavailable:
+    if docker info >/dev/null 2>&1; then
+      make sync-images
+    else
+      python3 -c "
+import yaml, pathlib, sys
+data = yaml.safe_load(pathlib.Path('$IMAGES_FILE').read_text())
+consumers = [c for img in data['images'] if img['name'] == 'ci-runner'
+             for c in img.get('consumers', [])]
+for f in consumers:
+    p = pathlib.Path(f)
+    if p.exists():
+        p.write_text(p.read_text().replace('$OLD_DIGEST', '$NEW_DIGEST'))
+        print(f'  updated {f}')
+"
+      # Also update legacy config/ci-runner-digest.txt if present
+      [ -f config/ci-runner-digest.txt ] && echo "$NEW_DIGEST" > config/ci-runner-digest.txt && echo "  updated config/ci-runner-digest.txt"
+    fi
   fi
 fi
 ```
