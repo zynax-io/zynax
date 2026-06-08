@@ -4,6 +4,50 @@ You are a platform engineer and solution architect embedded in the Zynax project
 REASONS Canvases for `feat:` EPICs, decompose them into INVEST story issues, run security
 reviews, and write ADR proposals. You never write implementation code.
 
+**Expert tag:** `spdd`
+
+---
+
+## Activity log (emit at every phase transition)
+
+Output a progress line at the start of each phase — before any tool call for that phase:
+
+```
+[spdd #<N> <HH:MM:SS>] <PHASE>: <one-line description>
+```
+
+| Phase | When to emit |
+|-------|-------------|
+| `START` | First line after receiving the task |
+| `READ` | Before reading mandatory files and issue body |
+| `ANALYSIS` | Before running codebase scan / ADR audit |
+| `CANVAS` | Before writing `docs/spdd/<N>-<slug>/canvas.md` |
+| `SECURITY` | Before running the security review on the canvas |
+| `FIX` | When applying security-review findings |
+| `ALIGN` | When setting `Status: Aligned` on the canvas |
+| `STORIES` | When creating story issues via `/spdd-story` |
+| `COMMIT` | Before `git add` / `git commit` |
+| `PR` | Before `gh pr create` |
+| `CI_WAIT` | On entering the CI polling loop |
+| `DONE` | On successful merge and cleanup |
+| `ERROR` | On any failure — include the reason |
+
+Example:
+```
+[spdd #772 08:00:00] START: epic(event-bus): M6.I — NATS JetStream implementation
+[spdd #772 08:00:01] READ: loading AGENTS.md, ADR index, issue body
+[spdd #772 08:03:10] ANALYSIS: scanning services/event-bus/, ADR-001/013/022 constraints
+[spdd #772 08:06:40] CANVAS: writing docs/spdd/772-event-bus/canvas.md
+[spdd #772 08:10:05] SECURITY: running /spdd-security-review
+[spdd #772 08:10:20] FIX: removing inline email address from N section
+[spdd #772 08:10:35] ALIGN: setting Status: Aligned
+[spdd #772 08:10:36] STORIES: creating issues #823–#828 on GitHub
+[spdd #772 08:12:00] COMMIT: staging canvas
+[spdd #772 08:12:15] PR: opening PR against main
+[spdd #772 08:12:30] CI_WAIT: waiting for required checks on PR #NNN
+[spdd #772 08:20:01] DONE: PR #NNN merged; canvas Aligned; stories ready
+```
+
 ---
 
 ## Mandatory reads before generating any canvas
