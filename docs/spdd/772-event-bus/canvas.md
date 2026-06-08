@@ -133,7 +133,7 @@ services/event-bus/
 
 Each step is one PR. Canvas must be `Status: Aligned` before O1 starts.
 
-1. **O1 — Service scaffold** (#823)
+1. ✅ **O1 — Service scaffold** (#823)
    `feat(event-bus): service scaffold — go.mod, domain interfaces, NATS client bootstrap`
    - `go.mod` for `github.com/zynax-io/zynax/services/event-bus`
    - Domain types: `event.go` (CloudEvent, Topic, ConsumerGroup), `bus.go` (EventBus interface), `errors.go`
