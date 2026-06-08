@@ -319,6 +319,9 @@ jobs:
           category: container-${{ matrix.service }}
 
       # ── Multi-arch push (only reached if trivy scan above exits 0) ────────────
+      # provenance=true (default) attaches SLSA Build L1 attestation manifests.
+      # These appear as "unknown/unknown" rows in GHCR — expected, not broken.
+      # See docs/adr/ADR-025-slsa-provenance-attestation.md for the keep decision.
       - name: Build and push
         id: build
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
