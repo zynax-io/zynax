@@ -76,3 +76,21 @@ dev = [
     "bandit==1.9.*",
     "pip-audit==2.10.*",
 ]
+
+[tool.pip-audit]
+# PYSEC-2026-196 — pip 26.1.1 fixed in 26.1.2. pip-audit scans the full
+# environment including the CI runner's pip; zynax-sdk does not depend on pip.
+# Re-evaluate when CI runner image upgrades to pip >=26.1.2.
+# Added: 2026-06-08  Re-evaluate: 2026-09-08
+ignore-vulns = ["PYSEC-2026-196"]
+
+# PyPI Trusted Publisher (OIDC) — no API keys stored in secrets.
+# Hatch publish config for CI; the workflow name and environment name must
+# match the trusted publisher registration on PyPI / TestPyPI.
+# See agents/sdk/AGENTS.md §PyPI Trusted Publisher Setup for registration steps.
+[tool.hatch.publish.index]
+repo = "main"
+
+[tool.hatch.envs.hatch-publish]
+# Dependencies used only in the publish environment (not installed for normal dev).
+dependencies = ["hatch>=1.13"]

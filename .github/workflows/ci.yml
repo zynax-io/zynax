@@ -642,7 +642,10 @@ jobs:
             uv run bandit -r src/ -ll -f json -o bandit-report.json || failed=true
             uv run bandit -r src/ -ll || true
             echo "── pip-audit: agents/sdk"
-            uv run pip-audit || failed=true
+            # --ignore-vuln PYSEC-2026-196: pip 26.1.1 vuln (fix: 26.1.2) reported
+            # because pip-audit scans the CI runner environment; zynax-sdk does not
+            # depend on pip directly. Remove once runner image upgrades pip.
+            uv run pip-audit --ignore-vuln PYSEC-2026-196 || failed=true
             cd ../..
           fi
 

@@ -112,6 +112,49 @@ or when you want full control over the gRPC lifecycle.
 
 ---
 
+## PyPI Trusted Publisher Setup
+
+This section documents the **one-time manual steps** required to enable the
+OIDC Trusted Publisher relationship between GitHub Actions and PyPI / TestPyPI.
+No API keys or tokens are stored in GitHub Secrets — authentication uses OIDC.
+
+### TestPyPI (dry-run, for PRs)
+
+1. Log in to [test.pypi.org](https://test.pypi.org) as the `zynax-io` organisation owner.
+2. Navigate to **Your projects → zynax-sdk → Publishing → Add a new publisher**.
+3. Fill in the Trusted Publisher form:
+   - **Owner:** `zynax-io`
+   - **Repository:** `zynax`
+   - **Workflow filename:** `tools-publish.yml`
+   - **Environment name:** `testpypi`
+4. Click **Add**.
+5. In GitHub, create a **repository environment** named `testpypi` at
+   `https://github.com/zynax-io/zynax/settings/environments`.
+   No extra secrets are needed — OIDC mints a short-lived token automatically.
+
+### PyPI (real publish, for version tags)
+
+> Handled by `sdk-publish.yml` (issue #806 — F.2, not yet created).
+
+1. Log in to [pypi.org](https://pypi.org) as the `zynax-io` organisation owner.
+2. Navigate to **Your projects → zynax-sdk → Publishing → Add a new publisher**.
+3. Fill in the Trusted Publisher form:
+   - **Owner:** `zynax-io`
+   - **Repository:** `zynax`
+   - **Workflow filename:** `sdk-publish.yml`
+   - **Environment name:** `pypi`
+4. Click **Add**.
+5. Create a **repository environment** named `pypi` in GitHub (add branch
+   protection rule: only allow `v*` tags to deploy to this environment).
+
+### Verification
+
+After the Trusted Publisher is registered, open a PR that touches `agents/sdk/`.
+The `SDK TestPyPI Dry-Run` workflow should pass its publish step. Check
+`test.pypi.org/project/zynax-sdk/` to confirm the package was uploaded.
+
+---
+
 ## Testing
 
 ```bash
