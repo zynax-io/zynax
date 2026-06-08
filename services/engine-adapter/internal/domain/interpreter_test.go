@@ -311,21 +311,21 @@ func TestEvalGuard_FailClosed_EmptyExpr(t *testing.T) {
 }
 
 func TestEvalGuard_FailClosed_ParseError(t *testing.T) {
-	// Garbage expression cannot compile → fail-closed.
+	// Garbage expression cannot compile — fail-closed.
 	if evalGuard("unknown garbage !@#", map[string]string{}) {
 		t.Error("unparseable expression should be fail-closed (false)")
 	}
 }
 
 func TestEvalGuard_FailClosed_TypeMismatch(t *testing.T) {
-	// ctx.score is a string; 80 is an int → CEL type error at compile → fail-closed.
+	// ctx.score is a string; 80 is an int — CEL type error at compile — fail-closed.
 	if evalGuard("ctx.score >= 80", map[string]string{"score": "90"}) {
 		t.Error("type-mismatched expression should be fail-closed (false)")
 	}
 }
 
 func TestEvalGuard_FailClosed_MissingKey(t *testing.T) {
-	// Key not in map → CEL eval error → fail-closed.
+	// Key not in map — CEL eval error — fail-closed.
 	if evalGuard(`ctx.missing_key == "x"`, map[string]string{}) {
 		t.Error("missing ctx key should be fail-closed (false)")
 	}
@@ -344,7 +344,7 @@ func TestEvalGuard_ProgCacheHit(t *testing.T) {
 }
 
 func TestEvalGuard_FailClosed_NonBoolResult(t *testing.T) {
-	// ctx.status selects a string from the map; string is not bool → fail-closed.
+	// ctx.status selects a string from the map; string is not bool — fail-closed.
 	if evalGuard("ctx.status", map[string]string{"status": "ok"}) {
 		t.Error("non-bool CEL result should be fail-closed (false)")
 	}
@@ -397,7 +397,10 @@ func TestMergePayload_StringValues(t *testing.T) {
 
 func TestResolveTemplate(t *testing.T) {
 	ctx := map[string]string{"name": "alice"}
-	got := resolveTemplate(`{"user":"{{ .ctx.name }}"}`, ctx)
+	got, err := resolveTemplate(`{"user":"{{ .ctx.name }}"}`, ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if string(got) != `{"user":"alice"}` {
 		t.Errorf("resolveTemplate = %s; want %s", got, `{"user":"alice"}`)
 	}
@@ -415,12 +418,88 @@ func TestResolveTemplate_Deterministic(t *testing.T) {
 		"epsilon": "E",
 	}
 	tmpl := `{"a":"{{ .ctx.alpha }}","b":"{{ .ctx.beta }}","g":"{{ .ctx.gamma }}","d":"{{ .ctx.delta }}","e":"{{ .ctx.epsilon }}"}`
-	first := string(resolveTemplate(tmpl, ctx))
+	first, err := resolveTemplate(tmpl, ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	for i := 0; i < 50; i++ {
-		got := string(resolveTemplate(tmpl, ctx))
-		if got != first {
+		got, err := resolveTemplate(tmpl, ctx)
+		if err != nil {
+			t.Fatalf("unexpected error on iteration %d: %v", i, err)
+		}
+		if string(got) != string(first) {
 			t.Fatalf("non-deterministic output on iteration %d:\n got  %s\n want %s", i, got, first)
 		}
+	}
+}
+
+// TestResolveTemplate_DefaultValue verifies the "default" FuncMap helper.
+// {{ index .ctx "key" | default "fallback" }} returns "fallback" when "key" is absent.
+func TestResolveTemplate_DefaultValue(t *testing.T) {
+	ctx := map[string]string{}
+	// Compose the template string to avoid escaping issues with nested quotes.
+	tmplStr := `{"val":"` + `{{ index .ctx "missing" | default "fallback" }}` + `"}`
+	got, err := resolveTemplate(tmplStr, ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(got) != `{"val":"fallback"}` {
+		t.Errorf("resolveTemplate = %s; want %s", got, `{"val":"fallback"}`)
+	}
+}
+
+// TestResolveTemplate_DefaultValue_KeyPresent verifies that "default" is a no-op
+// when the key is present and non-empty.
+func TestResolveTemplate_DefaultValue_KeyPresent(t *testing.T) {
+	ctx := map[string]string{"env": "prod"}
+	tmplStr := `{"env":"` + `{{ index .ctx "env" | default "dev" }}` + `"}`
+	got, err := resolveTemplate(tmplStr, ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(got) != `{"env":"prod"}` {
+		t.Errorf("resolveTemplate = %s; want %s", got, `{"env":"prod"}`)
+	}
+}
+
+// TestResolveTemplate_MissingKey verifies that a missing key resolves to an empty
+// string (missingkey=zero option) rather than returning an error.
+func TestResolveTemplate_MissingKey(t *testing.T) {
+	ctx := map[string]string{}
+	got, err := resolveTemplate(`{"x":"{{ .ctx.absent }}"}`, ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(got) != `{"x":""}` {
+		t.Errorf("resolveTemplate = %s; want empty string for missing key", got)
+	}
+}
+
+// TestResolveTemplate_InvalidTemplate verifies that a malformed template returns an error.
+func TestResolveTemplate_InvalidTemplate(t *testing.T) {
+	ctx := map[string]string{}
+	_, err := resolveTemplate(`{{ .ctx.key`, ctx)
+	if err == nil {
+		t.Fatal("expected error for invalid template, got nil")
+	}
+}
+
+// TestResolveTemplate_NoInjection verifies that a ctx value containing template
+// syntax is not re-evaluated — text/template renders the substituted value verbatim
+// rather than re-parsing it as a template action.
+func TestResolveTemplate_NoInjection(t *testing.T) {
+	ctx := map[string]string{
+		"evil":  "{{ .ctx.other }}",
+		"other": "secret",
+	}
+	got, err := resolveTemplate(`{"v":"{{ .ctx.evil }}"}`, ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// The output must NOT contain "secret" — proving the value was not re-executed.
+	result := string(got)
+	if strings.Contains(result, "secret") {
+		t.Errorf("template injection: ctx value was re-executed as template; got: %s", result)
 	}
 }
 
