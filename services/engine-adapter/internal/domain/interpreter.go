@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
-	"sort"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/google/cel-go/cel"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
@@ -116,9 +116,13 @@ func executeActions(
 			}
 			timeoutSec = int32(sec)
 		}
+		resolved, err := resolveTemplate(action.GetInputTemplateJson(), ec.Ctx)
+		if err != nil {
+			return nil, fmt.Errorf("engine-adapter: action %q template error: %w", action.GetCapability(), err)
+		}
 		in := ActivityInput{
 			CapabilityName: action.GetCapability(),
-			InputPayload:   resolveTemplate(action.GetInputTemplateJson(), ec.Ctx),
+			InputPayload:   resolved,
 			WorkflowID:     ec.WorkflowID,
 			TimeoutSeconds: timeoutSec,
 		}
@@ -234,20 +238,38 @@ func evalGuard(expr string, ctx map[string]string) bool {
 	return b
 }
 
+// defaultFuncs provides a FuncMap with a "default" function for use in templates.
+// Usage: {{ index .ctx "key" | default "fallback" }}
+var defaultFuncs = template.FuncMap{
+	"default": func(fallback, val string) string {
+		if val == "" {
+			return fallback
+		}
+		return val
+	},
+}
+
 // resolveTemplate substitutes {{ .ctx.<key> }} placeholders in the JSON template
-// with values from the ctx map. Keys are sorted to guarantee deterministic output
-// across workflow replays (map iteration order is non-deterministic in Go).
-func resolveTemplate(template string, ctx map[string]string) []byte {
-	keys := make([]string, 0, len(ctx))
-	for k := range ctx {
-		keys = append(keys, k)
+// using Go's stdlib text/template. The data root is map[string]any{"ctx": ctx},
+// so existing {{ .ctx.key }} syntax continues to work unchanged.
+//
+// Compared to the previous string-replace implementation this adds:
+//   - Proper output fidelity (no re-injection of template syntax from ctx values)
+//   - Conditional expressions ({{ if .ctx.key }}...{{ end }})
+//   - Default values via the "default" func: {{ index .ctx "key" | default "fallback" }}
+//
+// Template parse errors and execution errors are returned as non-nil errors so
+// callers can propagate them rather than silently producing malformed JSON.
+func resolveTemplate(tmpl string, ctx map[string]string) ([]byte, error) {
+	t, err := template.New("").Funcs(defaultFuncs).Option("missingkey=zero").Parse(tmpl)
+	if err != nil {
+		return nil, fmt.Errorf("invalid template %q: %w", tmpl, err)
 	}
-	sort.Strings(keys)
-	result := template
-	for _, k := range keys {
-		result = strings.ReplaceAll(result, "{{ .ctx."+k+" }}", ctx[k])
+	var buf strings.Builder
+	if err := t.Execute(&buf, map[string]any{"ctx": ctx}); err != nil {
+		return nil, fmt.Errorf("template execution failed: %w", err)
 	}
-	return []byte(result)
+	return []byte(buf.String()), nil
 }
 
 // mergePayload unmarshals the JSON payload and merges top-level string values into ctx.
