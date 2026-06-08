@@ -102,3 +102,17 @@ On a shared workspace where sibling agents have dirty tracked files, `git add .`
 **Seen in:** #860. **Date:** 2026-06-08
 
 `gh run view <run_id> --json status,conclusion,jobs --jq '.jobs[]'` gives a complete at-a-glance view of all job outcomes without repeated polling via `gh pr checks`.
+
+---
+
+## Session — 2026-06-08 (issue #867)
+
+### GHCR retention via REST API pattern
+**Seen in:** #867. **Date:** 2026-06-08
+
+Use `gh api "/orgs/zynax-io/packages/container/${PKG}/versions" --paginate` to list all versions. Filter `main-sha` eligible-for-deletion versions with jq: `select((.metadata.container.tags | any(test("^main-[a-f0-9]"))) and (.metadata.container.tags | all(. != "latest" and . != "main" and (test("^v[0-9]") | not))))`. Sort by `.updated_at` descending, slice from `KEEP` index onward, delete via `-X DELETE`. Define `GHCR_KEEP_VERSIONS: "5"` at workflow `env:` level. URL-encode nested package names with `%2F` (e.g. `zynax%2Ftools`).
+
+### Cherry-pick to rescue a commit on wrong branch
+**Seen in:** #867. **Date:** 2026-06-08
+
+Background agent branch switching causes commits to land on wrong branches. Rescue: `SHA=$(git rev-parse HEAD) && git checkout <correct-branch> && git reset --hard origin/main && git cherry-pick $SHA && git push --force-with-lease`.
