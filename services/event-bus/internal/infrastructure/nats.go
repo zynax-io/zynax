@@ -244,10 +244,70 @@ func StreamSubjectFromPattern(pattern string) string {
 	return strings.Join(concrete, ".")
 }
 
+// RetryBackoff is the ordered list of retry delays applied to NATS JetStream
+// consumer redelivery attempts. Five entries align with MaxDeliver=5.
+// After the fifth delivery attempt the message is forwarded to the DLQ subject.
+// Exported for testing to verify the backoff policy.
+var RetryBackoff = []time.Duration{
+	1 * time.Second,
+	5 * time.Second,
+	30 * time.Second,
+	2 * time.Minute,
+	5 * time.Minute,
+}
+
+// dlqStreamName returns the JetStream stream name for the dead-letter queue
+// associated with a source stream. The DLQ stream name is derived by prefixing
+// the source stream name with "DLQ_". The corresponding NATS subject is
+// "zynax.dlq.<original-subject-root>".
+// Example: source stream "ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW" → "DLQ_ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW"
+func dlqStreamName(sourceStreamName string) string {
+	return "DLQ_" + sourceStreamName
+}
+
+// dlqSubjectFilter returns the NATS subject filter for the dead-letter queue stream.
+// Example: "zynax.v1.engine-adapter.workflow.completed" → "zynax.dlq.zynax.v1.engine-adapter.workflow.>"
+func dlqSubjectFilter(eventType string) string {
+	parts := strings.Split(eventType, ".")
+	if len(parts) > 1 {
+		prefix := strings.Join(parts[:len(parts)-1], ".")
+		return "zynax.dlq." + prefix + ".>"
+	}
+	return "zynax.dlq." + eventType + ".>"
+}
+
+// ensureDLQStream creates the dead-letter queue JetStream stream for a source
+// stream if it does not already exist. The DLQ stream uses WorkQueuePolicy
+// (each message consumed once) and captures subjects under "zynax.dlq.<topic>".
+func (b *NATSEventBus) ensureDLQStream(sourceStreamName, eventType string) error {
+	dlqName := dlqStreamName(sourceStreamName)
+	dlqSubj := dlqSubjectFilter(eventType)
+
+	cfg := &nats.StreamConfig{
+		Name:         dlqName,
+		Subjects:     []string{dlqSubj},
+		Retention:    nats.WorkQueuePolicy,
+		Storage:      nats.FileStorage,
+		Replicas:     1,
+		MaxMsgs:      -1,
+		MaxConsumers: 1,
+	}
+
+	_, err := b.js.AddStream(cfg)
+	if err != nil {
+		if errors.Is(err, nats.ErrStreamNameAlreadyInUse) {
+			return nil
+		}
+		return fmt.Errorf("jetstream add dlq stream %s: %w", dlqName, err)
+	}
+	return nil
+}
+
 // openSubscription creates a durable JetStream subscription for the given stream.
 // It first attempts to bind to an existing durable consumer, then falls back to
-// creating a new one with DeliverLast, AckExplicit, and MaxDeliver=5.
-func (b *NATSEventBus) openSubscription(streamName, subject, durName string) (*nats.Subscription, error) {
+// creating a new one with DeliverLast, AckExplicit, MaxDeliver=5, retry backoff,
+// and DLQ subject routing for exhausted deliveries.
+func (b *NATSEventBus) openSubscription(streamName, subject, durName, dlqDeliverSubj string) (*nats.Subscription, error) {
 	sub, err := b.js.SubscribeSync(
 		subject,
 		nats.Durable(durName),
@@ -255,6 +315,8 @@ func (b *NATSEventBus) openSubscription(streamName, subject, durName string) (*n
 		nats.DeliverLast(),
 		nats.AckExplicit(),
 		nats.MaxDeliver(5),
+		nats.BackOff(RetryBackoff),
+		nats.DeliverSubject(dlqDeliverSubj),
 	)
 	if err == nil {
 		return sub, nil
@@ -266,6 +328,7 @@ func (b *NATSEventBus) openSubscription(streamName, subject, durName string) (*n
 		nats.DeliverLast(),
 		nats.AckExplicit(),
 		nats.MaxDeliver(5),
+		nats.BackOff(RetryBackoff),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("open subscription %s: %w", durName, err)
@@ -317,22 +380,35 @@ func dispatchMsg(ctx context.Context, msg *nats.Msg, req domain.SubscribeRequest
 
 // Subscribe creates a durable JetStream push consumer for the subscriber and
 // returns a channel that delivers matching CloudEvents until ctx is cancelled.
-// Consumer config: DeliverLastPolicy, AckExplicit, MaxDeliver=5.
+// Consumer config: DeliverLastPolicy, AckExplicit, MaxDeliver=5, retry backoff.
 // Glob pattern matching and workflow_id filtering are applied in this layer.
+// A DLQ stream ("zynax.dlq.<topic>") is created idempotently to capture events
+// that exhaust all delivery retries.
 func (b *NATSEventBus) Subscribe(ctx context.Context, req domain.SubscribeRequest) (<-chan domain.CloudEvent, error) {
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("context: %w", ctx.Err())
 	}
 
 	streamSubject := StreamSubjectFromPattern(req.TypePattern)
+	streamName := StreamName(streamSubject)
+
 	if err := b.ensureStream(streamSubject); err != nil {
 		return nil, fmt.Errorf("subscribe: ensure stream: %w", err)
 	}
 
+	// Ensure DLQ stream exists before wiring the consumer's DeliverSubject.
+	if err := b.ensureDLQStream(streamName, streamSubject); err != nil {
+		return nil, fmt.Errorf("subscribe: ensure dlq stream: %w", err)
+	}
+
+	// Build the DLQ deliver subject for exhausted messages.
+	dlqSubj := strings.TrimSuffix(dlqSubjectFilter(streamSubject), ".>") + ".dead"
+
 	sub, err := b.openSubscription(
-		StreamName(streamSubject),
+		streamName,
 		SubjectFilter(streamSubject),
 		DurableConsumerName(req.SubscriberID),
+		dlqSubj,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("subscribe: jetstream subscribe: %w", err)
@@ -361,7 +437,41 @@ func (b *NATSEventBus) Subscribe(ctx context.Context, req domain.SubscribeReques
 	return ch, nil
 }
 
-// Unsubscribe is a stub — full implementation in O4 (#826).
-func (b *NATSEventBus) Unsubscribe(_ context.Context, _ string) error {
-	return errors.New("not implemented")
+// Unsubscribe deletes the durable JetStream consumer for subscriberID across
+// all streams. It is a stateless operation: it iterates all known streams and
+// removes the consumer from whichever stream owns it.
+// Returns domain.ErrSubscriberNotFound if no consumer was found on any stream.
+func (b *NATSEventBus) Unsubscribe(ctx context.Context, subscriberID string) error {
+	if ctx.Err() != nil {
+		return fmt.Errorf("context: %w", ctx.Err())
+	}
+
+	durName := DurableConsumerName(subscriberID)
+
+	// Iterate all streams and attempt to delete the consumer.
+	namesCh := b.js.StreamNames()
+	found := false
+	for name := range namesCh {
+		if ctx.Err() != nil {
+			return fmt.Errorf("context: %w", ctx.Err())
+		}
+		// Skip DLQ streams — consumers are managed by the DLQ machinery.
+		if strings.HasPrefix(name, "DLQ_") {
+			continue
+		}
+		err := b.js.DeleteConsumer(name, durName)
+		if err == nil {
+			found = true
+			break
+		}
+		if errors.Is(err, nats.ErrConsumerNotFound) {
+			continue
+		}
+		return fmt.Errorf("unsubscribe: delete consumer %s from stream %s: %w", durName, name, err)
+	}
+
+	if !found {
+		return domain.ErrSubscriberNotFound
+	}
+	return nil
 }
