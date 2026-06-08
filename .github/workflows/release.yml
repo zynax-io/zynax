@@ -319,9 +319,6 @@ jobs:
           category: container-${{ matrix.service }}
 
       # ── Multi-arch push (only reached if trivy scan above exits 0) ────────────
-      # provenance=true (default) attaches SLSA Build L1 attestation manifests.
-      # These appear as "unknown/unknown" rows in GHCR — expected, not broken.
-      # See docs/adr/ADR-025-slsa-provenance-attestation.md for the keep decision.
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
@@ -331,6 +328,10 @@ jobs:
             org.opencontainers.image.title=zynax-${{ matrix.service }}
             org.opencontainers.image.description=Zynax ${{ matrix.service }} service image
 
+      # provenance=true (default) attaches SLSA Build L1 attestation manifests.
+      # These appear as "unknown/unknown" rows in GHCR — expected, not broken.
+      # Each image gets two attestation entries: one for linux/amd64, one for linux/arm64.
+      # Manifest size ~565 bytes. See ADR-025: docs/adr/ADR-025-slsa-provenance-attestation.md
       - name: Build and push
         id: build
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0

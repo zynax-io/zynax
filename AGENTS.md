@@ -227,7 +227,7 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Go best practices — service layout, context, `crypto/subtle`, `ReadHeaderTimeout`, gRPC deadlines | `docs/engineering/best-practices/go.md` |
 | Python best practices — mypy strict, Agent base class, Pydantic Settings, async gRPC, bandit | `docs/engineering/best-practices/python.md` |
 | Dockerfile best practices — multi-stage, distroless, HEALTHCHECK, version pinning | `docs/engineering/best-practices/dockerfiles.md` |
-| GitHub CI best practices — SHA-pinned actions, least-privilege, concurrency, ci-runner usage | `docs/engineering/best-practices/github-ci.md` |
+| GitHub CI best practices — SHA-pinned actions, least-privilege, concurrency, ci-runner usage, GHCR hygiene (unknown/unknown = SLSA attestations per ADR-025) | `docs/engineering/best-practices/github-ci.md` |
 | Architecture patterns — hexagonal, WorkflowEngine strategy, Fowler event taxonomy, outbox | `docs/engineering/best-practices/architecture-patterns.md` |
 | Dependency version policy, security scanning, upgrade cadence | `docs/engineering/dependency-strategy.md` |
 | Renovate bot CI failure fix procedure (go.sum, go directive) | `docs/engineering/renovate-fix-sop.md` |
