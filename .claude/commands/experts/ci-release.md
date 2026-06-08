@@ -222,6 +222,29 @@ Do not install tools directly in `run:` steps that are already in the container
 
 ---
 
+## Shared workspace / commit hygiene
+
+Multiple subagents share a single working tree. These rules prevent cross-agent contamination:
+
+- **Stage specific files by path — never `git add .`:** Other agents' uncommitted changes appear
+  in `git status`. Always name each file explicitly:
+  `git add .github/workflows/foo.yml scripts/bar.sh`.
+  Seen in: #860, #875 (2 sessions).
+
+- **Cherry-pick rescue for commits that land on the wrong branch:** Background agent branch
+  switching can cause a commit to land on the wrong branch. Rescue:
+  ```bash
+  SHA=$(git rev-parse HEAD)
+  git checkout <correct-branch>
+  git reset --hard origin/main
+  git cherry-pick $SHA
+  git push --force-with-lease
+  ```
+  Verify with `git log --oneline -3` before pushing.
+  Seen in: #867, #819, #828 (3 sessions).
+
+---
+
 ## Required checks vs advisory
 
 Only add a new step as a **required check** (blocking merge) if it:
