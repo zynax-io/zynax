@@ -7,6 +7,7 @@ package infrastructure
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -25,6 +26,9 @@ const (
 	// the serialised WorkflowIR JSON. The WorkflowTemplate in the cluster is
 	// expected to expose a parameter with this name.
 	argoIRPayloadParam = "workflow-ir"
+
+	// argoWatchPollInterval is the polling interval used by Watch.
+	argoWatchPollInterval = 2 * time.Second
 )
 
 // ArgoConfig holds the runtime configuration for ArgoEngine. All values are
@@ -43,9 +47,6 @@ type ArgoConfig struct {
 
 // ArgoEngine implements domain.WorkflowEngine backed by the Argo Workflows REST API.
 // Selected when ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE=argo (ADR-015).
-//
-// ArgoEngine only implements Submit and Signal in this step (O2 / issue #796).
-// GetStatus, Cancel, and Watch are implemented in O3 / issue #797.
 type ArgoEngine struct {
 	client ArgoClient
 	cfg    ArgoConfig
@@ -118,25 +119,150 @@ func (e *ArgoEngine) Signal(ctx context.Context, runID, eventType string, payloa
 	return nil
 }
 
-// Cancel, GetStatus, and Watch are unimplemented in this step (O2).
-// They are implemented in O3 / issue #797 to keep PRs atomic.
+// GetStatus retrieves the current run metadata for the given runID by querying
+// the Argo Workflows REST API. Argo WorkflowStatus.Phase values are mapped to
+// domain.WorkflowStatus constants.
+//
+// Returns domain.ErrExecutionNotFound if the workflow does not exist.
+func (e *ArgoEngine) GetStatus(ctx context.Context, runID string) (*domain.WorkflowRun, error) {
+	if runID == "" {
+		return nil, fmt.Errorf("engine-adapter(argo): GetStatus: runID must not be empty")
+	}
 
-// Cancel is not yet implemented — returns an error indicating the method
-// will be available after issue #797 is merged.
-func (e *ArgoEngine) Cancel(_ context.Context, runID, _ string) error {
-	return fmt.Errorf("engine-adapter(argo): Cancel not yet implemented (issue #797): run %q", runID)
+	wf, err := e.client.GetWorkflow(ctx, e.cfg.Namespace, runID)
+	if err != nil {
+		if errors.Is(err, errArgoNotFound) {
+			return nil, fmt.Errorf("engine-adapter(argo): GetStatus %q: %w", runID, domain.ErrExecutionNotFound)
+		}
+		return nil, fmt.Errorf("engine-adapter(argo): GetStatus %q: %w", runID, err)
+	}
+
+	run := &domain.WorkflowRun{
+		RunID:        runID,
+		WorkflowID:   wf.Metadata.Name,
+		Namespace:    wf.Metadata.Namespace,
+		Engine:       argoEngineName,
+		Labels:       wf.Metadata.Labels,
+		CurrentState: wf.Status.Phase,
+		Status:       mapArgoPhase(wf.Status.Phase),
+	}
+
+	if wf.Status.StartedAt != "" {
+		if t, err := time.Parse(time.RFC3339, wf.Status.StartedAt); err == nil {
+			run.StartedAt = t
+		}
+	}
+	if wf.Status.FinishedAt != "" {
+		if t, err := time.Parse(time.RFC3339, wf.Status.FinishedAt); err == nil {
+			run.FinishedAt = t
+		}
+	}
+
+	return run, nil
 }
 
-// GetStatus is not yet implemented — returns ErrExecutionNotFound so callers
-// receive a sensible gRPC NOT_FOUND rather than a panic.
-func (e *ArgoEngine) GetStatus(_ context.Context, runID string) (*domain.WorkflowRun, error) {
-	return nil, fmt.Errorf("engine-adapter(argo): GetStatus not yet implemented (issue #797): %w — run %q",
-		domain.ErrExecutionNotFound, runID)
+// Cancel requests cancellation of a running workflow by deleting the Argo Workflow
+// resource, which causes Argo to terminate all running pods.
+//
+// Returns domain.ErrExecutionNotFound if the workflow does not exist.
+// Returns domain.ErrTerminalState if the workflow has already reached a terminal phase.
+func (e *ArgoEngine) Cancel(ctx context.Context, runID, _ string) error {
+	if runID == "" {
+		return fmt.Errorf("engine-adapter(argo): Cancel: runID must not be empty")
+	}
+
+	// Fetch current status first so we can guard against terminal-state cancels.
+	wf, err := e.client.GetWorkflow(ctx, e.cfg.Namespace, runID)
+	if err != nil {
+		if errors.Is(err, errArgoNotFound) {
+			return fmt.Errorf("engine-adapter(argo): Cancel %q: %w", runID, domain.ErrExecutionNotFound)
+		}
+		return fmt.Errorf("engine-adapter(argo): Cancel %q: %w", runID, err)
+	}
+
+	if mapArgoPhase(wf.Status.Phase).IsTerminal() {
+		return fmt.Errorf("engine-adapter(argo): Cancel %q: %w (phase=%s)",
+			runID, domain.ErrTerminalState, wf.Status.Phase)
+	}
+
+	if err := e.client.DeleteWorkflow(ctx, e.cfg.Namespace, runID); err != nil {
+		if errors.Is(err, errArgoNotFound) {
+			// Race: workflow was deleted between GetWorkflow and DeleteWorkflow.
+			return fmt.Errorf("engine-adapter(argo): Cancel %q: %w", runID, domain.ErrExecutionNotFound)
+		}
+		return fmt.Errorf("engine-adapter(argo): Cancel %q: %w", runID, err)
+	}
+	return nil
 }
 
-// Watch is not yet implemented.
-func (e *ArgoEngine) Watch(_ context.Context, runID string, _ func(*domain.WorkflowEvent) error) error {
-	return fmt.Errorf("engine-adapter(argo): Watch not yet implemented (issue #797): run %q", runID)
+// Watch polls the Argo Workflows API until the workflow reaches a terminal state
+// or ctx is cancelled, calling send for each observed status transition.
+// send is called at least once with a terminal-status event before Watch returns nil.
+//
+// Returns domain.ErrExecutionNotFound if the workflow does not exist on the first poll.
+func (e *ArgoEngine) Watch(ctx context.Context, runID string, send func(*domain.WorkflowEvent) error) error {
+	if runID == "" {
+		return fmt.Errorf("engine-adapter(argo): Watch: runID must not be empty")
+	}
+
+	var lastPhase string
+
+	for {
+		wf, err := e.client.GetWorkflow(ctx, e.cfg.Namespace, runID)
+		if err != nil {
+			if errors.Is(err, errArgoNotFound) {
+				return fmt.Errorf("engine-adapter(argo): Watch %q: %w", runID, domain.ErrExecutionNotFound)
+			}
+			return fmt.Errorf("engine-adapter(argo): Watch %q: %w", runID, err)
+		}
+
+		currentPhase := wf.Status.Phase
+		status := mapArgoPhase(currentPhase)
+
+		if currentPhase != lastPhase {
+			event := &domain.WorkflowEvent{
+				RunID:     runID,
+				EventType: "status.changed",
+				FromState: lastPhase,
+				ToState:   currentPhase,
+				Status:    status,
+				Timestamp: time.Now(),
+			}
+			if err := send(event); err != nil {
+				return fmt.Errorf("engine-adapter(argo): Watch %q: send: %w", runID, err)
+			}
+			lastPhase = currentPhase
+		}
+
+		if status.IsTerminal() {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("engine-adapter(argo): Watch %q: %w", runID, ctx.Err())
+		case <-time.After(argoWatchPollInterval):
+		}
+	}
+}
+
+// mapArgoPhase converts an Argo WorkflowStatus.Phase string to a domain.WorkflowStatus.
+// Unknown or empty phases map to WorkflowStatusPending.
+func mapArgoPhase(phase string) domain.WorkflowStatus {
+	switch phase {
+	case ArgoPhasePending, "":
+		return domain.WorkflowStatusPending
+	case ArgoPhaseRunning:
+		return domain.WorkflowStatusRunning
+	case ArgoPhaseSucceeded:
+		return domain.WorkflowStatusCompleted
+	case ArgoPhaseFailed, ArgoPhaseError:
+		return domain.WorkflowStatusFailed
+	case ArgoPhaseSkipped:
+		return domain.WorkflowStatusCancelled
+	default:
+		return domain.WorkflowStatusPending
+	}
 }
 
 // buildArgoWorkflow constructs the Argo Workflow resource from a WorkflowIR
