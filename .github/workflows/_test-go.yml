@@ -293,12 +293,16 @@ jobs:
             total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
                     | grep "^total:" | awk '{print $3}' | tr -d '%')
             cd ../..
-            [ -z "$total" ] && echo "  ⚠ no coverage for cmd/zynax — skipping" && exit 0
+            if [ -z "$total" ]; then
+              echo "::error::no coverage total for cmd/zynax — test step likely failed"; exit 1
+            fi
             echo "── CLI coverage: cmd/zynax  ${total}%"
             if awk "BEGIN{exit !(${total} < ${COVERAGE_CLI_ZYNAX_GATE:-79})}"; then
               echo "  ❌ ${total}% < ${COVERAGE_CLI_ZYNAX_GATE:-79}% for cmd/zynax"; exit 1
             fi
             echo "  ✅ ${total}% ≥ ${COVERAGE_CLI_ZYNAX_GATE:-79}% for cmd/zynax"
+          else
+            echo "::error::coverage.out not found for cmd/zynax — test step likely failed"; exit 1
           fi
 
       - name: cmd/zynax-ci coverage gate (≥80%)
@@ -309,12 +313,16 @@ jobs:
             total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
                     | grep "^total:" | awk '{print $3}' | tr -d '%')
             cd ../..
-            [ -z "$total" ] && echo "  ⚠ no coverage for cmd/zynax-ci — skipping" && exit 0
+            if [ -z "$total" ]; then
+              echo "::error::no coverage total for cmd/zynax-ci — test step likely failed"; exit 1
+            fi
             echo "── CLI coverage: cmd/zynax-ci  ${total}%"
             if awk "BEGIN{exit !(${total} < ${COVERAGE_CLI_ZYNAX_CI_GATE:-80})}"; then
               echo "  ❌ ${total}% < ${COVERAGE_CLI_ZYNAX_CI_GATE:-80}% for cmd/zynax-ci"; exit 1
             fi
             echo "  ✅ ${total}% ≥ ${COVERAGE_CLI_ZYNAX_CI_GATE:-80}% for cmd/zynax-ci"
+          else
+            echo "::error::coverage.out not found for cmd/zynax-ci — test step likely failed"; exit 1
           fi
 
       # ── Coverage comment ──────────────────────────────────────────────────
