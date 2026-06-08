@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	nats "github.com/nats-io/nats.go"
 
@@ -164,9 +165,200 @@ func (b *NATSEventBus) Publish(ctx context.Context, event domain.CloudEvent) (st
 	return fmt.Sprintf("%s:%d", pubAck.Stream, pubAck.Sequence), nil
 }
 
-// Subscribe is a stub — full implementation in O3 (#825).
-func (b *NATSEventBus) Subscribe(_ context.Context, _ domain.SubscribeRequest) (<-chan domain.CloudEvent, error) {
-	return nil, errors.New("not implemented")
+// DurableConsumerName converts a subscriber_id into a valid JetStream durable
+// consumer name. JetStream consumer names may not contain spaces, dots, or
+// special characters; we replace every non-alphanumeric-or-dash character with
+// an underscore and truncate at 200 bytes to stay under the NATS limit.
+// Exported for testing.
+func DurableConsumerName(subscriberID string) string {
+	var b strings.Builder
+	for _, r := range subscriberID {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	name := b.String()
+	if len(name) > 200 {
+		name = name[:200]
+	}
+	return name
+}
+
+// MatchesGlob reports whether eventType matches a glob pattern where
+// "*" matches exactly one dot-separated segment and "**" matches zero or more
+// dot-separated segments.
+func MatchesGlob(pattern, eventType string) bool {
+	return matchGlobSegments(strings.Split(pattern, "."), strings.Split(eventType, "."))
+}
+
+func matchGlobSegments(pat, seg []string) bool {
+	for len(pat) > 0 {
+		p := pat[0]
+		if p == "**" {
+			// "**" at end matches everything remaining (zero or more segments).
+			if len(pat) == 1 {
+				return true
+			}
+			// Try matching the rest of the pattern against every suffix of seg (including empty).
+			rest := pat[1:]
+			for j := 0; j <= len(seg); j++ {
+				if matchGlobSegments(rest, seg[j:]) {
+					return true
+				}
+			}
+			return false
+		}
+		if len(seg) == 0 {
+			return false
+		}
+		if p != "*" && p != seg[0] {
+			return false
+		}
+		pat = pat[1:]
+		seg = seg[1:]
+	}
+	return len(seg) == 0
+}
+
+// StreamSubjectFromPattern extracts a concrete subject from a glob pattern so
+// we can create/reuse the correct JetStream stream.
+// Examples:
+//
+//	"zynax.v1.engine-adapter.workflow.*" → "zynax.v1.engine-adapter.workflow.x"
+//	"zynax.v1.**"                         → "zynax.v1.x"
+//	"zynax.v1.workflow.completed"         → "zynax.v1.workflow.completed"
+//
+// Exported for testing.
+func StreamSubjectFromPattern(pattern string) string {
+	parts := strings.Split(pattern, ".")
+	concrete := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p == "*" || p == "**" {
+			concrete = append(concrete, "x")
+			break
+		}
+		concrete = append(concrete, p)
+	}
+	return strings.Join(concrete, ".")
+}
+
+// openSubscription creates a durable JetStream subscription for the given stream.
+// It first attempts to bind to an existing durable consumer, then falls back to
+// creating a new one with DeliverLast, AckExplicit, and MaxDeliver=5.
+func (b *NATSEventBus) openSubscription(streamName, subject, durName string) (*nats.Subscription, error) {
+	sub, err := b.js.SubscribeSync(
+		subject,
+		nats.Durable(durName),
+		nats.Bind(streamName, durName),
+		nats.DeliverLast(),
+		nats.AckExplicit(),
+		nats.MaxDeliver(5),
+	)
+	if err == nil {
+		return sub, nil
+	}
+	// Consumer not yet registered — create it without Bind.
+	sub, err = b.js.SubscribeSync(
+		subject,
+		nats.Durable(durName),
+		nats.DeliverLast(),
+		nats.AckExplicit(),
+		nats.MaxDeliver(5),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("open subscription %s: %w", durName, err)
+	}
+	return sub, nil
+}
+
+// dispatchMsg decodes a NATS message into a domain.CloudEvent, applies the
+// glob pattern and workflow_id filters, then sends to ch. Returns true if the
+// goroutine should stop (context cancelled during send).
+func dispatchMsg(ctx context.Context, msg *nats.Msg, req domain.SubscribeRequest, ch chan<- domain.CloudEvent) bool {
+	var env cloudEventEnvelope
+	if err := json.Unmarshal(msg.Data, &env); err != nil {
+		_ = msg.Nak()
+		return false
+	}
+
+	event := domain.CloudEvent{
+		ID:              env.ID,
+		Source:          env.Source,
+		SpecVersion:     env.SpecVersion,
+		Type:            env.Type,
+		DataContentType: env.DataContentType,
+		WorkflowID:      env.WorkflowID,
+		RunID:           env.RunID,
+		Namespace:       env.Namespace,
+		CapabilityName:  env.CapabilityName,
+		Data:            env.Data,
+	}
+
+	if !MatchesGlob(req.TypePattern, event.Type) {
+		_ = msg.Ack()
+		return false
+	}
+	if req.WorkflowID != "" && event.WorkflowID != req.WorkflowID {
+		_ = msg.Ack()
+		return false
+	}
+
+	select {
+	case <-ctx.Done():
+		_ = msg.Nak()
+		return true
+	case ch <- event:
+		_ = msg.Ack()
+	}
+	return false
+}
+
+// Subscribe creates a durable JetStream push consumer for the subscriber and
+// returns a channel that delivers matching CloudEvents until ctx is cancelled.
+// Consumer config: DeliverLastPolicy, AckExplicit, MaxDeliver=5.
+// Glob pattern matching and workflow_id filtering are applied in this layer.
+func (b *NATSEventBus) Subscribe(ctx context.Context, req domain.SubscribeRequest) (<-chan domain.CloudEvent, error) {
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("context: %w", ctx.Err())
+	}
+
+	streamSubject := StreamSubjectFromPattern(req.TypePattern)
+	if err := b.ensureStream(streamSubject); err != nil {
+		return nil, fmt.Errorf("subscribe: ensure stream: %w", err)
+	}
+
+	sub, err := b.openSubscription(
+		StreamName(streamSubject),
+		SubjectFilter(streamSubject),
+		DurableConsumerName(req.SubscriberID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("subscribe: jetstream subscribe: %w", err)
+	}
+
+	ch := make(chan domain.CloudEvent, 64)
+
+	go func() {
+		defer close(ch)
+		defer func() { _ = sub.Unsubscribe() }()
+
+		for ctx.Err() == nil {
+			msg, msgErr := sub.NextMsg(100 * time.Millisecond)
+			if msgErr != nil {
+				if errors.Is(msgErr, nats.ErrConnectionClosed) || errors.Is(msgErr, nats.ErrBadSubscription) {
+					return
+				}
+				continue // ErrTimeout or transient — retry
+			}
+			if dispatchMsg(ctx, msg, req, ch) {
+				return
+			}
+		}
+	}()
+
+	return ch, nil
 }
 
 // Unsubscribe is a stub — full implementation in O4 (#826).
