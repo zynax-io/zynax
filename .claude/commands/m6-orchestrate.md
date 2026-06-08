@@ -264,9 +264,10 @@ $(date +%Y-%m-%d) batch: $BATCH_SIZE issues.
 
 Assisted-by: Claude/claude-sonnet-4-6"
 git push -u origin "$LEARN_BRANCH"
-gh pr create --title "docs(ai-learnings): append session learnings — $(date +%Y-%m-%d)" \
+LEARN_PR=$(gh pr create --title "docs(ai-learnings): append session learnings — $(date +%Y-%m-%d)" \
   --body "Appending learnings from batch: issues $BATCH_ISSUES" \
-  --label "type: docs,milestone: M6"
+  --label "type: docs,milestone: M6" | tail -1)
+gh pr merge "$LEARN_PR" --squash --auto
 ```
 
 ---
