@@ -178,3 +178,39 @@ Use `testcontainers.GenericContainer{Image: "redis:7-alpine", ExposedPorts: []st
 **Seen in:** #826. **Date:** 2026-06-08
 
 JetStream DLQ wiring: create `zynax.dlq.<topic>` stream with `retention=WorkQueue, MaxConsumers=1`; set `DeadLetterSubject` on the consumer; configure `BackOff: []time.Duration{1s, 5s, 30s, 120s, 300s}` matching `MaxDeliver=5`. `Unsubscribe` = delete the durable consumer by subscriber_id; handle not-found gracefully with `codes.NotFound`.
+
+### `gh api update-branch` creates unsigned merge commit
+**Seen in:** #826. **Date:** 2026-06-08
+
+GitHub's "Update branch" API endpoint creates a merge commit that fails DCO and `required_signatures`. Never use `gh api repos/.../pulls/.../update-branch`. Instead: `git fetch origin main && git rebase --signoff origin/main && git push --force-with-lease`.
+
+### `js.StreamNames()` returns a channel, not a slice
+**Seen in:** #826. **Date:** 2026-06-08
+
+NATS JetStream `js.StreamNames(ctx)` returns `<-chan string`, not `[]string`. Iterate with `for name := range namesCh` and check `ctx.Err()` inside the loop to handle context cancellation during the scan.
+
+---
+
+## Session — 2026-06-08 (issue #584 — text/template refactor)
+
+### Effective patterns
+
+- **Go stdlib `text/template` as a drop-in for bespoke string-replace engines.** Use `template.New("").Funcs(defaultFuncs).Option("missingkey=zero").Parse(tmpl)` and a data root of `map[string]any{"ctx": ctx}` to preserve the existing `{{ .ctx.key }}` syntax without any caller-side changes.
+- **`Option("missingkey=zero")`** renders missing map keys as empty string instead of returning an error; this matches the previous bespoke engine's silent-miss behaviour and avoids breaking existing templates.
+- **`template.FuncMap{"default": ...}** pattern:** add a custom `default(fallback, val)` function to allow templates to express fallback values: `{{ .ctx.key | default "fallback" }}`. text/template does not provide this built-in.
+- **Injection safety:** text/template processes the template once at parse time; substituted ctx values are rendered verbatim, never re-executed as template syntax. This is safe by construction — no need for additional escaping for JSON payloads.
+
+### Edge cases discovered
+
+- **PR closed without merging:** If a PR is closed (not merged) and the remote branch still exists, re-open by rebasing onto latest main and creating a new PR. Check `gh pr view N --json state,mergedAt` to distinguish closed vs merged.
+- **Stash required before rebase when working tree is dirty from sibling agents:** `git stash` before `git rebase origin/main`; pop after rebase to restore sibling-agent files. This is safe when the stashed files belong to other branches' work.
+- **`text/template` vs `html/template`:** `text/template` does NOT HTML-escape output; `html/template` does. For JSON payloads, always use `text/template` to avoid `&lt;` / `&#34;` corruption of JSON content.
+
+### Proposed expert prompt update
+
+When refactoring a string-replace template engine to `text/template`:
+1. Data root: `map[string]any{"ctx": ctx}` — preserves `{{ .ctx.key }}` syntax.
+2. Use `Option("missingkey=zero")` to silently render missing keys as empty string.
+3. Add `template.FuncMap{"default": func(fallback, val string) string { if val == "" { return fallback }; return val }}` for fallback values.
+4. Change return type to `([]byte, error)` and propagate at all call sites.
+5. Use `text/template` (not `html/template`) for JSON payloads to avoid HTML escaping.
