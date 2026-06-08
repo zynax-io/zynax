@@ -742,6 +742,8 @@ jobs:
 # ── Collation: post single PR comment with all expert outputs ─────────────────
   collate-and-comment:
     name: "Collate expert outputs -> PR comment"
+    # Runs on the hosted runner (not ci-runner container) because gh CLI is
+    # not installed in the ci-runner image — only the expert jobs need it.
     runs-on: ubuntu-24.04
     needs:
       - expert-arch-adr
@@ -753,9 +755,6 @@ jobs:
       - expert-qa-bdd
       - expert-security
     if: always()
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:9e95153e50c3ed57721a94ce3394a32baeeca55242686a6dcb0d07cf03292cec
-      options: --user root
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
