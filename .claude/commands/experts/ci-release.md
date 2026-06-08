@@ -159,6 +159,33 @@ image reference in a workflow file diverges from `images.yaml`.
 **Multi-arch:** always build `linux/amd64,linux/arm64`. The M6.Build EPIC (#837) is moving
 to native arm64 runners — do not add QEMU emulation for new workflows.
 
+- **`docker buildx imagetools create` does NOT propagate OCI annotations from source manifests.**
+  When assembling the multi-arch index in `merge-and-sign`, always add explicit `--annotation` flags:
+  ```bash
+  docker buildx imagetools create \
+    --annotation "index:org.opencontainers.image.description=..." \
+    --annotation "index:org.opencontainers.image.title=..." \
+    --annotation "index:org.opencontainers.image.source=..." \
+    --annotation "index:org.opencontainers.image.revision=..." \
+    --tag "$TARGET_TAG" "$AMD64_DIGEST" "$ARM64_DIGEST"
+  ```
+  The `index:` prefix targets the manifest list, not individual platform manifests.
+  Without this, OCI annotation gates fail even though the image was successfully pushed.
+  Seen in: #866, #977 (2 sessions).
+
+- **`Dockerfile.service` must `COPY libs/ ./libs/` for services with `go.mod` replace directives
+  pointing to `../../libs/`.**
+  Without this, `go mod download` resolves the replace path to `/workspace/libs/<pkg>` — a path
+  never copied into the build context — and the build fails with a module-not-found error.
+  This failure is latent: it only surfaces when a path-filter in `release.yml` triggers a rebuild
+  of that service (e.g. a `protos/generated/go/` change triggers `task_broker=true`).
+  Add before the `go mod download` step:
+  ```dockerfile
+  COPY libs/ ./libs/
+  ```
+  Scope to the specific lib if `libs/` grows: `COPY libs/zynaxconfig/ ./libs/zynaxconfig/`.
+  Seen in: #976 (task-broker broken since PR #907; surfaced by #976 proto stub change).
+
 ---
 
 ## cosign / SBOM / SLSA
@@ -203,6 +230,18 @@ gh api /orgs/zynax-io/packages/container/zynax%2Fapi-gateway/versions \
 
 Use `%2F` for the slash in nested package names (URL encoding required).
 
+- **A failed Release workflow does not mean the image was not pushed to GHCR.**
+  In `merge-and-sign`, step order is: (1) `imagetools create` → manifest pushed, (2) annotation
+  check → may fail, (3) cosign sign → skipped on failure. If step (2) fails, GHCR already has the
+  image tagged `main` and `main-<sha>` — but it is **unsigned and unannotated**.
+  Always query GHCR directly after any Release failure:
+  ```bash
+  gh api /orgs/zynax-io/packages/container/zynax%2F<svc>/versions \
+    --jq '.[0] | {tags: .metadata.container.tags, updated: .updated_at}'
+  ```
+  Unsigned images require a manual cosign pass before they should be used in production.
+  Seen in: #839, #977 (2 sessions).
+
 ---
 
 ## ci-runner container mode
@@ -219,6 +258,11 @@ jobs:
 
 Do not install tools directly in `run:` steps that are already in the container
 (Go, buf, cosign, yq, docker, helm, etc.).
+
+- **The `gh` CLI is NOT installed in the `ci-runner` container.**
+  Jobs that need `gh` (PR comments, issue creation, API calls) must run on `ubuntu-24.04`
+  (hosted runner), not inside `ci-runner`. For advisory-only steps, add `continue-on-error: true`.
+  Seen in: #877 PR #969.
 
 ---
 
@@ -256,6 +300,30 @@ Advisory steps (always report, never block merge) use:
 ```yaml
 continue-on-error: true
 ```
+
+- **A required check that is SKIPPED is treated as neutral by GitHub — it does NOT block merge.**
+  If a fan-in gate job uses `if: always() && !contains(needs.*.result, 'failure')`, a failing
+  upstream job causes the condition to evaluate `false` and the gate is **skipped**, not failed.
+  GitHub allows the merge. Fix: use `if: always()` unconditionally and check upstream results
+  inside the step:
+  ```yaml
+  test-unit:
+    if: always()
+    steps:
+      - name: All tests passed
+        run: |
+          if [[ "${{ needs.test-go.result }}" == "failure" || "${{ needs.test-python.result }}" == "failure" ]]; then
+            echo "::error::test-go=${{ needs.test-go.result }}  test-python=${{ needs.test-python.result }}"
+            exit 1
+          fi
+  ```
+  Seen in: #974. PR #974 merged despite test-go FAILURE because test-unit was SKIPPED.
+
+- **Coverage gate steps that use `if [ -f "coverage.out" ]; then … fi` with no `else` clause
+  silently exit 0 when the test step fails before writing the file — the gate never fires.**
+  Always add: `else echo "::error::coverage.out not found — test step likely failed"; exit 1`.
+  Also change empty-total guards (`[ -z "$total" ] && exit 0`) to `exit 1`.
+  Seen in: #974 (`cmd/zynax` and `cmd/zynax-ci` gates in `_test-go.yml`).
 
 ---
 

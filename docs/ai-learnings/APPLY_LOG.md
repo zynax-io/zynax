@@ -24,3 +24,16 @@
 | 6 | ci-release | Cherry-pick rescue for commits that land on wrong branch | #867, #819, #828 | applied | committed |
 
 **Summary:** 6 proposed | 6 applied | 0 rejected | 0 pending
+
+## Run 2026-06-08 23:00 — domains: ci-release
+
+| # | Domain | Pattern | Source sessions | Status | Delta |
+|---|--------|---------|-----------------|--------|-------|
+| 1 | ci-release | SKIPPED required check ≠ passing — use `if: always()` on gate jobs | #974 | applied | ci-release.md +20L |
+| 2 | ci-release | Coverage gate no-op when coverage.out absent — add else exit 1 | #974 | applied | ci-release.md +5L |
+| 3 | ci-release | imagetools create does NOT copy OCI annotations — add --annotation flags | #866, #977 | applied | ci-release.md +15L |
+| 4 | ci-release | Release failure ≠ image not pushed — query GHCR directly post-merge | #839, #977 | applied | ci-release.md +12L |
+| 5 | ci-release | Dockerfile.service missing libs/ COPY breaks replace-directive services | #976 | applied | ci-release.md +14L |
+| 6 | ci-release | gh CLI absent from ci-runner container — advisory jobs need hosted runner | #877 | applied | ci-release.md +5L |
+
+**Summary:** 6 proposed | 6 applied | 0 rejected | 0 pending
