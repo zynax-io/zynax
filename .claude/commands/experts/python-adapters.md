@@ -13,7 +13,7 @@ asyncio patterns, and the gRPC Python client lifecycle specific to this codebase
 Output a progress line at the start of each phase — before any tool call for that phase:
 
 ```
-[py-adapter #<N> <HH:MM:SS>] <PHASE>: <one-line description>
+[py-adapter #<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
 ```
 
 | Phase | When to emit |
@@ -23,7 +23,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `PLAN` | After reading files; adapter-vs-SDK decision confirmed |
 | `CODE` | When beginning to create or edit source files |
 | `TEST` | Before running `make lint-python` / `make test-python` |
-| `COMMIT` | Before `git add` / `git commit` |
+| `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
 | `PR` | Before `gh pr create` |
 | `CI_WAIT` | On entering the CI polling loop |
 | `DONE` | On successful merge and cleanup |
@@ -31,15 +31,67 @@ Output a progress line at the start of each phase — before any tool call for t
 
 Example:
 ```
-[py-adapter #806 09:12:00] START: ci: zynax-sdk PyPI publish workflow
-[py-adapter #806 09:12:01] READ: loading agents/AGENTS.md + issue body
-[py-adapter #806 09:14:20] PLAN: SDK path confirmed; trusted-publisher flow selected
-[py-adapter #806 09:14:21] CODE: writing .github/workflows/pypi-publish.yml
-[py-adapter #806 09:22:10] TEST: make lint-python && make test-python
-[py-adapter #806 09:23:05] COMMIT: gates green; staging files
-[py-adapter #806 09:23:20] PR: opening PR against main
-[py-adapter #806 09:23:35] CI_WAIT: waiting for required checks on PR #NNN
-[py-adapter #806 09:38:12] DONE: PR #NNN merged; issue #806 closed
+[py-adapter #806 09:12:00] START: ci: zynax-sdk PyPI publish workflow  [ctx: ~10K | compress=0 | msgs=1]
+[py-adapter #806 09:12:01] READ: loading agents/AGENTS.md + issue body  [ctx: ~13K | compress=0 | msgs=2]
+[py-adapter #806 09:14:20] PLAN: SDK path confirmed; trusted-publisher flow selected  [ctx: ~14K | compress=0 | msgs=3]
+[py-adapter #806 09:14:21] CODE: writing .github/workflows/pypi-publish.yml  [ctx: ~14K | compress=0 | msgs=4]
+[py-adapter #806 09:22:10] TEST: make lint-python && make test-python  [ctx: ~17K | compress=0 | msgs=6]
+[py-adapter #806 09:23:05] COMMIT: gates green — handing off to git-ops  [ctx: ~18K | compress=0 | msgs=7]
+[py-adapter #806 09:38:12] DONE: PR #NNN merged; issue #806 closed  [ctx: ~19K | compress=0 | msgs=10]
+```
+
+---
+
+## Context tracking
+
+Maintain counters throughout the session:
+- `CTX_TOKENS` — estimated context size in K tokens (start: ~10K; +0.5–3K per file read)
+- `CTX_COMPRESSIONS` — increment each time a context compression event is detected
+- `CTX_MSGS` — increment after each message you post
+
+### Split thresholds
+
+| Condition | Action |
+|-----------|--------|
+| `CTX_COMPRESSIONS == 1` OR `CTX_TOKENS > 80K` | Log `⚠ CONTEXT GROWING` — describe split point in output; continue cautiously |
+| `CTX_COMPRESSIONS >= 2` | **STOP immediately.** Output split proposal and exit |
+
+### Split proposal format
+
+```
+⚠ CONTEXT SPLIT REQUIRED (py-adapter #<N>)
+  Stopped at:    STEP <N> — <phase>
+  Branch:        <branch-name> (pushed: yes/no)
+  Files written: <list>
+  Tests:         <pass/fail summary or "not yet run">
+  Resume point:  Spawn new py-adapter agent at STEP <M> with:
+                   branch=<branch>, canvas_step=<O-step>, read_these=<2-3 files>
+```
+
+---
+
+## Handoff protocol
+
+You handle READ → PLAN → CODE → TEST. Once all local gates pass,
+**hand off to `git-ops`** for commit/push/PR/merge:
+
+```
+HANDOFF to git-ops:
+  from_expert:  py-adapter
+  issue:        #<N>
+  branch:       <branch>
+  staged_files: <list>
+  commit_msg:   |
+    <type>(<scope>): <subject>
+
+    <why sentence>
+
+    Closes #<N>
+
+    Assisted-by: Claude/claude-sonnet-4-6
+  pr_title:     <title ≤ 72 chars>
+  pr_body_file: /tmp/pr-body-<N>.md
+  next_step:    COMMIT
 ```
 
 ---

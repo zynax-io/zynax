@@ -13,7 +13,7 @@ a structured result. You never read files outside the scope of the issue.
 Output a progress line at the start of each phase — before any tool call for that phase:
 
 ```
-[go-svc #<N> <HH:MM:SS>] <PHASE>: <one-line description>
+[go-svc #<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
 ```
 
 | Phase | When to emit |
@@ -23,7 +23,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `PLAN` | After reading files; before writing any code |
 | `CODE` | When beginning to create or edit source files |
 | `TEST` | Before running `go build`, `go test`, `make lint` |
-| `COMMIT` | Before `git add` / `git commit` |
+| `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
 | `PR` | Before `gh pr create` |
 | `CI_WAIT` | On entering the CI polling loop |
 | `DONE` | On successful merge and cleanup |
@@ -31,16 +31,77 @@ Output a progress line at the start of each phase — before any tool call for t
 
 Example:
 ```
-[go-svc #823 14:32:01] START: feat(event-bus): service scaffold
-[go-svc #823 14:32:02] READ: loading services/event-bus/AGENTS.md + issue body
-[go-svc #823 14:35:10] PLAN: domain interfaces settled; infrastructure stub approach confirmed
-[go-svc #823 14:35:11] CODE: writing internal/domain/bus.go, event.go, errors.go
-[go-svc #823 14:48:22] TEST: GOWORK=off go test ./... -race
-[go-svc #823 14:49:01] COMMIT: all gates green; staging files
-[go-svc #823 14:49:15] PR: opening PR against main
-[go-svc #823 14:49:30] CI_WAIT: waiting for required checks on PR #NNN
-[go-svc #823 15:03:44] DONE: PR #NNN merged; issue #823 closed
+[go-svc #823 14:32:01] START: feat(event-bus): service scaffold  [ctx: ~10K | compress=0 | msgs=1]
+[go-svc #823 14:32:02] READ: loading services/event-bus/AGENTS.md + issue body  [ctx: ~13K | compress=0 | msgs=2]
+[go-svc #823 14:35:10] PLAN: domain interfaces settled  [ctx: ~15K | compress=0 | msgs=3]
+[go-svc #823 14:35:11] CODE: writing internal/domain/bus.go, event.go, errors.go  [ctx: ~16K | compress=0 | msgs=4]
+[go-svc #823 14:48:22] TEST: GOWORK=off go test ./... -race  [ctx: ~22K | compress=0 | msgs=7]
+[go-svc #823 14:49:01] COMMIT: all gates green — handing off to git-ops  [ctx: ~23K | compress=0 | msgs=8]
+[go-svc #823 15:03:44] DONE: PR #NNN merged; issue #823 closed  [ctx: ~24K | compress=0 | msgs=10]
 ```
+
+---
+
+## Context tracking
+
+Estimate your context size in kilotoken units (`~XK`) — same unit as Claude Code's display.
+Rough heuristics:
+- Session start (system prompt + expert file): **~10K**
+- Per file read: **+0.5–3K** depending on file size
+- Per message pair exchanged: **+0.5K**
+
+Maintain counters: `CTX_TOKENS` (estimated K), `CTX_COMPRESSIONS`, `CTX_MSGS`.
+
+### Split thresholds
+
+| Condition | Action |
+|-----------|--------|
+| `CTX_TOKENS > 80K` OR `CTX_COMPRESSIONS == 1` | Log `⚠ CONTEXT GROWING` — describe split point in output; continue cautiously |
+| `CTX_TOKENS > 140K` OR `CTX_COMPRESSIONS >= 2` | **STOP immediately.** Output split proposal and exit |
+
+### Split proposal format
+
+```
+⚠ CONTEXT SPLIT REQUIRED (go-svc #<N>)
+  Stopped at:    STEP <N> — <phase>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+  Branch:        <branch-name> (pushed: yes/no)
+  Files written: <list>
+  Tests:         <pass/fail summary or "not yet run">
+  Resume point:  Spawn new go-svc agent at STEP <M> with:
+                   branch=<branch>, canvas_step=<O-step>, read_these=<2-3 files>
+```
+
+---
+
+## Handoff protocol
+
+You handle implementation only (READ → PLAN → CODE → TEST). Once all local gates pass,
+**hand off to `git-ops`** for commit/push/PR/merge:
+
+```
+HANDOFF to git-ops:
+  from_expert:  go-svc
+  issue:        #<N>
+  branch:       <branch>
+  staged_files: <list>
+  commit_msg:   |
+    <type>(<scope>): <subject>
+
+    <why sentence>
+
+    Closes #<N>
+
+    Assisted-by: Claude/claude-sonnet-4-6
+  pr_title:     <title ≤ 72 chars>
+  pr_body_file: /tmp/pr-body-<N>.md
+  next_step:    COMMIT
+```
+
+Call the `bdd` expert for review if the issue touches a gRPC boundary and no `.feature`
+file exists yet — the `bdd` expert must commit the feature file before you write any handler code.
+
+Call the `infra` expert for review if the issue adds a new gRPC port, env var, or service
+that requires a Helm values update.
 
 ---
 

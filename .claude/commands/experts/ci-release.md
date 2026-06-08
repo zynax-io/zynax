@@ -13,7 +13,7 @@ You understand the images.yaml SoT system, cosign/SBOM supply chain, and GHCR AP
 Output a progress line at the start of each phase — before any tool call for that phase:
 
 ```
-[ci-rel #<N> <HH:MM:SS>] <PHASE>: <one-line description>
+[ci-rel #<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
 ```
 
 | Phase | When to emit |
@@ -23,7 +23,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `PLAN` | After reading files; workflow approach confirmed |
 | `CODE` | When beginning to create or edit workflow / CI files |
 | `VALIDATE` | Before running `make lint` or local workflow validation |
-| `COMMIT` | Before `git add` / `git commit` |
+| `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
 | `PR` | Before `gh pr create` |
 | `CI_WAIT` | On entering the CI polling loop |
 | `IMAGE_CHECK` | When verifying Docker/GHCR artifact publication post-merge |
@@ -32,17 +32,71 @@ Output a progress line at the start of each phase — before any tool call for t
 
 Example:
 ```
-[ci-rel #865 16:00:00] START: ci(infra): OCI manifest annotations — fix "no description"
-[ci-rel #865 16:00:01] READ: loading .github/workflows/ + issue body
-[ci-rel #865 16:03:20] PLAN: annotate on push via docker/metadata-action; release.yml + tools-image.yml
-[ci-rel #865 16:03:21] CODE: editing .github/workflows/release.yml lines 310-340
-[ci-rel #865 16:12:05] VALIDATE: make lint exit 0
-[ci-rel #865 16:12:20] COMMIT: staging workflow changes
-[ci-rel #865 16:12:35] PR: opening PR against main
-[ci-rel #865 16:12:50] CI_WAIT: waiting for required checks on PR #NNN
-[ci-rel #865 16:28:14] IMAGE_CHECK: verifying GHCR annotations on post-merge run
-[ci-rel #865 16:35:01] DONE: PR #NNN merged; issue #865 closed
+[ci-rel #865 16:00:00] START: ci(infra): OCI manifest annotations — fix "no description"  [ctx: ~10K | compress=0 | msgs=1]
+[ci-rel #865 16:00:01] READ: loading .github/workflows/ + issue body  [ctx: ~13K | compress=0 | msgs=2]
+[ci-rel #865 16:03:20] PLAN: annotate on push via docker/metadata-action; release.yml + tools-image.yml  [ctx: ~16K | compress=0 | msgs=3]
+[ci-rel #865 16:03:21] CODE: editing .github/workflows/release.yml lines 310-340  [ctx: ~16K | compress=0 | msgs=4]
+[ci-rel #865 16:12:05] VALIDATE: make lint exit 0  [ctx: ~17K | compress=0 | msgs=5]
+[ci-rel #865 16:12:20] COMMIT: lint clean — handing off to git-ops  [ctx: ~18K | compress=0 | msgs=6]
+[ci-rel #865 16:28:14] IMAGE_CHECK: verifying GHCR annotations on post-merge run  [ctx: ~19K | compress=0 | msgs=9]
+[ci-rel #865 16:35:01] DONE: PR #NNN merged; issue #865 closed  [ctx: ~19K | compress=0 | msgs=10]
 ```
+
+---
+
+## Context tracking
+
+Maintain counters throughout the session:
+- `CTX_TOKENS` — estimated context size in K tokens (start: ~10K; +0.5–3K per file read)
+- `CTX_COMPRESSIONS` — increment each time a context compression event is detected
+- `CTX_MSGS` — increment after each message you post
+
+### Split thresholds
+
+| Condition | Action |
+|-----------|--------|
+| `CTX_COMPRESSIONS == 1` OR `CTX_TOKENS > 80K` | Log `⚠ CONTEXT GROWING` — describe split point in output; continue cautiously |
+| `CTX_COMPRESSIONS >= 2` | **STOP immediately.** Output split proposal and exit |
+
+### Split proposal format
+
+```
+⚠ CONTEXT SPLIT REQUIRED (ci-rel #<N>)
+  Stopped at:    <phase>
+  Branch:        <branch-name> (pushed: yes/no)
+  Files written: <list>
+  Validate:      <lint result or "not yet run">
+  Resume point:  Spawn new ci-rel agent at phase <PHASE> with:
+                   branch=<branch>, canvas_step=<O-step>, read_these=<2-3 workflow files>
+```
+
+---
+
+## Handoff protocol
+
+You handle READ → PLAN → CODE → VALIDATE. Once `make lint` is clean,
+**hand off to `git-ops`** for commit/push/PR/merge:
+
+```
+HANDOFF to git-ops:
+  from_expert:  ci-rel
+  issue:        #<N>
+  branch:       <branch>
+  staged_files: <list>
+  commit_msg:   |
+    <type>(<scope>): <subject>
+
+    <why sentence>
+
+    Closes #<N>
+
+    Assisted-by: Claude/claude-sonnet-4-6
+  pr_title:     <title ≤ 72 chars>
+  pr_body_file: /tmp/pr-body-<N>.md
+  next_step:    COMMIT
+```
+
+Note: `.github/workflows/` files are excluded from PR-size line counts per CLAUDE.md.
 
 ---
 
