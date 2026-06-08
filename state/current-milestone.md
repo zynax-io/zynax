@@ -284,9 +284,9 @@ Canvas: `docs/spdd/773-memory-service/canvas.md` — Status: **Aligned** ✅
 
 | Story | Issue | Status |
 |-------|-------|--------|
-| J.2 feat(memory-service): service scaffold — go.mod, domain KV+Vector interfaces, cmd/ | [#814](https://github.com/zynax-io/zynax/issues/814) | 🔄 In Review |
-| J.3 feat(memory-service): Redis KV adapter | [#815](https://github.com/zynax-io/zynax/issues/815) | ⬜ Pending J.2 |
-| J.4 feat(memory-service): pgvector adapter | [#816](https://github.com/zynax-io/zynax/issues/816) | ⬜ Pending J.2 |
+| J.2 feat(memory-service): service scaffold — go.mod, domain KV+Vector interfaces, cmd/ | [#814](https://github.com/zynax-io/zynax/issues/814) | ✅ Merged (#932) |
+| J.3 feat(memory-service): Redis KV adapter | [#815](https://github.com/zynax-io/zynax/issues/815) | 🔄 In Review |
+| J.4 feat(memory-service): pgvector adapter | [#816](https://github.com/zynax-io/zynax/issues/816) | ⬜ Pending J.3 |
 | J.5 feat(memory-service): namespace TTL enforcement + workflow_id isolation | [#817](https://github.com/zynax-io/zynax/issues/817) | ⬜ Pending J.3, J.4 |
 | J.6 feat(memory-service): gRPC handler wiring — all 10 RPCs, integration tests | [#818](https://github.com/zynax-io/zynax/issues/818) | ⬜ Pending J.5 |
 | J.7 test: BDD step implementations for memory_service.feature | [#819](https://github.com/zynax-io/zynax/issues/819) | ⬜ Pending J.6 |

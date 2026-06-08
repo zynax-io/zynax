@@ -16,7 +16,8 @@
 | I.0 docs: ADR-022 EventBus architecture decision | #764 | M6.I #772 | #822 | ✅ Merged |
 | B.1 feat(infra): mTLS env-var cert paths + gRPC credential wiring for all services | #488 | M6.B #464 | #831 | ✅ Merged |
 | C.1 ci: cosign + SBOM + multi-arch for all release workflows | #489 | M6.C #465 | #833 | ✅ Merged |
-| J.2 feat(memory-service): service scaffold — go.mod, domain KV+Vector interfaces, cmd/ | #814 | M6.J #773 | — | 🔄 In Review |
+| J.2 feat(memory-service): service scaffold — go.mod, domain KV+Vector interfaces, cmd/ | #814 | M6.J #773 | #932 | ✅ Merged |
+| J.3 feat(memory-service): Redis KV adapter — Set/Get/Delete/ListKeys/MGet/MSet/DeleteNamespace | #815 | M6.J #773 | — | 🔄 In Review |
 | I.1 feat(event-bus): service scaffold | #823 | M6.I #772 | — | ⬜ Pending canvas |
 | I.2 feat(event-bus): Publish path | #824 | M6.I #772 | — | ⬜ Pending I.1 |
 | I.3 feat(event-bus): Subscribe path | #825 | M6.I #772 | — | ⬜ Pending I.2 |
