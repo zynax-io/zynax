@@ -115,6 +115,14 @@ echo "Worktree ready: $WORKTREE_PATH"
 > Every file read, edit, build, and commit from this point on happens inside
 > `$WORKTREE_PATH`. The caller's workspace is untouched.
 
+> **If this skill is driven by a sandboxed / background agent** (rather than run directly in
+> an interactive session): the Bash sandbox denies compound/chained commands and shell state
+> does not persist between calls. In that mode, run each line above as its OWN Bash call
+> (no `&&`/`;`/`|`/`rm -rf` chaining, no `env` prefix), do NOT `cd` — reference the worktree by
+> its **literal** path `/tmp/zynax-auto-<ISSUE_N>` with `git -C`, `GOWORK=off go -C`, and
+> `make -C` — and use `git commit -s -F <file>` for multiline messages, `gh pr checks <PR>
+> --watch` to wait on CI. Interactive runs in the main session can keep the `cd`-based flow.
+
 ---
 
 ## STEP 3 — Read the issue

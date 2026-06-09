@@ -226,24 +226,39 @@ Agent({
 
     ---
 
-    ## Isolated worktree — this is your FIRST action, before reading or writing anything
-    Run this as your very first Bash call. Every read, edit, build, and commit after this
-    happens inside your private tree — branch switches, git add, and lint here are invisible
-    to sibling agents and theirs are invisible to you.
+    ## Sandbox Bash discipline — READ BEFORE YOUR FIRST COMMAND
+    You run under a Bash sandbox that allows SINGLE commands but DENIES compound/chained forms.
+    Two shell facts drive everything below: (a) chained commands are rejected, and (b) shell
+    state does NOT persist between Bash calls — a `WT=...`/`REPO=...` set in one call is GONE in
+    the next, so you must use LITERAL paths every time. Do NOT conclude "Bash is denied" when a
+    compound one-liner fails — decompose it and continue.
+    - NEVER chain: no `cd dir && ...`, no `a; b`, no `until/do/done` loops, no `printf | grep`
+      pipes, no `env VAR=x cmd` prefix, and no call mixing `rm -rf`/`worktree remove --force`
+      with another op. Each is reliably denied.
+    - NEVER `cd` and NEVER rely on shell vars across calls. Use LITERAL paths with
+      `git -C <REPO> ...`, `GOWORK=off go -C <WT>/<dir> ...`, and `make -C <WT> <target>`
+      (the bare `GOWORK=off` prefix is fine; an `env` prefix is not).
+    - Multiline commit messages: write the message to a file and `git commit -s -F <file>`
+      (a `-m` with embedded newlines is denied).
+    - Wait for CI with `gh pr checks <PR> --watch --interval 30` (foreground; never a poll loop
+      or the Monitor tool).
+    - On any denial: split into single commands and retry — abandoning the task is wrong.
+
+    ## Isolated worktree — your FIRST actions (run each line as its OWN separate Bash call)
+    The orchestrator substitutes <REPO> (the main checkout path) and the literal worktree path
+    when building this prompt. Every read, edit, build, and commit after this happens inside your
+    private tree — invisible to sibling agents and theirs to you.
 
     ```bash
-    REPO=$(git rev-parse --show-toplevel)   # remember the main checkout
-    WT=/tmp/zynax-orch-<RUN_ID>-<N>
-    git -C "$REPO" worktree remove "$WT" --force 2>/dev/null || true
-    rm -rf "$WT" 2>/dev/null || true
-    git -C "$REPO" fetch origin --prune
-    git -C "$REPO" worktree add "$WT" origin/main
-    cd "$WT"
+    # one Bash call each — do NOT combine; ignore an error from the first if the dir is absent:
+    git -C <REPO> worktree remove /tmp/zynax-orch-<RUN_ID>-<N> --force
+    git -C <REPO> fetch origin --prune
+    git -C <REPO> worktree add /tmp/zynax-orch-<RUN_ID>-<N> origin/main
     ```
 
-    Never cd out of "$WT" until cleanup. Do NOT run `git checkout <branch>` defensively, do
-    NOT verify the branch before each Bash call, do NOT avoid `git add .`, do NOT avoid
-    `git stash` — none of that is needed: this tree is yours alone.
+    Your tree is the literal path `/tmp/zynax-orch-<RUN_ID>-<N>`. It is yours alone — do NOT run
+    defensive `git checkout`, do NOT verify the branch before each call, do NOT avoid `git add`.
+    Reference it by literal path in every command (e.g. `git -C /tmp/zynax-orch-<RUN_ID>-<N> ...`).
 
     ---
 
@@ -266,12 +281,13 @@ Agent({
        wins (rename + push the slugged ref); never let a slug into the claim push.
     3. Implement, run all local gates, commit (DCO + Assisted-by), open PR.
     4. Wait for CI. Report result.
-    5. Cleanup — your LAST action, always, success or failure:
+    5. Cleanup — your LAST action, always, success or failure (a SINGLE Bash call, literal path):
        ```bash
-       cd "$REPO"
-       git worktree remove "$WT" --force 2>/dev/null || true
-       rm -rf "$WT" 2>/dev/null || true
+       git -C <REPO> worktree remove /tmp/zynax-orch-<RUN_ID>-<N> --force
        ```
+       Do NOT chain an `rm -rf` after it (that compound form is denied). If the directory
+       lingers because of root-owned Docker caches in a `.venv`, that is harmless — git's
+       worktree registry is what matters, and the orchestrator's STEP 7 sweep reclaims the path.
     6. End your response with the ## Session Learnings block (required, template below).
 
     ## Result format (required — orchestrator parses these for post-merge dispatch)
@@ -445,19 +461,25 @@ Agent({
 
     ---
 
-    ## Isolated worktree — this is your FIRST action
-    You are mostly read-only (GitHub + GHCR APIs) but may push a digest-pin commit. Work
-    entirely inside your own tree so any branch you create cannot stomp a sibling's checkout.
+    ## Sandbox Bash discipline — READ BEFORE YOUR FIRST COMMAND
+    You run under a Bash sandbox that allows SINGLE commands but DENIES compound/chained forms,
+    and shell state does NOT persist between calls. Use LITERAL paths, one command per Bash call:
+    no `cd … && …`, no `a; b`, no pipes/loops, no `env` prefix, no `rm -rf` chained to another op.
+    On a denial, decompose and retry — never conclude "Bash is denied". Wait for CI with
+    `gh pr checks <PR> --watch --interval 30`; multiline commits via `git commit -s -F <file>`.
+
+    ## Isolated worktree — your FIRST actions (run each line as its OWN separate Bash call)
+    You are mostly read-only (GitHub + GHCR APIs) but may push a digest-pin commit. Work entirely
+    inside your own tree. The orchestrator substitutes <REPO> and the literal worktree path.
 
     ```bash
-    REPO=$(git rev-parse --show-toplevel)
-    WT=/tmp/zynax-postmerge-<RUN_ID>-<PR_N>
-    git -C "$REPO" worktree remove "$WT" --force 2>/dev/null || true
-    rm -rf "$WT" 2>/dev/null || true
-    git -C "$REPO" fetch origin --prune
-    git -C "$REPO" worktree add "$WT" origin/main
-    cd "$WT"
+    # one Bash call each — do NOT combine:
+    git -C <REPO> worktree remove /tmp/zynax-postmerge-<RUN_ID>-<PR_N> --force
+    git -C <REPO> fetch origin --prune
+    git -C <REPO> worktree add /tmp/zynax-postmerge-<RUN_ID>-<PR_N> origin/main
     ```
+    Your tree is the literal path `/tmp/zynax-postmerge-<RUN_ID>-<PR_N>`; reference it literally
+    (`git -C /tmp/zynax-postmerge-<RUN_ID>-<PR_N> ...`) — never `cd`, never via a shell var.
 
     ---
 
@@ -477,12 +499,11 @@ Agent({
     6. Find all open "bump <image> digest" issues; close stale duplicates; implement newest.
     7. Commit all digest updates as a single chore(ci) PR; squash-merge.
     8. Output the full ## Post-Merge Evidence block.
-    9. Cleanup — your LAST action, always:
+    9. Cleanup — your LAST action, always (a SINGLE Bash call, literal path):
        ```bash
-       cd "$REPO"
-       git worktree remove "$WT" --force 2>/dev/null || true
-       rm -rf "$WT" 2>/dev/null || true
+       git -C <REPO> worktree remove /tmp/zynax-postmerge-<RUN_ID>-<PR_N> --force
        ```
+       Do NOT chain an `rm -rf` (denied); the STEP 7 sweep reclaims any lingering path.
     10. End with ## Session Learnings.
 
     ## Constraints
