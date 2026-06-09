@@ -218,31 +218,16 @@ for _, tt := range tests {
 
 ---
 
-## Shared workspace safety
+## Git safety
 
-Multiple subagents share a single working tree and continuously switch branches. These rules prevent cross-agent contamination:
+You run in your own isolated git worktree (EPIC #1001 — `m6-orchestrate` STEP 6 /
+`m6-issue-generate` STEP 2.5): a private checkout with its own `HEAD` and index. Branch
+switches, `git add`, and `git stash` here are invisible to sibling agents and theirs to you,
+so no defensive branch-verify before each Bash call, no explicit-path-only staging to dodge
+sibling contamination, and no stash-avoidance is needed.
 
-```bash
-# First command of any Bash call that touches files or commits:
-git branch --show-current   # verify; if wrong:
-git checkout <branch>       # set correct branch
-
-# Stage explicitly — never git add .
-git add services/foo/bar.go services/foo/bar_test.go
-```
-
-- **Branch state resets between every Bash tool call** — always verify and set the branch first.
-  CWD also resets; always use absolute file paths in file writes and edits.
-  Seen in: #818, #819, #826, #827, #828 (5 sessions).
-
-- **`git add .` picks up other agents' changes** — always stage by explicit path.
-  Seen in: #817, #818, #819, #826, #828 (5 sessions).
-
-- **`git stash` is unsafe across branches** — `git stash pop` on a different branch brings
-  unrelated modifications into the working tree and can fail with "untracked files would be
-  overwritten". Prefer `git restore -- <paths>` to discard unwanted tracked-file changes, or
-  `git checkout stash@{N} -- <specific-path>` to extract only the files needed without a full pop.
-  Seen in: #818, #819 (2 sessions).
+One hazard remains — it is server-side, not a working-tree problem, so worktree isolation
+does not address it:
 
 - **Never use `gh api .../pulls/N/update-branch`** — GitHub's "Update branch" API and button
   produce a merge commit with no `Signed-off-by`, failing both DCO and `required_signatures`.
