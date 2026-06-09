@@ -60,6 +60,34 @@ RegisterAgent(ctx, manifestYAML []byte, namespace string) (AgentRegistration, er
 
 ---
 
+## Namespace Flow (multi-namespace, EPIC #767)
+
+The namespace travels as a value through the control plane — never as an HTTP
+header between services (ADR-001). It enters as the `?namespace=` query param and
+flows through three hops unchanged:
+
+```
+HTTP  POST /api/v1/apply?namespace=team-a
+  │   handler.go: ApplyRequest.Namespace = r.URL.Query().Get("namespace")
+  ▼
+CompileWorkflowRequest.namespace            (CompilerPort.CompileWorkflow arg)
+  │   workflow-compiler embeds it into WorkflowIR.namespace (proto field 3)
+  ▼
+WorkflowIR.namespace  →  CompileResult.Namespace
+  │   apply.go: submit() forwards compiled.Namespace (the IR is authoritative)
+  ▼
+SubmitWorkflowRequest.namespace             (EnginePort.SubmitWorkflow arg)
+```
+
+- The compiled IR namespace is **authoritative** at the submit hop — `submit()`
+  passes `compiled.Namespace`, not `req.Namespace`, so the engine routes against
+  the namespace the compiler actually embedded.
+- When `?namespace=` is **absent**, the gateway passes an empty string through
+  unchanged; the workflow-compiler substitutes `"default"`. The gateway must
+  never invent a namespace of its own (backwards compatible).
+- End-to-end coverage: `internal/api/namespace_propagation_test.go` asserts the
+  namespace at the compile hop and the submit hop in a single HTTP request.
+
 ## Running Tests
 
 ```bash
