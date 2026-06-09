@@ -177,13 +177,22 @@ Agent({
     - Maximum 5 proposed additions per domain.
     - Write each proposed addition in the exact format used by the target section.
     - Cite the issues/sessions that support the proposal.
-    - Classify every proposal as `domain` or `structural-workaround`. A proposal is
-      `structural-workaround` if it only exists to survive a shared working tree: defensive
-      `git checkout`/branch-verify before Bash calls, "never `git add .`", stash-avoidance,
-      ref-lock recovery, cherry-pick rescue, "checkout target file to undo a sibling's edit".
-      A proposal is `domain` if it is genuine engineering knowledge (API shape, query planner
-      behaviour, proto field name, test pattern, gRPC code mapping). Prefer the `Category:`
-      line the session already emitted; if absent, infer it.
+    - Classify every proposal as `domain`, `structural-workaround`, or `env-constraint`:
+      - `structural-workaround` — only exists to survive a SHARED working tree: defensive
+        `git checkout`/branch-verify before Bash calls, "never `git add .`", stash-avoidance,
+        ref-lock recovery, cherry-pick rescue, "checkout target file to undo a sibling's edit".
+        These are made unnecessary by worktree isolation → default `rejected`.
+      - `env-constraint` — a RUNTIME/sandbox constraint that worktree isolation does NOT fix:
+        e.g. background-subagent Bash denies compound/chained commands, shell state not
+        persisting between calls (use literal paths, not vars), `env` prefix denied, multiline
+        `-m` denied (use `git commit -F`), CI-wait must be `gh pr checks --watch` not a loop.
+        These are REAL and must persist, but they belong in the **dispatch-prompt preamble of
+        m6-orchestrate.md / m6-issue-generate.md** (injected into every agent), NOT scattered
+        into the expert guides. Do NOT auto-reject: surface as `pending` with a note that the
+        fix is a manual command-file edit (outside `/m6-learn --apply`'s expert-file scope).
+      - `domain` — genuine engineering knowledge (API shape, query planner behaviour, proto
+        field name, test pattern, gRPC code mapping).
+      Prefer the `Category:` line the session already emitted; if absent, infer it.
     - Do NOT promote `structural-workaround` proposals to the expert guides while worktree
       isolation is in effect (m6-orchestrate STEP 6 / STEP 7.5; EPIC #1001). List them under a
       separate "Structural (suppressed — root cause fixed by worktree isolation)" heading so
@@ -334,6 +343,11 @@ Human reviews:
 > The `Category` column is required (added under EPIC #1001). `structural-workaround` rows are
 > defaulted to `rejected` while worktree isolation is in effect — they describe bandages the
 > shared-tree root-cause fix made unnecessary, so they must not re-enter the expert guides.
+> `env-constraint` rows (runtime/sandbox constraints worktree isolation does NOT fix — e.g.
+> background-subagent compound-Bash denial, non-persistent shell state) are NOT auto-rejected:
+> leave them `pending` and apply them by hand to the dispatch-prompt preamble in
+> `m6-orchestrate.md` / `m6-issue-generate.md` — they are outside `/m6-learn --apply`'s
+> expert-file scope, so `--apply` will not commit them.
 
 Status lifecycle: `pending` → `applied` (human sets) → `committed` (/m6-learn --apply sets)
 Or: `pending` → `rejected` (human sets, stays rejected)
