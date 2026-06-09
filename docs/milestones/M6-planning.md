@@ -112,6 +112,15 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 **Two-plane note:** DevAuto.1–7 + DevAuto.9–10 are near-term (GitHub Actions + Claude Code, no Zynax runtime dependency).
 DevAuto.8 is aspirational (Zynax AgentDef workflows) — gated by `automation/tests/test_platform_readiness.py` xfail test; BLOCKED until M6.H #626 + M6.I #772 complete.
 
+**M6.OrchSafe — Concurrency-safe orchestrator** (EPIC [#1001](https://github.com/zynax-io/zynax/issues/1001); canvas `docs/spdd/1001-orchestrator-concurrency-safety/`; root-cause fix for shared-working-tree (RC1) + duplicate-PR (RC2) failures in `/m6-orchestrate`)
+
+| Story | Issue | Area | PR | Status |
+|-------|-------|------|-----|--------|
+| step 1 feat(automation): isolate orchestrator subagents in per-run worktrees | [#1002](https://github.com/zynax-io/zynax/issues/1002) | CI | — | 🔄 In review |
+| step 2 feat(automation): idempotent orchestrator dispatch | [#1003](https://github.com/zynax-io/zynax/issues/1003) | CI | — | ⬜ Open |
+| step 3 chore(automation): classify workaround learnings in m6-learn | [#1004](https://github.com/zynax-io/zynax/issues/1004) | CI | — | ⬜ Open |
+| step 4 chore(automation): prune obsolete tree-workarounds from experts *(after step 1)* | [#1005](https://github.com/zynax-io/zynax/issues/1005) | CI | — | ⬜ Open |
+
 **M6.F — Platform Configuration Convergence** ✅ **COMPLETE** (EPIC [#670](https://github.com/zynax-io/zynax/issues/670); SPDD-exempt: refactor:/chore:/ci:)
 
 | Story | Issue | Area | PR | Status |
