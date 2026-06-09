@@ -265,9 +265,9 @@ Only run if `$COMPOSE_PINS_UPDATED` or `$YAML_PINS_UPDATED` is non-empty:
 ```bash
 [post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] COMMIT: opening digest-update PR  [ctx: ~16K | compress=0 | msgs=8]
 
-git checkout main && git pull --rebase origin main
+# Your worktree already starts at origin/main (EPIC #1001) — branch directly off it.
 DIGEST_BRANCH="chore/post-merge-digest-pr${PR_NUMBER}"
-git checkout -b "$DIGEST_BRANCH"
+git checkout -B "$DIGEST_BRANCH" origin/main
 
 STAGE_FILES=""
 [ -n "$COMPOSE_PINS_UPDATED" ] && STAGE_FILES="$STAGE_FILES infra/docker-compose/docker-compose.services.yml"
