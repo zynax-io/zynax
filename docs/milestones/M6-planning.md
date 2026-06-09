@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-06 (M6.Images O1–O3 #856–#858 ✅ Merged)
+> Generated: 2026-06-02 · Last updated: 2026-06-09 (status reconciled to live issue state: M6 = 92 closed / 41 open; EPICs #626 #670 #765 #772 #855 #873 #1001 complete)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -17,13 +17,13 @@
 | B.1 feat(infra): mTLS env-var cert paths + gRPC credential wiring for all services | #488 | M6.B #464 | #831 | ✅ Merged |
 | C.1 ci: cosign + SBOM + multi-arch for all release workflows | #489 | M6.C #465 | #833 | ✅ Merged |
 | J.2 feat(memory-service): service scaffold — go.mod, domain KV+Vector interfaces, cmd/ | #814 | M6.J #773 | #932 | ✅ Merged |
-| J.3 feat(memory-service): Redis KV adapter — Set/Get/Delete/ListKeys/MGet/MSet/DeleteNamespace | #815 | M6.J #773 | — | 🔄 In Review |
+| J.3 feat(memory-service): Redis KV adapter — Set/Get/Delete/ListKeys/MGet/MSet/DeleteNamespace | #815 | M6.J #773 | — | ✅ Merged |
 | I.1 feat(event-bus): service scaffold | #823 | M6.I #772 | — | ✅ Merged |
-| I.2 feat(event-bus): Publish path | #824 | M6.I #772 | — | ⬜ Pending I.1 |
-| I.3 feat(event-bus): Subscribe path | #825 | M6.I #772 | — | ⬜ Pending I.2 |
-| I.4 feat(event-bus): Unsubscribe + DLQ + retry | #826 | M6.I #772 | — | ⬜ Pending I.3 |
-| I.5 feat(engine-adapter): wire lifecycle activity | #827 | M6.I #772 | — | ⬜ Pending I.4 |
-| I.6 test: BDD steps for event_bus.feature | #828 | M6.I #772 | — | ⬜ Pending I.4 |
+| I.2 feat(event-bus): Publish path | #824 | M6.I #772 | — | ✅ Merged |
+| I.3 feat(event-bus): Subscribe path | #825 | M6.I #772 | — | ✅ Merged |
+| I.4 feat(event-bus): Unsubscribe + DLQ + retry | #826 | M6.I #772 | — | ✅ Merged |
+| I.5 feat(engine-adapter): wire lifecycle activity | #827 | M6.I #772 | — | ✅ Merged |
+| I.6 test: BDD steps for event_bus.feature | #828 | M6.I #772 | — | ✅ Merged |
 
 **M6 Infra / Tooling** (process health — not feature EPICs; exempt from SPDD)
 
@@ -44,7 +44,7 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 | O1 feat(task-broker): Postgres TaskRepository — pgx/v5 + migrations | [#793](https://github.com/zynax-io/zynax/issues/793) | task-broker | #900 | ✅ Merged |
 | O2 feat(agent-registry): Postgres AgentRepository — pgx/v5 + migrations | [#794](https://github.com/zynax-io/zynax/issues/794) | agent-registry | #901 | ✅ Merged |
 
-**M6.Images — Single source of truth for container-image references** (EPIC #855; canvas `docs/spdd/855-images-sot/canvas.md` — Status: **Aligned**)
+**M6.Images — Single source of truth for container-image references** (EPIC #855; canvas `docs/spdd/855-images-sot/canvas.md` — Status: **Implemented** ✅ — all O-steps merged)
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
@@ -52,9 +52,9 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 | O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | CI tooling | #915 | ✅ Merged |
 | O3 ci: wire drift-check into pr-checks.yml + ci.yml | [#858](https://github.com/zynax-io/zynax/issues/858) | CI | #916 | ✅ Merged |
 | O4 chore(infra): Dockerfile ARG migration | [#859](https://github.com/zynax-io/zynax/issues/859) | Infra | — | ✅ Merged |
-| O5 chore(ci): bump flow rewrite | [#860](https://github.com/zynax-io/zynax/issues/860) | CI tooling | — | ⬜ Open |
-| O6 docs: single source of truth propagation | [#861](https://github.com/zynax-io/zynax/issues/861) | Docs | — | ⬜ Open |
-| O7 docs: ADR-024 | [#862](https://github.com/zynax-io/zynax/issues/862) | Docs/ADR | — | ⬜ Open |
+| O5 chore(ci): bump flow rewrite | [#860](https://github.com/zynax-io/zynax/issues/860) | CI tooling | — | ✅ Merged |
+| O6 docs: single source of truth propagation | [#861](https://github.com/zynax-io/zynax/issues/861) | Docs | #974 | ✅ Merged |
+| O7 docs: ADR-024 | [#862](https://github.com/zynax-io/zynax/issues/862) | Docs/ADR | #1013 | ✅ Merged |
 
 **M6.Images — GHCR Package Hygiene** (attached to EPIC #855; SPDD-exempt; delivery order: #868 → #865 → #866 → #867 → #869)
 
