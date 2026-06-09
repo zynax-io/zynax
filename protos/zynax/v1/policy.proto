@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// Policy enforcement messages — routing policies, rate limits, and
+// capability quotas for the Zynax control plane.
+//
+// These messages describe the static policy configuration the control plane
+// enforces in M6 (read from env/config; no admin API). They flow as proto
+// fields between services per ADR-001 (gRPC inter-service protocol):
+//   - RateLimit parameterises the api-gateway per-source-IP token bucket.
+//   - CapabilityQuota bounds concurrent capability invocations per namespace,
+//     enforced by the workflow-compiler at compile time and the engine-adapter
+//     before dispatch.
+//   - RoutingPolicy restricts which engines a namespace may target, enforced
+//     by the workflow-compiler.
+//
+// Design rationale: REASONS Canvas #768 (M6.Policy). These are plain
+// configuration value objects — they carry no lifecycle state. Enforcement
+// behaviour is specified in protos/tests/features/policy_enforcement.feature
+// (ADR-016: contracts before code).
+//
+// Contract invariants:
+//   1. RateLimit.requests_per_second and burst are both positive when the
+//      limit is active; zero values mean "no limit configured".
+//   2. CapabilityQuota.max_concurrent of zero means "no quota configured"
+//      (unbounded); a positive value is the hard ceiling per namespace.
+//   3. RoutingPolicy.allowed_engines, when non-empty, is an allow-list — an
+//      empty list means "no routing restriction" (any engine permitted).
+
+syntax = "proto3";
+
+package zynax.v1;
+
+option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
+
+// RoutingPolicy restricts which workflow engines a namespace is allowed to
+// target. Enforced by the workflow-compiler: a workflow whose EngineHint is
+// not in allowed_engines is rejected with PERMISSION_DENIED.
+message RoutingPolicy {
+  // The namespace this policy applies to. Required: an empty namespace is a
+  // configuration error and the policy is ignored.
+  string namespace = 1;
+
+  // Allow-list of engine identifiers a workflow in this namespace may use
+  // (e.g. "temporal", "argo"). An empty list imposes no restriction —
+  // any engine is permitted. A non-empty list is an exhaustive allow-list:
+  // any engine not present is denied.
+  repeated string allowed_engines = 2;
+}
+
+// RateLimit parameterises the api-gateway's per-source-IP token bucket.
+// Applied as HTTP middleware before handler dispatch; requests that exceed
+// the bucket are rejected with HTTP 429.
+message RateLimit {
+  // Sustained token refill rate — the steady-state requests per second a
+  // single source IP may make. Zero means "no limit configured".
+  int32 requests_per_second = 1;
+
+  // Maximum burst capacity of the token bucket — the number of requests a
+  // source IP may make in an instantaneous burst before the sustained rate
+  // applies. Zero means "no limit configured".
+  int32 burst = 2;
+}
+
+// CapabilityQuota bounds the number of concurrent capability invocations a
+// single namespace may have in flight. Enforced by the workflow-compiler at
+// compile time and re-checked by the engine-adapter before dispatch; a
+// submission that would exceed the quota is rejected with RESOURCE_EXHAUSTED.
+message CapabilityQuota {
+  // The namespace this quota applies to. Required: an empty namespace is a
+  // configuration error and the quota is ignored.
+  string namespace = 1;
+
+  // Maximum number of concurrent capability invocations permitted for the
+  // namespace. Zero means "no quota configured" (unbounded); a positive
+  // value is the hard ceiling.
+  int32 max_concurrent = 2;
+}
