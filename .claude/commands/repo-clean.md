@@ -1,5 +1,5 @@
 ---
-description: Truth-pass for the repo — reconcile every status surface (README/ROADMAP/ARCHITECTURE/CLAUDE/state/milestone-planning/SPDD canvases) to LIVE GitHub state, triage the pile of [AUTO] pipeline issues (digest-drift / smoke / size / security), and close stale issues with traceable reasons. Plans first, executes only on approval, delivers file changes via one signed PR.
+description: Truth-pass for the repo — reconcile every status surface (README/ROADMAP/ARCHITECTURE/CLAUDE/state/milestone-planning/SPDD canvases) to LIVE GitHub state, triage the pile of [AUTO] pipeline issues (digest-drift / smoke / size / security), close stale issues with traceable reasons, and prune merged/orphaned branches (local + remote) to keep the repo clean. Plans first, executes only on approval, delivers file changes via one signed PR.
 argument-hint: "[--execute] [--include-stale] [--milestone M6]   default: PLAN only, no --include-stale"
 ---
 
@@ -28,9 +28,9 @@ repository — then leave it well-linked and traceable. This is a *truth-pass*, 
 ## Operating contract (read before doing anything)
 
 - **Two phases.** Default is **PLAN** — read live state, compute divergence, print a traceable plan,
-  and **stop**. Mutations (issue closes, the reconcile PR) run **only** when invoked with
-  `--execute` *or* when the human explicitly says "go" after seeing the plan. Never close an issue
-  or push a branch in PLAN phase.
+  and **stop**. Mutations (issue closes, **branch deletions**, the reconcile PR) run **only** when
+  invoked with `--execute` *or* when the human explicitly says "go" after seeing the plan. Never
+  close an issue, delete a branch, or push a branch in PLAN phase.
 - **Live state is the source of truth — never memory or the previous doc snapshot.** Every decision
   is driven by `gh issue list` / `gh pr list` / `gh api .../milestones` / `make check-images`.
 - **File changes go through PRs (never `main` directly).** Branch protection requires SSH commit
@@ -178,6 +178,41 @@ grep -nE 'M[1-8]|🚧|📅|✅|🟡|📋' README.md ROADMAP.md ARCHITECTURE.md C
 for c in docs/spdd/*/canvas.md; do grep -H -m1 '^\*\*Status:\*\*' "$c"; done
 ```
 
+### F. Branch hygiene — local + remote
+Stale branches accumulate when a merge didn't auto-delete the head, or when work was abandoned.
+A clean snapshot leaves only `main` plus protected/release branches and any branch currently
+checked out in a worktree.
+
+```bash
+git fetch origin --prune     # sync remote-tracking refs; drop refs for branches deleted on the remote
+PROTECTED='^(origin/)?(main|master|HEAD|release/.*)$'
+# Branches checked out in ANY worktree must never be deleted (it would break that tree):
+git worktree list --porcelain | awk '/^branch /{sub(/refs\/heads\//,"",$2); print $2}'
+git branch    --format='%(refname:short)'   # local branches
+git branch -r --format='%(refname:short)'   # remote branches (origin/*)
+```
+
+> **Squash-merge caveat (this repo merges squash-only — see repo memory).** `git branch --merged
+> origin/main` will **not** flag a squash-merged branch: squash makes a new commit, so the branch
+> tip is never an ancestor of `main`. The reliable merged-signal is the branch's **PR state**, not
+> ancestry — always cross-check `gh pr list --head <branch> --state all`.
+
+Classify every non-protected, non-worktree branch (local **and** remote):
+- **Merged → delete.** Its PR is `MERGED` *or* its tip is reachable from `origin/main`
+  (`git merge-base --is-ancestor <tip> origin/main`). These are orphans left behind after merge.
+- **Unmerged with an OPEN PR → leave.** Live work; note the PR number, do not touch.
+- **Orphaned (unique commits, no merged/open PR) → FLAG, never auto-delete.** Report ahead/behind
+  vs `main`, last-commit age, and "no PR"; recommend an action (open a PR to land it on main /
+  rebase / delete) but leave the decision to the human. Deleting unique unmerged commits is
+  irreversible — this is the conservative line.
+
+```bash
+# Context for each branch in the report:
+gh pr list --head "$b" --state all --json number,state,mergedAt --jq '.[0] // "no PR"'
+git log -1 --format='%ci  %an  %s' "origin/$b"
+git rev-list --left-right --count "origin/main...origin/$b"   # behind <TAB> ahead
+```
+
 ---
 
 ## STEP 3 — PLAN output (then STOP unless `--execute`)
@@ -209,6 +244,13 @@ Print one traceable plan. Stop here and wait for the human's "go" unless `--exec
 |---|--------|-------------------|----------|
 | .. | ci-release | ... | ... |
 (PENDING in APPLY_LOG.md — human marks applied/rejected before /m6-learn --apply)
+
+### Branches to clean (local L / remote R)
+| branch | where | state | action | reason |
+|--------|-------|-------|--------|--------|
+| chore/proto-regen-x | L+R | PR #123 MERGED | delete | orphan left after squash-merge |
+| spike/foo | R | no PR · +3/−40 · 88d old | FLAG | unique commits — human decides |
+(After cleanup, only `main` + protected branches remain.)
 
 ### NOT touched
 - AGENTS.md (immutable principles), docs/adr/* (decisions)
@@ -251,7 +293,16 @@ Print one traceable plan. Stop here and wait for the human's "go" unless `--exec
    This edits the expert guides, marks the log entries `committed`, and opens its **own**
    `docs/expert-learnings-*` PR — kept separate from the truth-pass doc PR. If no entries were
    approved, skip (synthesis-only proposals stay PENDING for the next pass).
-6. **Squash-merge is the human's call** — leave both PRs open for review unless the user explicitly
+6. **Branch hygiene.** Delete only branches the plan marked *merged orphan* — never a FLAGGED
+   unmerged branch, a protected branch, or one checked out in a worktree:
+   ```bash
+   git branch -d  <merged-local>            # -d is safe: refuses unless reachable from HEAD's upstream
+   git push origin --delete <merged-remote>  # remote counterpart
+   ```
+   A **squash-merged** orphan (PR `MERGED` but tip unreachable) makes `-d` refuse — use
+   `git branch -D <b>` **only after** confirming `gh pr list --head <b> --state merged` is non-empty.
+   Leave every FLAGGED branch untouched; they go in the report for the human to decide.
+7. **Squash-merge is the human's call** — leave both PRs open for review unless the user explicitly
    asks to merge, then `gh pr merge <#> --squash` each.
 
 ---
@@ -263,6 +314,8 @@ Print one traceable plan. Stop here and wait for the human's "go" unless `--exec
 grep -nE 'M[1-8]|🚧|📅|✅|🟡|📋' README.md ROADMAP.md ARCHITECTURE.md CLAUDE.md \
   state/current-milestone.md docs/milestones/*-planning.md | grep -iE 'planned|active|complete'
 gh issue list --state open --json title --jq '[.[]|select(.title|startswith("[AUTO]"))]|length'  # expect 0 or the kept anchors
+# Branch state — expect only main (+ protected) once cleanup + PR merges settle:
+git fetch origin --prune && git branch -r --format='%(refname:short)' | grep -vE '^origin/(main|HEAD)$'
 ```
 
 Final report to the user:
@@ -270,6 +323,8 @@ Final report to the user:
 - Issues closed: count + the `#`s, each with its reason/reference.
 - Surfaces reconciled + the consistency-check result (zero remaining disagreements).
 - Learnings: PENDING proposals written to `APPLY_LOG.md` (count), and how many were applied.
+- Branches deleted: local + remote counts, each with its merged-PR reference; branches **FLAGGED**
+  (unmerged, no PR) listed with ahead/behind + age for your decision. Remaining = `main` (+ protected).
 - Anything intentionally left open and **why** (e.g. a smoke-fail still reproducing → real bug,
   filed/kept as a work item, not closed).
 
@@ -286,6 +341,9 @@ cd "$REPO" && git worktree remove "$WT" --force 2>/dev/null || true
   demonstrably-done work only.
 - **Never** edit `AGENTS.md`, ADRs, or `.feature` contract files in a truth-pass.
 - **Never** bypass signing/DCO or push to `main` directly.
+- **Never** delete a branch that is protected (`main`/release), checked out in a worktree, or has
+  unique unmerged commits without a `MERGED` PR. Detect merges by **PR state**, not `git branch
+  --merged` (squash-merge hides merges from ancestry). FLAG unmerged orphans; never auto-delete them.
 - If `make check-images` / `make sync-images` can't run (no Docker), say so and fall back to
   dedup-close only for digest-drift — do not hand-edit digests.
 - One truth-pass = one doc PR + (optionally) one `/m6-learn` PR. These two are separate **by
