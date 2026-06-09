@@ -223,6 +223,45 @@ for _, tt := range tests {
 
 ---
 
+## Integration tests — testcontainers
+
+Use the **base `testcontainers-go` `GenericContainer`** — do NOT add the `modules/<x>`
+sub-dependencies (`modules/redis`, `modules/nats`, …). The base module is already an indirect
+dep; a `modules/*` package adds a new *direct* dep and bloats `go.mod`. Pin the image and gate
+on the ready log line.
+
+```go
+import (
+    "github.com/testcontainers/testcontainers-go"
+    "github.com/testcontainers/testcontainers-go/wait"
+)
+
+// Redis
+redis, _ := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+    ContainerRequest: testcontainers.ContainerRequest{
+        Image:        "redis:7-alpine",
+        ExposedPorts: []string{"6379/tcp"},
+        WaitingFor:   wait.ForLog("Ready to accept connections"),
+    },
+    Started: true,
+})
+
+// NATS with JetStream
+nats, _ := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+    ContainerRequest: testcontainers.ContainerRequest{
+        Image:        "nats:2.10-alpine",
+        Cmd:          []string{"-js"},
+        ExposedPorts: []string{"4222/tcp"},
+        WaitingFor:   wait.ForLog("Server is ready"),
+    },
+    Started: true,
+})
+```
+
+*(Applied via /m6-learn from #818 (Redis) + #828 (NATS).)*
+
+---
+
 ## Git safety
 
 You run in your own isolated git worktree (EPIC #1001 — `m6-orchestrate` STEP 6 /

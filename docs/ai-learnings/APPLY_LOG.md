@@ -59,9 +59,9 @@
 
 | # | Domain | Pattern | Category | Source sessions | Status | Delta |
 |---|--------|---------|----------|-----------------|--------|-------|
-| 1 | go-services | Base testcontainers GenericContainer — avoid modules/<x> deps | domain | #818, #828 | pending | — |
+| 1 | go-services | Base testcontainers GenericContainer — avoid modules/<x> deps | domain | #818, #828 | committed | go-services.md +39L |
 | 2 | go-services | Re-stage after lint/pre-commit hook rewrites files in place | structural-workaround | #819, #824 | rejected | — |
 | 3 | go-services | git rebase drops commits in target — verify diff after rebase | structural-workaround | #795, #838 | rejected | — |
 | 4 | go-services | Sandbox Bash forms: no env-prefix/multiline -m/compound cmds | env-constraint | #798, #877 | pending | — |
 
-**Summary:** 1 proposed (domain) | 0 applied | 2 rejected (structural) | 1 pending (env-constraint)
+**Summary:** 1 proposed (domain) | 1 committed | 2 rejected (structural) | 1 pending (env-constraint)
