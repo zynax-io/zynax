@@ -33,9 +33,10 @@ APPROVED=$(python3 - "$LOG" <<'PYEOF'
 import sys, re
 
 log = open(sys.argv[1]).read()
-# Find approved lines: | N | domain | text | sessions | applied | ... |
+# Find approved lines: | N | domain | text | category | sessions | applied | pending-commit |
+# (also tolerates legacy 6-column rows without the Category column)
 approved = re.findall(
-    r'^\|\s*(\d+)\s*\|\s*(\S+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*applied\s*\|\s*pending-commit\s*\|',
+    r'^\|\s*(\d+)\s*\|\s*(\S+)\s*\|\s*(.+?)\s*\|\s*(domain|structural-workaround)\s*\|\s*(.+?)\s*\|\s*applied\s*\|\s*pending-commit\s*\|',
     log, re.MULTILINE
 )
 for row in approved:
@@ -46,11 +47,12 @@ PYEOF
 if [ -z "$APPROVED" ]; then
   echo "No entries marked 'applied / pending-commit' in APPLY_LOG.md."
   echo "Edit APPLY_LOG.md: set Status='applied' and Delta='pending-commit' for entries to commit."
+  echo "(structural-workaround entries are suppressed by default — leave them 'rejected')."
   exit 0
 fi
 
-echo "$APPROVED" | while IFS=$'\t' read -r NUM DOMAIN PATTERN SESSIONS; do
-  echo "Applying: [$DOMAIN] $PATTERN (from $SESSIONS)"
+echo "$APPROVED" | while IFS=$'\t' read -r NUM DOMAIN PATTERN CATEGORY SESSIONS; do
+  echo "Applying: [$DOMAIN/$CATEGORY] $PATTERN (from $SESSIONS)"
 done
 ```
 
@@ -175,6 +177,17 @@ Agent({
     - Maximum 5 proposed additions per domain.
     - Write each proposed addition in the exact format used by the target section.
     - Cite the issues/sessions that support the proposal.
+    - Classify every proposal as `domain` or `structural-workaround`. A proposal is
+      `structural-workaround` if it only exists to survive a shared working tree: defensive
+      `git checkout`/branch-verify before Bash calls, "never `git add .`", stash-avoidance,
+      ref-lock recovery, cherry-pick rescue, "checkout target file to undo a sibling's edit".
+      A proposal is `domain` if it is genuine engineering knowledge (API shape, query planner
+      behaviour, proto field name, test pattern, gRPC code mapping). Prefer the `Category:`
+      line the session already emitted; if absent, infer it.
+    - Do NOT promote `structural-workaround` proposals to the expert guides while worktree
+      isolation is in effect (m6-orchestrate STEP 6 / STEP 7.5; EPIC #1001). List them under a
+      separate "Structural (suppressed — root cause fixed by worktree isolation)" heading so
+      the human can confirm, but default their Status to `rejected` in the apply-log.
 
     ## Output format
 
@@ -193,12 +206,12 @@ Agent({
     ```apply-log
     ## Run <YYYY-MM-DD HH:MM> — domains: <list>
 
-    | # | Domain | Pattern | Source sessions | Status | Delta |
-    |---|--------|---------|-----------------|--------|-------|
-    | 1 | go-services | <pattern name, ≤60 chars> | #NNN, #NNN | pending | — |
-    | 2 | ci-release  | <pattern name, ≤60 chars> | #NNN       | pending | — |
+    | # | Domain | Pattern | Category | Source sessions | Status | Delta |
+    |---|--------|---------|----------|-----------------|--------|-------|
+    | 1 | go-services | <pattern name, ≤60 chars> | domain | #NNN, #NNN | pending | — |
+    | 2 | go-services | <shared-tree workaround> | structural-workaround | #NNN, #NNN | rejected | — |
 
-    **Summary:** N proposed | 0 applied | 0 rejected | N pending
+    **Summary:** N proposed | 0 applied | M rejected (structural) | P pending
     ```
 
     Only include sessions where you have proposals. End with the apply-log block always.
@@ -308,15 +321,19 @@ Human reviews:
 
 ## Run 2026-06-10 14:30 — domains: go-services, ci-release
 
-| # | Domain | Pattern | Source sessions | Status | Delta |
-|---|--------|---------|-----------------|--------|-------|
-| 1 | go-services | Shell state reset (branch/bash) | #818, #826 | committed | go-services.md +8L |
-| 2 | go-services | handler.go carried from prior step | #818 | rejected | — |
-| 3 | ci-release | gh run list --commit not supported | #947 | committed | ci-release.md +4L |
-| 4 | ci-release | make sync-images requires Docker | #947 | committed | post-merge.md +12L |
+| # | Domain | Pattern | Category | Source sessions | Status | Delta |
+|---|--------|---------|----------|-----------------|--------|-------|
+| 1 | go-services | Shell state reset (branch/bash) | structural-workaround | #818, #826 | rejected | — |
+| 2 | go-services | handler.go carried from prior step | domain | #818 | rejected | — |
+| 3 | ci-release | gh run list --commit not supported | domain | #947 | committed | ci-release.md +4L |
+| 4 | ci-release | make sync-images requires Docker | domain | #947 | committed | post-merge.md +12L |
 
-**Summary:** 4 proposed | 3 committed | 1 rejected | 0 pending
+**Summary:** 4 proposed | 2 committed | 2 rejected (1 structural) | 0 pending
 ```
+
+> The `Category` column is required (added under EPIC #1001). `structural-workaround` rows are
+> defaulted to `rejected` while worktree isolation is in effect — they describe bandages the
+> shared-tree root-cause fix made unnecessary, so they must not re-enter the expert guides.
 
 Status lifecycle: `pending` → `applied` (human sets) → `committed` (/m6-learn --apply sets)
 Or: `pending` → `rejected` (human sets, stays rejected)

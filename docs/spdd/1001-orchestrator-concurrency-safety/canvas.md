@@ -103,7 +103,7 @@ Each step = one PR.
 
 2. **Idempotent dispatch (#1003, `feat`).** Make the branch ref `<type>/<N>` the deterministic claim key (slug applied post-claim) identically in `m6-orchestrate` and `m6-issue-generate`. Add the STEP 5 pre-spawn reconcile (`gh issue view` + merged-PR search). Add STEP 7 completion-time dedupe keyed on `SEEN_MERGE_SHAS`, closing a loser PR when a different PR already delivered the issue. Document the three layers as defense-in-depth with completion-time authoritative.
 
-3. **Learning-loop classification (#1004, `chore`).** In `m6-learn` STEP 4, add the two synthesizer rules (classify `domain` / `structural-workaround`; suppress structural by default under a separate heading, defaulting Status to `rejected`). Add the `Category` column to the apply-log table. Leave the human-review gate unchanged.
+3. ✅ **Learning-loop classification (#1004, `chore`).** In `m6-learn` STEP 4, add the two synthesizer rules (classify `domain` / `structural-workaround`; suppress structural by default under a separate heading, defaulting Status to `rejected`). Add the `Category` column to the apply-log table. Leave the human-review gate unchanged.
 
 4. **Expert-guide cleanup (#1005, `chore`) — after #1002 is merged and validated.** Remove the obsolete shared-tree workarounds from `experts/go-services.md` ("Shared workspace safety" branch/stash/`git add` rules) and `experts/post-merge.md` (Phase 6 branch-prep dance). Verify every RC3 mitigation remains. Reference the validated step-1 batch as evidence in the PR.
 
