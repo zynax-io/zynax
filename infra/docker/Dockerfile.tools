@@ -8,6 +8,16 @@
 # Built once via `make build-tools`. Bind-mounts the repo at /workspace.
 # Generated files (stubs, coverage) appear on the host after the run.
 #
+# ── Final image size (justified) ─────────────────────────────────────────────
+# Compressed (amd64): ~480 MB. This is a developer-toolbox image, not a runtime
+# image — size is dominated by the full Go toolchain (/usr/local/go ~280 MB,
+# required for go build/test of every module) plus the Python interpreter and
+# the uv-managed dev tools (ruff/mypy/bandit/pip-audit/pytest). It is never
+# deployed; it runs only on developer machines and is pulled once. The final
+# stage already drops the build toolchain (apk, curl) and copies only the
+# compiled Go binaries — no source, no caches. No further trimming is possible
+# without removing tools that the documented `make` targets depend on.
+#
 # ── Pinned tool versions ────────────────────────────────────────────────────
 # Update a version here and in ci.yml together. Comment format is Renovate-
 # compatible so bot PRs keep them in sync automatically.

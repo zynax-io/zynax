@@ -42,6 +42,25 @@ See `AGENTS.md`, `docs/adr/ADR-001`, `ADR-008` and `docs/reviews/04-architecture
 - SPDX SBOM attached to every GitHub release for all service + tools images (✅ #489)
 - cosign keyless signing of all container image releases — SLSA L2 (✅ #489)
 - Multi-arch container images (linux/amd64 + linux/arm64) for all service + tools images (✅ #489)
+- Minimal image footprint — smaller images mean a smaller attack surface (✅ #841)
+
+### Container image sizes (attack-surface budget)
+
+Compressed sizes for `linux/amd64`. Smaller is better: a distroless Go image has
+no shell, package manager, or libc, so most container CVE classes do not apply.
+
+| Image | Base | Compressed (amd64) | Budget | Notes |
+|-------|------|--------------------|--------|-------|
+| api-gateway, workflow-compiler, engine-adapter, task-broker, agent-registry | `distroless/static:nonroot` | ~8 MB | ≤ 15 MB | static, stripped (`-s -w -trimpath`), no shell |
+| http-adapter, git-adapter, ci-adapter | `distroless/static:nonroot` | ~8 MB | ≤ 15 MB | static, stripped, no shell |
+| llm-adapter | `python:3.12-slim` | ~75 MB | ≤ 80 MB | frozen uv venv (no-dev); slim over alpine (manylinux wheels) |
+| langgraph-adapter | `python:3.12-slim` | ~78 MB | ≤ 80 MB | frozen uv venv (no-dev); slim over alpine (manylinux wheels) |
+| tools | `python:3.14-alpine` + Go | ~480 MB | dev-only | not deployed; full Go toolchain + Python dev tools (justified in Dockerfile header) |
+| ci-runner | `alpine:3.21` + Go | ~430 MB | CI-only | not deployed; Go toolchain + CI tools (justified in Dockerfile header) |
+
+Per-build sizes are reported in the GitHub Actions step summary of `release.yml`
+and `tools-image.yml`. Test files and fixtures are excluded from every production
+build context via `.dockerignore`.
 
 **Verify an image signature:**
 ```bash

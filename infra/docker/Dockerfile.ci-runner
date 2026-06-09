@@ -20,9 +20,15 @@
 # Tools intentionally excluded (dev-only or release-pipeline-only):
 #   migrate, grpc-health-probe, syft, protoc-gen-go, protoc-gen-go-grpc
 #
-# Size notes:
-#   Only /usr/local/go/bin + pkg + lib are copied to the final stage.
-#   src/, test/, api/, doc/ are builder-only — not needed for go test/build.
+# ── Final image size (justified) ─────────────────────────────────────────────
+# Compressed (amd64): ~430 MB. Dominated by the Go toolchain — bin + stdlib src
+# + compiled pkg + lib are all required (govulncheck resolves stdlib source via
+# `go list -json -deps`; go test/build needs pkg/lib). The final stage is a clean
+# alpine:3.21 base with NO curl and NO build toolchain — only the compiled CI
+# binaries and the uv-managed Python tools are copied in. Dev-only / release-only
+# tools (migrate, grpc-health-probe, syft, protoc-gen-go*) are intentionally
+# excluded (see "Tools intentionally excluded" above). Only /usr/local/go/bin +
+# src + pkg + lib are copied; the builder's src/, test/, api/, doc/ are dropped.
 
 # ── Base image digests ─────────────────────────────────────────────────────
 # Pinned for supply-chain integrity. To update a digest:

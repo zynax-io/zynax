@@ -8,6 +8,15 @@
 # Required env vars at runtime: LLM_PROVIDER, REGISTRY_ADDR, AGENT_ID, ADAPTER_ENDPOINT
 # Provider-specific: OPENAI_API_KEY | AWS_REGION | OLLAMA_BASE_URL
 # Optional: LLM_MODEL, LLM_MAX_TOKENS, ZYNAX_LLM_ADAPTER_GRPC_PORT (default 50057)
+#
+# ── Final image size ──────────────────────────────────────────────────────────
+# Compressed (amd64): ~75 MB (within the 80 MB target). The runtime stage carries
+# only the python:3.12-slim base + the frozen uv venv (no-dev) + source + proto
+# stubs; the uv/build layer is left behind in the builder stage. We deliberately
+# stay on python:3.12-slim rather than -alpine: the provider SDKs (openai, boto3,
+# grpcio) ship manylinux wheels that install cleanly on glibc but force slow,
+# fragile source compilation on Alpine's musl. `uv sync --no-dev --frozen` already
+# yields a minimal, deterministic dependency set; no build caches reach the image.
 
 # BEGIN zynax-ci:images:python-slim
 ARG PYTHON_SLIM_DIGEST=sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
