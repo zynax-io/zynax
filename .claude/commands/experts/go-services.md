@@ -150,21 +150,6 @@ GOWORK=off go mod tidy
 
 ---
 
-## Sandbox Bash forms
-
-Commands you emit run in a restricted, non-interactive shell. Three forms have failed across
-sessions — use the safe equivalent so a failure is attributable and parsing is reliable:
-
-- **Multiline `-m` strings** — literal newlines inside a single `-m "…"` (or `-m "$(printf …)"`)
-  can mis-parse. Use one `-m` flag per paragraph: `git commit -s -m "subject" -m "body"`.
-- **Compound commands** — `a && b`, `a; b`, `a || b` in one call are brittle and hide which step
-  failed. Prefer one command per Bash call. (Never rely on `||` fallbacks.)
-- **Inline env-var prefixes** — prefer `export VAR=val` on its own line over `VAR=val cmd`.
-  The required, documented exception that does work is `GOWORK=off go …` (ADR-017) — keep using it.
-- Seen in: #798, #877 (2 sessions).
-
----
-
 ## gRPC patterns
 
 ```go
