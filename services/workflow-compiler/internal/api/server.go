@@ -27,11 +27,19 @@ import (
 type Server struct {
 	zynaxv1.UnimplementedWorkflowCompilerServiceServer
 	generateID func() string
+	policyGate *domain.PolicyGate // nil → policy enforcement disabled
 }
 
 // New creates a Server ready to serve gRPC requests.
 func New() *Server {
 	return &Server{generateID: generateWorkflowID}
+}
+
+// NewWithPolicy creates a Server with a PolicyGate that enforces routing
+// policies and capability quotas at compile time. Pass nil to disable
+// policy enforcement (equivalent to New()).
+func NewWithPolicy(gate *domain.PolicyGate) *Server {
+	return &Server{generateID: generateWorkflowID, policyGate: gate}
 }
 
 // CompileWorkflow parses, validates, and compiles a YAML manifest into a WorkflowIR.
@@ -55,6 +63,32 @@ func (s *Server) CompileWorkflow(ctx context.Context, req *zynaxv1.CompileWorkfl
 
 	if manifest.Namespace == "" && req.Namespace != "" {
 		manifest.Namespace = req.Namespace
+	}
+
+	// Policy gate: routing policy and capability quota enforcement.
+	// Runs after parsing (so we know namespace + annotations) and before the
+	// graph build (fail fast on policy violations).
+	if s.policyGate != nil {
+		annotations := manifest.Annotations
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		// Build a minimal graph-like struct for the gate — only Namespace is
+		// needed at this stage; the full graph is built next.
+		stub := &domain.WorkflowGraph{Namespace: manifest.Namespace}
+		if gateErr := s.policyGate.Check(ctx, stub, annotations); gateErr != nil {
+			switch gateErr.Kind {
+			case domain.PolicyViolationRouting:
+				return nil, status.Errorf(codes.PermissionDenied,
+					"routing policy violation: %s", gateErr.Message)
+			case domain.PolicyViolationQuota:
+				return nil, status.Errorf(codes.ResourceExhausted,
+					"capability quota exceeded: %s", gateErr.Message)
+			default:
+				return nil, status.Errorf(codes.Internal,
+					"policy gate error: %s", gateErr.Message)
+			}
+		}
 	}
 
 	g, buildErrs := domain.Build(ctx, manifest)
