@@ -342,11 +342,23 @@ jobs:
       - name: Trivy container scan
         if: matrix.platform == 'amd64'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          # Pin the DB to a canonical GHCR digest (the default GCR mirror lagged and
+          # served a since-corrected CRITICAL, red-walling releases — #1022). The digest
+          # makes scans reproducible; renovate bumps it so vuln data stays current.
+          # renovate: datasource=docker depName=ghcr.io/aquasecurity/trivy-db
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2@sha256:225c785a3ce630d8f8b75ab23f4d7b0b1402f94a54dfe6441e6711c7deb8dec8
+          # Gate on NVD CVSS when available, falling back to GHSA for the many
+          # Python advisories that have no NVD entry. Stops the gate firing on
+          # score-less, non-NVD vendor "CRITICAL"s that never surface in the
+          # Security tab, while still catching genuine GHSA-scored CRITICAL/HIGH.
+          TRIVY_VULN_SEVERITY_SOURCE: nvd,ghsa
         with:
           image-ref: scan-${{ matrix.service }}:${{ github.sha }}
+          version: v0.71.0
           format: sarif
           output: trivy-results-${{ matrix.service }}.sarif
-          severity: CRITICAL
+          severity: CRITICAL,HIGH
           exit-code: 1
           ignore-unfixed: true
           trivyignores: .trivyignore
