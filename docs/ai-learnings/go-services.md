@@ -341,3 +341,23 @@ but the `gh issue list --state open` query may lag due to GitHub API eventual co
 - `env GOWORK=off go -C <dir> ...` is DENIED; the plain `GOWORK=off go -C <dir> ...` prefix form works as a single command.
 - Inline multi-line `git commit -m "..."` (embedded newlines/quotes) is DENIED; write the message to a file and use `git commit -s -F <file>`.
 - Compound/chained Bash (`cd && ...`, `a; b`, pipes, loops) is DENIED for background subagents; use `git -C`/`go -C` single commands. Wait for CI with `gh pr checks <PR> --watch --interval 30`.
+
+## Session — 2026-06-09 (issue #802)
+
+### Effective patterns
+- **CLEAN mergeStateStatus is the definitive merge gate**: `gh pr view --json mergeStateStatus --jq .mergeStateStatus` returning `CLEAN` is the correct signal to call `gh pr merge --squash`. BEHIND/UNKNOWN/BLOCKED are all waiting states; never attempt merge on those.
+- **Poll with numeric jq length comparisons, not string-empty checks**: `.statusCheckRollup[] | select(.conclusion == "" or .conclusion == null) | .name | length` can misfire if the failed list serializes as `""`. Use `[...] | length == 0` for definitive empty checks.
+- **`gh pr merge --squash --auto` is sufficient once CLEAN**: GitHub auto-merges as soon as the condition is confirmed on its side; no additional polling loop needed after arming auto-merge.
+
+### Edge cases discovered
+- **After rebase --signoff, merge state briefly shows BEHIND/UNKNOWN**: GitHub re-evaluates the new head; this resolves to BLOCKED while CI queues up and eventually CLEAN when all checks pass. Expect 15–20 minutes for the full ~30-check run.
+- **BEHIND state before merge**: a branch that falls behind main (due to concurrent merges) must be rebased with `git -C <coord-wt> rebase --signoff origin/main && git push --force-with-lease` before `gh pr merge` will succeed. Use `--auto` after the rebase to let GitHub arm the merge.
+- **LLM orchestration checks appear mid-run**: `Expert: *` and `Orchestrator: Wave 1 aggregation` checks are absent at run start and extend total CI time. Wait for all of them before concluding CLEAN.
+
+### Failed approaches
+- **Claim commit without `-s` flag causes DCO failure**: An empty claim commit `git commit --allow-empty -m "..."` without `-s` skips `Signed-off-by`. The DCO check fails immediately, blocking all subsequent checks. Always add `-s` to claim commits.
+
+### Proposed expert prompt update
+- Rule: Add `-s` to the empty claim commit. Use `git commit --allow-empty -s -m "...[claim]"` to ensure Signed-off-by is present from the first push.
+  Category: domain
+  Reason: DCO is enforced on every commit including empty ones; missing it on the claim commit blocks CI immediately.

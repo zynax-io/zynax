@@ -370,3 +370,41 @@ to `imagetools create`). A re-sign pass was not performed; the Jun-8 `main` imag
 - Rule: After `gh pr merge --squash` fails with "required status checks are expected", always check `gh pr view <N> --json mergeStateStatus` — if `BEHIND`, rebase + push + set `--auto` rather than retrying the direct merge. The `--auto` flag fires the merge once checks pass on the rebased HEAD without requiring another manual attempt.
   Category: structural-workaround
   Reason: Active main branches (parallel M6 delivery) cause BEHIND status on nearly every PR where CI takes >3 minutes — affects all story types.
+
+## Session — 2026-06-09 (issues #807, #880)
+
+### Effective patterns
+- **UNSTABLE mergeStateStatus with zero required checks = mergeable directly**: When `gh pr view --json mergeStateStatus` returns `UNSTABLE` and `[.statusCheckRollup[] | select(.isRequired==true)] | length` is 0, `gh pr merge --squash` succeeds without waiting. Advisory-only checks that are pending/failed do not block merge.
+- **Rebase before merge when BEHIND**: After concurrent merges to main, a PR's branch falls BEHIND. Run `git -C <coord-wt> fetch origin && git -C <coord-wt> rebase --signoff origin/main && git push --force-with-lease` then use `--auto` to arm GitHub's auto-merge.
+- **Claim commit must include `-s`**: `git commit --allow-empty -s -m "...[claim]"` — DCO is enforced on all commits including empty claim commits. Missing `-s` causes an immediate DCO failure that blocks all CI checks.
+
+### Edge cases discovered
+- **Full CI run after rebase --signoff = ~30 checks, 15–20 minutes**: Includes CodeQL, Expert LLM reviews, orchestrator aggregation, test-go, lint-go, security. LLM Expert checks appear mid-run and extend the total time window.
+- **Background sleep loops are killed after one iteration on this platform**: Polling loops that rely on `sleep` in a background subagent context exit prematurely. Restart the poll cycle on each notification rather than expecting a persistent background loop.
+- **`docker buildx imagetools create` does not propagate OCI annotations**: When assembling multi-arch index, add explicit `--annotation "index:..."` flags; without them the OCI annotation gate fails even though the image is pushed. (Confirmed in #807 ci-runner context.)
+
+### Proposed expert prompt update
+- Rule: Always use `git commit --allow-empty -s -m "...[claim]"` for the atomic branch claim commit — `-s` is required for DCO on every commit.
+  Category: domain
+  Reason: DCO check fails immediately on any commit missing Signed-off-by, including empty claim commits.
+- Rule: After a force-push rebase, wait for CLEAN (not just absence of FAILURE) before merging. Use `--auto` after the rebase so GitHub handles the final merge gate.
+  Category: domain
+  Reason: BEHIND/BLOCKED persist briefly after rebase while GitHub re-evaluates head; only CLEAN is the safe merge signal.
+
+## Session — 2026-06-09 (issue #880 addendum)
+
+### Effective patterns
+- **Read Wave N-1 workflow before writing Wave N**: `dev-advisory.yml` (Wave 2) established naming conventions (`# Plane: near-term`, `continue-on-error: true`, `ubuntu-24.04` for `gh` CLI, `printf`-based body construction) that all Wave 3 jobs followed consistently.
+- **Python3 `yaml.safe_load` is a reliable YAML structural validator**: fast, available on host without Docker, catches missing `jobs:` key and position errors.
+- **Programmatic invariant verification before commit**: check job keys, runners, `continue-on-error`, `if: always()` presence before staging for a strong pre-commit confidence check.
+
+### Edge cases discovered
+- **Omitting the top-level `jobs:` key**: jobs placed at workflow root level — YAML parses without structural error but GitHub Actions rejects it. Always verify `jobs:` key is present.
+- **`workflow_run` + `push` + `schedule` triggers require per-job `if:` guards**: all three triggers fire all four jobs unless each job guards its own trigger with `if: github.event_name == 'xxx'`.
+- **`contains(toJSON(github.event.head_commit.modified), 'services/')` for path-filtering in job `if:` conditions**: `paths:` filters work at workflow level only; use this pattern for job-level path filtering on push events.
+- **`mergeState: UNKNOWN` during CI on advisory workflows**: Wave 0/1 advisory jobs running as `continue-on-error` show as pending, keeping `mergeStateStatus` UNKNOWN. Check the `state` field directly rather than relying on `mergeStateStatus` alone.
+
+### Proposed expert prompt update
+- Rule: After writing any GitHub Actions YAML, verify (1) `jobs:` top-level key exists, (2) per-job `if:` guards match the workflow `on:` triggers, and (3) `workflow_run`-triggered jobs include `if: github.event.workflow_run.conclusion == 'success'` unless intentionally running on failure. Validate with `python3 -c 'import yaml; yaml.safe_load(open("file.yml"))'`.
+  Category: domain
+  Reason: Missing `jobs:` key and wrong trigger guards are silent errors at the YAML level but fail GitHub Actions schema validation immediately.
