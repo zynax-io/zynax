@@ -333,3 +333,17 @@ to `imagetools create`). A re-sign pass was not performed; the Jun-8 `main` imag
 - **The pushed pre-rebase commit is the safe restore point**: Recover with `git reset --hard origin/<branch>` (the empty/feature branch was pushed before the rebase), then redo the rebase with `git -c core.editor=true rebase origin/main` so no editor opens, and resolve conflicts *programmatically* (python/sed rewriting the conflict block) instead of with tools that re-read and re-touch files. Seen in: #1003.
 - **Verify the PR's real head branch after a tangled rebase**: The corruption spawned a stray slugged claim branch (`<type>/<N>-<slug>`) with its own remote tracking ref, diverging from the PR's actual head (`<type>/<N>`, still at the pre-rebase SHA). Always `gh pr view <N> --json headRefName,headRefOid`, force-push the rebased commit to the PR's *real* head branch, and delete the stray. Seen in: #1003.
 - **Sibling EPIC steps merging mid-flight conflict on shared state docs**: While delivering one O-step, sibling steps (#1004 PR #1008, #1005 PR #1009) merged and edited the same `M6-planning.md` table and `canvas.md` O-step list. Expect a mid-flight rebase; resolve by taking main's rows wholesale and re-applying only *your* row — the row-level conflict is mechanical, not semantic. Seen in: #1003.
+
+## Session — 2026-06-09 (issue #841)
+
+### Effective patterns
+- **Audit-and-document is a valid "minimize" deliverable when images are already near-optimal** (distroless Go ~8 MB, slim+uv Python ~75 MB): verification + documented justification in Dockerfile headers + a SECURITY.md size table satisfies the acceptance criteria with zero build-breakage risk.
+- **`.dockerignore` test-file exclusions must come AFTER module-allowlist negations**: the repo re-includes whole module trees (`!agents/adapters/llm/`), so `*_test.go`/`tests/`/`*.feature` patterns placed last actually strip test files from the context.
+- Header-comment-only Dockerfile edits never touch image-ref banner regions, so `make sync-images` is unnecessary and `make check-images` stays green.
+
+### Edge cases discovered
+- **Do NOT swap a working `python:3.12-slim` + uv build to alpine**: musl forces fragile source compilation of manylinux ML wheels (openai/boto3/grpcio/pydantic-core). Document the rejection inline; keep slim.
+- Canvas path `docs/spdd/837-native-multiarch/canvas.md` named in #841 does not exist (837 is a `ci:` epic, SPDD-exempt); proceed from the issue body scope table.
+
+### Post-merge observation (orchestrator session)
+- **Release workflow failing on main independent of this batch**: Trivy container scan exits 1 on `langgraph-adapter`/`llm-adapter` amd64 — observed even on the protos-only merge `a0d8d5b` (#1019), so it is a CVE-DB/scan-config issue recurring on every main merge, not a Dockerfile regression. Separately, "Merge & sign — engine-adapter" failed on `56a8ac2` (#1018) at the manifest-merge/cosign step (both per-arch builds succeeded) — infra, not code. No new clean image digests published while Release is red → no digest pins to update. Needs separate investigation (Trivy allowlist + cosign/OIDC sign step).

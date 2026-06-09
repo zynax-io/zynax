@@ -62,3 +62,14 @@
 ## Proposed expert prompt updates
 
 *(none yet — populate after first batch of infra/Helm expert sessions)*
+
+## Session — 2026-06-09 (issue #809)
+
+### Effective patterns
+- **Verify rollout-target names against `helm template` before hardcoding**: umbrella service Deployments render as `<release>-zynax-<service>` (double "zynax" prefix because release name + chart name both carry it). A name mismatch silently fails `kubectl rollout status` at runtime — local lint can't catch it.
+- `git update-index --chmod=+x` sets the executable bit in the index when filesystem `chmod` is unavailable; commit records mode 100755.
+- Mirror existing repo script conventions (SPDX header, `set -euo pipefail`, `REPO_ROOT` via `dirname BASH_SOURCE`, env-overridable config) from scripts/bump-ci-runner.sh.
+
+### Edge cases discovered
+- **cert-manager is NOT in images/images.yaml**; the umbrella's zynax-cert-manager subchart only creates Certificate/ClusterIssuer (ADR-020), so a bootstrap script must `helm install` upstream cert-manager itself before enabling the subchart, else CRDs are missing.
+- **event-bus + memory-service are `enabled: false`** by default in umbrella values.yaml; the e2e script must pass `--set ...enabled=true` to schedule all 7 service pods (placeholder images ship from merged EPIC A charts).
