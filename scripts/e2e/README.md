@@ -1,0 +1,89 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# Zynax e2e harness
+
+Reproducible end-to-end test harness for the full Zynax platform. These scripts
+spin up an ephemeral [kind](https://kind.sigs.k8s.io/) (Kubernetes IN Docker)
+cluster and deploy the complete stack via the `helm/zynax-umbrella` chart, so
+that e2e assertions run against a real Kubernetes cluster rather than mocks.
+
+Part of EPIC G (#770). This directory currently delivers **step 1 (#809)**:
+cluster bootstrap + teardown. The workflow/CloudEvents/upgrade assertion scripts
+(#810–#813) land in subsequent steps.
+
+## Minimum resource requirements
+
+The full stack — 7 Zynax services plus NATS JetStream, Postgres 16, and
+Temporal — needs real headroom. The cluster will evict pods under memory
+pressure below these limits:
+
+| Resource | Minimum |
+|----------|---------|
+| CPU      | **4 cores** |
+| RAM      | **8 GB** |
+| Disk     | 20 GB free |
+
+On CI this maps to the `ubuntu-latest` runner (4 vCPU / 16 GB), with Docker
+configured for Docker-in-Docker. Locally, ensure Docker Desktop is allocated at
+least 4 CPU and 8 GB RAM.
+
+## Prerequisites
+
+| Tool      | Notes |
+|-----------|-------|
+| `docker`  | running daemon (Docker Desktop or DinD) |
+| `kind`    | cluster bootstrap |
+| `kubectl` | cluster interaction |
+| `helm`    | chart deployment (v3.14+) |
+
+`cluster-up.sh` installs upstream **cert-manager** into the cluster itself —
+the `zynax-cert-manager` subchart only creates `Certificate` / `ClusterIssuer`
+resources and assumes cert-manager CRDs already exist (ADR-020).
+
+## Usage
+
+```bash
+# Bring up the cluster and deploy the full stack (idempotent).
+scripts/e2e/cluster-up.sh
+
+# … run e2e assertions (added in #810–#813) …
+
+# Tear the cluster down (idempotent).
+scripts/e2e/cluster-down.sh
+```
+
+Both scripts are idempotent: `cluster-up.sh` reuses an existing cluster and
+performs a `helm upgrade --install`; `cluster-down.sh` succeeds even if no
+cluster is present.
+
+### Configuration
+
+Override defaults via environment variables (see each script header for the
+full list):
+
+| Variable               | Default            | Purpose |
+|------------------------|--------------------|---------|
+| `CLUSTER_NAME`         | `zynax-e2e`        | kind cluster name |
+| `NAMESPACE`            | `zynax`            | release namespace |
+| `RELEASE_NAME`         | `zynax`            | Helm release name |
+| `CERT_MANAGER_VERSION` | `v1.14.5`          | cert-manager chart version |
+| `KIND_NODE_IMAGE`      | `kindest/node:v1.29.2` | kind node image (digest-pinnable in CI) |
+| `WAIT_TIMEOUT`         | `600s`             | per-resource rollout wait |
+
+## What `cluster-up.sh` does
+
+1. Creates a 3-node kind cluster (1 control-plane + 2 workers) from
+   [`kind-config.yaml`](kind-config.yaml), exposing the api-gateway REST port on
+   host `:8080`.
+2. Installs cert-manager (CRDs + controllers).
+3. Deploys `zynax-umbrella` with `event-bus` and `memory-service` enabled using
+   **placeholder images** (real implementations: EPIC I #772 / J #773).
+4. Waits for all **7 service Deployments** to reach a healthy rollout with their
+   startup / liveness / readiness probes passing.
+
+## CI
+
+Live cluster bring-up is exercised by the gated `e2e-smoke.yml` workflow added
+in #770 step 5 (#813). It triggers only on changes to `helm/**`, `services/**`,
+or `engine-adapter/**` and is **not** a required gate on every PR. The kind
+cluster is ephemeral per job run; kubeconfigs are never committed.
