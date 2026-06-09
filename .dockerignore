@@ -76,3 +76,15 @@ infra/k8s/
 !protos/generated/go/
 !protos/generated/python/
 !tools/healthcheck/
+
+# ── Test files and fixtures (re-excluded after the allowlist above) ───────────
+# The negations re-include whole module trees; strip test sources and fixtures
+# so they never reach a production image build context. Production binaries are
+# built from non-test packages only, so excluding these does not affect builds.
+**/*_test.go
+**/testdata/
+**/tests/
+**/test_*.py
+**/*_test.py
+**/conftest.py
+**/*.feature
