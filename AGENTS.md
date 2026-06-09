@@ -245,6 +245,7 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | AI context line counts and budget thresholds (advisory, non-blocking) | `zynax-ci check ai-context` |
 | `zynax` CLI (standalone Go module, M4) — apply/get/delete/status/logs via api-gateway HTTP | `cmd/zynax/AGENTS.md` |
 | Per-layer rules | `services/AGENTS.md` · `agents/AGENTS.md` · `protos/AGENTS.md` · `spec/AGENTS.md` · `infra/AGENTS.md` |
+| `automation/` | Dev-automation orchestrator + expert mesh configs (consumed explicitly by GH Actions and the Zynax agent runtime — never auto-loaded here) |
 
 ---
 

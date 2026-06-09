@@ -479,3 +479,71 @@ Full ADR register: `docs/adr/INDEX.md`.
 | `docs/architecture/2026-04-30-execution-architecture.md` | 2026-04-30 | Execution architecture deep-dive (engine-adapter + Temporal) |
 | `docs/architecture/2026-05-18-external-architectural-review.md` | 2026-05-18 | External architectural review |
 | `docs/architecture/2026-05-20-principal-architect-review.md` | 2026-05-20 | **Authoritative** — 6.5/10 overall, G1-G24 gap list, 30-day plan |
+
+---
+
+## 16. Dev-Automation Plane
+
+> Full design and wave specs: [`automation/STATUS-AND-DIRECTION.md`](automation/STATUS-AND-DIRECTION.md)
+> EPIC: [#873 M6.DevAuto](https://github.com/zynax-io/zynax/issues/873)
+
+The dev-automation plane adds an **orchestrator + expert mesh** to the CI/CD loop. Nine
+context-scoped AI expert agents review pull requests in parallel; an orchestrator aggregates
+their outputs into a single verdict. This is a separate concern from the three-layer
+platform architecture — it does not live in `services/`, `agents/`, or `protos/`.
+
+### Two-Plane Model
+
+The automation system is explicitly split into two planes:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  NEAR-TERM PLANE (Waves 0–3)                                │
+│  GitHub Actions + Claude Code subagents                     │
+│  Runnable today. Zero Zynax runtime dependency.             │
+│                                                             │
+│  Wave 0: Advisory — expert subagents on PR events           │
+│  Wave 1: Orchestrated advisory — single aggregated comment  │
+│  Wave 2: Gated automation — non-destructive actions only    │
+│  Wave 3: Post-merge completeness mesh                       │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+         automation/tests/test_platform_readiness.py
+         @pytest.mark.xfail(strict=True)
+         ← THE HONEST LINE BETWEEN PLANES →
+         Fails today. Passes only when M6.H + M6.I complete.
+                             │
+┌────────────────────────────▼────────────────────────────────┐
+│  ASPIRATIONAL PLANE (Wave 4)                                │
+│  Zynax AgentDef workflows running on Zynax itself           │
+│  BLOCKED: needs M6.H (Postgres) + M6.I (event-bus)         │
+│  GATED: failing test must flip to pass first                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+The **near-term plane** (Waves 0–3) runs entirely on GitHub Actions with Claude Code
+subagents — no Zynax runtime required. The **aspirational plane** (Wave 4) runs the same
+orchestrator + experts as Zynax `kind: AgentDef` workflows on the Zynax platform itself,
+which requires durable state persistence (M6.H #626) and durable async fan-out (M6.I #772).
+
+### The Failing Test as an Honest Gate
+
+`automation/tests/test_platform_readiness.py` is marked `@pytest.mark.xfail(strict=True)`.
+It fails today for three independent reasons:
+
+1. `automation/workflows/` does not exist — AgentDef YAMLs are blocked on M6.H + M6.I
+2. task-broker and agent-registry use in-memory repositories — state lost on restart
+3. EventBusService is a log-only stub — cannot deliver messages between orchestrator and experts
+
+The test uses `strict=True` so that an unexpected pass (XPASS) turns the build red —
+alerting the team that something changed and Wave 4 might be viable. Silence is not
+acceptable; neither is skipping the test.
+
+Wave 4 automation must not be wired into main CI until this test flips to a clean pass.
+
+### Not Ambient Context
+
+The `automation/` folder is **not** referenced by any `AGENTS.md` glob or auto-load
+mechanism. Expert definitions, orchestrator config, and AgentDef workflows all live there
+and are consumed explicitly. See the Knowledge Base Index row in root `AGENTS.md` and
+`automation/README.md` for the complete folder map.
