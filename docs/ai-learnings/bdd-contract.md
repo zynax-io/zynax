@@ -75,3 +75,21 @@
 ### Edge cases discovered
 - **Python proto stubs are post-processed by `ruff`/`ruff-format` pre-commit hooks, not by `buf generate` alone** (buf.gen.yaml uses unpinned remote plugins, no buf.lock). A raw `buf generate` on clean main shows ~1100 lines of phantom Python-stub format drift. Canonical path: run `make generate-protos`, then `git add -A` and commit — let the hook reformat/re-stage; verify the net staged diff is only the new `<name>.*` stubs.
 - **`gh run rerun <id> --failed` can spawn a duplicate full CI run via concurrency, leaving cancelled jobs surfacing as "fail"** in `gh pr checks`. Re-run the cancelled run id directly (`gh run rerun <id>`, no `--failed`) so its contexts resolve to success — otherwise branch protection stays blocked on a phantom failure.
+
+## Session — 2026-06-09 (issue #882)
+
+### Effective patterns
+- `conftest.py` stub with `pytest.fail(...)` inside the fixture: because tests use `pytest.mark.xfail(strict=True)`, a fixture-level fail propagates as XFAIL (not ERROR).
+- `try/except ImportError` guard with `HAS_JSONSCHEMA` flag ensures graceful degradation when a package is absent, avoiding collection errors that bypass xfail.
+- Pre-commit hooks (ruff) auto-fix imports; re-stage after hook failure and commit again — do not amend.
+
+### Edge cases discovered
+- Issue body specifies `SCHEMA_PATH = "spec/schemas/agent-def.json"` but actual file is `spec/schemas/agent-def.schema.json`. Use issue's path verbatim — the mismatch is intentional (one of the xfail reasons).
+- Issue body specifies `len(EXPERT_YAMLS) == 9` but `automation/experts/` has 10 files. The `automation/workflows/experts/` path doesn't exist yet, yielding 0 files, so assertion fails as expected.
+- `gh pr merge --squash --auto` is required (not bare `--squash`) when branch protection requires branch to be up to date — queues merge automatically once CI passes on a current SHA.
+
+### Proposed expert prompt updates
+- Rule: "When a repo has strict branch protection ('require branch to be up to date'), always use `gh pr merge --squash --auto` instead of bare `--squash`. This queues the merge to happen automatically once CI passes, avoiding rebase-wait-retry loops."
+  Category: structural-workaround
+- Rule: "Before writing a test file, check `spec/schemas/` for the actual filename of schemas referenced in the issue. Use the exact path from the issue body — mismatches are intentional and are part of the xfail contract."
+  Category: domain
