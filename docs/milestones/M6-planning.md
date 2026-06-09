@@ -112,7 +112,7 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 **Two-plane note:** DevAuto.1–7 + DevAuto.9–10 are near-term (GitHub Actions + Claude Code, no Zynax runtime dependency).
 DevAuto.8 is aspirational (Zynax AgentDef workflows) — gated by `automation/tests/test_platform_readiness.py` xfail test; BLOCKED until M6.H #626 + M6.I #772 complete.
 
-**M6.OrchSafe — Concurrency-safe orchestrator** (EPIC [#1001](https://github.com/zynax-io/zynax/issues/1001); canvas `docs/spdd/1001-orchestrator-concurrency-safety/`; root-cause fix for shared-working-tree (RC1) + duplicate-PR (RC2) failures in `/m6-orchestrate`)
+**M6.OrchSafe — Concurrency-safe orchestrator** ✅ **COMPLETE** (EPIC [#1001](https://github.com/zynax-io/zynax/issues/1001); canvas `docs/spdd/1001-orchestrator-concurrency-safety/` — Status: Implemented; root-cause fix for shared-working-tree (RC1) + duplicate-PR (RC2) failures in `/m6-orchestrate`)
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
