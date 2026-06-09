@@ -51,9 +51,6 @@ ignore_missing_imports = true
 
 [tool.ruff.lint]
 select = ["D"]
-# D105 (magic method docstring) is optional per Google style; __init_subclass__
-# and similar hooks are implementation details and need not be documented.
-extend-ignore = ["D105"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

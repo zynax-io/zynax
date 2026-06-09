@@ -73,6 +73,15 @@ class Agent(agent_pb2_grpc.AgentServiceServicer, ABC):  # type: ignore[misc]
     _capabilities: ClassVar[dict[str, Callable[..., Any]]] = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Collect ``@capability``-decorated methods from each subclass.
+
+        Called automatically by Python when a class inherits from ``Agent``.
+        Populates ``cls._capabilities`` so that ``ExecuteCapability`` can
+        dispatch requests without per-request introspection.
+
+        Args:
+            **kwargs: Forwarded to ``super().__init_subclass__``.
+        """
         super().__init_subclass__(**kwargs)
         caps: dict[str, Callable[..., Any]] = {}
         for _attr_name, method in inspect.getmembers(cls, predicate=callable):
