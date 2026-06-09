@@ -42,6 +42,11 @@ type config struct {
 	TaskBrokerAddr      string
 	EventBusAddr        string
 	ActiveEngine        string
+	ArgoServerURL       string
+	ArgoToken           string
+	ArgoNamespace       string
+	ArgoWorkflowTmplRef string
+	ArgoServiceAccount  string
 	GRPCCallTimeoutS    int
 	MaxActivityAttempts int32
 	LivenessThresholdS  int
@@ -61,6 +66,11 @@ func loadConfig() config {
 		TaskBrokerAddr:      getEnv("ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR", "localhost:50053"),
 		EventBusAddr:        getEnv("ZYNAX_ENGINE_ADAPTER_EVENTBUS_ADDR", "localhost:50056"),
 		ActiveEngine:        getEnv("ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE", "temporal"),
+		ArgoServerURL:       getEnv("ZYNAX_ENGINE_ADAPTER_ARGO_SERVER_URL", "http://localhost:2746"),
+		ArgoToken:           getEnv("ZYNAX_ENGINE_ADAPTER_ARGO_TOKEN", ""),
+		ArgoNamespace:       getEnv("ZYNAX_ENGINE_ADAPTER_ARGO_NAMESPACE", "argo"),
+		ArgoWorkflowTmplRef: getEnv("ZYNAX_ENGINE_ADAPTER_ARGO_WORKFLOW_TEMPLATE_REF", "zynax-ir-interpreter"),
+		ArgoServiceAccount:  getEnv("ZYNAX_ENGINE_ADAPTER_ARGO_SERVICE_ACCOUNT", ""),
 		GRPCCallTimeoutS:    getEnvInt("ZYNAX_ENGINE_ADAPTER_GRPC_CALL_TIMEOUT_S", 30),
 		MaxActivityAttempts: getEnvInt32("ZYNAX_ENGINE_MAX_ACTIVITY_ATTEMPTS", 3),
 		LivenessThresholdS:  getEnvInt("ZYNAX_ENGINE_ADAPTER_LIVENESS_THRESHOLD_S", 60),
@@ -84,13 +94,21 @@ func main() {
 
 // run contains the service lifecycle. Deferred cleanups execute before returning.
 func run(cfg config) error {
+	slog.Info("selecting workflow engine", "active_engine", cfg.ActiveEngine)
+
 	engine, cleanup, brokerConn, err := buildEngine(cfg)
 	if err != nil {
 		return fmt.Errorf("engine setup: %w", err)
 	}
 	defer cleanup()
 
+	// brokerConn is nil for engines that do not dispatch capabilities through the
+	// task-broker (e.g. the Argo engine submits to the cluster directly). In that
+	// case readiness depends only on the gRPC server, so report ready.
 	brokerReadyFn := func() bool {
+		if brokerConn == nil {
+			return true
+		}
 		s := brokerConn.GetState()
 		return s != connectivity.TransientFailure && s != connectivity.Shutdown
 	}
@@ -128,14 +146,48 @@ func run(cfg config) error {
 	return nil
 }
 
-// buildEngine creates the WorkflowEngine and its underlying Temporal worker.
+// Engine name constants. These are the ONLY place engine names appear outside of
+// the engine-selection switch (ADR-015 — no engine name hardcoded in dispatch logic).
+const (
+	engineTemporal = "temporal"
+	engineArgo     = "argo"
+)
+
+// buildEngine validates the configured active engine and constructs the matching
+// WorkflowEngine implementation (ADR-015 — pluggable engines selected by config flag).
+// The returned cleanup function releases all engine resources. brokerConn is returned
+// for the readiness probe; it is nil for engines that do not use the task-broker.
+func buildEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientConn, error) {
+	switch cfg.ActiveEngine {
+	case engineTemporal:
+		return buildTemporalEngine(cfg)
+	case engineArgo:
+		return buildArgoEngine(cfg)
+	default:
+		return nil, func() {}, nil, fmt.Errorf(
+			"unsupported engine %q: valid values are %q or %q (ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE)",
+			cfg.ActiveEngine, engineTemporal, engineArgo,
+		)
+	}
+}
+
+// buildArgoEngine constructs an ArgoEngine backed by an HTTP Argo Workflows client.
+// It needs neither a Temporal worker nor a task-broker connection — Argo dispatches
+// workflows directly to the cluster — so brokerConn is returned as nil.
+func buildArgoEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientConn, error) {
+	client := infrastructure.NewHTTPArgoClient(cfg.ArgoServerURL, cfg.ArgoToken, nil)
+	engine := infrastructure.NewArgoEngine(client, infrastructure.ArgoConfig{
+		Namespace:           cfg.ArgoNamespace,
+		WorkflowTemplateRef: cfg.ArgoWorkflowTmplRef,
+		ServiceAccountName:  cfg.ArgoServiceAccount,
+	})
+	return engine, func() {}, nil, nil
+}
+
+// buildTemporalEngine creates the Temporal-backed WorkflowEngine and its worker.
 // The returned cleanup function stops the worker and closes connections.
 // brokerConn is returned separately so main can use it for the readiness probe.
-func buildEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientConn, error) {
-	if cfg.ActiveEngine != "temporal" {
-		return nil, func() {}, nil, fmt.Errorf("unsupported engine %q: only \"temporal\" is supported in M3", cfg.ActiveEngine)
-	}
-
+func buildTemporalEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientConn, error) {
 	infrastructure.DefaultActivityMaxAttempts = cfg.MaxActivityAttempts
 
 	tc, err := client.Dial(client.Options{
