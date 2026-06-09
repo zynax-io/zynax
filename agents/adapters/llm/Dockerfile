@@ -42,6 +42,15 @@ WORKDIR /app
 # Non-root user (ADR-002)
 RUN useradd -r -u 1001 -g nogroup zynax
 
+# Strip the base image's build-time-only packages (pip/setuptools/wheel). They are
+# never used at runtime — the app runs the uv venv via `python -m` — and are a
+# recurring source of Trivy CVE noise that red-walls the release gate (#1022).
+RUN rm -rf /usr/local/lib/python3.12/site-packages/pip* \
+           /usr/local/lib/python3.12/site-packages/setuptools* \
+           /usr/local/lib/python3.12/site-packages/pkg_resources \
+           /usr/local/lib/python3.12/site-packages/wheel* \
+           /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.12
+
 # Venv with all locked dependencies
 COPY --from=builder /app/.venv /app/.venv
 

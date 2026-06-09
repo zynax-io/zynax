@@ -60,11 +60,36 @@ runs:
         BASE="https://ghcr.io/v2/${IMAGE_NAME}"
         AUTH_HEADER="Authorization: Bearer ${TOKEN}"
 
-        # ── Fetch the index manifest ──────────────────────────────────────────
-        INDEX=$(curl -fsSL \
-          -H "${AUTH_HEADER}" \
-          -H "Accept: application/vnd.oci.image.index.v1+json" \
-          "${BASE}/manifests/${DIGEST}" 2>/dev/null) || true
+        # ── Fetch the index manifest (retry — GHCR can lag right after push) ──
+        # GHCR occasionally 404s/empties a just-pushed manifest for a few seconds
+        # (read-after-write / token propagation). A single curl then left INDEX
+        # empty and tripped the "missing description" hard-fail below on a healthy,
+        # already-signed image (#1022). Retry with backoff before deciding.
+        INDEX=""
+        for attempt in 1 2 3 4 5; do
+          INDEX=$(curl -fsSL \
+            -H "${AUTH_HEADER}" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            "${BASE}/manifests/${DIGEST}" 2>/dev/null || true)
+          [ -n "$INDEX" ] && break
+          echo "::notice::index manifest for ${IMAGE_NAME}@${DIGEST} not ready (attempt ${attempt}/5); retrying in $((attempt * 3))s"
+          sleep $((attempt * 3))
+        done
+
+        # If GHCR never served the manifest, metadata/size reporting is NON-FATAL —
+        # a flaky read must never fail an image that was already pushed and signed.
+        # (A genuinely-absent description annotation is still caught below, but only
+        # once we have actually fetched the index.)
+        if [ -z "$INDEX" ]; then
+          echo "::warning::Could not fetch the index manifest for ${IMAGE_NAME}@${DIGEST} after 5 attempts — skipping annotation + size checks (non-fatal)."
+          {
+            echo "## ${LABEL}"
+            echo "**Digest:** \`${DIGEST}\`"
+            echo ""
+            echo "_Metadata/size report skipped: GHCR index manifest unavailable after retries (non-fatal)._"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
 
         # ── Check description annotation (FAIL if absent) ─────────────────────
         DESCRIPTION=""
