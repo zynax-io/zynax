@@ -7,6 +7,7 @@ require (
 	github.com/cucumber/godog v0.14.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/zynax-io/zynax/protos/generated/go v0.0.0
+	golang.org/x/time v0.15.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
