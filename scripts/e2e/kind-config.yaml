@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# kind cluster configuration for the Zynax e2e harness (EPIC G #770, step 1 / #809).
+#
+# One control-plane node + two workers. The full Zynax stack (7 services plus
+# NATS JetStream, Postgres 16, and Temporal) needs headroom; a single-node
+# cluster routinely evicts pods under memory pressure on CI Ubuntu-latest.
+#
+# Minimum host resources (see scripts/e2e/README.md): 4 CPU, 8 GB RAM.
+#
+# extraPortMappings expose the api-gateway REST port (8080) on the host so that
+# `zynax apply` and the e2e assertion scripts can reach the cluster without a
+# manual `kubectl port-forward`.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: zynax-e2e
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # api-gateway REST — host 8080 -> nodePort 30080
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
+  - role: worker
+  - role: worker
