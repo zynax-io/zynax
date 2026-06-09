@@ -325,3 +325,19 @@ but the `gh issue list --state open` query may lag due to GitHub API eventual co
 
 ### Proposed expert prompt update — Shared workspace safety
 > **File reversion hazard**: A background linter/formatter may rewrite files between `Write` and `git add`. After each `Write`, immediately verify with `wc -l <path>`. When modifying a Go interface AND its implementations together, write all files in one turn, then build/test, then `git add` — never interleave write/build/add across separate Bash calls. After `git commit`, verify with `git show HEAD:<path> | grep <key-symbol>`.
+
+## Session — 2026-06-09 (issues #798, #800)
+
+### Effective patterns
+- **Engine-name constants confined to the selection switch** (#798): satisfies ADR-015 (no hardcoded engine names in dispatch) while keeping the `buildEngine` switch readable; default case → fatal.
+- **Nil `brokerConn` for cluster-dispatch engines** (#798): the Argo path returns nil broker conn and the readiness probe nil-guards it, so engines that dispatch to the cluster directly don't carry a task-broker dependency.
+- **`recordingCompiler` stub at the domain-port boundary** (#800): a stub that echoes its input namespace into `CompileResult.Namespace` models the real compiler embedding it into `WorkflowIR.namespace`, letting one httptest request assert all 3 hops without standing up gRPC backends.
+
+### Edge cases discovered
+- **Submit hop uses `compiled.Namespace`, not `req.Namespace`** (#800, apply.go:129): the compiled IR namespace is authoritative; a stub that doesn't echo namespace into CompileResult makes the submit-hop assertion test nothing. Also `submit()` short-circuits on a running existing workflow, so the recording engine's `GetWorkflowStatus` must return `ErrNotFound`.
+- **Unexported sentinel not reproducible from cmd package** (#798): Argo 404→`ErrExecutionNotFound` keys off an unexported `errArgoNotFound`; the genuine mapping is covered by infrastructure-package tests, while the cmd smoke test asserts the engine surfaces `domain.ErrExecutionNotFound` end-to-end.
+
+### Failed approaches (sandbox structural-workarounds)
+- `env GOWORK=off go -C <dir> ...` is DENIED; the plain `GOWORK=off go -C <dir> ...` prefix form works as a single command.
+- Inline multi-line `git commit -m "..."` (embedded newlines/quotes) is DENIED; write the message to a file and use `git commit -s -F <file>`.
+- Compound/chained Bash (`cd && ...`, `a; b`, pipes, loops) is DENIED for background subagents; use `git -C`/`go -C` single commands. Wait for CI with `gh pr checks <PR> --watch --interval 30`.

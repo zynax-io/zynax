@@ -66,3 +66,12 @@
 ## Proposed expert prompt updates
 
 *(none yet — populate after first batch of BDD contract expert sessions)*
+
+## Session — 2026-06-09 (issue #801)
+
+### Effective patterns
+- Adding a brand-new `.proto` file is always non-breaking for `buf breaking`; verify with `buf breaking --against 'https://...#branch=main,subdir=protos'` to match the pr-checks.yml gate exactly.
+
+### Edge cases discovered
+- **Python proto stubs are post-processed by `ruff`/`ruff-format` pre-commit hooks, not by `buf generate` alone** (buf.gen.yaml uses unpinned remote plugins, no buf.lock). A raw `buf generate` on clean main shows ~1100 lines of phantom Python-stub format drift. Canonical path: run `make generate-protos`, then `git add -A` and commit — let the hook reformat/re-stage; verify the net staged diff is only the new `<name>.*` stubs.
+- **`gh run rerun <id> --failed` can spawn a duplicate full CI run via concurrency, leaving cancelled jobs surfacing as "fail"** in `gh pr checks`. Re-run the cancelled run id directly (`gh run rerun <id>`, no `--failed`) so its contexts resolve to success — otherwise branch protection stays blocked on a phantom failure.
