@@ -31,8 +31,8 @@ jobs:
     environment: pypi   # OIDC trusted publisher environment — must match PyPI registration
 
     permissions:
-      contents: read
-      id-token: write   # required for OIDC token minting
+      contents: write   # required to upload SBOM + bundles to GitHub Release
+      id-token: write   # required for OIDC token minting (PyPI + cosign keyless)
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -47,8 +47,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install hatch (build + publish tool)
-        run: pip install --quiet "hatch>=1.13"
+      - name: Install hatch + supply-chain tools
+        run: |
+          pip install --quiet "hatch>=1.13"
+          # cosign — keyless signing via Sigstore OIDC
+          COSIGN_VERSION="v2.4.3"
+          curl -sSL "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64" \
+            -o /usr/local/bin/cosign
+          chmod +x /usr/local/bin/cosign
+          # syft — SBOM generation
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Build wheel and sdist
         working-directory: agents/sdk
@@ -69,8 +77,51 @@ jobs:
           fi
           echo "OK — wheel: $WHL  sdist: $SDT"
 
+      - name: Generate SBOM for SDK package
+        working-directory: agents/sdk
+        run: |
+          syft packages dist/ -o spdx-json=dist/zynax_sdk.spdx.json
+          echo "SBOM generated:"
+          ls -lh dist/zynax_sdk.spdx.json
+
+      - name: Sign SDK wheel (keyless OIDC)
+        working-directory: agents/sdk
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          WHEEL=$(ls dist/*.whl | head -1)
+          echo "Signing wheel: $WHEEL"
+          cosign sign-blob --yes --bundle "${WHEEL}.bundle" "$WHEEL"
+          echo "Bundle created: ${WHEEL}.bundle"
+
+      - name: Sign SDK sdist (keyless OIDC)
+        working-directory: agents/sdk
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          SDIST=$(ls dist/*.tar.gz | head -1)
+          echo "Signing sdist: $SDIST"
+          cosign sign-blob --yes --bundle "${SDIST}.bundle" "$SDIST"
+          echo "Bundle created: ${SDIST}.bundle"
+
       - name: Publish to PyPI (OIDC — Trusted Publisher)
         uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc  # v1.12.4
         with:
           packages-dir: agents/sdk/dist/
           verbose: true
+
+      - name: Upload SBOM and signature bundles to GitHub Release
+        working-directory: agents/sdk
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "Uploading supply-chain artifacts to release $TAG"
+          # SBOM
+          gh release upload "$TAG" dist/zynax_sdk.spdx.json --clobber
+          # Cosign bundles
+          for bundle in dist/*.bundle; do
+            gh release upload "$TAG" "$bundle" --clobber
+          done
+          echo "Uploaded:"
+          ls -lh dist/*.bundle dist/*.spdx.json

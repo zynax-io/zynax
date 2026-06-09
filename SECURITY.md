@@ -42,6 +42,7 @@ See `AGENTS.md`, `docs/adr/ADR-001`, `ADR-008` and `docs/reviews/04-architecture
 - SPDX SBOM attached to every GitHub release for all service + tools images (✅ #489)
 - cosign keyless signing of all container image releases — SLSA L2 (✅ #489)
 - Multi-arch container images (linux/amd64 + linux/arm64) for all service + tools images (✅ #489)
+- cosign sign-blob + SPDX SBOM for zynax-sdk wheel/sdist PyPI artifacts (✅ #807)
 - Minimal image footprint — smaller images mean a smaller attack surface (✅ #841)
 
 ### Container image sizes (attack-surface budget)
@@ -71,6 +72,19 @@ cosign verify \
 ```
 
 Replace `api-gateway` with any service name (`engine-adapter`, `workflow-compiler`, `task-broker`, `agent-registry`, `http-adapter`, `tools`, `ci-runner`) and the tag with the release version.
+
+**Verify a SDK wheel signature:**
+```bash
+# Download the wheel, sdist, and their cosign bundles from the GitHub Release:
+# https://github.com/zynax-io/zynax/releases/tag/v0.1.0
+cosign verify-blob \
+  --bundle zynax_sdk-0.1.0-py3-none-any.whl.bundle \
+  --certificate-identity-regexp="https://github.com/zynax-io/zynax/.github/workflows/" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  zynax_sdk-0.1.0-py3-none-any.whl
+```
+
+Replace the version with the release you downloaded. To verify the sdist, use the `.tar.gz` and its corresponding `.tar.gz.bundle` instead.
 
 ### Planned (M6+)
 - mTLS between all platform services — ✅ shipped #488; cert-manager Helm chart in M6.Helm
