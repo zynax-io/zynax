@@ -31,6 +31,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 defaults:
   run:
@@ -1310,3 +1311,82 @@ jobs:
           gh pr comment "${PR_NUM}" \
             --repo "$REPO" \
             --body-file /tmp/orch-comment.md
+
+      # Plane: near-term
+      # Wave 2 — Gated non-destructive automated actions (Issue: #879, DevAuto.6)
+      # Actions limited to auto_allowed list in automation/orchestrator/config.yaml:
+      #   auto-label, auto-assign, draft-issue, post-pr-comment.
+      # Set repo variable ADVISORY_DRY_RUN=true to log actions without executing them.
+      - name: Wave 2 — execute auto-allowed actions
+        continue-on-error: true
+        env:
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          VERDICT: ${{ steps.decision-log.outputs.VERDICT }}
+          CONFIDENCE: ${{ steps.decision-log.outputs.CONFIDENCE }}
+          LOG_ID: ${{ steps.decision-log.outputs.LOG_ID }}
+          ORCH_OUTPUT: ${{ steps.orchestrator.outputs.ORCH_OUTPUT }}
+        run: |
+          # ADVISORY_DRY_RUN: set to 'true' via repo variable or env to disable mutations.
+          DRY_RUN="${ADVISORY_DRY_RUN:-false}"
+          ACTIONS_LOG=""
+
+          run_action() {
+            local action="$1" detail="$2"
+            shift 2
+            printf '[wave-2] action=%s detail="%s" dry_run=%s\n' "$action" "$detail" "$DRY_RUN"
+            ACTIONS_LOG="${ACTIONS_LOG}{\"action\":\"${action}\",\"detail\":\"${detail}\",\"dry_run\":${DRY_RUN}},"
+            if [ "$DRY_RUN" != "true" ]; then
+              "$@"
+            fi
+          }
+
+          # ── auto-label: apply area: labels from changed file paths ────────────
+          CHANGED=$(gh pr view "${PR_NUM}" --repo "$REPO" --json files \
+            --jq '[.files[].path] | join("\n")' 2>/dev/null || true)
+
+          apply_label() {
+            run_action "auto-label" "$1" \
+              gh pr edit "${PR_NUM}" --repo "$REPO" --add-label "$1"
+          }
+
+          echo "$CHANGED" | grep -q "^services/api-gateway/"       && apply_label "area: api-gateway"
+          echo "$CHANGED" | grep -q "^services/engine-adapter/"    && apply_label "area: engine-adapter"
+          echo "$CHANGED" | grep -q "^services/workflow-compiler/" && apply_label "area: workflow-compiler"
+          echo "$CHANGED" | grep -q "^services/task-broker/"       && apply_label "area: task-broker"
+          echo "$CHANGED" | grep -q "^services/agent-registry/"    && apply_label "area: agent-registry"
+          echo "$CHANGED" | grep -q "^services/event-bus/"         && apply_label "area: event-bus"
+          echo "$CHANGED" | grep -q "^services/memory-service/"    && apply_label "area: memory-service"
+          echo "$CHANGED" | grep -q "^agents/"                     && apply_label "area: agents/sdk"
+          echo "$CHANGED" | grep -q "^protos/"                     && apply_label "area: protos"
+          echo "$CHANGED" | grep -q "^\.github/workflows/"         && apply_label "area: ci"
+          echo "$CHANGED" | grep -q "^automation/"                 && apply_label "area: ci"
+          echo "$CHANGED" | grep -q "^infra/"                      && apply_label "area: infra"
+
+          # ── draft-issue: create follow-up if orchestrator recommends one ─────
+          if printf '%s' "${ORCH_OUTPUT:-}" | grep -qiE 'follow.?up|open.*issue|create.*issue'; then
+            FOLLOWUP=$(printf '%s' "${ORCH_OUTPUT:-}" \
+              | grep -imE 'follow.?up|recommend' | head -1 | cut -c1-80)
+            if [ -n "$FOLLOWUP" ]; then
+              ISSUE_TITLE="[AUTO-DRAFT] Follow-up from PR #${PR_NUM}: ${FOLLOWUP}"
+              printf '## Auto-draft follow-up\n\nDrafted by Dev Advisory Wave 2.\n\n**Source PR:** #%s\n**Decision-log:** %s\n\n## Recommendation\n\n%s\n' \
+                "$PR_NUM" "$LOG_ID" "$FOLLOWUP" > /tmp/wave2-issue-body.md
+              run_action "draft-issue" "$FOLLOWUP" \
+                gh issue create \
+                  --repo "$REPO" \
+                  --title "$ISSUE_TITLE" \
+                  --body-file /tmp/wave2-issue-body.md \
+                  --label "type: docs" \
+                  --draft
+            fi
+          fi
+
+          # ── append wave2_actions to decision-log JSON ─────────────────────────
+          LOG_FILE=".automation/decision-logs/${LOG_ID}.json"
+          if [ -f "$LOG_FILE" ] && [ -n "$ACTIONS_LOG" ]; then
+            ACTIONS_JSON="[${ACTIONS_LOG%,}]"
+            sed -i "s/^}$/,\n  \"wave2_actions\": {\"dry_run\": ${DRY_RUN}, \"actions\": ${ACTIONS_JSON}}\n}/" \
+              "$LOG_FILE" || true
+          fi
+
+          printf '[wave-2] complete (dry_run=%s)\n' "$DRY_RUN"
