@@ -201,7 +201,7 @@ Each roadmap milestone maps to a GitHub Milestone:
 **Goal:** Production deployment on Kubernetes. Argo engine support.
 
 > Label: `milestone: M6` · Target: v0.5.0 · Plan: [docs/milestones/M6-planning.md](docs/milestones/M6-planning.md)
-> Progress: 92 issues closed / 41 open as of 2026-06-09.
+> Progress: 108 issues closed / 25 open as of 2026-06-09.
 
 **Process health (complete):**
 - [x] K8s startup/readiness/liveness probe semantics in api-gateway + engine-adapter (PR #821)
