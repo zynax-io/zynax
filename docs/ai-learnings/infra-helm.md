@@ -73,3 +73,21 @@
 ### Edge cases discovered
 - **cert-manager is NOT in images/images.yaml**; the umbrella's zynax-cert-manager subchart only creates Certificate/ClusterIssuer (ADR-020), so a bootstrap script must `helm install` upstream cert-manager itself before enabling the subchart, else CRDs are missing.
 - **event-bus + memory-service are `enabled: false`** by default in umbrella values.yaml; the e2e script must pass `--set ...enabled=true` to schedule all 7 service pods (placeholder images ship from merged EPIC A charts).
+
+## Session — 2026-06-09 (issue #810)
+
+### Effective patterns
+- `bash -n <script>` is a reliable syntax check when `shellcheck` is not installed; catches all structural parse errors.
+- `${arr[@]+"${arr[@]}"}` idiom is the correct way to expand a potentially-empty array under `set -euo pipefail`.
+- Deriving NATS stream names in shell by mirroring Go logic avoids hardcoding and keeps the script consistent with service implementation.
+- Using `kubectl exec` into the NATS pod as primary assertion path (no `nats` CLI required on host) with HTTP monitoring endpoint (`/jsz`) as fallback.
+- Port-forward readiness poll via `/dev/tcp/127.0.0.1/<port>` (pure bash, no netcat).
+
+### Edge cases discovered
+- The `workflow.succeeded` event is published as `zynax.workflow.completed` in engine-adapter (`interpreter.go:66`). Always grep the actual event type string in service code — canvas/issue descriptions sometimes use simplified names.
+- The memory-service is not called by the engine-adapter during workflow execution in M6; e2e script performs its own Set/Get roundtrip to verify connectivity.
+- Main branch advances during CI runs when other issues are merging in parallel. Pattern `BEHIND → rebase → BLOCKED (CI) → pass → merge` is normal for active M6 delivery.
+
+### Proposed expert prompt update
+- Rule: "Before writing any e2e assertion for a CloudEvent type, `grep -rn` the event type string in engine-adapter and event-bus implementations to confirm the exact string. Canvas descriptions sometimes use simplified names that differ from actual Go constants."
+  Category: domain

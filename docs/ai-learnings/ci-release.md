@@ -408,3 +408,43 @@ to `imagetools create`). A re-sign pass was not performed; the Jun-8 `main` imag
 - Rule: After writing any GitHub Actions YAML, verify (1) `jobs:` top-level key exists, (2) per-job `if:` guards match the workflow `on:` triggers, and (3) `workflow_run`-triggered jobs include `if: github.event.workflow_run.conclusion == 'success'` unless intentionally running on failure. Validate with `python3 -c 'import yaml; yaml.safe_load(open("file.yml"))'`.
   Category: domain
   Reason: Missing `jobs:` key and wrong trigger guards are silent errors at the YAML level but fail GitHub Actions schema validation immediately.
+
+## Session — 2026-06-09 (post-merge PR #1032, issue #810)
+
+### Effective patterns
+- Running `make check-images` before attempting a digest-bump PR correctly reveals false positives from the Wave 3 post-merge completeness mesh auto-issue generator.
+- Checking the Release workflow's job-level conclusions (skipped vs success) is the definitive signal for whether images were published — faster than querying GHCR directly.
+
+### Edge cases discovered
+- The Wave 3 completeness mesh auto-created two duplicate digest-drift issues (#1035, #1038) even though no actual drift existed — false positives because the mesh fires on each push to main and this PR triggered two runs in rapid succession.
+- `make check-images` returned clean despite two open drift issues — always run `check-images` locally as the authoritative signal before any digest-bump work.
+
+### Proposed expert prompt update
+- Rule: "Before running `make sync-images`, always run `make check-images` first. If it returns clean, any open digest-drift auto-issues are false positives — close them with explanation and skip the digest-bump PR. Do not open a digest-bump PR when the working tree is clean."
+  Category: domain
+
+## Session — 2026-06-09 (post-merge PR #1030, issue #882)
+
+### Effective patterns
+- Test/automation-only PRs (no Go or Dockerfile changes) reliably produce zero image artifacts; Phase 3-5 can be confidently skipped after confirming changed files are all under `automation/tests/`.
+- Querying `gh api repos/.../actions/runs?branch=main` filtered by `head_sha` gives a fast, reliable signal for all CI conclusions.
+
+### Edge cases discovered
+- PR #1030 touched `automation/tests/__init__.py` in addition to the 2 files in the task description. Always use `gh pr view --json files` as authoritative source, not the task description.
+
+### Proposed expert prompt update
+- Rule: "Fetch actual changed files from `gh pr view --json files` before Phase 1 assessment; do not rely on the task description's file list, which may be incomplete."
+  Category: domain
+
+## Session — 2026-06-09 (post-merge PR #1034, issue #803)
+
+### Effective patterns
+- `docker-compose.yml` uses floating `:main` tags for internal services; `docker-compose.services.yml` pins adapter images by digest. Check both separately.
+- `images/images.yaml` tracks only base/toolchain images — service images (workflow-compiler, api-gateway, etc.) are never added there.
+
+### Edge cases discovered
+- `docker-compose.services.yml` only contains backing stores (NATS, Redis) and `http-adapter`. Core platform services (workflow-compiler, api-gateway, etc.) live in `docker-compose.yml` with floating `:main` tags — no digest pin update needed for these.
+
+### Proposed expert prompt update
+- Rule: "workflow-compiler and other core platform services in `docker-compose.yml` use floating `:main` tags by design. Only adapter services (e.g., `http-adapter`) in `docker-compose.services.yml` use digest pins. Skip Phase 4a digest update when the service is not referenced with a digest pin in any compose file."
+  Category: domain

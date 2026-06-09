@@ -361,3 +361,25 @@ but the `gh issue list --state open` query may lag due to GitHub API eventual co
 - Rule: Add `-s` to the empty claim commit. Use `git commit --allow-empty -s -m "...[claim]"` to ensure Signed-off-by is present from the first push.
   Category: domain
   Reason: DCO is enforced on every commit including empty ones; missing it on the claim commit blocks CI immediately.
+
+## Session — 2026-06-09 (issue #803)
+
+### Effective patterns
+- `PolicyGate` as pure domain struct with injected `ActiveInvocationCounter` interface: keeps domain layer zero-external-imports while being testable with a `stubCounter` — no `testify` needed.
+- Using manifest `Annotations` map with `AnnotationEngineHint = "zynax.io/engine-hint"` key for engine routing: leverages the already-parsed `Manifest.Annotations` field without a new proto field.
+- Extracting `buildPolicyGate()` helper from `main()` pre-empts `funlen` lint failure (>40 statements) before encountering it.
+- Passing `*domain.WorkflowGraph` stub (namespace only) to `PolicyGate.Check()` before full graph build: allows fail-fast policy rejection without graph construction overhead.
+
+### Edge cases discovered
+- `EngineHint` is NOT in `CompileWorkflowRequest` — it lives in `SubmitWorkflowRequest` (engine-adapter). Canvas O3 says "validates EngineHint" — resolved by reading from manifest `AnnotationEngineHint` annotation instead of a proto field.
+- `funlen` lint fires when `main()` exceeds 40 statements: adding policy gate wiring to an already-at-limit `main()` triggers this. Always count existing statements before adding to `main`.
+- Pre-commit hook runs `gofmt` and may reformat files: re-stage the modified files and retry the commit — do not amend.
+
+### Failed approaches
+- `gh pr merge --squash` while `mergeStateStatus == BEHIND`: fails with "base branch policy prohibits the merge". Required three rebase-and-push cycles before auto-merge triggered.
+
+### Proposed expert prompt updates
+- Rule: "Before adding code to `cmd/<svc>/main.go`, count the existing statements in `main()`. If ≥35, extract any new block into a named helper function to stay under the `funlen` limit of 40 statements."
+  Category: domain
+- Rule: "When `gh pr merge --squash` fails with 'base branch policy prohibits the merge' after CI passes, the branch is behind main. Run `git fetch origin main && git rebase --signoff origin/main && git push --force-with-lease`, then retry with `--auto` flag."
+  Category: structural-workaround
