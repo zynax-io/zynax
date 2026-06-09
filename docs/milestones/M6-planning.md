@@ -117,9 +117,9 @@ DevAuto.8 is aspirational (Zynax AgentDef workflows) — gated by `automation/te
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
 | step 1 feat(automation): isolate orchestrator subagents in per-run worktrees | [#1002](https://github.com/zynax-io/zynax/issues/1002) | CI | #1007 | ✅ Merged |
-| step 2 feat(automation): idempotent orchestrator dispatch | [#1003](https://github.com/zynax-io/zynax/issues/1003) | CI | — | ⬜ Open |
+| step 2 feat(automation): idempotent orchestrator dispatch | [#1003](https://github.com/zynax-io/zynax/issues/1003) | CI | #1010 | ✅ Done |
 | step 3 chore(automation): classify workaround learnings in m6-learn | [#1004](https://github.com/zynax-io/zynax/issues/1004) | CI | #1008 | ✅ Merged |
-| step 4 chore(automation): prune obsolete tree-workarounds from experts *(after step 1)* | [#1005](https://github.com/zynax-io/zynax/issues/1005) | CI | — | 🔄 In review |
+| step 4 chore(automation): prune obsolete tree-workarounds from experts *(after step 1)* | [#1005](https://github.com/zynax-io/zynax/issues/1005) | CI | #1009 | ✅ Merged |
 
 **M6.F — Platform Configuration Convergence** ✅ **COMPLETE** (EPIC [#670](https://github.com/zynax-io/zynax/issues/670); SPDD-exempt: refactor:/chore:/ci:)
 

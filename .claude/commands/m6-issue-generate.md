@@ -63,10 +63,12 @@ IN_PROGRESS=$(gh issue view "$ISSUE_N" --json labels \
   exit 1
 }
 
-# Check if a branch for this issue already exists on remote (hard-claimed by another session)
+# Check if a branch for this issue already exists on remote (hard-claimed by another session).
+# Match BOTH the bare deterministic claim key `<type>/<N>` and any post-claim slugged
+# variant `<type>/<N>-<slug>` — the trailing boundary is end-of-ref OR a hyphen.
 git fetch origin --prune
 EXISTING_BRANCH=$(git ls-remote origin 'refs/heads/*' | awk '{print $2}' \
-  | sed 's|refs/heads/||' | grep -E "^[a-z]+/${ISSUE_N}-" | head -1)
+  | sed 's|refs/heads/||' | grep -E "^[a-z]+/${ISSUE_N}(-|$)" | head -1)
 [ -n "$EXISTING_BRANCH" ] && {
   echo "Branch $EXISTING_BRANCH already exists on remote — story #$ISSUE_N is taken."
   exit 1
@@ -315,21 +317,37 @@ CURRENT_STEP="5-CLAIM"; check_ctx_budget
 echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CLAIM: creating branch + hard claim on origin  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 # Worktree was created from origin/main in STEP 2.5 — already clean and up to date.
 
-# Derive branch name from issue title: <type>/<N>-<slug>
-SLUG=$(echo "$ISSUE_TITLE" | sed 's|[^a-zA-Z0-9 ]||g' | tr '[:upper:]' '[:lower:]' \
-  | tr ' ' '-' | sed 's/^[a-z]*-[a-z0-9]*-//' | cut -c1-40 | sed 's/-$//')
-BRANCH="${COMMIT_TYPE}/${ISSUE_N}-${SLUG}"
+# Deterministic claim key (load-bearing). The branch ref pushed here is a PURE
+# function of the issue number — `<type>/<N>`, with NO slug. This is the SAME ref
+# `/m6-orchestrate` derives for the same issue, so the two entry points share one
+# mutex: when two sessions race the same story they push the identical ref and only
+# one `git push` wins. A title-derived slug must NOT be part of the claim key — two
+# sessions could otherwise derive two different branches and both win.
+CLAIM_KEY="${COMMIT_TYPE}/${ISSUE_N}"
 
-git checkout -b "$BRANCH"
+git checkout -b "$CLAIM_KEY"
 
-# Hard claim: push empty branch NOW — only one session wins
-if ! git push -u origin "$BRANCH" 2>&1; then
-  echo "HARD CLAIM FAILED: branch $BRANCH already on remote — story #$ISSUE_N taken by another session."
-  git checkout main && git branch -D "$BRANCH"
+# Hard claim: push the empty branch NOW — only one session wins this push.
+if ! git push -u origin "$CLAIM_KEY" 2>&1; then
+  echo "HARD CLAIM FAILED: branch $CLAIM_KEY already on remote — story #$ISSUE_N taken by another session."
+  git checkout main && git branch -D "$CLAIM_KEY"
   gh issue edit "$ISSUE_N" --remove-label "status: in-progress"
   exit 1
 fi
-echo "Hard-claimed: branch $BRANCH pushed to origin."
+echo "Hard-claimed: deterministic key $CLAIM_KEY pushed to origin."
+
+# Post-claim ONLY: apply the human-readable slug. The mutex is already won above, so
+# this rename is cosmetic and race-free. Skip it (leave $SLUG empty) to keep the bare key.
+SLUG=$(echo "$ISSUE_TITLE" | sed 's|[^a-zA-Z0-9 ]||g' | tr '[:upper:]' '[:lower:]' \
+  | tr ' ' '-' | sed 's/^[a-z]*-[a-z0-9]*-//' | cut -c1-40 | sed 's/-$//')
+BRANCH="$CLAIM_KEY"
+if [ -n "$SLUG" ]; then
+  BRANCH="${COMMIT_TYPE}/${ISSUE_N}-${SLUG}"
+  git branch -m "$CLAIM_KEY" "$BRANCH"
+  git push -u origin "$BRANCH"
+  git push origin --delete "$CLAIM_KEY" 2>/dev/null || true
+fi
+echo "Working branch: $BRANCH (claim key was $CLAIM_KEY)."
 ```
 
 ---
