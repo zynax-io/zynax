@@ -115,7 +115,8 @@ Using the same classification logic as `/m6-plan`:
 
 # Quick filter:
 # 1. Has "status: in-progress" label → IN_PROGRESS (skip)
-# 2. Has remote branch matching <type>/<N>-* → IN_PROGRESS (skip)
+# 2. Has remote branch matching the claim key <type>/<N> (bare) OR a slugged
+#    <type>/<N>-* variant → IN_PROGRESS (skip). Match with `^<type>/<N>(-|$)`.
 # 3. Has "Pending #X" or "Depends on #X" in body where X is open → BLOCKED (skip)
 # 4. Otherwise → READY
 ```
@@ -176,6 +177,29 @@ After applying the routing table, emit one log line per issue:
 echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] ROUTE: #$N → $E  ($ISSUE_TITLE)"
 ```
 
+### Pre-spawn reconcile (idempotency layer 2 — dispatch-time early-out)
+
+The batch was selected from a once-read snapshot (STEP 1). Before spawning an agent for
+issue `N`, re-query **live** state — a concurrent session on another machine may have closed
+or merged it in the interval. This is a cheap early-out, not the authoritative check (that is
+STEP 7's merge-SHA dedupe, which operates on a merge fact and is immune to GitHub API lag).
+
+```bash
+DISPATCH_ISSUES=""
+for N in $BATCH_ISSUES; do
+  STATE=$(gh issue view "$N" --json state --jq .state)
+  MERGED_PR=$(gh pr list --state merged --search "$N in:body" \
+    --json number --jq '.[0].number // empty')
+  if [ "$STATE" = "CLOSED" ] || [ -n "$MERGED_PR" ]; then
+    echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] RECONCILE_SKIP: #$N already delivered (state=$STATE${MERGED_PR:+, PR #$MERGED_PR}) — dropping soft claim"
+    gh issue edit "$N" --remove-label "status: in-progress" 2>/dev/null || true
+    continue
+  fi
+  DISPATCH_ISSUES="$DISPATCH_ISSUES $N"
+done
+BATCH_ISSUES=$(echo "$DISPATCH_ISSUES" | xargs)   # only reconciled-live issues proceed
+```
+
 ---
 
 ## STEP 6 — Dispatch expert subagents in parallel
@@ -234,7 +258,12 @@ Agent({
     ## Delivery contract
     1. Check if issue is still OPEN and not already in-progress by another session.
        If already claimed: remove your worktree (cleanup below), stop, and report.
-    2. From inside "$WT", create the branch and push it empty (atomic hard claim) before code.
+    2. From inside "$WT", claim with the DETERMINISTIC KEY before any code: the branch
+       ref is `<type>/<N>` — a pure function of the issue number, NO slug. Push it empty
+       (atomic hard claim). This is the same key /m6-issue-generate derives, so it is the
+       sole mutex: if a sibling already pushed `<type>/<N>` your push is rejected → stop,
+       run cleanup, report "claim lost". Apply any human-readable slug only AFTER the push
+       wins (rename + push the slugged ref); never let a slug into the claim push.
     3. Implement, run all local gates, commit (DCO + Assisted-by), open PR.
     4. Wait for CI. Report result.
     5. Cleanup — your LAST action, always, success or failure:
@@ -300,6 +329,53 @@ As each agent completes, extract:
 3. `## Session Learnings` block
 4. `## Result` block — especially `Merge SHA` and `Affected services`
 
+### Completion-time merge-SHA dedupe (idempotency layer 3 — authoritative)
+
+This is the **authoritative** idempotency check, not layers 1–2. The deterministic claim key
+(layer 1) and pre-spawn reconcile (layer 2) are best-effort early-outs that a stale snapshot or
+GitHub API lag can slip past; this layer operates on a **merge fact** (a SHA on `origin/main`),
+which cannot be wrong. Keep two in-context sets and consult them on every completion **before**
+queuing the PR's STEP 7.5 post-merge verifier:
+
+```bash
+# Initialize once, before collecting any results:
+SEEN_ISSUES=""        # issue numbers already delivered by a merged PR this session
+SEEN_MERGE_SHAS=""    # squash-merge SHAs already handed to a post-merge verifier
+```
+
+On each agent completion reporting a merged PR (`Merge SHA` present), reconcile against live state:
+
+```bash
+# Inputs from the agent's ## Result block: ISSUE_N, PR_N, MERGE_SHA
+# Re-query the authoritative merged PR for this issue (may differ from the one this agent opened).
+WINNER_PR=$(gh pr list --state merged --search "$ISSUE_N in:body" \
+  --json number,mergeCommit --jq 'sort_by(.number) | .[0]')
+WINNER_PR_N=$(echo "$WINNER_PR" | jq -r '.number // empty')
+WINNER_SHA=$(echo "$WINNER_PR" | jq -r '.mergeCommit.oid // empty')
+
+# Dedupe by issue: a DIFFERENT PR already delivered this issue → this agent's PR is the loser.
+if echo " $SEEN_ISSUES " | grep -q " $ISSUE_N " \
+   || { [ -n "$WINNER_PR_N" ] && [ "$WINNER_PR_N" != "$PR_N" ]; }; then
+  echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] DEDUPE: #$ISSUE_N already delivered by PR #$WINNER_PR_N — closing loser PR #$PR_N, skipping its post-merge dispatch"
+  # Close the redundant loser PR if it is still open (idempotent; never touches the winner or main).
+  if [ "$(gh pr view "$PR_N" --json state --jq .state 2>/dev/null)" = "OPEN" ]; then
+    gh pr close "$PR_N" --delete-branch \
+      --comment "Superseded by PR #$WINNER_PR_N, which already delivered #$ISSUE_N. Closing the redundant duplicate (idempotent dispatch, layer 3)." 2>/dev/null || true
+  fi
+  continue   # do NOT queue a post-merge verifier for a loser PR
+fi
+
+# Dedupe by merge SHA: never hand the same merge commit to two verifiers.
+if echo " $SEEN_MERGE_SHAS " | grep -q " $MERGE_SHA "; then
+  echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] DEDUPE: merge SHA $MERGE_SHA already verified — skipping duplicate post-merge dispatch"
+  continue
+fi
+
+# First time we see this issue + SHA — record it; STEP 7.5 will dispatch exactly one verifier.
+SEEN_ISSUES="$SEEN_ISSUES $ISSUE_N"
+SEEN_MERGE_SHAS="$SEEN_MERGE_SHAS $MERGE_SHA"
+```
+
 Emit a log line as each result arrives. Extract context stats from the agent's Session Learnings
 block (look for `ctx_peak` and `compressions` fields if the expert emitted them):
 
@@ -341,8 +417,9 @@ find /tmp -maxdepth 1 \( -name 'zynax-orch-*' -o -name 'zynax-postmerge-*' \) -m
 
 ## STEP 7.5 — Post-merge verification (dispatch one post-mrg agent per merged PR)
 
-For every domain agent that reported a merged PR (CI: green, Merge SHA present), dispatch
-a `post-merge` expert subagent **in background**. Run all post-merge agents in parallel.
+For every **deduped** merged PR — i.e. each merge SHA recorded in `SEEN_MERGE_SHAS` by STEP 7's
+layer-3 check, never a loser PR that was closed there — dispatch a `post-merge` expert subagent
+**in background**. Exactly one verifier per merge SHA. Run all post-merge agents in parallel.
 
 ```bash
 echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] POST_MERGE: dispatching verifiers for merged PRs"
@@ -542,6 +619,30 @@ tree, so cross-agent branch/staging/commit corruption is structurally impossible
 - **User's checkout is never mutated:** the orchestrator does all its own git work in the
   coordinator worktree; `main` stays checked out (untouched) in the user's primary worktree.
 - Distinct from `/m6-issue-generate`'s `/tmp/zynax-auto-<N>` — no namespace collision.
+
+---
+
+## Idempotent dispatch invariants
+
+The same issue must never ship two pull requests, even under stale snapshots and GitHub API
+lag. Three layers enforce this as **defense-in-depth** — not one check, and the cheap layers do
+not replace the authoritative one:
+
+| Layer | Where | Mechanism | Strength |
+|-------|-------|-----------|----------|
+| 1 — Deterministic claim key | STEP 6 dispatch prompt (+ `/m6-issue-generate` STEP 5) | Branch ref `<type>/<N>` is a pure function of the issue number; the atomic empty-branch push is the **sole mutex** shared by both entry points. Slug applied only post-claim. | Prevents two live branches for one issue. |
+| 2 — Pre-spawn reconcile | STEP 5 | Re-query `gh issue view` + merged-PR search before spawning; skip + drop soft claim if already delivered. | Cheap early-out; can be defeated by API lag. |
+| 3 — Completion-time merge-SHA dedupe | STEP 7 | `SEEN_ISSUES` / `SEEN_MERGE_SHAS`; on each completion re-query the authoritative merged PR; close the loser PR and skip its verifier when a different PR already delivered the issue. | **Authoritative** — operates on a merge fact (a SHA on `main`), immune to API lag. |
+
+- **Completion-time is authoritative.** Layers 1–2 reduce the race window; only layer 3 acts on
+  a fact that cannot be wrong. Never treat the claim key or the pre-spawn reconcile as sufficient
+  on its own.
+- **The claim key is the single mutex across both entry points.** `/m6-orchestrate` and
+  `/m6-issue-generate` derive the identical `<type>/<N>` ref, so a race between them collides on
+  one push. A slug must never enter the claim push.
+- **A loser PR is closed, never merged.** When two PRs target one issue, layer 3 keeps the first
+  merged (the winner) and closes the redundant one; `gh pr merge` flags and the push-to-main
+  policy (ADR-023) are unchanged.
 
 ---
 
