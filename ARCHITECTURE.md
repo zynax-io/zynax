@@ -465,6 +465,7 @@ See `docs/reviews/04-architecture-gaps.md` for the full ranked gap list.
 | SPDD prompt governance (Canvas before code) | ADR-019 |
 | Zero-trust intra-service security (proposed) | ADR-020 (pending #240) |
 | Horizontal scale + multi-tenancy (proposed) | ADR-021 (pending #578) |
+| Container image reference management (`images.yaml` source of truth) | ADR-024 |
 
 Full ADR register: `docs/adr/INDEX.md`.
 

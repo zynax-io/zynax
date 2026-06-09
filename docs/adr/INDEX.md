@@ -34,6 +34,7 @@ a PR against `docs/adr/`.
 | [ADR-021](ADR-021-horizontal-scale.md) | Postgres-backed repositories for horizontal scaling | Accepted | 2026-05-21 | task-broker + agent-registry repos — #578 #626 |
 | [ADR-022](ADR-022-event-bus-architecture.md) | EventBusService gRPC wrapper over NATS JetStream | Accepted | 2026-06-02 | `services/event-bus/`, `protos/zynax/v1/event_bus.proto`, EPIC I (#772) |
 | [ADR-023](ADR-023-restrict-direct-pushes-to-main.md) | Restrict direct pushes to `main`; rebase-merge only | Accepted | 2026-06-03 | All branches, PRs, and merge operations |
+| [ADR-024](ADR-024-image-reference-management.md) | Container image reference management — `images.yaml` source of truth | Accepted | 2026-06-08 | `images/images.yaml`, all CI workflow files, Dockerfiles, `config/ci-runner-digest.txt` |
 | [ADR-025](ADR-025-slsa-provenance-attestation.md) | SLSA provenance attestation: keep vs disable | Accepted | 2026-06-08 | `tools-image.yml`, `release.yml` — all `docker/build-push-action` steps |
 
 ---
