@@ -375,11 +375,29 @@ fi
 For SPDD-exempt issues (`fix:`, `refactor:`, `ci:`, `chore:`), implement directly from the issue
 body's scope and acceptance criteria. Read all referenced files before writing any code.
 
-**After implementation, update state files in the same diff:**
-1. `docs/milestones/M6-planning.md` — flip this story's row ⬜→✅
-2. `state/current-milestone.md` — update EPIC progress
-3. Canvas O-step — mark ✅; run `/spdd-sync <canvas>` if implementation diverged from spec
-4. `services/<svc>/AGENTS.md` — only if a new gRPC method, K8s resource type, or env var added
+**After implementation, reconcile ALL status surfaces in the same diff** — driven by live
+issue/PR state, not by memory or the previous doc snapshot. Doc drift is silent (no CI gate
+flags a stale milestone label) and compounds every iteration, so reconcile at delivery time:
+
+1. `docs/milestones/M6-planning.md` — flip this story's row ⬜→✅ (and its EPIC header to
+   `Implemented`/COMPLETE if this was the last open O-step); refresh the "Last updated" line.
+2. `state/current-milestone.md` — update EPIC progress + the "as of" date.
+3. Canvas O-step — mark ✅. **If this issue closed the EPIC's last O-step, flip the canvas
+   `Status:` `Aligned`→`Implemented`.** Run `/spdd-sync <canvas>` if implementation diverged.
+4. **Cross-cutting human docs — only when an EPIC completes or a service's status changes:**
+   the milestone tables in `README.md`, `ROADMAP.md`, `ARCHITECTURE.md`, `CLAUDE.md`, and the
+   README per-service status table. Update the marker (📅 Planned → 🚧 Active → ✅ Complete)
+   and the service status (📋 Planned → 🟡 In progress → ✅ Implemented).
+5. `services/<svc>/AGENTS.md` — only if a new gRPC method, K8s resource type, or env var added.
+
+**Consistency check before opening the PR** (catches drift the row-flip missed):
+```bash
+# Each milestone's marker must agree across all status surfaces.
+grep -nE 'M6|🚧|📅|✅|🟡' README.md ROADMAP.md ARCHITECTURE.md CLAUDE.md \
+  state/current-milestone.md docs/milestones/M6-planning.md | grep -iE 'planned|active|complete'
+# An EPIC marked Implemented in M6-planning must have its canvas Status: Implemented:
+for c in docs/spdd/*/canvas.md; do grep -H -m1 '^\*\*Status:\*\*' "$c"; done
+```
 
 ---
 
