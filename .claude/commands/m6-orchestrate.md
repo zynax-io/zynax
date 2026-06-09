@@ -35,10 +35,23 @@ Just verify they exist.
 ## STEP 1 — Read planning state (orchestrator context budget: ~8K tokens)
 
 ```bash
-# Sync
-git fetch origin --prune && git checkout main && git pull --rebase origin main
+# Per-invocation run id — namespaces every worktree and the crash-recovery sweep (STEP 7).
+# Two concurrent orchestrator runs get distinct ids, so neither can ever touch the other's trees.
+ORCH_RUN_ID="$(date +%s)-$$"
+export ORCH_RUN_ID
 
-# Read only these four files — nothing else
+# Coordinator worktree — the orchestrator's OWN git operations (this sync, the STEP 2 merge
+# pass, the STEP 8 learnings PR) run here, never in the user's primary checkout. The user's
+# working directory is left exactly as they had it.
+REPO=$(git rev-parse --show-toplevel)
+COORD_WT="/tmp/zynax-orch-coord-${ORCH_RUN_ID}"
+git -C "$REPO" worktree remove "$COORD_WT" --force 2>/dev/null || true
+rm -rf "$COORD_WT" 2>/dev/null || true
+git -C "$REPO" fetch origin --prune
+git -C "$REPO" worktree add "$COORD_WT" origin/main   # detached at origin/main
+cd "$COORD_WT"
+
+# Read only these four files — nothing else (from the coordinator worktree)
 cat state/current-milestone.md           # blockers, active work
 cat docs/milestones/M6-planning.md       # EPIC status + dependency table
 ```
@@ -64,7 +77,10 @@ REMOTE_BRANCHES=$(git ls-remote origin 'refs/heads/*' \
 
 ## STEP 2 — Quick merge pass (≤60 s)
 
-Before claiming new work, merge any open PRs that are already CLEAN:
+Before claiming new work, merge any open PRs that are already CLEAN. This runs inside the
+coordinator worktree `$COORD_WT` (created in STEP 1) — never the user's checkout. Use
+`git checkout --detach origin/main`, not `git checkout main`: `main` is checked out in the
+user's primary worktree and git refuses to check it out a second time.
 
 ```bash
 OPEN_PRS_JSON=$(gh pr list --author "@me" --state open \
@@ -77,11 +93,11 @@ while IFS= read -r PR; do
   FAILED=$(echo "$PR" | jq '[.statusCheckRollup[]? | select(.isRequired==true) | .conclusion] | any(. == "FAILURE" or . == "ERROR")')
   if [[ "$MERGE_STATE" == "CLEAN" ]] && [[ "$FAILED" == "false" ]]; then
     BR=$(echo "$PR" | jq -r .headRefName)
-    git checkout "$BR" && git rebase origin/main && git push --force-with-lease
+    git checkout -B "$BR" "origin/$BR" && git rebase origin/main && git push --force-with-lease
     gh pr merge "$PR_N" --squash
     until [ "$(gh pr view "$PR_N" --json state --jq .state)" = "MERGED" ]; do sleep 10; done
     git push origin --delete "$BR" 2>/dev/null || true
-    git checkout main && git pull --rebase origin main
+    git fetch origin --prune && git checkout --detach origin/main
   fi
 done <<< "$OPEN_PRS_JSON"
 ```
@@ -186,6 +202,27 @@ Agent({
 
     ---
 
+    ## Isolated worktree — this is your FIRST action, before reading or writing anything
+    Run this as your very first Bash call. Every read, edit, build, and commit after this
+    happens inside your private tree — branch switches, git add, and lint here are invisible
+    to sibling agents and theirs are invisible to you.
+
+    ```bash
+    REPO=$(git rev-parse --show-toplevel)   # remember the main checkout
+    WT=/tmp/zynax-orch-<RUN_ID>-<N>
+    git -C "$REPO" worktree remove "$WT" --force 2>/dev/null || true
+    rm -rf "$WT" 2>/dev/null || true
+    git -C "$REPO" fetch origin --prune
+    git -C "$REPO" worktree add "$WT" origin/main
+    cd "$WT"
+    ```
+
+    Never cd out of "$WT" until cleanup. Do NOT run `git checkout <branch>` defensively, do
+    NOT verify the branch before each Bash call, do NOT avoid `git add .`, do NOT avoid
+    `git stash` — none of that is needed: this tree is yours alone.
+
+    ---
+
     Your task: implement M6 story issue #N end-to-end.
 
     ## Issue details
@@ -196,11 +233,17 @@ Agent({
 
     ## Delivery contract
     1. Check if issue is still OPEN and not already in-progress by another session.
-       If already claimed: stop and report.
-    2. Follow the atomic branch-push claim protocol (push empty branch before code).
+       If already claimed: remove your worktree (cleanup below), stop, and report.
+    2. From inside "$WT", create the branch and push it empty (atomic hard claim) before code.
     3. Implement, run all local gates, commit (DCO + Assisted-by), open PR.
     4. Wait for CI. Report result.
-    5. End your response with the ## Session Learnings block (required).
+    5. Cleanup — your LAST action, always, success or failure:
+       ```bash
+       cd "$REPO"
+       git worktree remove "$WT" --force 2>/dev/null || true
+       rm -rf "$WT" 2>/dev/null || true
+       ```
+    6. End your response with the ## Session Learnings block (required, template below).
 
     ## Result format (required — orchestrator parses these for post-merge dispatch)
     ```
@@ -212,10 +255,36 @@ Agent({
     - Affected services: <comma-separated list, e.g. "memory-service,event-bus" or "none">
     ```
 
+    ## Session Learnings (required — emit verbatim in this shape so /m6-learn can parse it)
+    ```
+    ## Session Learnings
+    - domain: <go-services|ci-release|infra-helm|python-adapters|bdd-contract|spdd-canvas>
+    - issue: #NNN
+    - date: YYYY-MM-DD
+
+    ### Effective patterns
+    - <pattern>: <why it worked>
+
+    ### Edge cases discovered
+    - <what>: <resolution>
+
+    ### Failed approaches
+    - <what>: <why it failed>
+
+    ### Proposed expert prompt update
+    - Rule: <exact text>
+      Category: domain | structural-workaround
+      Reason: <why permanent — for structural-workaround, name the shared-tree problem it works around>
+    ```
+    Mark Category `structural-workaround` for any rule that only exists to survive a shared
+    working tree (branch resets, git add pollution, stash hazards, ref locks, cherry-pick
+    rescues). Mark `domain` for genuine engineering knowledge (API shapes, query planner,
+    proto field names, test patterns).
+
     ## Constraints
     - Context budget: stay under 12K tokens. Read only files named above.
     - Never read files outside the issue scope.
-    - Use GOWORK=off for all go commands inside service dirs.
+    - Use GOWORK=off for all go commands inside service dirs (a worktree is a normal checkout).
     - Commit format: <type>(<scope>): <subject> ≤72 chars, -s flag, Assisted-by trailer.
   """
 })
@@ -248,6 +317,26 @@ For any agent that reported CI failure: report to user with the failing check na
 For any agent with `compress >= 1` in its result: flag it — that expert may need splitting next time.
 Do not retry automatically — human intervention required for CI failures.
 
+### Leftover worktree sweep (crashed-agent cleanup)
+
+A subagent removes its own `/tmp/zynax-orch-<RUN_ID>-<N>` last. If it crashed, the path leaks.
+After collecting all results, reclaim only **this run's** leftovers — never glob-all, which would
+delete a concurrent orchestrator run's live trees:
+
+```bash
+for WT in /tmp/zynax-orch-${ORCH_RUN_ID}-* /tmp/zynax-postmerge-${ORCH_RUN_ID}-*; do
+  [ -d "$WT" ] || continue
+  echo "[orchestrator issues:${ISSUES_LIST} $(date +%H:%M:%S)] WT_SWEEP: reclaiming leaked worktree $WT"
+  git -C "$COORD_WT" worktree remove "$WT" --force 2>/dev/null || true
+  rm -rf "$WT" 2>/dev/null || true
+done
+git -C "$COORD_WT" worktree prune
+
+# Stale trees from PRIOR crashed runs (age-based; never glob-all live runs):
+find /tmp -maxdepth 1 \( -name 'zynax-orch-*' -o -name 'zynax-postmerge-*' \) -mmin +180 \
+  -exec rm -rf {} + 2>/dev/null || true
+```
+
 ---
 
 ## STEP 7.5 — Post-merge verification (dispatch one post-mrg agent per merged PR)
@@ -279,6 +368,22 @@ Agent({
 
     ---
 
+    ## Isolated worktree — this is your FIRST action
+    You are mostly read-only (GitHub + GHCR APIs) but may push a digest-pin commit. Work
+    entirely inside your own tree so any branch you create cannot stomp a sibling's checkout.
+
+    ```bash
+    REPO=$(git rev-parse --show-toplevel)
+    WT=/tmp/zynax-postmerge-<RUN_ID>-<PR_N>
+    git -C "$REPO" worktree remove "$WT" --force 2>/dev/null || true
+    rm -rf "$WT" 2>/dev/null || true
+    git -C "$REPO" fetch origin --prune
+    git -C "$REPO" worktree add "$WT" origin/main
+    cd "$WT"
+    ```
+
+    ---
+
     Your task: verify post-merge CI, artifacts, and digest pins for:
 
     PR_NUMBER:    <PR_N>
@@ -295,15 +400,20 @@ Agent({
     6. Find all open "bump <image> digest" issues; close stale duplicates; implement newest.
     7. Commit all digest updates as a single chore(ci) PR; squash-merge.
     8. Output the full ## Post-Merge Evidence block.
-    9. End with ## Session Learnings.
+    9. Cleanup — your LAST action, always:
+       ```bash
+       cd "$REPO"
+       git worktree remove "$WT" --force 2>/dev/null || true
+       rm -rf "$WT" 2>/dev/null || true
+       ```
+    10. End with ## Session Learnings.
 
     ## Constraints
     - Context budget: stay under 20K tokens.
-    - Always `git checkout <branch>` as first command in any Bash call (shared workspace).
+    - Your tree is private: no defensive `git checkout` before Bash calls is needed.
     - Never add service images to images/images.yaml — only base images belong there.
-    - Stage specific files only, never `git add .`.
     - `gh pr merge --squash` only.
-    - If no images were built and no digest issues are open: emit SKIP with evidence and exit.
+    - If no images were built and no digest issues are open: emit SKIP with evidence, run cleanup, exit.
   """
 })
 ```
@@ -340,11 +450,12 @@ cat >> docs/ai-learnings/go-services.md << 'EOF'
 EOF
 ```
 
-Open a `docs:` PR for the learnings update if any new entries were added:
+Open a `docs:` PR for the learnings update if any new entries were added. This runs in the
+coordinator worktree `$COORD_WT` from STEP 1 (branch off `origin/main`, never local `main`):
 
 ```bash
 LEARN_BRANCH="docs/ai-learnings-$(date +%Y%m%d%H%M)"
-git checkout -b "$LEARN_BRANCH"
+git checkout -B "$LEARN_BRANCH" origin/main
 git add docs/ai-learnings/
 git commit -s -m "docs(ai-learnings): append session learnings — issues $BATCH_ISSUES
 
@@ -385,6 +496,16 @@ Learnings: appended to docs/ai-learnings/ — PR #NNN opened for review.
 Next: run /m6-plan to see the next available batch.
 ```
 
+After the report, remove the coordinator worktree (the per-run agent/post-merge trees were
+already swept in STEP 7):
+
+```bash
+cd /tmp   # leave the worktree before removing it
+git -C "$REPO" worktree remove "$COORD_WT" --force 2>/dev/null || true
+rm -rf "$COORD_WT" 2>/dev/null || true
+git -C "$REPO" worktree prune
+```
+
 ---
 
 ## Context budget — enforced invariants
@@ -402,6 +523,25 @@ Post-merge subagents read only GitHub API + GHCR API + the two digest-pin files
 
 If you find yourself reading a code file in the orchestrator context: stop. Spawn an expert
 subagent instead.
+
+---
+
+## Worktree isolation invariants
+
+Every git working tree in a session is private and run-scoped — there is no shared mutable
+tree, so cross-agent branch/staging/commit corruption is structurally impossible.
+
+| Tree | Path | Owner | Lifecycle |
+|------|------|-------|-----------|
+| Coordinator | `/tmp/zynax-orch-coord-<RUN_ID>` | orchestrator (STEP 2 merge pass, STEP 8 learnings PR) | created STEP 1, removed after STEP 9 |
+| Domain agent | `/tmp/zynax-orch-<RUN_ID>-<N>` | one expert subagent | created first / removed last by the agent; swept in STEP 7 if it crashed |
+| Post-merge | `/tmp/zynax-postmerge-<RUN_ID>-<PR_N>` | one post-merge subagent | created first / removed last by the agent; swept in STEP 7 if it crashed |
+
+- **Run-scoped, never bare-issue:** paths carry `<RUN_ID>` so the STEP 7 sweep and the
+  coordinator can only ever reclaim *this* run's trees. Globbing `/tmp/zynax-orch-*` is forbidden.
+- **User's checkout is never mutated:** the orchestrator does all its own git work in the
+  coordinator worktree; `main` stays checked out (untouched) in the user's primary worktree.
+- Distinct from `/m6-issue-generate`'s `/tmp/zynax-auto-<N>` — no namespace collision.
 
 ---
 
