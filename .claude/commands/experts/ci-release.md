@@ -98,6 +98,12 @@ HANDOFF to git-ops:
 
 Note: `.github/workflows/` files are excluded from PR-size line counts per CLAUDE.md.
 
+- **PR title subject must be ≤72 chars (`amannn/action-semantic-pull-request`); fix via the
+  PATCH API, not `gh pr edit`.** Check with `echo -n '<subject>' | wc -m` after `gh pr create`.
+  `gh pr edit --title` can fail with a GraphQL Projects-Classic deprecation error — use
+  `gh api repos/zynax-io/zynax/pulls/<N> --method PATCH --field title='...'`, then
+  `gh run rerun <run_id> --failed` to recheck without a new commit. Seen in: #875, #806 (2 sessions).
+
 ---
 
 ## Mandatory reads before touching any workflow
@@ -139,6 +145,14 @@ images:
 The drift-check gate (`cmd/zynax-ci images check`) runs on every PR and fails if any
 image reference in a workflow file diverges from `images.yaml`.
 
+- **Every workflow that references a tracked image digest must be in that image's `consumers:`
+  list.** `make check-images` only diffs files in the consumers array, so a workflow referencing
+  the digest while absent from the list (e.g. `dev-advisory.yml` with 8 ci-runner digest
+  occurrences) drifts silently while the gate stays green. When adding a workflow that pins a
+  tracked digest, add it to `consumers:`. Also audit `paths:` filters: a workflow editing only
+  itself won't trigger if the workflow file isn't in its own `paths:`, leaving the change inert.
+  Seen in: #839 + post-merge (2 sessions).
+
 ---
 
 ## Docker build patterns
@@ -158,6 +172,15 @@ image reference in a workflow file diverges from `images.yaml`.
 
 **Multi-arch:** always build `linux/amd64,linux/arm64`. The M6.Build EPIC (#837) is moving
 to native arm64 runners — do not add QEMU emulation for new workflows.
+
+- **Native multi-arch = split-arch matrix + `merge-and-sign` fan-in (no QEMU).**
+  Use `resolve-matrix` → `platform_matrix` (services × platforms), then a `build-platform` job
+  with `runs-on: ${{ matrix.platform == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}`, then
+  a `merge-and-sign` job that runs `docker buildx imagetools create` to assemble the index. Set
+  `provenance: false` on the per-platform images; apply provenance/attestation only on the merged
+  index. Capture the merged digest for cosign with
+  `docker buildx imagetools inspect --format '{{json .Manifest.Digest}}'`.
+  Seen in: #838, #840 (2 sessions).
 
 - **`docker buildx imagetools create` does NOT propagate OCI annotations from source manifests.**
   When assembling the multi-arch index in `merge-and-sign`, always add explicit `--annotation` flags:
@@ -263,6 +286,13 @@ Do not install tools directly in `run:` steps that are already in the container
   Jobs that need `gh` (PR comments, issue creation, API calls) must run on `ubuntu-24.04`
   (hosted runner), not inside `ci-runner`. For advisory-only steps, add `continue-on-error: true`.
   Seen in: #877 PR #969.
+
+- **No shell heredocs for multi-line CI output, and quote any string containing `--`.**
+  YAML treats `<<` as an anchor reference, breaking the parse — write intermediate results to
+  `/tmp` via `printf '%s\n' "$var"` chains instead. Likewise `printf 'text -- more\n'` fails in
+  the dash shell inside containers (`--` parsed as end-of-options); store the string in a variable
+  first. Cross-job result passing requires a job-level `outputs:` block writing to `$GITHUB_OUTPUT`.
+  Seen in: #877, #878 (2 sessions).
 
 ---
 
