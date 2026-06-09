@@ -1,0 +1,310 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — Post-Merge Completeness Mesh (Wave 3)
+#
+# Plane: near-term
+#
+# Wave 3: Four post-merge expert jobs that run after a merge to main.
+# All jobs are advisory: continue-on-error: true so they never block merges.
+#
+# Jobs:
+#   post-merge-image-test      — pulls newly-built image, smoke test, size delta
+#   post-merge-drift-check     — validates images/images.yaml vs live GHCR manifests
+#   post-merge-security-rescan — runs `make security` on schedule + services/ changes
+#   post-merge-verdict         — fan-in aggregator, opens [AUTO] issues on failure
+#
+# Issue: #880 (M6.DevAuto — DevAuto.7)
+# Depends on: #877 (Wave 0+1), #879 (Wave 2)
+
+name: Post-Merge Completeness (Wave 3)
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly Sunday 02:00 UTC — security rescan
+    - cron: '0 2 * * 0'
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+concurrency:
+  group: post-merge-completeness-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+  issues: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  # ── Job 1: Image smoke test + size delta ────────────────────────────────────
+  # Plane: near-term
+  post-merge-image-test:
+    name: "Post-Merge: image smoke test + size delta"
+    # Runs on hosted runner — gh CLI required for opening [AUTO] issues
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REGISTRY: ghcr.io/zynax-io/zynax
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and smoke-test service images
+        id: smoke
+        run: |
+          FAILED=""
+          SIZE_ISSUES=""
+          REGISTRY="${{ env.REGISTRY }}"
+
+          for svc in api-gateway engine-adapter workflow-compiler task-broker agent-registry event-bus; do
+            IMAGE="${REGISTRY}/${svc}:latest"
+            printf '[image-test] Pulling %s\n' "$IMAGE"
+            if ! docker pull "$IMAGE" 2>/dev/null; then
+              printf '[image-test] SKIP %s — image not found\n' "$svc"
+              continue
+            fi
+
+            # Smoke test: image must start and exit cleanly
+            if ! docker run --rm --entrypoint sh "$IMAGE" -c "exit 0" 2>/dev/null; then
+              printf '[image-test] FAIL smoke test for %s\n' "$svc"
+              FAILED="${FAILED} ${svc}"
+            else
+              printf '[image-test] PASS smoke test for %s\n' "$svc"
+            fi
+
+            # Size guard: flag if image exceeds 500 MB
+            CURRENT_SIZE=$(docker image inspect "$IMAGE" --format '{{.Size}}' 2>/dev/null || printf '0')
+            printf '[image-test] %s size: %s bytes\n' "$svc" "$CURRENT_SIZE"
+            MAX_BYTES=524288000
+            if [ "${CURRENT_SIZE:-0}" -gt "$MAX_BYTES" ] 2>/dev/null; then
+              printf '[image-test] WARN %s size (%s bytes) exceeds 500 MB guard\n' "$svc" "$CURRENT_SIZE"
+              SIZE_ISSUES="${SIZE_ISSUES} ${svc}(${CURRENT_SIZE}B)"
+            fi
+          done
+
+          printf 'failed=%s\n' "$FAILED" >> "$GITHUB_OUTPUT"
+          printf 'size_issues=%s\n' "$SIZE_ISSUES" >> "$GITHUB_OUTPUT"
+
+      - name: Open [AUTO] issue on smoke failure
+        if: steps.smoke.outputs.failed != ''
+        run: |
+          FAILED="${{ steps.smoke.outputs.failed }}"
+          SHA="${{ github.sha }}"
+          printf '[AUTO] Post-merge image smoke test failed: %s\n\nCommit: %s\n\nServices that failed smoke test:%s\n\nTriggered by Wave 3 post-merge completeness mesh.\n' \
+            "$FAILED" "$SHA" "$FAILED" > /tmp/img-issue-body.md
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "[AUTO] Post-merge image smoke test failed ($(date -u +%Y-%m-%d))" \
+            --body-file /tmp/img-issue-body.md \
+            --label "type: ci" 2>/dev/null || true
+
+      - name: Open [AUTO] issue on size guard breach
+        if: steps.smoke.outputs.size_issues != ''
+        run: |
+          SIZE_ISSUES="${{ steps.smoke.outputs.size_issues }}"
+          SHA="${{ github.sha }}"
+          printf '[AUTO] Post-merge image size guard breached\n\nCommit: %s\n\nServices exceeding 500 MB guard: %s\n\nReview image layers. Triggered by Wave 3.\n' \
+            "$SHA" "$SIZE_ISSUES" > /tmp/size-issue-body.md
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "[AUTO] Post-merge image size guard breached ($(date -u +%Y-%m-%d))" \
+            --body-file /tmp/size-issue-body.md \
+            --label "type: ci" 2>/dev/null || true
+
+      - name: Write step summary
+        if: always()
+        run: |
+          FAILED="${{ steps.smoke.outputs.failed }}"
+          SIZE="${{ steps.smoke.outputs.size_issues }}"
+          printf '## Post-Merge: image smoke test + size delta\n\n' >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$FAILED" ] && [ -z "$SIZE" ]; then
+            printf 'All image smoke tests passed. No size guard breaches.\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            [ -n "$FAILED" ] && printf 'Smoke failures:%s\n' "$FAILED" >> "$GITHUB_STEP_SUMMARY"
+            [ -n "$SIZE" ]   && printf 'Size issues:%s\n' "$SIZE" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ── Job 2: images.yaml drift check vs live GHCR manifests ──────────────────
+  # Plane: near-term
+  post-merge-drift-check:
+    name: "Post-Merge: images.yaml drift check"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    if: github.event_name == 'push'
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install crane
+        run: |
+          CRANE_VERSION="0.20.3"
+          curl -fsSL "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" \
+            | tar -xz -C /usr/local/bin crane
+          crane version
+
+      - name: Validate images.yaml digests against GHCR
+        id: drift
+        run: |
+          python3 /dev/stdin << 'PYEOF'
+          import subprocess, re, sys
+          content = open("images/images.yaml").read()
+          entries = re.findall(
+              r'- name:\s+(\S+).*?ref:\s+(\S+)(?:.*?tag:\s+(\S+))?.*?digest:\s+(sha256:[a-f0-9]+)',
+              content, re.DOTALL
+          )
+          drifted = []
+          errors = []
+          for name, ref, tag, pinned in entries:
+              if "ghcr.io" not in ref:
+                  continue
+              img = f"{ref}:{tag}" if tag and tag not in ("", "null") else f"{ref}:latest"
+              r = subprocess.run(["crane", "digest", img], capture_output=True, text=True, timeout=30)
+              if r.returncode != 0:
+                  errors.append(f"{name}: {r.stderr.strip()}")
+                  continue
+              if r.stdout.strip() != pinned:
+                  drifted.append(f"{name}: pinned={pinned} live={r.stdout.strip()}")
+          if drifted or errors:
+              for d in drifted: print(f"DRIFT: {d}")
+              for e in errors:  print(f"ERROR: {e}")
+              sys.exit(1)
+          print("All ghcr.io digests match live GHCR manifests.")
+          PYEOF
+          printf 'drift_exit=%s\n' "$?" >> "$GITHUB_OUTPUT"
+
+      - name: Open [AUTO] issue if drift detected
+        if: failure()
+        run: |
+          SHA="${{ github.sha }}"
+          printf '[AUTO] images.yaml digest drift detected\n\nCommit: %s\n\nOne or more digests in images/images.yaml do not match the live GHCR manifest.\n\nRun `make check-images` locally to see the diff, then update images/images.yaml and run `make sync-images`.\n\nTriggered by Wave 3 post-merge completeness mesh.\n' \
+            "$SHA" > /tmp/drift-issue-body.md
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "[AUTO] images.yaml digest drift detected ($(date -u +%Y-%m-%d))" \
+            --body-file /tmp/drift-issue-body.md \
+            --label "type: ci" 2>/dev/null || true
+
+      - name: Write step summary
+        if: always()
+        run: |
+          printf '## Post-Merge: images.yaml drift check\n\n' >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.drift.outputs.drift_exit }}" = "0" ]; then
+            printf 'No digest drift detected.\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf 'Drift or errors detected. See step output for details.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ── Job 3: Security rescan ──────────────────────────────────────────────────
+  # Plane: near-term
+  post-merge-security-rescan:
+    name: "Post-Merge: security rescan"
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && contains(toJSON(github.event.head_commit.modified), 'services/'))
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run security scan via make
+        id: security
+        run: |
+          if make security 2>&1 | tee /tmp/security-output.txt; then
+            printf 'security_ok=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'security_ok=false\n' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open [AUTO] issue on security failure
+        if: steps.security.outputs.security_ok == 'false'
+        run: |
+          SHA="${{ github.sha }}"
+          printf '[AUTO] Post-merge security rescan failed\n\nCommit: %s\n\n`make security` (govulncheck + bandit + pip-audit) returned non-zero.\n\nOutput summary (first 100 lines):\n\n```\n' \
+            "$SHA" > /tmp/sec-issue-body.md
+          head -100 /tmp/security-output.txt >> /tmp/sec-issue-body.md
+          printf '```\n\nTriggered by Wave 3 post-merge completeness mesh.\n' >> /tmp/sec-issue-body.md
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "[AUTO] Post-merge security rescan failed ($(date -u +%Y-%m-%d))" \
+            --body-file /tmp/sec-issue-body.md \
+            --label "type: ci" 2>/dev/null || true
+
+      - name: Write step summary
+        if: always()
+        run: |
+          printf '## Post-Merge: security rescan\n\n' >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.security.outputs.security_ok }}" = "true" ]; then
+            printf 'Security rescan passed.\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf 'Security rescan failed. See step output for details.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ── Job 4: Verdict fan-in ───────────────────────────────────────────────────
+  # Plane: near-term
+  post-merge-verdict:
+    name: "Post-Merge: verdict fan-in"
+    needs: [post-merge-image-test, post-merge-drift-check, post-merge-security-rescan]
+    if: always()
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check verdicts
+        run: |
+          IMG="${{ needs.post-merge-image-test.result }}"
+          DRIFT="${{ needs.post-merge-drift-check.result }}"
+          SEC="${{ needs.post-merge-security-rescan.result }}"
+
+          printf '## Post-Merge Verdict\n\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '| Job | Result |\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '|-----|--------|\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '| image-test | %s |\n' "$IMG" >> "$GITHUB_STEP_SUMMARY"
+          printf '| drift-check | %s |\n' "$DRIFT" >> "$GITHUB_STEP_SUMMARY"
+          printf '| security-rescan | %s |\n' "$SEC" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$IMG" = "failure" ] || [ "$DRIFT" = "failure" ] || [ "$SEC" = "failure" ]; then
+            printf 'Post-merge check(s) failed: image=%s drift=%s security=%s\n' "$IMG" "$DRIFT" "$SEC"
+            printf '\nVerdict: FAIL\n' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          printf '\nVerdict: PASS\n' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open [AUTO] issue on verdict failure
+        if: failure()
+        run: |
+          SHA="${{ github.sha }}"
+          IMG="${{ needs.post-merge-image-test.result }}"
+          DRIFT="${{ needs.post-merge-drift-check.result }}"
+          SEC="${{ needs.post-merge-security-rescan.result }}"
+          printf '[AUTO] Post-merge completeness verdict: FAIL\n\nCommit: %s\n\nimage-test=%s drift-check=%s security-rescan=%s\n\nSee the Actions run for details. Triggered by Wave 3.\n' \
+            "$SHA" "$IMG" "$DRIFT" "$SEC" > /tmp/verdict-issue-body.md
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "[AUTO] Post-merge completeness verdict FAIL ($(date -u +%Y-%m-%d))" \
+            --body-file /tmp/verdict-issue-body.md \
+            --label "type: ci" 2>/dev/null || true
