@@ -171,18 +171,18 @@ jobs:
         id: drift
         run: |
           python3 /dev/stdin << 'PYEOF'
-          import subprocess, re, sys
-          content = open("images/images.yaml").read()
-          entries = re.findall(
-              r'- name:\s+(\S+).*?ref:\s+(\S+)(?:.*?tag:\s+(\S+))?.*?digest:\s+(sha256:[a-f0-9]+)',
-              content, re.DOTALL
-          )
+          import subprocess, sys, yaml
+          data = yaml.safe_load(open("images/images.yaml"))
           drifted = []
           errors = []
-          for name, ref, tag, pinned in entries:
+          for entry in data.get("images", []):
+              name   = entry.get("name", "")
+              ref    = entry.get("ref", "")
+              tag    = entry.get("tag") or ""
+              pinned = entry.get("digest", "")
               if "ghcr.io" not in ref:
                   continue
-              img = f"{ref}:{tag}" if tag and tag not in ("", "null") else f"{ref}:latest"
+              img = f"{ref}:{tag}" if tag else f"{ref}:latest"
               r = subprocess.run(["crane", "digest", img], capture_output=True, text=True, timeout=30)
               if r.returncode != 0:
                   errors.append(f"{name}: {r.stderr.strip()}")
