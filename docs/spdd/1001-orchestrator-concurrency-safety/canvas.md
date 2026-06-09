@@ -8,7 +8,7 @@
 **Issue:** #1001
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-09
-**Status:** Draft
+**Status:** Aligned
 
 **Child issues:** #1002 (step 1 — worktree isolation) · #1003 (step 2 — idempotent dispatch) · #1004 (step 3 — learning-loop classification) · #1005 (step 4 — expert-guide cleanup)
 
