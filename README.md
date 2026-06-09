@@ -381,7 +381,7 @@ make test        # full suite (unit + BDD + coverage gate)
 | **M3 — Temporal Execution** | ⚠ **Partial** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) · task-broker + agent-registry delivered M5.C |
 | **M4 — YAML System + CLI** | ⚠ **Partial** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) · agent-registry delivered M5.C · compose wired (#481 ✅) |
 | **M5 — Adapter Library** | ✅ **Complete** | v0.4.0 | [Plan](docs/milestones/M5-plan.md) · all 5 adapters ✅ · M5.C ✅ · M5.D ✅ · M5.E ✅ · E2E demo ✅ · v0.4.0 released 2026-05-29 |
-| **M6 — K8s Production-Ready** | 🚧 **Active** | v0.5.0 (target) | [Plan](docs/milestones/M6-planning.md) · delivered: Helm charts (#765) ✅ · Postgres repos (#626) ✅ · EventBus (#772) ✅ · images-SoT + ADR-024 (#855) ✅ · mTLS (#464) ✅ · supply-chain (#465) ✅ · orchestrator hardening (#1001) ✅ · in progress: Argo engine (#766), observability (#467), rate-limiting/policy (#768), e2e harness (#770), SDK PyPI (#769), memory-service (#773) |
+| **M6 — K8s Production-Ready** | 🚧 **Active** | v0.5.0 (target) | [Plan](docs/milestones/M6-planning.md) · delivered: Helm charts (#765) ✅ · Postgres repos (#626) ✅ · EventBus (#772) ✅ · images-SoT + ADR-024 (#855) ✅ · mTLS (#464) ✅ · supply-chain (#465) ✅ · orchestrator hardening (#1001) ✅ · memory-service KV+vector (#773) ✅ · in progress: Argo engine (#766), observability (#467), rate-limiting/policy (#768), e2e harness (#770), SDK PyPI (#769) |
 
 **M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
 AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract
@@ -426,7 +426,7 @@ Current implementation status per service and adapter (as of M6 active developme
 | task-broker | 🟡 MVP | In-memory; restart loses in-flight tasks; gRPC wired in compose |
 | agent-registry | 🟡 MVP | In-memory round-robin with heartbeat; gRPC wired in compose |
 | event-bus | 🟡 In progress | M6 — NATS JetStream gRPC wrapper implemented (EPIC #772: Publish/Subscribe/Unsubscribe + DLQ); engine-adapter CloudEvents wiring pending |
-| memory-service | 🟡 In progress | M6 — Redis KV + vector (EPIC #773: scaffold + KV adapter merged; vector store ongoing) |
+| memory-service | ✅ Implemented | M6 — Redis KV + pgvector; all 10 RPCs, namespace TTL isolation, integration + BDD tests (EPIC #773) |
 
 ### Execution Adapters
 

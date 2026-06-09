@@ -20,7 +20,7 @@
 | M3 — Temporal Execution | ⚠ **Partial** | v0.2.0 | `WorkflowEngine` interface, `TemporalEngine`, `IRInterpreterWorkflow` state machine, `DispatchCapabilityActivity`, cel-go guard evaluation, 5 `EngineAdapterService` gRPC methods. **Not delivered in M3:** task-broker + agent-registry (delivered M5.C #479/#480). CloudEvents publish is a log stub. |
 | M4 — YAML System + CLI | ⚠ **Partial** | v0.3.0 | api-gateway REST layer, `zynax` CLI, Docker Compose runner, GitOps watch. **Not delivered in M4:** agent-registry routing — delivered M5.C (#480); capability dispatch was unblocked by compose wiring (#481). |
 | M5 — Adapter Library | ✅ **Complete** | v0.4.0 | task-broker MVP, agent-registry MVP, compose wiring, all five adapters (http ✅ git ✅ ci ✅ llm ✅ langgraph ✅), cel-go guard, Python SDK `Agent` base class, unified release pipeline, CI runner, distroless images, gRPC deadlines, e2e-demo wired. Released 2026-05-29. See `docs/milestones/M5-plan.md`. |
-| M6 — K8s Production | 🚧 **Active** | v0.5.0 (target) | **Delivered:** mTLS (ADR-020 #464), cosign+SBOM+multi-arch (ADR-025 #465), Postgres-backed task-broker + agent-registry (#626), Helm charts for all 7 services (#765), EventBus over NATS JetStream (#772), `images.yaml` source-of-truth + drift gate (ADR-024 #855), orchestrator self-hosting + concurrency hardening (#873, #1001). **In progress:** ArgoEngine (#766), multi-namespace (#767), policy/rate-limit (#768), Prometheus/OTel (#467), memory-service (#773), SDK PyPI (#769), e2e harness (#770). |
+| M6 — K8s Production | 🚧 **Active** | v0.5.0 (target) | **Delivered:** mTLS (ADR-020 #464), cosign+SBOM+multi-arch (ADR-025 #465), Postgres-backed task-broker + agent-registry (#626), Helm charts for all 7 services (#765), EventBus over NATS JetStream (#772), `images.yaml` source-of-truth + drift gate (ADR-024 #855), orchestrator self-hosting + concurrency hardening (#873, #1001), memory-service KV + vector (#773). **In progress:** ArgoEngine (#766), multi-namespace (#767), policy/rate-limit (#768), Prometheus/OTel (#467), SDK PyPI (#769), e2e harness (#770). |
 | M7 — Full Observability | 📅 **Planned** | v0.6.0 | Benchmarks, load tests, SLOs, Watch polling fix |
 | M8 — CNCF Sandbox | 📅 **Planned** | v1.0.0 | Community traction, second maintainer, trademark policy |
 
@@ -107,8 +107,8 @@ Layer 3 engines are always behind the `WorkflowEngine` interface.
                                        ▼
                   ┌────────────────────────────────────────┐
                   │ agent-registry  ✅ Postgres-backed (#626) │
-                  │ event-bus       🟡 NATS JetStream (#772)  │
-                  │ memory-service  🟡 Redis KV (#773; vec WIP)│
+                  │ event-bus       ✅ NATS JetStream (#772)  │
+                  │ memory-service  ✅ Redis KV+pgvector (#773)│
                   └────────────────────────────────────────┘
                                        │
                   ┌────────────────────────────────────────┐
@@ -375,8 +375,8 @@ two domain interfaces (`ActivityExecutor`, `EventPublisher`). The Temporal SDK a
 | api-gateway | ~1,047 | ~1,071 | ✅ Implemented |
 | task-broker | ~905 | ~455 | 🟡 In-memory MVP |
 | agent-registry | ~565 | ~691 | 🟡 In-memory MVP |
-| event-bus | 0 | 0 | ❌ Stub |
-| memory-service | 0 | 0 | ❌ Stub |
+| event-bus | ~883 | ~1,401 | ✅ Implemented |
+| memory-service | ~910 | ~1,342 | ✅ Implemented |
 | cmd/zynax | ~1,470 | ~1,200 | ✅ Implemented |
 | cmd/zynax-ci | ~854 | ~729 | ✅ Implemented |
 

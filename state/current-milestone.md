@@ -15,7 +15,7 @@
 | M3 — Temporal Execution | ⚠ Partial | v0.2.0 |
 | M4 — YAML System + CLI | ⚠ Partial | v0.3.0 |
 | **M5 — Adapter Library** | ✅ **Complete** | **v0.4.0** |
-| **M6 — K8s Production-Ready** | 🚀 **Active** | — |
+| **M6 — K8s Production-Ready** | 🚧 **Active** | — |
 
 M3/M4 are partial because task-broker and agent-registry were not delivered in those milestones.
 Both completed under M5.C (#460). CloudEvents publishing is log-only (not wired to NATS).
@@ -28,7 +28,7 @@ See [docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md).
 ## M6 — Progress (🚧 Active)
 
 Full plan + per-EPIC status: **[docs/milestones/M6-planning.md](../docs/milestones/M6-planning.md)**.
-As of 2026-06-09: **92 issues closed / 41 open**.
+As of 2026-06-09: **108 issues closed / 25 open**.
 
 ### EPICs delivered ✅
 | EPIC | Issue | Notes |
@@ -41,10 +41,11 @@ As of 2026-06-09: **92 issues closed / 41 open**.
 | Self-hosting dev-automation | #873 | orchestrator + 9-expert mesh, Waves 0–2 |
 | Orchestrator concurrency hardening | #1001 | worktree isolation + idempotent dispatch |
 | Health probes · mTLS · supply-chain | #463 #464 #465 | startup/readiness/liveness, cert-manager, cosign+SBOM |
+| memory-service KV + vector | #773 | Redis KV + pgvector adapters, namespace TTL isolation, all 10 RPCs + BDD |
 
 ### In progress / remaining
 ArgoEngine (#766, O1–O3 merged), multi-namespace (#767), policy/rate-limit (#768),
-Prometheus + OTel (#467/#491), memory-service vector store (#773), SDK PyPI publish (#769),
+Prometheus + OTel (#467/#491), SDK PyPI publish (#769),
 e2e harness (#770), native multi-arch build (#837), DevAuto Waves 3–4 (#880/#881),
 gRPC health protocol (#656/#74).
 
@@ -152,7 +153,7 @@ Priority gaps to file immediately:
 - **#526** — BDD trim (agent-registry), **#532** — handler unit tests (task-broker), **#554** — force-full-pipeline trigger.
 - **SECURITY.md** — false mTLS/SBOM/cosign claims removed (2026-05-20, part of M5.A truth pass).
 
-## Recently Closed (last updated 2026-06-08)
+## Recently Closed (last updated 2026-06-09)
 
 **M6 batch — 2026-06-08 session:**
 - **#799** feat(workflow-compiler): namespace-scoped capability routing (PR #977)

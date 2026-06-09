@@ -7,7 +7,7 @@
 **Issue:** #773
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-02
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #793 (J.0) · #794 (J.1) · #814 (J.2) · #815 (J.3) · #816 (J.4) · #817 (J.5) · #818 (J.6) · #819 (J.7)
 
