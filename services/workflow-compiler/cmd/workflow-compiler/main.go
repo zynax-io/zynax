@@ -27,6 +27,7 @@ import (
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/api"
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/config"
+	"github.com/zynax-io/zynax/services/workflow-compiler/internal/domain"
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/infrastructure"
 )
 
@@ -54,7 +55,7 @@ func main() {
 	)
 	reflection.Register(grpcServer)
 
-	zynaxv1.RegisterWorkflowCompilerServiceServer(grpcServer, api.New())
+	zynaxv1.RegisterWorkflowCompilerServiceServer(grpcServer, api.NewWithPolicy(buildPolicyGate(cfg)))
 
 	healthSvc := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthSvc)
@@ -103,6 +104,20 @@ func main() {
 		slog.Error("metrics server shutdown error", "err", err)
 	}
 	slog.Info("shutdown complete")
+}
+
+// buildPolicyGate constructs a domain.PolicyGate from the environment-backed
+// config. Returns nil when policy enforcement is disabled (no namespace set).
+func buildPolicyGate(cfg *config.Config) *domain.PolicyGate {
+	routing, quotas := cfg.PolicyGates()
+	if len(routing) == 0 && len(quotas) == 0 {
+		return nil
+	}
+	slog.Info("policy gate enabled",
+		"routing_policies", len(routing),
+		"quota_configs", len(quotas),
+	)
+	return domain.NewPolicyGate(routing, quotas, nil)
 }
 
 func parseLogLevel(level string) slog.Level {
