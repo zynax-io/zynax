@@ -347,3 +347,26 @@ to `imagetools create`). A re-sign pass was not performed; the Jun-8 `main` imag
 
 ### Post-merge observation (orchestrator session)
 - **Release workflow failing on main independent of this batch**: Trivy container scan exits 1 on `langgraph-adapter`/`llm-adapter` amd64 — observed even on the protos-only merge `a0d8d5b` (#1019), so it is a CVE-DB/scan-config issue recurring on every main merge, not a Dockerfile regression. Separately, "Merge & sign — engine-adapter" failed on `56a8ac2` (#1018) at the manifest-merge/cosign step (both per-arch builds succeeded) — infra, not code. No new clean image digests published while Release is red → no digest pins to update. Needs separate investigation (Trivy allowlist + cosign/OIDC sign step).
+
+## Session — 2026-06-09 (issues #867, #883)
+
+### Issue already merged but still OPEN (#867)
+
+- **Check git log before implementing to detect pre-existing work**: Running `git log --oneline --follow -- .github/workflows/<file>.yml | head -5` immediately revealed the GHCR retention cap was already merged (commit ba13142 in PR #960), avoiding duplicate effort. Always confirm both the GitHub issue state AND the git history before writing any code. Seen in: #867.
+- **Squash-merge can leave issues open when PR body lacks `Closes #N`**: PR #960 shipped the GHCR retention cap but left issue #867 open because the PR body didn't include an explicit `Closes #867`. Resolution: close the issue manually with a reference to the merge commit after confirming implementation is in main. Seen in: #867.
+- **Atomic claim branch must be cleaned up even when no work is done**: The deterministic claim push creates a remote branch `<type>/<N>` even when the issue is found to be pre-delivered. Always delete the claim branch as part of the "already done" exit path. Seen in: #867.
+
+### BEHIND mergeStateStatus blocks squash-merge even after CI passes (#883)
+
+- **`gh pr merge --squash` fails immediately when `mergeStateStatus` is `BEHIND`**: GitHub re-requires all checks to pass on the *rebased* HEAD — a green CI run on the pre-rebase HEAD is not accepted. The correct pattern is: rebase → push → `gh pr merge --squash --auto` → wait for GitHub to fire the merge once checks pass. Never retry `gh pr merge` directly in a loop — set `--auto` and let GitHub trigger the merge. Seen in: #883, #808.
+- **Parallel M6 activity continuously pushes to main**: On an active milestone, main accumulates commits from concurrent agents every few minutes. Any PR that takes >3 min in CI will be BEHIND by the time checks complete. Treat `--auto` as the default pattern for all PRs, not an exception. Seen in: #883.
+
+### Proposed expert prompt update
+
+- Rule: Before implementing any story, run `git log --oneline --follow -- .github/workflows/<file>.yml | head -5` (or equivalent for the relevant file) to detect if the issue was already shipped in a prior commit. If the commit message references the issue number, check `gh issue view <N>` and close it with a reference if still OPEN.
+  Category: domain
+  Reason: Squash-merge workflows can leave issues open even after the implementing PR is merged — recurring pattern in active milestones.
+
+- Rule: After `gh pr merge --squash` fails with "required status checks are expected", always check `gh pr view <N> --json mergeStateStatus` — if `BEHIND`, rebase + push + set `--auto` rather than retrying the direct merge. The `--auto` flag fires the merge once checks pass on the rebased HEAD without requiring another manual attempt.
+  Category: structural-workaround
+  Reason: Active main branches (parallel M6 delivery) cause BEHIND status on nearly every PR where CI takes >3 minutes — affects all story types.

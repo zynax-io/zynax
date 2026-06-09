@@ -73,3 +73,21 @@
   present in GitHub Actions-hosted runners (pip 24.x) but not in managed containers. Add
   `--ignore-vuln PYSEC-2026-196` to the CI step and document in `[tool.pip-audit]` section
   of `pyproject.toml` with a comment explaining the scope.
+
+## Session — 2026-06-09 (issue #808)
+
+### Effective patterns
+
+- **Read `pyproject.toml` ruff config before judging compliance**: The `[tool.ruff.lint]` settings (select, extend-ignore, pydocstyle convention) determine what ruff actually enforces — always check before assessing what "passes". A file that passes `ruff check` may still fail `ruff check --select D` because the CLI `--select` resets `extend-ignore`. Verify both forms when the acceptance criteria specifies both. Seen in: #808.
+- **Remove suppression rules when adding the missing docstring**: When a `D105` (magic method docstring) was suppressed via `extend-ignore`, the fix was to add the missing docstring AND remove the suppression — not just the suppression. The resulting config is cleaner and the lint gate is more honest. Seen in: #808.
+
+### Edge cases discovered
+
+- **Root-owned `.ruff_cache` from Docker blocks host pre-commit hook**: Running `make lint-python` via Docker creates `.ruff_cache` owned by root. The pre-commit ruff hook on the host then fails with a permission error. Resolution: prepend `RUFF_CACHE_DIR=/tmp/ruff-cache-<issue>` to the `git commit` command. Seen in: #808.
+- **Parallel M6 activity causes `mergeStateStatus: BEHIND` loop**: Main accumulates commits from concurrent agents during CI runs. `gh pr merge --squash` without `--auto` fails repeatedly when the branch is BEHIND. Use `--auto` immediately after the first push so GitHub fires the merge once all checks pass on the latest HEAD. Seen in: #808.
+
+### Proposed expert prompt update
+
+- Rule: Before running `git commit` in a project with Docker-based lint tooling, check if `.ruff_cache` (or equivalent cache dirs) are owned by root. If so, prepend `RUFF_CACHE_DIR=/tmp/ruff-cache-<issue>` to the commit command to avoid pre-commit hook permission failures.
+  Category: structural-workaround
+  Reason: The tools Docker image creates root-owned cache dirs that block host pre-commit hooks — affects all Python-touching PRs in this repo.
