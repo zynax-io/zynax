@@ -106,7 +106,8 @@ Full guide: `docs/patterns/spdd-guide.md` · Template: `docs/spdd/CANVAS_TEMPLAT
 | **M2** (Complete) | WorkflowIR structured fields in `workflow_compiler.proto`, `WorkflowCompilerService` skeleton (in-memory), JSON Schema for WorkflowIR | Temporal integration, persistence, CLI |
 | **M3** (⚠ Partial) | Temporal-backed `EngineAdapterService` — `WorkflowEngine` interface, `IRInterpreterWorkflow`, `DispatchCapabilityActivity`, `TemporalEngine`, gRPC wiring | Other engine adapters, K8s deployment · task-broker missing (M5.C #460) |
 | **M4** (⚠ Partial) | api-gateway REST layer, `zynax` CLI, `kind: AgentDef` routing, Docker Compose runner, GitOps watch | Observability, production hardening · agent-registry missing (M5.C #460) |
-| **M5** (Active) | M5.A docs alignment, M5.B engine fixes, M5.C capability dispatch (task-broker ✅ code, agent-registry pending), M5.D security ✅, M5.E DX ✅, http-adapter ✅, git/ci/llm/langgraph adapters | Persistence, K8s deployment, event-bus |
+| **M5** (✅ Complete, v0.4.0) | M5.A docs alignment, M5.B engine fixes, M5.C capability dispatch (task-broker ✅, agent-registry ✅), M5.D security ✅, M5.E DX ✅, all 5 adapters ✅, e2e-demo ✅ | Persistence, K8s deployment, event-bus (all delivered in M6) |
+| **M6** (🚧 Active) | **Delivered:** mTLS ✅, supply-chain (cosign+SBOM+multi-arch) ✅, Postgres repos (#626) ✅, Helm charts (#765) ✅, EventBus over NATS (#772) ✅, images.yaml SoT + ADR-024 (#855) ✅, self-hosting dev-automation (#873) ✅, orchestrator hardening (#1001) ✅. **In progress:** ArgoEngine (#766), multi-namespace (#767), policy/rate-limit (#768), Prometheus/OTel (#467), memory-service (#773), SDK PyPI (#769), e2e harness (#770) | M7 observability, M8 CNCF submission |
 
 ## AI Anti-Patterns
 

@@ -25,6 +25,31 @@ See [docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md).
 
 ---
 
+## M6 — Progress (🚧 Active)
+
+Full plan + per-EPIC status: **[docs/milestones/M6-planning.md](../docs/milestones/M6-planning.md)**.
+As of 2026-06-09: **92 issues closed / 41 open**.
+
+### EPICs delivered ✅
+| EPIC | Issue | Notes |
+|------|-------|-------|
+| Postgres-backed repositories | #626 | task-broker + agent-registry on pgx/v5 |
+| Helm charts | #765 | all 7 services + NATS/Postgres/Temporal subcharts |
+| EventBus over NATS JetStream | #772 | Publish/Subscribe/Unsubscribe + DLQ (ADR-022) |
+| Config convergence | #670 | libs/zynaxconfig shared package |
+| Container image source-of-truth | #855 | `images.yaml` + drift gate + ADR-024 |
+| Self-hosting dev-automation | #873 | orchestrator + 9-expert mesh, Waves 0–2 |
+| Orchestrator concurrency hardening | #1001 | worktree isolation + idempotent dispatch |
+| Health probes · mTLS · supply-chain | #463 #464 #465 | startup/readiness/liveness, cert-manager, cosign+SBOM |
+
+### In progress / remaining
+ArgoEngine (#766, O1–O3 merged), multi-namespace (#767), policy/rate-limit (#768),
+Prometheus + OTel (#467/#491), memory-service vector store (#773), SDK PyPI publish (#769),
+e2e harness (#770), native multi-arch build (#837), DevAuto Waves 3–4 (#880/#881),
+gRPC health protocol (#656/#74).
+
+---
+
 ## M5 — Progress
 
 M5 is structured into seven tracks. See full execution plan: **[docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md)**.

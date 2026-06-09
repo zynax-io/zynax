@@ -196,11 +196,12 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 6 — Kubernetes Production-Ready
+## Milestone 6 — Kubernetes Production-Ready 🚧 Active (v0.5.0 target)
 
 **Goal:** Production deployment on Kubernetes. Argo engine support.
 
 > Label: `milestone: M6` · Target: v0.5.0 · Plan: [docs/milestones/M6-planning.md](docs/milestones/M6-planning.md)
+> Progress: 92 issues closed / 41 open as of 2026-06-09.
 
 **Process health (complete):**
 - [x] K8s startup/readiness/liveness probe semantics in api-gateway + engine-adapter (PR #821)
@@ -213,17 +214,25 @@ Each roadmap milestone maps to a GitHub Milestone:
 - [x] `/resume-m6` rewrite — FF discipline, doc-PR path, branch cleanup (PR #850)
 - [x] Merge policy documented in CONTRIBUTING.md + AGENTS.md (PR #851)
 
-**Feature EPICs (in progress / pending):**
-- [ ] EventBusService — NATS JetStream gRPC wrapper (EPIC I #772; ADR-022 accepted)
-- [ ] Helm charts for all services (EPIC Helm #765)
-- [ ] Postgres-backed repositories — horizontal scale (EPIC H #626)
-- [ ] Config convergence — env-var canonicalisation (EPIC F #670)
+**Feature EPICs — delivered:**
+- [x] EventBusService — NATS JetStream gRPC wrapper (EPIC I #772; ADR-022 accepted)
+- [x] Helm charts for all 7 services + subcharts (EPIC Helm #765)
+- [x] Postgres-backed repositories — horizontal scale (EPIC H #626)
+- [x] Config convergence — env-var canonicalisation (EPIC F #670)
+- [x] Container image source-of-truth — `images.yaml` + drift gate (EPIC Images #855; ADR-024)
+- [x] Self-hosting dev-automation — orchestrator + expert mesh (EPIC DevAuto #873, Waves 0–2)
+- [x] Orchestrator concurrency hardening — worktree isolation + idempotent dispatch (EPIC #1001)
+
+**Feature EPICs — in progress / pending:**
+- [ ] `ArgoEngine` adapter (EPIC Argo #766 — O1–O3 merged; multi-engine dispatch #798 pending)
 - [ ] Multi-namespace support in workflow-compiler (EPIC NS #767)
-- [ ] `ArgoEngine` adapter (EPIC Argo #766)
-- [ ] `zynax-sdk` Python package published to PyPI (EPIC SDK #769)
 - [ ] Policy enforcement: routing policies, rate limits, capability quotas (EPIC E #768)
-- [ ] Memory service — Redis KV + vector context (EPIC J #773; blocked on #626)
-- [ ] End-to-end harness — full workflow execution test (EPIC G #770)
+- [ ] Prometheus `/metrics` + OTel baseline (EPIC #467 → #491)
+- [ ] `zynax-sdk` Python package published to PyPI (EPIC SDK #769 — TestPyPI dry-run merged)
+- [ ] Memory service — Redis KV + vector context (EPIC J #773 — scaffold + KV adapter merged)
+- [ ] End-to-end harness — kind + Helm + reference workflows (EPIC G #770)
+- [ ] Native multi-arch build pipeline — eliminate QEMU (EPIC Build #837)
+- [ ] DevAuto Waves 3–4 — post-merge completeness mesh + AgentDef workflows (#880, #881)
 
 ---
 
