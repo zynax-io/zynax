@@ -167,6 +167,11 @@ func (h *Handler) Submit(ctx context.Context, req *pb.SubmitRequest) (*pb.Submit
 // Never log.Fatal or os.Exit in handlers or domain code — return error up the chain
 ```
 
+- **Wrap `ctx.Err()` before returning it — a bare `return ctx.Err()` fails `wrapcheck`.**
+  Outside gRPC use `return fmt.Errorf("context: %w", ctx.Err())`; inside a gRPC handler use
+  `status.FromContextError(ctx.Err()).Err()`, which the wrapcheck grpc glob exempts and which
+  maps cancellation/deadline to the correct gRPC code. Seen in: #824, #797 (2 sessions).
+
 ---
 
 ## Postgres / pgx v5 patterns (ADR-008 + M6.H canvas)
@@ -242,6 +247,12 @@ Never modify `*.pb.go` or `*_grpc.pb.go` files. If a new field is needed:
 1. Edit the `.proto` file in `protos/zynax/v1/`
 2. Run `make generate-protos` (runs in Docker — only prereq is Docker Desktop)
 3. Commit the generated stubs alongside the `.proto` change
+
+- **Read the generated `.pb.go` getters for exact field names before writing handler code —
+  proto source and generated structs diverge.** Use the nil-safe `req.GetField()` getters
+  rather than `req.Field`. Observed mismatches: requests that omit an `id` field (the service
+  must generate the UUID), `Embedding` vs `Vector`, `Prefix` vs `Pattern`. Seen in: #817, #488
+  (2 sessions).
 
 ---
 

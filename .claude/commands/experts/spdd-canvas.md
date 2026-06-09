@@ -242,6 +242,23 @@ Body:
 
 ---
 
+## Status-surface reconciliation
+
+At every story delivery, reconcile **all** status surfaces from live issue/PR state — not just
+the local two. Live `gh issue list --state open` + `gh pr list --state merged` are the source of
+truth for "done", never the planning-doc column or the canvas `Status:` field. A per-story
+delivery updates only the local surfaces (the M6-planning row + the canvas O-step checkbox); the
+cross-cutting ones drift silently because no CI gate flags a stale milestone label. When an EPIC's
+last O-step merges:
+
+1. Flip the EPIC canvas `Status:` Aligned → Implemented.
+2. Update the milestone tables in README / ROADMAP / ARCHITECTURE / CLAUDE.md.
+3. Refresh `state/current-milestone.md` and its "as of" date.
+
+Then `grep` the markers across those files to confirm they agree. Seen in: #1001, #1011 (2 sessions).
+
+---
+
 ## Output format
 
 ```

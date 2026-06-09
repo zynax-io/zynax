@@ -37,3 +37,20 @@
 | 6 | ci-release | gh CLI absent from ci-runner container — advisory jobs need hosted runner | #877 | applied | ci-release.md +5L |
 
 **Summary:** 6 proposed | 6 applied | 0 rejected | 0 pending
+
+## Run 2026-06-09 14:30 — domains: go-services, ci-release, spdd-canvas
+
+| # | Domain | Pattern | Category | Source sessions | Status | Delta |
+|---|--------|---------|----------|-----------------|--------|-------|
+| 1 | go-services | Wrap ctx.Err() before return — bare return fails wrapcheck | domain | #824, #797 | committed | go-services.md +5L |
+| 2 | go-services | Read generated .pb.go getters for exact field names | domain | #817, #488 | committed | go-services.md +6L |
+| 3 | go-services | File-reversion / write-related-files-in-one-turn | structural-workaround | #796, #797 | rejected | — |
+| 4 | go-services | Atomic empty-branch claim + cherry-pick/reset rescue | structural-workaround | #795, #799, #796 | rejected | — |
+| 5 | ci-release | Native multi-arch: split matrix + merge-and-sign fan-in | domain | #838, #840 | committed | ci-release.md +11L |
+| 6 | ci-release | No heredocs / quote `--` strings / job-level outputs in CI | domain | #877, #878 | committed | ci-release.md +6L |
+| 7 | ci-release | Tracked-digest workflows must be in image consumers list | domain | #839, #839-postmerge | committed | ci-release.md +8L |
+| 8 | ci-release | PR title ≤72 chars; fix via PATCH API not gh pr edit | domain | #875, #806 | committed | ci-release.md +5L |
+| 9 | ci-release | Avoid make lint pre-commit — Docker overwrites files | structural-workaround | #860, #879 | rejected | — |
+| 10 | spdd-canvas | Reconcile all status surfaces from live issue/PR state | domain | #1001, #1011 | committed | spdd-canvas.md +17L |
+
+**Summary:** 10 proposed | 7 committed | 3 rejected (structural) | 0 pending
