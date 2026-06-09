@@ -62,6 +62,6 @@
 | 1 | go-services | Base testcontainers GenericContainer — avoid modules/<x> deps | domain | #818, #828 | committed | go-services.md +39L |
 | 2 | go-services | Re-stage after lint/pre-commit hook rewrites files in place | structural-workaround | #819, #824 | rejected | — |
 | 3 | go-services | git rebase drops commits in target — verify diff after rebase | structural-workaround | #795, #838 | rejected | — |
-| 4 | go-services | Sandbox Bash forms: no env-prefix/multiline -m/compound cmds | env-constraint | #798, #877 | committed | go-services.md +13L |
+| 4 | go-services | Sandbox Bash forms: no env-prefix/multiline -m/compound cmds | env-constraint | #798, #877 | applied | covered by dispatch preamble (m6-orchestrate / m6-issue-generate); expert-guide copy reverted — env-constraint is outside /m6-learn --apply scope |
 
-**Summary:** 1 proposed (domain) | 2 committed | 2 rejected (structural) | 0 pending
+**Summary:** 1 proposed (domain) | 1 committed | 2 rejected (structural) | 1 env-constraint (covered by dispatch preamble)
