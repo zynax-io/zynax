@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/agent-registry/internal/api"
 	"github.com/zynax-io/zynax/services/agent-registry/internal/domain"
@@ -28,13 +29,14 @@ import (
 )
 
 type config struct {
-	GRPCPort  int    `envconfig:"GRPC_PORT" default:"50052"`
-	LogLevel  string `envconfig:"LOG_LEVEL" default:"info"`
-	TLSCert   string `envconfig:"TLS_CERT"`
-	TLSKey    string `envconfig:"TLS_KEY"`
-	TLSCA     string `envconfig:"TLS_CA"`
-	DBEnabled bool   `envconfig:"DB_ENABLED" default:"false"`
-	DBDSN     string `envconfig:"DB_DSN"`
+	GRPCPort    int    `envconfig:"GRPC_PORT" default:"50052"`
+	MetricsPort int    `envconfig:"METRICS_PORT" default:"9090"`
+	LogLevel    string `envconfig:"LOG_LEVEL" default:"info"`
+	TLSCert     string `envconfig:"TLS_CERT"`
+	TLSKey      string `envconfig:"TLS_KEY"`
+	TLSCA       string `envconfig:"TLS_CA"`
+	DBEnabled   bool   `envconfig:"DB_ENABLED" default:"false"`
+	DBDSN       string `envconfig:"DB_DSN"`
 }
 
 func main() {
@@ -56,6 +58,15 @@ func run(cfg config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
+	tracerShutdown, err := zynaxobs.InitTracer(ctx, "agent-registry")
+	if err != nil {
+		return fmt.Errorf("agent-registry: tracer init: %w", err)
+	}
+	defer func() { _ = tracerShutdown(context.Background()) }()
+
+	metricsSrv := zynaxobs.StartMetricsServer(cfg.MetricsPort)
+	defer func() { _ = metricsSrv.Shutdown(context.Background()) }()
+
 	creds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
 		return fmt.Errorf("agent-registry: tls credentials: %w", err)
@@ -76,7 +87,11 @@ func run(cfg config) error {
 	}
 	svc := domain.NewAgentRegistryService(repo)
 
-	srv := grpc.NewServer(grpc.Creds(creds))
+	srv := grpc.NewServer(
+		grpc.Creds(creds),
+		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
+		grpc.ChainUnaryInterceptor(zynaxobs.MetricsUnaryInterceptor("agent-registry")),
+	)
 	reflection.Register(srv)
 	zynaxv1.RegisterAgentRegistryServiceServer(srv, api.NewHandler(svc))
 

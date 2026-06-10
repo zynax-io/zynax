@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 )
 
@@ -57,6 +58,8 @@ func (a *ActivityWorker) PublishLifecycleEventActivity(ctx context.Context, even
 	if err != nil {
 		// Best-effort: log the error but do not fail the activity so that
 		// event-bus unavailability never interrupts workflow execution.
+		// Surface the failure in Prometheus as well (M5.D #483 counter wiring).
+		zynaxobs.EventPublishFailed(eventType)
 		slog.Warn("lifecycle event publish failed",
 			"event_type", eventType,
 			"workflow_id", workflowID,

@@ -9,6 +9,7 @@ use (
 	./agents/adapters/git
 	./agents/adapters/http
 	./libs/zynaxconfig
+	./libs/zynaxobs
 	./protos/generated/go
 	./services/agent-registry
 	./services/api-gateway

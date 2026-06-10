@@ -16,11 +16,13 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/zynax-io/zynax/libs/zynaxconfig"
+	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/task-broker/internal/api"
 	"github.com/zynax-io/zynax/services/task-broker/internal/domain"
@@ -57,6 +59,15 @@ func run(cfg config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
+	tracerShutdown, err := zynaxobs.InitTracer(ctx, "task-broker")
+	if err != nil {
+		return fmt.Errorf("task-broker: tracer init: %w", err)
+	}
+	defer func() { _ = tracerShutdown(context.Background()) }()
+
+	metricsSrv := zynaxobs.StartMetricsServer(cfg.HealthPort)
+	defer func() { _ = metricsSrv.Shutdown(context.Background()) }()
+
 	creds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
 		return fmt.Errorf("task-broker: tls credentials: %w", err)
@@ -85,13 +96,7 @@ func run(cfg config) error {
 	executor := infrastructure.NewAgentExecutor(creds)
 	svc := domain.NewTaskService(repo, finder, executor)
 
-	srv := grpc.NewServer(grpc.Creds(creds))
-	reflection.Register(srv)
-	zynaxv1.RegisterTaskBrokerServiceServer(srv, api.NewHandler(svc))
-
-	healthSvc := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(srv, healthSvc)
-	healthSvc.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	srv := newGRPCServer(creds, svc)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
 	if err != nil {
@@ -109,4 +114,21 @@ func run(cfg config) error {
 	slog.Info("shutting down")
 	srv.GracefulStop()
 	return nil
+}
+
+// newGRPCServer builds the gRPC server with metrics + tracing interceptors,
+// reflection, the TaskBroker handler, and the gRPC health service registered.
+func newGRPCServer(creds credentials.TransportCredentials, svc *domain.TaskService) *grpc.Server {
+	srv := grpc.NewServer(
+		grpc.Creds(creds),
+		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
+		grpc.ChainUnaryInterceptor(zynaxobs.MetricsUnaryInterceptor("task-broker")),
+	)
+	reflection.Register(srv)
+	zynaxv1.RegisterTaskBrokerServiceServer(srv, api.NewHandler(svc))
+
+	healthSvc := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(srv, healthSvc)
+	healthSvc.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	return srv
 }

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
+	"github.com/zynax-io/zynax/libs/zynaxobs"
 	"github.com/zynax-io/zynax/services/api-gateway/internal/api"
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
 	"github.com/zynax-io/zynax/services/api-gateway/internal/infrastructure"
@@ -85,9 +86,16 @@ func run(cfg config) error {
 	svc := domain.NewApplyService(clients, clients, clients)
 	handler := api.NewHandler(svc, cfg.APIKey)
 
+	tracerShutdown, err := zynaxobs.InitTracer(context.Background(), "api-gateway")
+	if err != nil {
+		return fmt.Errorf("api-gateway: tracer init: %w", err)
+	}
+	defer func() { _ = tracerShutdown(context.Background()) }()
+
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 	probes.Register(mux)
+	zynaxobs.RegisterMetrics(mux)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
@@ -130,7 +138,7 @@ func serveUntilShutdown(srv *http.Server, port int) error {
 func workRecordMiddleware(probes *api.Probes, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/startupz", "/readyz", "/livez", "/healthz":
+		case "/startupz", "/readyz", "/livez", "/healthz", "/metrics":
 			next.ServeHTTP(w, r)
 			return
 		}
