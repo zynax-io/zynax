@@ -160,6 +160,17 @@ SKIP_MEMORY="${SKIP_MEMORY:-0}"
 
 log "preflight passed."
 
+# Reach api-gateway via a port-forward by default. The NodePort host mapping
+# (host 8080 -> nodePort 30080) works locally but kube-proxy can reset it on the
+# GitHub runner when the control-plane node forwards to a pod on a worker node.
+# A port-forward tunnels through the kube-apiserver and is environment-independent.
+# Honors a caller-provided API_GW_URL (skip the forward if it was overridden).
+if [[ "${API_GW_URL}" == "http://localhost:8080" ]]; then
+  GW_LOCAL_PORT="${GW_LOCAL_PORT:-18080}"
+  port_forward "svc/zynax-api-gateway" "${GW_LOCAL_PORT}" 8080
+  API_GW_URL="http://localhost:${GW_LOCAL_PORT}"
+fi
+
 # ── 1. Submit workflow via api-gateway ───────────────────────────────────────────
 
 log "step 1: submitting code-review workflow via api-gateway at ${API_GW_URL}…"
