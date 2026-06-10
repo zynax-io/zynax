@@ -16,6 +16,17 @@
 
 # temporalio/temporal chart overrides
 temporal:
+  # Run schema setup as a regular (non-hook) Job instead of a Helm pre-install
+  # hook. The umbrella chart bundles Postgres in the SAME release, and a
+  # pre-install hook runs BEFORE the Postgres StatefulSet exists, so the schema
+  # job can never connect and `helm install` fails with
+  # "failed pre-install: timed out waiting for the condition".
+  # As a regular Job (backoffLimit) it is created alongside Postgres and
+  # self-retries until the database is reachable; `helm --wait` then waits for it
+  # to complete. This also matches GitOps installs (Flux/Argo) where hooks don't
+  # apply. See helm/charts/temporal/charts/temporal/templates/server-job.yaml.
+  schema:
+    useHelmHooks: false
   server:
     replicaCount: 1
     image:

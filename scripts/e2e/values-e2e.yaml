@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# values-e2e.yaml — Helm value overrides shared by cluster-up.sh and
+# helm-upgrade.sh so the zynax-umbrella release has an IDENTICAL shape across
+# install, upgrade, and rollback in the ephemeral kind smoke cluster (EPIC G
+# #770). Keep this file the single source of truth for e2e-only overrides;
+# both scripts pass it with `-f`.
+#
+# These overrides are e2e-only. Production deployments provision the Postgres
+# credentials Secret and a properly-privileged Temporal database role out of
+# band (ADR-021); they do NOT use these values.
+
+# ── Service images ──────────────────────────────────────────────────────────
+# Pin the 5 release-matrix services to the floating `main` tag, which release.yml
+# publishes on every merge. The chart default (Chart.AppVersion → "0.4.0") was
+# never pushed to GHCR, so the default tag fails ImagePull. event-bus and
+# memory-service are NOT in the release.yml build matrix (no image is published),
+# so they are left disabled here; the smoke test covers the 5 services that have
+# images. Re-enable them once their images ship.
+zynax-api-gateway:
+  image:
+    tag: main
+zynax-workflow-compiler:
+  image:
+    tag: main
+zynax-engine-adapter:
+  image:
+    tag: main
+  env:
+    # The umbrella default (`zynax-umbrella-zynax-temporal-temporal-frontend`)
+    # assumes a release named `zynax-umbrella`; with release `zynax` the Temporal
+    # frontend Service is `zynax-temporal-frontend`. Correct it for the e2e
+    # release. (The umbrella default is wrong for any release name and needs a
+    # templated fix in the chart.)
+    temporalHostPort: "zynax-temporal-frontend:7233"
+zynax-task-broker:
+  image:
+    tag: main
+zynax-agent-registry:
+  image:
+    tag: main
+zynax-event-bus:
+  enabled: false
+zynax-memory-service:
+  enabled: false
+
+# ── Postgres ────────────────────────────────────────────────────────────────
+# Use a deterministic, pre-created credentials Secret (created by cluster-up.sh)
+# instead of the chart's auto-generated password, so the Temporal schema Job and
+# the temporal-db Secret can share a known password. The Secret must carry the
+# keys configured in the postgres subchart (postgres-password + password).
+#
+# Image override: Bitnami deleted legacy tags from docker.io/bitnami in 2025, so
+# the subchart's pinned `bitnami/postgresql:16.4.0-debian-12-r12` no longer pulls
+# (NotFound). Point at the `bitnamilegacy` mirror, which still hosts it.
+# allowInsecureImages lets the bitnami chart accept the non-default repo. NOTE:
+# the production postgres subchart references the same dead tag and needs the
+# same repoint as a separate fix — tracked outside this e2e PR.
+zynax-postgres:
+  postgresql:
+    global:
+      security:
+        allowInsecureImages: true
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/postgresql
+      tag: 16.4.0-debian-12-r12
+    auth:
+      existingSecret: zynax-postgres-creds
+
+# ── Temporal ──────────────────────────────────────────────────────────────────
+# Point the Temporal schema/connection at the Postgres SUPERUSER for the e2e
+# cluster. The schema Job runs `temporal-sql-tool create-database`, which the
+# non-privileged application role (zynax) cannot do; the superuser can. The
+# temporal-db Secret (created by cluster-up.sh) carries this password.
+# Merges into the subchart datastore config — connectAddr/databaseName/
+# existingSecret from helm/charts/temporal/values.yaml are preserved.
+# connectAddr is also corrected here: the subchart default
+# (`zynax-postgres-postgresql`) does not match the Service the bitnami chart
+# actually creates (`zynax-postgresql`), so DNS resolution fails. The subchart
+# default is wrong for production too and needs a separate fix.
+zynax-temporal:
+  temporal:
+    server:
+      config:
+        persistence:
+          datastores:
+            default:
+              sql:
+                user: postgres
+                connectAddr: "zynax-postgresql:5432"
+            visibility:
+              sql:
+                user: postgres
+                connectAddr: "zynax-postgresql:5432"

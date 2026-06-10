@@ -42,16 +42,17 @@ WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
 KIND_CONFIG="${SCRIPT_DIR}/kind-config.yaml"
 UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
 
-# The 7 Zynax service Deployments that must reach a healthy rollout. event-bus
-# and memory-service run as placeholder images until EPIC I (#772) / J (#773).
+# The Zynax service Deployments that must reach a healthy rollout. Only the 5
+# services in the release.yml build matrix have a published image; event-bus and
+# memory-service are not built yet (no GHCR image), so they are excluded from the
+# e2e deploy (disabled in values-e2e.yaml) and from this assertion list. Re-add
+# them once their images ship.
 SERVICE_DEPLOYMENTS=(
   "${RELEASE_NAME}-zynax-api-gateway"
   "${RELEASE_NAME}-zynax-workflow-compiler"
   "${RELEASE_NAME}-zynax-engine-adapter"
   "${RELEASE_NAME}-zynax-task-broker"
   "${RELEASE_NAME}-zynax-agent-registry"
-  "${RELEASE_NAME}-zynax-event-bus"
-  "${RELEASE_NAME}-zynax-memory-service"
 )
 
 # ── helpers ──────────────────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ require() {
 require kind
 require kubectl
 require helm
+require openssl
 
 [[ -f "${KIND_CONFIG}" ]]   || die "kind config not found: ${KIND_CONFIG}"
 [[ -d "${UMBRELLA_CHART}" ]] || die "umbrella chart not found: ${UMBRELLA_CHART}"
@@ -104,6 +106,45 @@ helm upgrade --install cert-manager cert-manager \
   --wait \
   --timeout "${WAIT_TIMEOUT}"
 
+# ── 2.5 provision Postgres + Temporal credentials ───────────────────────────────
+
+# The Temporal schema Job and server connect to the bundled Postgres using the
+# `temporal-db` Secret, and the bitnami Postgres subchart reads its password from
+# the `zynax-postgres-creds` Secret (values-e2e.yaml sets auth.existingSecret).
+# Pre-create both with a single shared password so they always match. The schema
+# Job runs `temporal-sql-tool create-database`, which only the Postgres superuser
+# can do — values-e2e.yaml points Temporal at user `postgres`, so temporal-db
+# carries the superuser password.
+#
+# Idempotent: the password is generated once and reused on re-runs so it never
+# diverges from an already-initialised Postgres data volume.
+log "provisioning Postgres + Temporal credentials in namespace '${NAMESPACE}'…"
+kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+
+if kubectl -n "${NAMESPACE}" get secret zynax-postgres-creds >/dev/null 2>&1; then
+  log "  reusing existing zynax-postgres-creds Secret (idempotent)."
+  PG_PASSWORD="$(kubectl -n "${NAMESPACE}" get secret zynax-postgres-creds \
+    -o jsonpath='{.data.postgres-password}' | base64 -d)"
+else
+  PG_PASSWORD="$(openssl rand -hex 16)"
+  kubectl -n "${NAMESPACE}" create secret generic zynax-postgres-creds \
+    --from-literal=postgres-password="${PG_PASSWORD}" \
+    --from-literal=password="${PG_PASSWORD}"
+fi
+
+if ! kubectl -n "${NAMESPACE}" get secret temporal-db >/dev/null 2>&1; then
+  kubectl -n "${NAMESPACE}" create secret generic temporal-db \
+    --from-literal=password="${PG_PASSWORD}"
+fi
+
+# api-gateway refuses to start without ZYNAX_GW_API_KEY (it reads the `api-key`
+# key from the Secret named by api-gateway's apiKeySecretName, default
+# `zynax-gw-api-key`). Provision a throwaway key for the smoke cluster.
+if ! kubectl -n "${NAMESPACE}" get secret zynax-gw-api-key >/dev/null 2>&1; then
+  kubectl -n "${NAMESPACE}" create secret generic zynax-gw-api-key \
+    --from-literal=api-key="$(openssl rand -hex 16)"
+fi
+
 # ── 3. deploy the full Zynax stack via the umbrella chart ────────────────────────
 
 # Build chart dependencies if the packaged subcharts are missing (e.g. a fresh
@@ -115,20 +156,48 @@ if [[ ! -d "${UMBRELLA_CHART}/charts" ]] || \
 fi
 
 log "deploying zynax-umbrella as release '${RELEASE_NAME}' in namespace '${NAMESPACE}'…"
-# event-bus + memory-service are enabled with placeholder images so all 7
-# service pods schedule; real implementations land via EPIC I (#772) / J (#773).
+# values-e2e.yaml carries the e2e-only overrides (shared with helm-upgrade.sh so
+# the release shape is identical across revisions): service image tags pinned to
+# `main`, event-bus/memory-service disabled (no image yet), and the Postgres /
+# Temporal credential wiring.
+# NOTE: no --wait here. engine-adapter cannot become Ready until the Temporal
+# `default` namespace is registered (step 3.5), and a Helm --wait would deadlock
+# waiting on it. Readiness is asserted explicitly by the rollout loop in step 4.
 helm upgrade --install "${RELEASE_NAME}" "${UMBRELLA_CHART}" \
   --namespace "${NAMESPACE}" \
   --create-namespace \
-  --set zynax-event-bus.enabled=true \
-  --set zynax-memory-service.enabled=true \
-  --set zynax-cert-manager.enabled=true \
-  --wait \
-  --timeout "${WAIT_TIMEOUT}"
+  -f "${SCRIPT_DIR}/values-e2e.yaml" \
+  --set zynax-cert-manager.enabled=true
 
-# ── 4. wait for all 7 service deployments to become healthy ──────────────────────
+# ── 3.5 register the Temporal 'default' namespace ────────────────────────────────
 
-log "waiting for all 7 service deployments to roll out…"
+# The temporalio/temporal chart does NOT auto-register a namespace, but
+# engine-adapter connects to namespace 'default' on startup and crash-loops with
+# "Namespace default is not found" until it exists. Wait for the Temporal frontend
+# to roll out, then register it via the admintools pod. Idempotent: skip if it is
+# already present (e.g. a re-run against a reused cluster).
+log "waiting for Temporal frontend, then registering the 'default' namespace…"
+kubectl -n "${NAMESPACE}" rollout status \
+  "deployment/${RELEASE_NAME}-temporal-frontend" --timeout "${WAIT_TIMEOUT}"
+
+ADMINTOOLS="deployment/${RELEASE_NAME}-temporal-admintools"
+namespace_ready=""
+for _ in $(seq 1 30); do
+  if kubectl -n "${NAMESPACE}" exec "${ADMINTOOLS}" -- \
+       temporal operator namespace describe default >/dev/null 2>&1; then
+    namespace_ready="yes"
+    break
+  fi
+  kubectl -n "${NAMESPACE}" exec "${ADMINTOOLS}" -- \
+    temporal operator namespace create default >/dev/null 2>&1 || true
+  sleep 5
+done
+[[ -n "${namespace_ready}" ]] || die "Temporal 'default' namespace did not register"
+log "Temporal 'default' namespace is registered."
+
+# ── 4. wait for all 5 service deployments to become healthy ──────────────────────
+
+log "waiting for all 5 service deployments to roll out…"
 for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
   if ! kubectl -n "${NAMESPACE}" get deployment "${dep}" >/dev/null 2>&1; then
     die "expected deployment not found: ${dep} (umbrella values out of sync?)"
@@ -138,7 +207,7 @@ for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
     --timeout "${WAIT_TIMEOUT}"
 done
 
-log "all 7 service deployments are healthy."
+log "all 5 service deployments are healthy."
 kubectl -n "${NAMESPACE}" get pods -o wide
 
 log "cluster '${CLUSTER_NAME}' is up. api-gateway REST is reachable on host port 8080."
