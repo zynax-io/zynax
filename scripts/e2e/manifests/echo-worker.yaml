@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# echo-worker — minimal capability provider for the e2e smoke test (#1088).
+#
+# Deploys the langgraph-adapter serving the "echo" capability so a real dispatch
+# round-trips: workflow-compiler -> engine-adapter -> Temporal -> task-broker ->
+# agent-registry -> echo-worker (echo) -> task completed -> workflow succeeded.
+# Pairs with spec/workflows/examples/e2e-demo.yaml. Applied by cluster-up.sh into
+# the release namespace; env mirrors the proven docker-compose wiring.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-worker
+  labels:
+    app.kubernetes.io/name: echo-worker
+    app.kubernetes.io/component: capability-provider
+    app.kubernetes.io/part-of: zynax-e2e
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: echo-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: echo-worker
+        app.kubernetes.io/component: capability-provider
+        app.kubernetes.io/part-of: zynax-e2e
+    spec:
+      containers:
+        - name: langgraph-adapter
+          image: ghcr.io/zynax-io/zynax/langgraph-adapter:main
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50058
+          env:
+            - name: AGENT_ID
+              value: "echo-worker"
+            # Address other services use to reach this worker — the Service below.
+            - name: ADAPTER_ENDPOINT
+              value: "echo-worker:50058"
+            - name: REGISTRY_ADDR
+              value: "zynax-agent-registry:50052"
+            - name: ZYNAX_LANGGRAPH_ADAPTER_GRPC_PORT
+              value: "50058"
+            # Map the "echo" capability to the bundled example graph (shipped in
+            # the image under /app/examples/echo_graph.py).
+            - name: LANGGRAPH_MOUNTS
+              value: '[{"capability_name":"echo","module":"examples.echo_graph","graph":"graph"}]'
+          readinessProbe:
+            tcpSocket:
+              port: 50058
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 50058
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-worker
+  labels:
+    app.kubernetes.io/name: echo-worker
+    app.kubernetes.io/part-of: zynax-e2e
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: echo-worker
+  ports:
+    - name: grpc
+      port: 50058
+      targetPort: grpc
+      protocol: TCP

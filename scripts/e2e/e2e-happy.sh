@@ -45,7 +45,9 @@ API_GW_URL="${API_GW_URL:-http://localhost:8080}"
 ZYNAX_API_KEY="${ZYNAX_API_KEY:-}"
 POLL_TIMEOUT="${POLL_TIMEOUT:-120}"
 POLL_INTERVAL="${POLL_INTERVAL:-5}"
-WORKFLOW_FILE="${WORKFLOW_FILE:-${REPO_ROOT}/spec/workflows/examples/code-review.yaml}"
+# Default to the minimal echo workflow (#1088): a single "echo" capability that
+# the deployed echo-worker satisfies, so the run reaches terminal succeeded.
+WORKFLOW_FILE="${WORKFLOW_FILE:-${REPO_ROOT}/spec/workflows/examples/e2e-demo.yaml}"
 
 # Sentinel key for memory-service roundtrip assertion.
 MEMORY_WF_ID="e2e-happy-$(date +%s)"
