@@ -458,7 +458,7 @@ Post-merge verification of an engine-adapter change. Outcome: SKIP — image pub
 - The authoritative "image published for this exact commit" signal is a `success` Release run PLUS the GHCR tag `main-<short-sha>` on the package's newest version — not the run conclusion alone.
 
 ### Edge cases discovered
-- A single merge SHA can show multiple "Post-Merge Completeness (Wave 3)" runs (re-runs). Treat any one `success` as sufficient; don't block waiting for a specific run instance.
+- A single merge SHA can show multiple "Post-Merge Completeness (Wave 3)" runs (re-runs). Treat any one `success` as sufficient; don't block waiting for a specific run instance. (Workflow demoted to schedule-only "Weekly Audit" / `weekly-audit.yml` in #1113 — per-merge runs no longer exist.)
 
 ## Session — 2026-06-10 (post-merge: PRs #1062, #1065; issues #804, #491)
 

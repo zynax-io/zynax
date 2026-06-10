@@ -1,0 +1,232 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — Weekly Audit
+#
+# Schedule-only audit of published artifacts and security posture. Replaces the
+# per-merge "Post-Merge Completeness (Wave 3)" mesh: audits fail loudly as a red
+# workflow run instead of auto-filing [AUTO] skeleton issues. A failed run on
+# Monday morning is the signal; an engineer investigates and opens a
+# properly-scoped issue with context.
+#
+# Jobs:
+#   audit-image-test       — pulls :latest service images, smoke test, size guard
+#   audit-drift-check      — images/images.yaml vs live GHCR manifests (warning-only)
+#   audit-security-rescan  — runs `make security` (govulncheck + bandit + pip-audit)
+#   audit-summary          — fan-in: pass/fail table, exits non-zero on any failure
+#
+# Issue: #1113 (CI/delivery overhaul §1B) — was #880 (M6.DevAuto — DevAuto.7)
+
+name: Weekly Audit
+
+on:
+  schedule:
+    # Weekly Sunday 02:00 UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  # ── Job 1: Image smoke test + size guard ────────────────────────────────────
+  audit-image-test:
+    name: "Weekly Audit: image smoke test + size guard"
+    runs-on: ubuntu-24.04
+    env:
+      REGISTRY: ghcr.io/zynax-io/zynax
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and smoke-test service images
+        id: smoke
+        run: |
+          FAILED=""
+          SIZE_ISSUES=""
+          REGISTRY="${{ env.REGISTRY }}"
+
+          # Audit pulls :latest — simplest, matches what a user would pull.
+          for svc in api-gateway engine-adapter workflow-compiler task-broker agent-registry event-bus; do
+            IMAGE="${REGISTRY}/${svc}:latest"
+            printf '[image-test] Pulling %s\n' "$IMAGE"
+            if ! docker pull "$IMAGE" 2>/dev/null; then
+              printf '[image-test] SKIP %s — image not found\n' "$svc"
+              continue
+            fi
+
+            # Smoke test: verify image manifest is present locally after pull.
+            # docker run --entrypoint sh fails for distroless images (no /bin/sh).
+            # Inspect-based check works for any base image including gcr.io/distroless/static.
+            IMAGE_ID=$(docker image inspect "$IMAGE" --format '{{.Id}}' 2>/dev/null || true)
+            if [ -z "$IMAGE_ID" ]; then
+              printf '[image-test] FAIL manifest inspect for %s\n' "$svc"
+              FAILED="${FAILED} ${svc}"
+            else
+              printf '[image-test] PASS manifest inspect for %s\n' "$svc"
+            fi
+
+            # Size guard: flag if image exceeds 500 MB
+            CURRENT_SIZE=$(docker image inspect "$IMAGE" --format '{{.Size}}' 2>/dev/null || printf '0')
+            printf '[image-test] %s size: %s bytes\n' "$svc" "$CURRENT_SIZE"
+            MAX_BYTES=524288000
+            if [ "${CURRENT_SIZE:-0}" -gt "$MAX_BYTES" ] 2>/dev/null; then
+              printf '[image-test] FAIL %s size (%s bytes) exceeds 500 MB guard\n' "$svc" "$CURRENT_SIZE"
+              SIZE_ISSUES="${SIZE_ISSUES} ${svc}(${CURRENT_SIZE}B)"
+            fi
+          done
+
+          printf 'failed=%s\n' "$FAILED" >> "$GITHUB_OUTPUT"
+          printf 'size_issues=%s\n' "$SIZE_ISSUES" >> "$GITHUB_OUTPUT"
+
+          # Audits fail loudly — any smoke failure or size breach fails the job.
+          if [ -n "$FAILED" ] || [ -n "$SIZE_ISSUES" ]; then
+            printf '::error::Image audit failed — smoke:%s size:%s\n' "$FAILED" "$SIZE_ISSUES"
+            exit 1
+          fi
+
+      - name: Write step summary
+        if: always()
+        run: |
+          FAILED="${{ steps.smoke.outputs.failed }}"
+          SIZE="${{ steps.smoke.outputs.size_issues }}"
+          printf '## Weekly Audit: image smoke test + size guard\n\n' >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$FAILED" ] && [ -z "$SIZE" ]; then
+            printf 'All image smoke tests passed. No size guard breaches.\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            [ -n "$FAILED" ] && printf 'Smoke failures:%s\n' "$FAILED" >> "$GITHUB_STEP_SUMMARY"
+            [ -n "$SIZE" ]   && printf 'Size issues:%s\n' "$SIZE" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ── Job 2: images.yaml drift check vs live GHCR manifests (warning-only) ───
+  # The retag model (§3C) makes digest drift structurally impossible; this stays
+  # as a sanity check only and never fails the audit (no exit 1).
+  audit-drift-check:
+    name: "Weekly Audit: images.yaml drift check (warning-only)"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install crane
+        run: |
+          CRANE_VERSION="0.20.3"
+          curl -fsSL "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" \
+            | tar -xz -C /usr/local/bin crane
+          crane version
+
+      - name: Validate images.yaml digests against GHCR (warning-only)
+        run: |
+          python3 /dev/stdin << 'PYEOF'
+          import subprocess, yaml
+          data = yaml.safe_load(open("images/images.yaml"))
+          drifted = []
+          errors = []
+          for entry in data.get("images", []):
+              name   = entry.get("name", "")
+              ref    = entry.get("ref", "")
+              tag    = entry.get("tag") or ""
+              pinned = entry.get("digest", "")
+              if "ghcr.io" not in ref:
+                  continue
+              img = f"{ref}:{tag}" if tag else f"{ref}:latest"
+              r = subprocess.run(["crane", "digest", img], capture_output=True, text=True, timeout=30)
+              if r.returncode != 0:
+                  errors.append(f"{name}: {r.stderr.strip()}")
+                  continue
+              if r.stdout.strip() != pinned:
+                  drifted.append(f"{name}: pinned={pinned} live={r.stdout.strip()}")
+          if drifted or errors:
+              # Warning-only: annotate but never fail the audit on drift.
+              for d in drifted: print(f"::warning::images.yaml drift — {d}")
+              for e in errors:  print(f"::warning::images.yaml drift check error — {e}")
+          else:
+              print("All ghcr.io digests match live GHCR manifests.")
+          with open("/tmp/drift-count.txt", "w") as f:
+              f.write(str(len(drifted) + len(errors)))
+          PYEOF
+
+      - name: Write step summary
+        if: always()
+        run: |
+          DRIFT_COUNT=$(cat /tmp/drift-count.txt 2>/dev/null)
+          printf '## Weekly Audit: images.yaml drift check (warning-only)\n\n' >> "$GITHUB_STEP_SUMMARY"
+          if [ "${DRIFT_COUNT:-1}" = "0" ]; then
+            printf 'No digest drift detected.\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf 'Drift or errors detected (warning-only — does not fail the audit). See step output.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ── Job 3: Security rescan ──────────────────────────────────────────────────
+  audit-security-rescan:
+    name: "Weekly Audit: security rescan"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run security scan via make
+        id: security
+        run: |
+          # Fails the job directly on any govulncheck/bandit/pip-audit finding.
+          make security 2>&1 | tee /tmp/security-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Write step summary
+        if: always()
+        run: |
+          printf '## Weekly Audit: security rescan\n\n' >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.security.outcome }}" = "success" ]; then
+            printf 'Security rescan passed.\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf 'Security rescan failed. See step output for details.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # ── Job 4: Audit summary fan-in ─────────────────────────────────────────────
+  # Runs unconditionally (if: always()) and checks upstream results inside the
+  # step — a skipped fan-in is treated as neutral by GitHub and would hide failures.
+  audit-summary:
+    name: "Weekly Audit: summary"
+    needs: [audit-image-test, audit-drift-check, audit-security-rescan]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Write pass/fail table and verdict
+        run: |
+          IMG="${{ needs.audit-image-test.result }}"
+          DRIFT="${{ needs.audit-drift-check.result }}"
+          SEC="${{ needs.audit-security-rescan.result }}"
+
+          printf '## Weekly Audit Summary\n\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '| Audit | Result |\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '|-------|--------|\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '| image smoke test + size guard | %s |\n' "$IMG" >> "$GITHUB_STEP_SUMMARY"
+          printf '| images.yaml drift check (warning-only) | %s |\n' "$DRIFT" >> "$GITHUB_STEP_SUMMARY"
+          printf '| security rescan | %s |\n' "$SEC" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$IMG" != "success" ] || [ "$DRIFT" != "success" ] || [ "$SEC" != "success" ]; then
+            printf '\nVerdict: FAIL\n' >> "$GITHUB_STEP_SUMMARY"
+            printf '::error::Weekly audit failed: image=%s drift=%s security=%s\n' "$IMG" "$DRIFT" "$SEC"
+            exit 1
+          fi
+
+          printf '\nVerdict: PASS\n' >> "$GITHUB_STEP_SUMMARY"
