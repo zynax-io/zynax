@@ -94,6 +94,19 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 | ci(infra): add Python adapter images to multi-arch release pipeline | — | CI/Infra | — | ⬜ Open |
 | ci(infra): audit and minimize final image sizes | [#841](https://github.com/zynax-io/zynax/issues/841) | CI/Infra | — | ⬜ Open |
 
+**M6.E2E-Green — make the e2e-smoke gate execute a workflow end-to-end** (EPIC [#1086](https://github.com/zynax-io/zynax/issues/1086); canvas `docs/spdd/1086-e2e-green/canvas.md` — Status: **Aligned**; complements EPIC #770 harness + #771 gate)
+
+The gate brings the cluster up but fails at the happy-path assertion. Delivery order (O1 + O3 are independent and ready; then O2 → O4 (∥ O5) → O6):
+
+| Step | Story | Issue | Area | Size | Depends on | Status |
+|------|-------|-------|------|------|-----------|--------|
+| O1 | expose api-gateway on host (NodePort 30080) — fixes `curl 56` | [#1087](https://github.com/zynax-io/zynax/issues/1087) | api-gateway/Infra | S | — | ⬜ Ready |
+| O3 | event-bus + memory-service → release.yml build matrix | [#1089](https://github.com/zynax-io/zynax/issues/1089) | CI/Infra | M | — | ⬜ Ready |
+| O2 | minimal capability worker + reference workflow → `succeeded` | [#1088](https://github.com/zynax-io/zynax/issues/1088) | engine-adapter/Infra | M | #1087 | ⛔ Blocked |
+| O4 | enable event-bus + memory-service in e2e + CloudEvent/memory assertions | [#1090](https://github.com/zynax-io/zynax/issues/1090) | Infra | M | #1087 #1088 #1089 | ⛔ Blocked |
+| O5 | right-size e2e-smoke runner / pod resources | [#1091](https://github.com/zynax-io/zynax/issues/1091) | CI/Infra | S | #1088 | ⛔ Blocked |
+| O6 | promote gate advisory → stable/required (Temporal+Argo+failure) | [#1092](https://github.com/zynax-io/zynax/issues/1092) | CI | S | #1087 #1088 #1090 #1091 #1071 | ⛔ Blocked |
+
 **M6.DevAuto — Self-hosting dev-automation via orchestrator + expert mesh** (EPIC [#873](https://github.com/zynax-io/zynax/issues/873); assets in `automation/` — **not** AGENTS.md ambient context)
 
 | Story | Issue | Area | PR | Status |
