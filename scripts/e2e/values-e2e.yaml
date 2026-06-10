@@ -20,6 +20,11 @@
 zynax-api-gateway:
   image:
     tag: main
+  # Expose api-gateway on the kind host port (#1087). kind-config.yaml maps host
+  # 8080 -> nodePort 30080, so e2e-happy.sh can POST /api/v1/apply on localhost:8080.
+  service:
+    type: NodePort
+    nodePort: 30080
 zynax-workflow-compiler:
   image:
     tag: main
