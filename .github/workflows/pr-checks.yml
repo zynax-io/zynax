@@ -11,6 +11,7 @@
 #   canvas-freshness     → SPDD Canvas present + valid for feat: PRs (ADR-019)
 #   conflict-markers     → scans PR for leftover git conflict markers
 #   gitleaks-scan        → secrets scan across full PR commit range
+#   milestone-state      → ADVISORY: state/milestone.yaml schema check (issue #1110)
 #
 # PR size labeling is in pr-size.yml (separate workflow) to avoid feedback loops.
 #
@@ -314,6 +315,26 @@ jobs:
           cd cmd/zynax-ci
           GOWORK=off go run . images check --root "$GITHUB_WORKSPACE"
           echo "✅ All consumer digests match images/images.yaml"
+
+# ── Milestone State Schema (ADVISORY — non-blocking) ─────────────────────────
+# Validates state/milestone.yaml (machine-readable milestone SSoT, updated only
+# by /milestone-close and /milestone-new) against state/milestone.schema.json.
+# Advisory while the schema stabilizes — promote to a required check once stable.
+  milestone-state:
+    name: Milestone state schema (advisory)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
+      options: --user root
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate state/milestone.yaml against schema
+        run: |
+          uv run --no-project --quiet --with pyyaml --with jsonschema \
+            python3 scripts/validate_milestone_state.py
 
 # ── Secret Scan (gitleaks) ────────────────────────────────────────────────────
   gitleaks-scan:
