@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: Apache-2.0
+# e2e smoke — gated/optional live-cluster end-to-end test (EPIC G #770 step 5, #813).
+#
+# Brings up an ephemeral kind cluster, deploys the zynax-umbrella chart, and runs
+# the Helm upgrade/rollback assertion (scripts/e2e/helm-upgrade.sh).
+#
+# GATED, NOT a required PR gate: it triggers ONLY on changes to helm/**,
+# services/**, or engine-adapter/**, plus manual workflow_dispatch. It is
+# deliberately excluded from the branch-protection required-check set — only
+# developers landing infra/service changes need to watch it.
+#
+# All third-party Actions are pinned to a full 40-char commit SHA.
+
+name: e2e smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "helm/**"
+      - "services/**"
+      - "engine-adapter/**"
+      - "scripts/e2e/**"
+      - ".github/workflows/e2e-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  helm-upgrade:
+    name: helm upgrade/rollback (kind)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      HELM_VERSION: v3.17.3
+      KIND_VERSION: v0.23.0
+      KIND_NODE_IMAGE: kindest/node:v1.29.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install kind + kubectl + Helm
+        # The e2e scripts own cluster bootstrap (cluster-up.sh creates the kind
+        # cluster idempotently), so this step only installs the binaries on PATH.
+        run: |
+          curl -sSLo /tmp/kind \
+            "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          sudo install /tmp/kind /usr/local/bin/kind
+          kind version
+
+          curl -sSLo /tmp/kubectl \
+            "https://dl.k8s.io/release/v1.29.2/bin/linux/amd64/kubectl"
+          sudo install /tmp/kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+          curl -sSLo /tmp/helm.tar.gz \
+            "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          tar -C /tmp -xzf /tmp/helm.tar.gz linux-amd64/helm
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          helm version --short
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add nats https://nats-io.github.io/k8s/helm/charts
+          helm repo add temporalio https://temporalio.github.io/helm-charts
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+
+      - name: Bring up cluster + deploy stack
+        run: scripts/e2e/cluster-up.sh
+
+      - name: Helm upgrade/rollback smoke
+        run: scripts/e2e/helm-upgrade.sh
+
+      - name: Tear down cluster
+        if: always()
+        run: scripts/e2e/cluster-down.sh
