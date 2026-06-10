@@ -46,10 +46,29 @@ As of 2026-06-09: **108 issues closed / 25 open**.
 ### In progress / remaining
 ArgoEngine (#766, O1–O3 merged), multi-namespace (#767), policy/rate-limit (#768),
 Prometheus + OTel (#467/#491), SDK PyPI publish (#769),
-e2e harness (#770), native multi-arch build (#837), DevAuto Waves 3–4 (#880/#881),
-gRPC health protocol (#656/#74).
+e2e harness (#770) + **e2e-green execution path (#1086 — O1 #1087 / O3 #1089 ready)**,
+Postgres off Bitnami (#1073 — O1 ADR-026 ✅, #1076→#1079 chain),
+native multi-arch build (#837), DevAuto Waves 3–4 (#880/#881),
+gRPC health protocol (#74; #656 ✅ merged).
 
 ---
+
+### M6.E2E-Green — make the e2e-smoke gate execute a workflow end-to-end (#1086) — 🔄 Active
+
+Canvas: `docs/spdd/1086-e2e-green/canvas.md` — Status: **Aligned**. The gate brings the cluster
+up but fails at the happy-path assertion; this epic closes the execution-path gaps discovered
+2026-06-10. Delivery order (parallelizable where noted):
+
+| Step | Story | Type | Size | Depends on |
+|------|-------|------|------|-----------|
+| O1 | [#1087](https://github.com/zynax-io/zynax/issues/1087) expose api-gateway on host (NodePort 30080) | feat(infra) | S | — (ready) |
+| O3 | [#1089](https://github.com/zynax-io/zynax/issues/1089) event-bus + memory-service in release.yml matrix | ci(infra) | M | — (ready) |
+| O2 | [#1088](https://github.com/zynax-io/zynax/issues/1088) minimal capability worker + reference workflow → succeeded | feat(infra) | M | #1087 |
+| O4 | [#1090](https://github.com/zynax-io/zynax/issues/1090) enable event-bus + memory-service in e2e + assertions | test(infra) | M | #1087 #1088 #1089 |
+| O5 | [#1091](https://github.com/zynax-io/zynax/issues/1091) right-size e2e-smoke runner / pod resources | ci(infra) | S | #1088 |
+| O6 | [#1092](https://github.com/zynax-io/zynax/issues/1092) promote gate advisory → stable/required | ci | S | #1087 #1088 #1090 #1091 #1071 |
+
+**Ready now for `/m6-orchestrate`:** #1087 (O1) + #1089 (O3) — independent. Then O2 → O4 (+ O5 ∥) → O6.
 
 ## M5 — Progress
 
@@ -414,11 +433,16 @@ Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is B
 ## Next Session Queue (priority order)
 
 **Immediate (unblocked):**
-- **#878** ci(automation): Wave 1 orchestrator aggregation (depends on #877 ✅)
+- **#1087** feat(infra): expose api-gateway on host port for e2e (NodePort 30080) — #1086 O1 ✅ ready
+- **#1089** ci(infra): event-bus + memory-service in release.yml matrix — #1086 O3 ✅ ready
+- **#1076** refactor(infra): replace postgres subchart image source — #1073 O2 ✅ ready (ADR-026 chose official postgres:17)
+- **#1071** ci(infra): Temporal-vs-Argo engine matrix in e2e-smoke — #771 O2 ✅ ready (#1070 merged)
 - **#867** chore(ci): GHCR retention cap — last 5 builds only
-- **#795** feat(protos): ArgoConfig + argo_engine BDD — PR #976 in CI (pending merge)
 - **#840** ci(infra): Python adapters in multi-arch release pipeline
 - **#841** ci(infra): audit and minimize image sizes
+
+**M6.E2E-Green chain (after O1/O3):** #1088 (O2, needs #1087) → #1090 (O4, needs #1087 #1088 #1089) → #1091 (O5, needs #1088) → #1092 (O6, needs #1087 #1088 #1090 #1091 #1071).
+**M6.Postgres chain (after #1076):** #1077 → #1078 → #1079 (sequential).
 
 **M6.Argo continuation (after #795 merges):**
 - **#796** feat(engine-adapter): Argo engine adapter implementation (#766, O2)
