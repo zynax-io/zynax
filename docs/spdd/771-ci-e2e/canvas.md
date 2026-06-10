@@ -7,7 +7,7 @@
 **Issue:** #771
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-10
-**Status:** Draft
+**Status:** Aligned
 
 **Child issues:** #1070 (H.1) · #1071 (H.2)
 
