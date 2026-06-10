@@ -160,13 +160,40 @@ log "deploying zynax-umbrella as release '${RELEASE_NAME}' in namespace '${NAMES
 # the release shape is identical across revisions): service image tags pinned to
 # `main`, event-bus/memory-service disabled (no image yet), and the Postgres /
 # Temporal credential wiring.
+# NOTE: no --wait here. engine-adapter cannot become Ready until the Temporal
+# `default` namespace is registered (step 3.5), and a Helm --wait would deadlock
+# waiting on it. Readiness is asserted explicitly by the rollout loop in step 4.
 helm upgrade --install "${RELEASE_NAME}" "${UMBRELLA_CHART}" \
   --namespace "${NAMESPACE}" \
   --create-namespace \
   -f "${SCRIPT_DIR}/values-e2e.yaml" \
-  --set zynax-cert-manager.enabled=true \
-  --wait \
-  --timeout "${WAIT_TIMEOUT}"
+  --set zynax-cert-manager.enabled=true
+
+# ── 3.5 register the Temporal 'default' namespace ────────────────────────────────
+
+# The temporalio/temporal chart does NOT auto-register a namespace, but
+# engine-adapter connects to namespace 'default' on startup and crash-loops with
+# "Namespace default is not found" until it exists. Wait for the Temporal frontend
+# to roll out, then register it via the admintools pod. Idempotent: skip if it is
+# already present (e.g. a re-run against a reused cluster).
+log "waiting for Temporal frontend, then registering the 'default' namespace…"
+kubectl -n "${NAMESPACE}" rollout status \
+  "deployment/${RELEASE_NAME}-temporal-frontend" --timeout "${WAIT_TIMEOUT}"
+
+ADMINTOOLS="deployment/${RELEASE_NAME}-temporal-admintools"
+namespace_ready=""
+for _ in $(seq 1 30); do
+  if kubectl -n "${NAMESPACE}" exec "${ADMINTOOLS}" -- \
+       temporal operator namespace describe default >/dev/null 2>&1; then
+    namespace_ready="yes"
+    break
+  fi
+  kubectl -n "${NAMESPACE}" exec "${ADMINTOOLS}" -- \
+    temporal operator namespace create default >/dev/null 2>&1 || true
+  sleep 5
+done
+[[ -n "${namespace_ready}" ]] || die "Temporal 'default' namespace did not register"
+log "Temporal 'default' namespace is registered."
 
 # ── 4. wait for all 5 service deployments to become healthy ──────────────────────
 

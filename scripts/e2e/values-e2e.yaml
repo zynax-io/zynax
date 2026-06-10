@@ -26,6 +26,13 @@ zynax-workflow-compiler:
 zynax-engine-adapter:
   image:
     tag: main
+  env:
+    # The umbrella default (`zynax-umbrella-zynax-temporal-temporal-frontend`)
+    # assumes a release named `zynax-umbrella`; with release `zynax` the Temporal
+    # frontend Service is `zynax-temporal-frontend`. Correct it for the e2e
+    # release. (The umbrella default is wrong for any release name and needs a
+    # templated fix in the chart.)
+    temporalHostPort: "zynax-temporal-frontend:7233"
 zynax-task-broker:
   image:
     tag: main
@@ -86,12 +93,3 @@ zynax-temporal:
               sql:
                 user: postgres
                 connectAddr: "zynax-postgresql:5432"
-
-# ── engine-adapter → Temporal address ─────────────────────────────────────────
-# The umbrella default (`zynax-umbrella-zynax-temporal-temporal-frontend`) assumes
-# a release named `zynax-umbrella`; with release `zynax` the Temporal frontend
-# Service is `zynax-temporal-frontend`. Correct it for the e2e release. (The
-# umbrella default is wrong for any release name and needs a templated fix.)
-zynax-engine-adapter:
-  env:
-    temporalHostPort: "zynax-temporal-frontend:7233"
