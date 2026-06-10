@@ -459,3 +459,25 @@ Post-merge verification of an engine-adapter change. Outcome: SKIP — image pub
 
 ### Edge cases discovered
 - A single merge SHA can show multiple "Post-Merge Completeness (Wave 3)" runs (re-runs). Treat any one `success` as sufficient; don't block waiting for a specific run instance.
+
+## Session — 2026-06-10 (post-merge: PRs #1062, #1065; issues #804, #491)
+
+### Effective patterns
+- Filtering `actions/runs?branch=main` by `head_sha` returns all runs for a merge immediately; check run state BEFORE entering a wait loop to avoid burning the 20-min budget on already-complete runs (#1062).
+- Verify the GHCR image tag against the short merge SHA (`main-<sha7>`) as positive proof release.yml rebuilt the right commit, not a stale cache (#1062).
+
+### Edge cases discovered
+- Most services are consumed via the floating `main` tag and are NOT digest-pinned (only http-adapter + base nats/redis are). Before flagging a compose pin stale, `grep -rn '<svc>@sha256' <wt> --include=*.yml --include=*.yaml`; a matrix service that was built but has zero digest references is a valid DONE no-op, not SKIP and not an empty PR (#1062).
+- release.yml change-detection + build matrix cover only 5 Go services (api-gateway, engine-adapter, workflow-compiler, task-broker, agent-registry). `event-bus` and `memory-service` have NO matrix entry — touching them builds no image. Do not assume "touched 7 services" == "7 images built" (#1065).
+- **A shared `libs/*` module added with `replace =>` in service go.mods breaks release.yml image builds** unless `infra/docker/Dockerfile.service` COPYs the new lib into the build context. This passes all PR checks (release builds run only post-merge) and lands red on main. Fix: add the COPY line in the same feature PR; if missed, ship a fast `fix(ci): copy libs/<name> into service build context` PR (#1065 → #1067).
+
+### Failed approaches
+- Passing a nonexistent path (`deploy/`) to `grep -rn` aborts the whole call (exit 2). Use `grep -r --include=*.yaml <worktree-root>` instead of guessing subdirs (#1062).
+
+### Orchestrator process note
+- The pre-spawn reconcile (layer 2) `gh pr list --state merged --search "<N> in:body"` FALSE-POSITIVES on canvas/review PRs that merely reference an issue number in a list (#804→#820 canvas PR, #491→#631 review doc). The issue being still OPEN is the reliable signal; treat `in:body` matches as advisory only and confirm against issue state before dropping a claim.
+
+### gh / DCO gotchas (both post-merge + domain agents hit these)
+- `gh pr create --milestone "M6"` fails — pass either the full title `K8s Production-Ready (M6)` OR (simpler, repo-wide) the LABEL `--label "milestone: M6"`. Resolve titles with `gh api repos/zynax-io/zynax/milestones --jq '.[].title'`.
+- `gh pr checks --json` is unsupported; use `gh pr view <n> --json statusCheckRollup`.
+- DCO: do NOT pass `-s` to `git commit` (nor `--signoff` to `git rebase`) when the message file already has a `Signed-off-by` line — it duplicates the trailer. Put one signoff in the file + plain `git commit -F`, or use `-s` with no trailer in the file.
