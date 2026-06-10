@@ -36,7 +36,11 @@ Each directory has an `AGENTS.md`; see [AGENTS.md §Knowledge Base Index](AGENTS
 ## PR size
 
 ≤ 200 lines ideal · 201–400 acceptable · 401–900 justify in description · > 900 **blocked**.
-Exclusions: generated stubs (`*.pb.go`, `*_pb2.py`), lock files, `.github/workflows/`, schema fixtures.
+Exclusions (mirror of the `skipPattern` in `.github/workflows/pr-size.yml` — keep in sync):
+generated stubs (`*.pb.go`, `*.pb.py`, `/generated/`), lock files (`*.sum`, `*.lock`),
+binary fixtures (`*.png`, `*.jpg`, `*.gif`, `*.svg`), `CHANGELOG.md`, `.github/workflows/`,
+`AGENTS.md`, `docs/`, `state/`, `.claude/`, `images/images.yaml`, `infra/helm/`, `spec/`,
+`automation/`, `Makefile`, `CLAUDE.md`, `ROADMAP.md`, `README.md`.
 One commit per logical change · one PR per issue · never squash unrelated work.
 
 ## Development workflow
