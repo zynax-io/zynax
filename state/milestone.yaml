@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+# Zynax — machine-readable milestone state (single source of truth).
+#
+# Updated ONLY by /milestone-close and /milestone-new — never edit by hand.
+# Delivery commands read the active milestone's name, number, labels, and
+# planning doc from this file; no command may hardcode them.
+#
+# Validated against state/milestone.schema.json by `make validate-milestone-state`
+# (containerized) and by the advisory milestone-state-check job in pr-checks.yml.
+
+active:
+  name: M6
+  title: "K8s Production-Ready"
+  github_milestone_number: 6
+  version: v0.5.0
+  status: active # active | closing | complete
+  planning_doc: docs/milestones/M6-planning.md
+  labels:
+    milestone: "milestone: M6"
+  # Static hint only — commands re-query the live list at runtime when GH_TOKEN
+  # is available (gh issue list --milestone <title> --label "type: epic"
+  # --state open) and fall back to this list offline.
+  open_epics: [771, 873, 881, 1073, 1086, 1107, 1108, 1109]
+
+history:
+  - name: M5
+    title: "Adapter Library"
+    github_milestone_number: 5
+    version: v0.4.0
+    released: "2026-05-29"
+    planning_doc: docs/milestones/M5-plan.md
+  - name: M4
+    title: "YAML System + CLI"
+    github_milestone_number: 4
+    version: v0.3.0
+  - name: M3
+    title: "Temporal Execution"
+    github_milestone_number: 3
+    version: v0.2.0
+  - name: M2
+    title: "Workflow IR"
+    github_milestone_number: 2
+    version: v0.1.0
+  - name: M1
+    title: "Contracts Foundation"
+    github_milestone_number: 1
+    version: v0.1.0
+    released: "2026-04-21"

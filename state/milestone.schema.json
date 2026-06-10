@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/zynax-io/zynax/blob/main/state/milestone.schema.json",
+  "title": "Zynax milestone state",
+  "description": "Schema for state/milestone.yaml — the machine-readable single source of truth for the active milestone. The file is updated only by /milestone-close and /milestone-new, never by hand.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["active", "history"],
+  "properties": {
+    "active": { "$ref": "#/$defs/activeMilestone" },
+    "history": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/historyMilestone" }
+    }
+  },
+  "$defs": {
+    "milestoneName": {
+      "type": "string",
+      "pattern": "^M\\d+$"
+    },
+    "semverTag": {
+      "type": "string",
+      "pattern": "^v\\d+\\.\\d+\\.\\d+$"
+    },
+    "planningDoc": {
+      "type": "string",
+      "pattern": "^docs/milestones/.+\\.md$"
+    },
+    "activeMilestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "title",
+        "github_milestone_number",
+        "version",
+        "status",
+        "planning_doc",
+        "labels",
+        "open_epics"
+      ],
+      "properties": {
+        "name": { "$ref": "#/$defs/milestoneName" },
+        "title": { "type": "string", "minLength": 1 },
+        "github_milestone_number": { "type": "integer", "minimum": 1 },
+        "version": { "$ref": "#/$defs/semverTag" },
+        "status": { "enum": ["active", "closing", "complete"] },
+        "planning_doc": { "$ref": "#/$defs/planningDoc" },
+        "labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["milestone"],
+          "properties": {
+            "milestone": { "type": "string", "minLength": 1 }
+          }
+        },
+        "open_epics": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "historyMilestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "title", "github_milestone_number", "version"],
+      "properties": {
+        "name": { "$ref": "#/$defs/milestoneName" },
+        "title": { "type": "string", "minLength": 1 },
+        "github_milestone_number": { "type": "integer", "minimum": 1 },
+        "version": { "$ref": "#/$defs/semverTag" },
+        "released": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "planning_doc": { "$ref": "#/$defs/planningDoc" }
+      }
+    }
+  }
+}
