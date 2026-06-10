@@ -374,14 +374,9 @@ make test        # full suite (unit + BDD + coverage gate)
 
 ## Milestone Status
 
-| Milestone | Status | Version | Docs |
-|-----------|--------|---------|------|
-| **M1 — Contracts Foundation** | **Complete** | v0.1.0 | [Engineering Review](docs/milestones/M1-engineering-review.md) · [Release Notes](docs/milestones/M1-release-notes.md) |
-| **M2 — Workflow IR** | **Complete** | v0.1.0 | [Epic #101](https://github.com/zynax-io/zynax/issues/101) |
-| **M3 — Temporal Execution** | ⚠ **Partial** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) · task-broker + agent-registry delivered M5.C |
-| **M4 — YAML System + CLI** | ⚠ **Partial** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) · agent-registry delivered M5.C · compose wired (#481 ✅) |
-| **M5 — Adapter Library** | ✅ **Complete** | v0.4.0 | [Plan](docs/milestones/M5-plan.md) · all 5 adapters ✅ · M5.C ✅ · M5.D ✅ · M5.E ✅ · E2E demo ✅ · v0.4.0 released 2026-05-29 |
-| **M6 — K8s Production-Ready** | 🚧 **Active** | v0.5.0 (target) | [Plan](docs/milestones/M6-planning.md) · delivered: Helm charts (#765) ✅ · Postgres repos (#626) ✅ · EventBus (#772) ✅ · images-SoT + ADR-024 (#855) ✅ · mTLS (#464) ✅ · supply-chain (#465) ✅ · orchestrator hardening (#1001) ✅ · memory-service KV+vector (#773) ✅ · Argo engine (#766) ✅ · multi-namespace (#767) ✅ · rate-limiting/policy (#768) ✅ · SDK PyPI (#769) ✅ · e2e harness (#770) ✅ · multi-arch build (#837) ✅ · gRPC health (#656) ✅ · Prometheus /metrics (#491) ✅ · in progress: e2e-green gate (#1086), Postgres off Bitnami (#1073), CI-E2E gate (#771), DevAuto Wave 4 (#881) |
+Active milestone: **M6 — K8s Production-Ready** 🚧 — live status in
+[state/current-milestone.md](state/current-milestone.md) · milestone goals and sequence in
+[ROADMAP.md](ROADMAP.md).
 
 **M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
 AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract

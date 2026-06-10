@@ -6,8 +6,8 @@ any layer.
 
 ## Milestone Status
 
-> Current status, per-track progress, and active blockers:
-> [state/current-milestone.md](state/current-milestone.md) · full plan: [docs/milestones/M5-plan.md](docs/milestones/M5-plan.md).
+> Live status, per-EPIC progress, and active blockers: [state/current-milestone.md](state/current-milestone.md).
+> Milestone goals and sequence: [ROADMAP.md](ROADMAP.md).
 
 ## Key pointers
 
@@ -104,14 +104,16 @@ Full guide: `docs/patterns/spdd-guide.md` · Template: `docs/spdd/CANVAS_TEMPLAT
 
 ## Per-Milestone Scope
 
+> Live progress: [state/current-milestone.md](state/current-milestone.md)
+
 | Milestone | In scope | Out of scope / defer |
 |-----------|----------|----------------------|
 | **M1** (Complete) | Proto contracts, AsyncAPI spec, generated stubs, BDD scenarios, CI gates | Service implementations, DB schemas, runtime |
 | **M2** (Complete) | WorkflowIR structured fields in `workflow_compiler.proto`, `WorkflowCompilerService` skeleton (in-memory), JSON Schema for WorkflowIR | Temporal integration, persistence, CLI |
-| **M3** (⚠ Partial) | Temporal-backed `EngineAdapterService` — `WorkflowEngine` interface, `IRInterpreterWorkflow`, `DispatchCapabilityActivity`, `TemporalEngine`, gRPC wiring | Other engine adapters, K8s deployment · task-broker missing (M5.C #460) |
-| **M4** (⚠ Partial) | api-gateway REST layer, `zynax` CLI, `kind: AgentDef` routing, Docker Compose runner, GitOps watch | Observability, production hardening · agent-registry missing (M5.C #460) |
-| **M5** (✅ Complete, v0.4.0) | M5.A docs alignment, M5.B engine fixes, M5.C capability dispatch (task-broker ✅, agent-registry ✅), M5.D security ✅, M5.E DX ✅, all 5 adapters ✅, e2e-demo ✅ | Persistence, K8s deployment, event-bus (all delivered in M6) |
-| **M6** (🚧 Active) | **Delivered:** mTLS ✅, supply-chain (cosign+SBOM+multi-arch) ✅, Postgres repos (#626) ✅, Helm charts (#765) ✅, EventBus over NATS (#772) ✅, images.yaml SoT + ADR-024 (#855) ✅, self-hosting dev-automation (#873) ✅, orchestrator hardening (#1001) ✅, memory-service KV+vector (#773) ✅, ArgoEngine (#766) ✅, multi-namespace (#767) ✅, policy/rate-limit (#768) ✅, SDK PyPI (#769) ✅, e2e harness (#770) ✅, multi-arch build (#837) ✅, gRPC health (#656) ✅, Prometheus /metrics (#491) ✅. **In progress:** e2e-green gate (#1086), Postgres off Bitnami (#1073), CI-E2E gate (#771), DevAuto Wave 4 (#881) | M7 observability (OTel #467), M8 CNCF submission |
+| **M3** (Partial) | Temporal-backed `EngineAdapterService` — `WorkflowEngine` interface, `IRInterpreterWorkflow`, `DispatchCapabilityActivity`, `TemporalEngine`, gRPC wiring | Other engine adapters, K8s deployment · task-broker delivered later in M5.C |
+| **M4** (Partial) | api-gateway REST layer, `zynax` CLI, `kind: AgentDef` routing, Docker Compose runner, GitOps watch | Observability, production hardening · agent-registry delivered later in M5.C |
+| **M5** (Complete, v0.4.0) | M5.A docs alignment, M5.B engine fixes, M5.C capability dispatch (task-broker, agent-registry), M5.D security baseline, M5.E DX polish, all 5 adapters, e2e-demo | Persistence, K8s deployment, event-bus (all delivered in M6) |
+| **M6** (Active) | K8s production-readiness: mTLS, supply-chain hardening, Postgres-backed repos, Helm charts, EventBus over NATS, images.yaml SoT, self-hosting dev-automation, memory-service, ArgoEngine, multi-namespace, policy/rate-limit, SDK on PyPI, e2e harness, multi-arch builds, gRPC health, Prometheus /metrics | M7 observability (OTel), M8 CNCF submission |
 
 ## AI Anti-Patterns
 

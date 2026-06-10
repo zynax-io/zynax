@@ -1,3 +1,5 @@
+<!-- Canonical status file. Updated by /milestone-close and /repo-clean. Do not edit by hand. -->
+
 # Current Milestone State
 
 > This file tracks the active execution state. Update it when milestones close,
@@ -77,108 +79,6 @@ up but fails at the happy-path assertion; this epic closes the execution-path ga
 
 **Ready now for `/m6-orchestrate`:** #1089 (O3). Then O4 → O6 (with #1091 verification ∥).
 
-## M5 — Progress
-
-M5 is structured into seven tracks. See full execution plan: **[docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md)**.
-
-### Track Overview
-
-| Track | Epic | Status |
-|-------|------|--------|
-| **M5.F CI Sprint** | [#542](https://github.com/zynax-io/zynax/issues/542) | ✅ Complete (closed) — #555 ✅ all child issues done |
-| **M5.F.R Release Pipeline** | [#556](https://github.com/zynax-io/zynax/issues/556) | ✅ Complete (closed) |
-| M5.A Truth Pass | [#458](https://github.com/zynax-io/zynax/issues/458) | ✅ Complete — #472 ✅ #473 ✅ #474 ✅ #572 ✅ #579 ✅ |
-| M5.B Engine Correctness | [#459](https://github.com/zynax-io/zynax/issues/459) | ✅ Complete (closed) — #475 ✅ #476 ✅ #477 ✅ #478 ✅ |
-| M5.C Capability Dispatch | [#460](https://github.com/zynax-io/zynax/issues/460) | ✅ Complete — e2e-demo.yaml created; run `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` |
-| M5.D Security Baseline | [#461](https://github.com/zynax-io/zynax/issues/461) | ✅ Complete (closed) |
-| M5.E DX Polish | [#462](https://github.com/zynax-io/zynax/issues/462) | ✅ Complete (closed) |
-| Adapter Library | [#377](https://github.com/zynax-io/zynax/issues/377) | ✅ Complete (closed) — all five adapters merged |
-| Containerized Make | [#442](https://github.com/zynax-io/zynax/issues/442) | ✅ Complete (closed) |
-
----
-
-## IMMEDIATE — Adapters (P2, unblocked by #481 ✅)
-
-### BATCH 0 — ✅ All done
-~~#547 #544 #548 #545 #589 #546 #557 #558 #559 #560~~
-
-### BATCH 1 — ✅ All done
-
-| Issue | Title | Size | Status |
-|-------|-------|------|--------|
-| ~~[#561](https://github.com/zynax-io/zynax/issues/561)~~ | ~~Push service/adapter images to GHCR on every main merge~~ | S | ✅ Done |
-| ~~[#601](https://github.com/zynax-io/zynax/issues/601)~~ | ~~Fix Go builder base image 1.25→1.26.3-alpine in service Dockerfiles~~ | XS | ✅ Done |
-| ~~[#562](https://github.com/zynax-io/zynax/issues/562)~~ | ~~Make GHCR service/adapter images publicly readable~~ | XS | ✅ Done — 5 service/adapter images public; zynax/tools deleted (see below) |
-| (admin) | **Confirm zynax/tools published + set public** | — | ✅ Done — tools-image.yml succeeded 2026-05-20; package set public |
-| [#563](https://github.com/zynax-io/zynax/issues/563) | Deduplicate tools image — remove tools-publish.yml + delete old zynax-tools package | XS | ✅ Done |
-| [#566](https://github.com/zynax-io/zynax/issues/566) | README packages section with GHCR image pull commands | S | ✅ Done |
-| [#552](https://github.com/zynax-io/zynax/issues/552) | Switch all GH Actions jobs to ci-runner container mode | M | ✅ Done |
-
----
-
-## Active Work (M5.C)
-
-### task-broker (#479) ✅ Complete (closed)
-
-All steps done: impl PRs #520 #522 #523, quality #530 ✅ #531 ✅ #532 ✅. Domain 92.7%.
-
-### agent-registry (#480) ✅ Complete (closed)
-
-All steps done: #526 ✅ #527 ✅ #528 ✅ #481 ✅. Compose wired.
-
----
-
-## Active Work (Other Tracks)
-
-| Issue | Track | Title | Status |
-|-------|-------|-------|--------|
-| [#381](https://github.com/zynax-io/zynax/issues/381) | Adapters | git-adapter impl | ✅ Complete — #400 #401 #402 #403 all merged |
-| [#713](https://github.com/zynax-io/zynax/issues/713) | Adapters | git-adapter quality epic (coverage ≥85%) | ✅ Complete — #714 ✅ #715 ✅ #716 ✅ #717 ✅ #718 ✅ all merged |
-| ~~[#382](https://github.com/zynax-io/zynax/issues/382)~~ | Adapters | ci-adapter impl | ✅ Closed — all steps done (#404–#408) |
-| ~~[#383](https://github.com/zynax-io/zynax/issues/383)~~ | Adapters | llm-adapter impl | ✅ Closed — #409 BDD #410 #411 #412 #413 (PR #742) all merged |
-| ~~[#384](https://github.com/zynax-io/zynax/issues/384)~~ | Adapters | langgraph-adapter impl | ✅ Closed — #414 BDD #415 #416 #417 #418 (PR #743) all merged |
-
----
-
-## Known Blockers
-
-- **git-adapter coverage** — ✅ complete; #714–#718 all merged; coverage ≥85% live on CI; git re-added to GO_ADAPTER_LIST.
-- **adapter implementations** (#405–#418) — ✅ all done; git/ci/llm/langgraph all merged.
-- **E2E demo** — ✅ `e2e-demo.yaml` created; langgraph `echo` capability wired; run `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` to observe dispatch + completion in Temporal UI (http://localhost:7088).
-- **v0.4.0 tag** — ✅ pushed 2026-05-29; GitHub Release live with CLI binaries, GHCR service images, and SBOMs.
-
----
-
-## Architecture Gaps (open issues to file)
-
-The 2026-05-20 principal architect review identified gaps not yet tracked as issues.
-See `docs/milestones/M5-plan.md §Architecture Gaps` for the full list.
-Priority gaps to file immediately:
-
-| Gap | Severity |
-|-----|----------|
-| ~~G1: constant-time bearer compare~~ | ✅ fixed #567 |
-| ~~G2: ReadHeaderTimeout + MaxBytesReader~~ | ✅ fixed #568 |
-| ~~G4: no RetryPolicy on Temporal Activities (#569)~~ | ✅ fixed #569 |
-| ~~G16: background-context goroutines in task-broker (#570)~~ | ✅ fixed #570 |
-| ~~G19: competitive positioning doc (Kagent/Dapr) (#575)~~ | ✅ fixed |
-| ~~G17: stub services in SERVICE_LIST (#574)~~ | ✅ fixed |
-| ~~G23: Phantom AGENT_LIST entries (#577)~~ | ✅ fixed |
-| ~~G22: Summarizer phantom (#576)~~ | ✅ fixed |
-
----
-
-## Recently Closed
-
-- **#567** — Bearer constant-time compare (G1 fix) ✅. **#568** — ReadHeaderTimeout + MaxBytesReader (G2 fix) ✅.
-- **#461 M5.D** — Control Plane Security Baseline: all 5 child issues merged (#482–#486).
-- **#462 M5.E** — Developer Experience Polish: all child issues merged (#485–#486).
-- **#442** — Fully Containerized Makefile: all 4 child issues merged (#443–#446).
-- **#529** — docs(agent-registry): REASONS Canvas for #480.
-- **#533** — docs(task-broker): REASONS Canvas for #479.
-- **#526** — BDD trim (agent-registry), **#532** — handler unit tests (task-broker), **#554** — force-full-pipeline trigger.
-- **SECURITY.md** — false mTLS/SBOM/cosign claims removed (2026-05-20, part of M5.A truth pass).
-
 ## Recently Closed (last updated 2026-06-09)
 
 **M6 batch — 2026-06-08 session:**
@@ -206,41 +106,6 @@ Priority gaps to file immediately:
 - **#474** #459 #479 #480 #543 #556 — epics closed; all children had merged prior sessions
 - **#577** #574 #576 #712 #714 — phantom agent cleanup, summarizer removal, git adapter
 - **#865** ci: OCI manifest annotations · **#868** ADR-025 SLSA provenance
-
-## Active Work (BATCH 7.1 — git-adapter coverage — ✅ COMPLETE)
-
-| Issue | Title | Status |
-|-------|-------|--------|
-| [#715](https://github.com/zynax-io/zynax/issues/715) | Cover requestReview + progressEvent | ✅ Done — PR #722 merged |
-| [#716](https://github.com/zynax-io/zynax/issues/716) | Cover execute/sanitise/githubErrCode/parsePayload | ✅ Done — PR #723 merged |
-| [#717](https://github.com/zynax-io/zynax/issues/717) | Cover RegisterAgent retry + isTransient + cmd | ✅ Done — PR #724 merged |
-| [#718](https://github.com/zynax-io/zynax/issues/718) | Re-add git to GO_ADAPTER_LIST | ✅ Done — PR #725 merged |
-
-## Active Work (BATCH 7 — adapter O5 step) — ✅ COMPLETE
-
-| Issue | Title | Status |
-|-------|-------|--------|
-| [#412](https://github.com/zynax-io/zynax/issues/412) | llm-adapter registry client + bootstrap | ✅ Done — merged |
-| [#417](https://github.com/zynax-io/zynax/issues/417) | langgraph-adapter registry client + bootstrap | ✅ Done — merged |
-| [#413](https://github.com/zynax-io/zynax/issues/413) | llm-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR #742 merged |
-| [#418](https://github.com/zynax-io/zynax/issues/418) | langgraph-adapter Dockerfile + docker-compose + AGENTS.md | ✅ Done — PR #743 merged |
-
-## Active Work (BATCH 8 — Code Quality)
-
-| Issue | Title | Status |
-|-------|-------|--------|
-| [#373](https://github.com/zynax-io/zynax/issues/373) | Thread ctx in workflow-compiler gRPC handlers | ✅ Done |
-| [#374](https://github.com/zynax-io/zynax/issues/374) | ctx-first mandate in services/AGENTS.md + Temporal comment | ✅ Done |
-| [#375](https://github.com/zynax-io/zynax/issues/375) | Enable ruff D (Google docstrings) in agents/sdk | ✅ Done |
-
-## Active Work (BATCH 9 — Documentation Quality)
-
-| Issue | Title | Status |
-|-------|-------|--------|
-| [#232](https://github.com/zynax-io/zynax/issues/232) | Architecture fitness functions doc | ✅ Done — PR #750 merged |
-| [#248](https://github.com/zynax-io/zynax/issues/248) | AI-output review checklist in PR template | ✅ Done — PR #751 pending |
-| [#228](https://github.com/zynax-io/zynax/issues/228) | Google-style docstrings on SDK public symbols | ✅ Done |
-| [#229](https://github.com/zynax-io/zynax/issues/229) | Strip explanatory comments in agents/sdk | ✅ Done |
 
 ---
 
