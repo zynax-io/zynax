@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # e2e smoke — gated/optional live-cluster end-to-end test (EPIC G #770 step 5, #813).
 #
-# Brings up an ephemeral kind cluster, deploys the zynax-umbrella chart, and runs
-# the Helm upgrade/rollback assertion (scripts/e2e/helm-upgrade.sh).
+# Brings up an ephemeral kind cluster, deploys the zynax-umbrella chart, runs the
+# happy-path and failure-path workflow assertions (scripts/e2e/e2e-happy.sh,
+# scripts/e2e/e2e-failure.sh), then the Helm upgrade/rollback assertion
+# (scripts/e2e/helm-upgrade.sh).
 #
 # GATED, NOT a required PR gate: it triggers ONLY on changes to helm/**,
 # services/**, or engine-adapter/**, plus manual workflow_dispatch. It is
@@ -74,6 +76,19 @@ jobs:
 
       - name: Bring up cluster + deploy stack
         run: scripts/e2e/cluster-up.sh
+
+      - name: Happy-path workflow assertion
+        # Submits code-review.yaml via api-gateway, asserts the workflow
+        # reaches a terminal success state, the workflow.completed CloudEvent
+        # lands on NATS JetStream, and the memory-service KV plane roundtrips.
+        # A failed assertion exits non-zero and fails the job (readable logs).
+        run: scripts/e2e/e2e-happy.sh
+
+      - name: Failure-path workflow assertion
+        # Submits a workflow whose first state invokes an unreachable
+        # capability, asserts it reaches a terminal failed state and the
+        # workflow.failed CloudEvent lands on NATS JetStream.
+        run: scripts/e2e/e2e-failure.sh
 
       - name: Helm upgrade/rollback smoke
         run: scripts/e2e/helm-upgrade.sh
