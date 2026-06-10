@@ -58,7 +58,7 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 1 — Contracts Foundation ✅ Complete (v0.1.0)
+## Milestone 1 — Contracts Foundation (v0.1.0)
 
 **Goal:** All communication contracts defined. Nothing builds on sand.
 
@@ -74,11 +74,9 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 2 — Workflow IR ✅ Complete (v0.1.0)
+## Milestone 2 — Workflow IR (v0.1.0)
 
 **Goal:** YAML manifests compile to a canonical, engine-agnostic Intermediate Representation.
-
-> See [Epic #101](https://github.com/zynax-io/zynax/issues/101) for the full issue list.
 
 - [x] JSON Schema for all manifest kinds: `Workflow`, `AgentDef`, `Policy`
 - [x] `workflow-compiler` service: Go implementation
@@ -92,7 +90,7 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 3 — Engine Adapters ⚠ Partial (v0.2.0)
+## Milestone 3 — Engine Adapters (v0.2.0)
 
 **Goal:** Workflow IR executes on Temporal. Engine abstraction proven.
 
@@ -100,16 +98,16 @@ Each roadmap milestone maps to a GitHub Milestone:
 - [x] `engine-adapter` service: `WorkflowEngine` interface, `TemporalEngine`, `IRInterpreterWorkflow`
 - [x] `DispatchCapabilityActivity`: Temporal Activity → task-broker gRPC
 - [x] All 5 `EngineAdapterService` RPCs (Submit/Signal/Cancel/GetWorkflowStatus/WatchWorkflow)
-- [x] cel-go guard evaluation (bespoke evaluator replaced by #538 in M5.B)
+- [x] cel-go guard evaluation (bespoke evaluator replaced in M5.B)
 
-**Not delivered (moved to M5.C):**
-- [ ] `task-broker` service (delivered M5.C #479)
-- [ ] End-to-end capability dispatch (requires agent-registry; pending #480)
-- CloudEvents publishing is a log stub (pending event-bus implementation, M6+)
+**Not delivered in M3** (completed later):
+- `task-broker` service (delivered in M5.C)
+- End-to-end capability dispatch (required agent-registry; delivered in M5.C)
+- CloudEvents publishing was a log stub (event-bus delivered in M6)
 
 ---
 
-## Milestone 4 — YAML System + CLI ⚠ Partial (v0.3.0)
+## Milestone 4 — YAML System + CLI (v0.3.0)
 
 **Goal:** Users can `zynax apply workflow.yaml` and see it run.
 
@@ -119,125 +117,76 @@ Each roadmap milestone maps to a GitHub Milestone:
 - [x] Local Docker Compose runner (`make run-local`)
 - [x] GitOps watch mode (`zynax apply --watch`)
 
-**Not delivered (moved to M5.C):**
-- [ ] `agent-registry` service (#480 — required for `kind: AgentDef` routing)
-- Capability dispatch: workflows submit but actions fail (no registry)
+**Not delivered in M4** (completed later):
+- `agent-registry` service, required for `kind: AgentDef` routing (delivered in M5.C)
+- End-to-end capability dispatch (delivered in M5.C)
 
 ---
 
-## Milestone 5 — Adapter Library ✅ Complete (v0.4.0)
+## Milestone 5 — Adapter Library (v0.4.0)
 
 **Goal:** Existing systems become capabilities without SDK adoption. First green E2E demo.
 
-> Released 2026-05-29. Label: `milestone: M5` · Epic: [#377](https://github.com/zynax-io/zynax/issues/377)
-> Full plan: [docs/milestones/M5-plan.md](docs/milestones/M5-plan.md)
+> Released 2026-05-29. Label: `milestone: M5`
+> Full plan and per-track delivery detail: [docs/milestones/M5-plan.md](docs/milestones/M5-plan.md)
 
 ### M5 Definition of Done (7/7 criteria met)
 
 1. [x] `make run-local && zynax apply spec/workflows/examples/e2e-demo.yaml` → `WORKFLOW_STATUS_COMPLETED`
 2. [x] v0.4.0 tag with downloadable CLI + GHCR images (released 2026-05-29)
-3. [x] All 5 adapters merged (http ✅ git ✅ ci ✅ llm ✅ langgraph ✅)
-4. [x] Python SDK `Agent` base class implemented (#474 / #535 #536 #537)
-5. [x] cel-go replaces bespoke guard evaluator (#476 / #538 #539 #540)
+3. [x] All 5 adapters merged (http, git, ci, llm, langgraph)
+4. [x] Python SDK `Agent` base class implemented
+5. [x] cel-go replaces bespoke guard evaluator
 6. [x] SECURITY.md matches shipped reality
-7. [x] CI < 10 minutes per PR (#552)
+7. [x] CI < 10 minutes per PR
 
-### M5.A — Truth Pass ([#458](https://github.com/zynax-io/zynax/issues/458)) ✅
+### M5 tracks delivered
 
-- [x] Remove CNCF Sandbox Candidate badge (#472)
-- [x] Audit CHANGELOG for phantom entries (#473)
-- [x] Python SDK Agent base class (#474 / #535 #536 #537)
-- [x] Fix SECURITY.md — remove mTLS/SBOM/cosign false claims
-- [x] Add per-service status table to README (#579)
-
-### M5.B — Engine Correctness Hardening ([#459](https://github.com/zynax-io/zynax/issues/459)) ✅
-
-- [x] Fix `resolveTemplate` map-iteration non-determinism (#475)
-- [x] Replace bespoke guard evaluator with `cel-go`, fail-closed (#476 / #538 #539 #540)
-- [x] Return full `CompilationError` list from `CompileWorkflow` (#477)
-- [x] Fix SSE `WriteTimeout` breaking `zynax logs` at 30 s (#478)
-
-### M5.C — Capability Dispatch End-to-End ([#460](https://github.com/zynax-io/zynax/issues/460)) ✅
-
-- [x] `task-broker` MVP: in-memory `TaskBrokerService`, 5 RPCs, 92.7% domain coverage (#479)
-- [x] `agent-registry` MVP: domain (#527) → gRPC wiring (#528) → in-memory round-robin (#480)
-- [x] Docker Compose wiring: task-broker + agent-registry in `make run-local` (#481)
-
-### M5.D — Control Plane Security Baseline ([#461](https://github.com/zynax-io/zynax/issues/461)) ✅
-
-- [x] Bearer-token auth middleware (#482)
-- [x] Log event publish failures (#483)
-- [x] X-Request-ID propagation (#484)
-- [x] Idempotent `zynax apply` — manifest hash (#485)
-- [x] Consolidate Docker Compose files (#486)
-
-### M5.E — Developer Experience Polish ([#462](https://github.com/zynax-io/zynax/issues/462)) ✅
-
-- [x] Idempotent apply and compose consolidation (#485 #486)
-
-### M5.F — CI/CD Performance Sprint ([#542](https://github.com/zynax-io/zynax/issues/542)) ✅
-
-- [x] Concurrency + stale-run cancellation (#545)
-- [x] Unified release workflow — fix race condition (#557)
-- [x] v0.4.0 tag pushed and GitHub Release live
-- [x] All service/adapter images public on GHCR (#562)
-- [x] CI runner container image (#551 #552)
-- [x] Force-full-pipeline trigger (#554)
-- [x] Per-service change detection (#549 #550)
-- [x] DRY/KISS CI refactor (#555)
-
-### Adapter Library ([#377](https://github.com/zynax-io/zynax/issues/377)) ✅
-
-- [x] `http-adapter`: REST API proxy — all step issues merged (#380)
-- [x] `git-adapter`: `open_pr`, `request_review`, `get_diff` — all steps merged (#381); coverage ≥85% (#713)
-- [x] `ci-adapter`: `trigger_workflow`, `get_run_status` — all steps merged (#382)
-- [x] `llm-adapter`: OpenAI / Bedrock / Ollama `chat_completion` — all steps merged (#383)
-- [x] `langgraph-adapter`: LangGraph StateGraph as Zynax capabilities — all steps merged (#384); wired in e2e-demo
+- **M5.A — Truth Pass**: docs aligned with shipped reality; per-service status table in README
+- **M5.B — Engine Correctness Hardening**: deterministic template resolution, cel-go fail-closed guards, full `CompilationError` lists, SSE timeout fix
+- **M5.C — Capability Dispatch End-to-End**: `task-broker` + `agent-registry` MVPs, Docker Compose wiring
+- **M5.D — Control Plane Security Baseline**: bearer-token auth, X-Request-ID propagation, idempotent `zynax apply`
+- **M5.E — Developer Experience Polish**: idempotent apply, compose consolidation
+- **M5.F — CI/CD Performance Sprint**: concurrency cancellation, unified release workflow, ci-runner container, per-service change detection
+- **Adapter Library**: `http-adapter`, `git-adapter`, `ci-adapter`, `llm-adapter`, `langgraph-adapter`
 
 ---
 
-## Milestone 6 — Kubernetes Production-Ready 🚧 Active (v0.5.0 target)
+## Milestone 6 — Kubernetes Production-Ready (v0.5.0 target)
 
 **Goal:** Production deployment on Kubernetes. Argo engine support.
 
 > Label: `milestone: M6` · Target: v0.5.0 · Plan: [docs/milestones/M6-planning.md](docs/milestones/M6-planning.md)
-> Progress: 143 issues closed / 14 open as of 2026-06-10.
+> Live per-EPIC status: [state/current-milestone.md](state/current-milestone.md)
 
-**Process health (complete):**
-- [x] K8s startup/readiness/liveness probe semantics in api-gateway + engine-adapter (PR #821)
-- [x] Stateless workflow-compiler — drop in-memory IR store (PR #774)
-- [x] Inter-service mTLS — env-var cert paths + gRPC credential wiring (PR #831)
-- [x] Supply chain hardening — cosign signing, SPDX SBOM, multi-arch release images (PR #833)
-- [x] ADR-023 — restrict direct pushes to main; rebase-merge only (PR #847)
-- [x] ci-runner digest bump script + `make bump-ci-runner` (PR #848)
-- [x] Post-build bump issue automation in tools-image.yml (PR #849)
-- [x] `/resume-m6` rewrite — FF discipline, doc-PR path, branch cleanup (PR #850)
-- [x] Merge policy documented in CONTRIBUTING.md + AGENTS.md (PR #851)
+**Scope — process health:**
+- K8s startup/readiness/liveness probe semantics across services
+- Stateless workflow-compiler (no in-memory IR store)
+- Inter-service mTLS — env-var cert paths + gRPC credential wiring
+- Supply chain hardening — cosign signing, SPDX SBOM, multi-arch release images
+- Merge discipline (ADR-023) + ci-runner bump tooling + merge policy docs
 
-**Feature EPICs — delivered:**
-- [x] EventBusService — NATS JetStream gRPC wrapper (EPIC I #772; ADR-022 accepted)
-- [x] Helm charts for all 7 services + subcharts (EPIC Helm #765)
-- [x] Postgres-backed repositories — horizontal scale (EPIC H #626)
-- [x] Config convergence — env-var canonicalisation (EPIC F #670)
-- [x] Container image source-of-truth — `images.yaml` + drift gate (EPIC Images #855; ADR-024)
-- [x] Self-hosting dev-automation — orchestrator + expert mesh (EPIC DevAuto #873, Waves 0–2)
-- [x] Orchestrator concurrency hardening — worktree isolation + idempotent dispatch (EPIC #1001)
-- [x] `ArgoEngine` adapter + multi-engine dispatch (EPIC Argo #766, #798)
-- [x] Multi-namespace support in workflow-compiler (EPIC NS #767)
-- [x] Policy enforcement: routing policies, rate limits, capability quotas (EPIC E #768)
-- [x] Prometheus `/metrics` per-request counters in all services (#491; OTel traces → M7 #467)
-- [x] `zynax-sdk` Python package published to PyPI (EPIC SDK #769)
-- [x] Memory service — Redis KV + pgvector context (EPIC J #773)
-- [x] End-to-end harness — kind + Helm + reference workflows (EPIC G #770)
-- [x] Native multi-arch build pipeline — QEMU eliminated (EPIC Build #837)
-- [x] gRPC Health Checking Protocol in all services (#74, #656)
-- [x] DevAuto Wave 3 — post-merge completeness mesh (#880)
-
-**Feature EPICs — in progress / pending:**
-- [ ] e2e-green: e2e-smoke gate executes a workflow end-to-end (EPIC #1086 — O1+O2 merged via PR #1095)
-- [ ] Postgres off deprecated Bitnami images (EPIC #1073 — ADR-026 merged)
-- [ ] CI-E2E: e2e smoke + upgrade gate on infra/services changes (EPIC #771)
-- [ ] DevAuto Wave 4 — self-hosted issue-delivery engine (#881 — canvas Aligned, stories #1096–#1104)
+**Scope — feature EPICs:**
+- EventBusService — NATS JetStream gRPC wrapper (ADR-022)
+- Helm charts for all services + subcharts
+- Postgres-backed repositories — horizontal scale
+- Config convergence — env-var canonicalisation
+- Container image source-of-truth — `images.yaml` + drift gate (ADR-024)
+- Self-hosting dev-automation — orchestrator + expert mesh
+- Orchestrator concurrency hardening — worktree isolation + idempotent dispatch
+- `ArgoEngine` adapter + multi-engine dispatch
+- Multi-namespace support in workflow-compiler
+- Policy enforcement: routing policies, rate limits, capability quotas
+- Prometheus `/metrics` per-request counters in all services (OTel traces → M7)
+- `zynax-sdk` Python package published to PyPI
+- Memory service — Redis KV + pgvector context
+- End-to-end harness — kind + Helm + reference workflows
+- Native multi-arch build pipeline — QEMU eliminated
+- gRPC Health Checking Protocol in all services
+- e2e-green: e2e-smoke gate executes a workflow end-to-end
+- Postgres off deprecated Bitnami images (ADR-026)
+- CI-E2E: e2e smoke + upgrade gate on infra/services changes
+- Self-hosted issue-delivery engine (DevAuto Wave 4)
 
 ---
 
