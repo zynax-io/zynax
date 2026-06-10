@@ -7,9 +7,10 @@ spin up an ephemeral [kind](https://kind.sigs.k8s.io/) (Kubernetes IN Docker)
 cluster and deploy the complete stack via the `helm/zynax-umbrella` chart, so
 that e2e assertions run against a real Kubernetes cluster rather than mocks.
 
-Part of EPIC G (#770). This directory currently delivers **step 1 (#809)**:
-cluster bootstrap + teardown. The workflow/CloudEvents/upgrade assertion scripts
-(#810–#813) land in subsequent steps.
+Part of EPIC G (#770). This directory delivers cluster bootstrap + teardown
+(**step 1, #809**) plus the assertion scripts: happy-path (**#810**), Argo-path
+(**#811**), and failure-path (**#812**). The Helm upgrade/rollback script and
+gated CI job (**#813**) land in the final step.
 
 ## Minimum resource requirements
 
@@ -46,11 +47,31 @@ resources and assumes cert-manager CRDs already exist (ADR-020).
 # Bring up the cluster and deploy the full stack (idempotent).
 scripts/e2e/cluster-up.sh
 
-# … run e2e assertions (added in #810–#813) …
+# Run e2e assertions against the live cluster.
+scripts/e2e/e2e-happy.sh      # Temporal happy-path: workflow.completed + memory KV
+scripts/e2e/e2e-argo.sh       # Argo engine happy-path: Workflow CR reaches Succeeded
+scripts/e2e/e2e-failure.sh    # failure-path: capability timeout → workflow.failed
 
 # Tear the cluster down (idempotent).
 scripts/e2e/cluster-down.sh
 ```
+
+### Failure-path assertion (`e2e-failure.sh`, #812)
+
+`e2e-failure.sh` submits a workflow whose initial state invokes an
+**unreachable capability** (one no deployed agent serves). It then asserts that:
+
+1. the workflow reaches a terminal `failed` state (reaching `succeeded` is the
+   test's failure condition);
+2. the failure is a capability dispatch timeout, bounded by
+   `ZYNAX_CAPABILITY_TIMEOUT`;
+3. the `zynax.workflow.failed` CloudEvent is consumed off the
+   `ZYNAX_WORKFLOW` NATS JetStream stream.
+
+The workflow fixture is generated at runtime (and removed on exit) rather than
+committed under `spec/workflows/examples/`, to avoid publishing an intentionally
+broken workflow as a reference. The script exits `0` only when the failure path
+behaves as expected.
 
 Both scripts are idempotent: `cluster-up.sh` reuses an existing cluster and
 performs a `helm upgrade --install`; `cluster-down.sh` succeeds even if no
@@ -69,6 +90,7 @@ full list):
 | `CERT_MANAGER_VERSION` | `v1.14.5`          | cert-manager chart version |
 | `KIND_NODE_IMAGE`      | `kindest/node:v1.29.2` | kind node image (digest-pinnable in CI) |
 | `WAIT_TIMEOUT`         | `600s`             | per-resource rollout wait |
+| `ZYNAX_CAPABILITY_TIMEOUT` | `30s`          | capability dispatch timeout asserted by `e2e-failure.sh` |
 
 ## What `cluster-up.sh` does
 
