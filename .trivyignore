@@ -1,24 +1,23 @@
-# Trivy CVE and misconfiguration exceptions
+# Trivy CVE and misconfiguration exceptions — reviewed quarterly (#1116)
 #
-# Format (CVE):         CVE-YYYY-NNNNN
-# Format (misconfig):   DS001, AVD-DS-0001, etc.
-#
-# Every entry MUST include a comment explaining:
-#   - Why the finding is a false positive or accepted risk
-#   - The date it was added and who approved it
-#   - A re-evaluation date (max 6 months out)
+# Every entry MUST be preceded by a comment block with ALL of these fields:
+#   # CVE-YYYY-NNNNN            (or misconfig id: DS001, AVD-DS-0001, ...)
+#   # accepted-until: YYYY-MM-DD (max 6 months out — entry is removed or renewed)
+#   # reason: <why this is a false positive / accepted risk; link to upstream fix>
+#   # affected: <which image / which layer>
 #
 # Process for adding an exception:
 #   1. Open a GitHub issue describing the CVE/misconfig and the justification
 #   2. Get maintainer approval (@zynax-io/maintainers)
-#   3. Add entry below with the issue URL in the comment
-#   4. Set a calendar reminder for the re-evaluation date
+#   3. Add entry below with the issue URL in the reason
+#   4. Renew or remove at the accepted-until date (quarterly review)
 #
 # ── Active exceptions ──────────────────────────────────────────────────────────
 #
-# DS002 – Dockerfile.tools runs as root (no USER instruction).
-#         This is a developer tooling image used only in CI and local dev,
-#         never deployed as a production container. Running as root is
-#         required for tool installation steps.
-#         Added: 2026-05-01  Re-evaluate: 2026-11-01
+# DS002
+# accepted-until: 2026-11-01
+# reason: Dockerfile.tools runs as root (no USER instruction). Developer tooling
+#         image used only in CI and local dev, never deployed as a production
+#         container. Root is required for tool installation steps.
+# affected: ghcr.io/zynax-io/zynax/tools (infra/docker/Dockerfile.tools)
 DS002

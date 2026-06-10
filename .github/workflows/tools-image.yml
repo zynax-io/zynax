@@ -33,11 +33,9 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
 
+# Least-privilege default — jobs that need more escalate per-job below (#1116).
 permissions:
   contents: read
-  packages: write
-  id-token: write   # cosign keyless OIDC signing on tag builds
-  issues: write     # open bump-tracking issue after ci-runner rebuild
 
 env:
   REGISTRY: ghcr.io
@@ -53,6 +51,9 @@ jobs:
   build-amd64:
     name: Build amd64 (tools + ci-runner)
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write   # pushes per-platform tools/ci-runner images to GHCR
     outputs:
       tools-digest-amd64:     ${{ steps.build-tools-amd64.outputs.digest }}
       ci-runner-digest-amd64: ${{ steps.build-ci-runner-amd64.outputs.digest }}
@@ -101,6 +102,9 @@ jobs:
   build-arm64:
     name: Build arm64 (tools + ci-runner)
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write   # pushes per-platform tools/ci-runner images to GHCR
     outputs:
       tools-digest-arm64:     ${{ steps.build-tools-arm64.outputs.digest }}
       ci-runner-digest-arm64: ${{ steps.build-ci-runner-arm64.outputs.digest }}
@@ -150,6 +154,11 @@ jobs:
     name: Merge manifests, sign, SBOM, prune
     runs-on: ubuntu-24.04
     needs: [build-amd64, build-arm64]
+    permissions:
+      contents: read
+      packages: write   # creates multi-arch manifests and prunes old GHCR versions
+      id-token: write   # cosign keyless OIDC signing on tag builds
+      issues: write     # opens the ci-runner digest bump-tracking issue
     outputs:
       tools-digest:     ${{ steps.create-tools-manifest.outputs.digest }}
       ci-runner-digest: ${{ steps.create-ci-runner-manifest.outputs.digest }}

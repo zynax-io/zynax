@@ -10,9 +10,9 @@
 #   ghcr.io/zynax-io/zynax/<svc>:<version>   (semver — e.g. v0.5.0)
 #   ghcr.io/zynax-io/zynax/<svc>:latest       (floating — updated on every push)
 #
-# This workflow is designed to be extended by #239 (cosign image signing +
-# SLSA provenance). The id-token: write permission below is reserved for that
-# follow-on work and must not be removed.
+# Cosign signing + SLSA provenance (#239) landed in release.yml (the unified
+# tag-triggered coordinator) — this manual dry-run workflow does not sign, so
+# it no longer holds id-token: write (#1116).
 
 name: Service Image Release
 
@@ -23,10 +23,9 @@ on:
         description: 'Version tag to publish (e.g. v0.5.0)'
         required: true
 
+# Least-privilege default — jobs that need more escalate per-job below (#1116).
 permissions:
-  contents: write   # create GitHub Release and upload SBOM assets
-  packages: write   # push container images to GHCR
-  id-token: write   # reserved for cosign OIDC signing (#239) — do not remove
+  contents: read
 
 env:
   REGISTRY: ghcr.io
@@ -42,6 +41,9 @@ jobs:
   build-push-sbom:
     name: Build, push and SBOM — ${{ matrix.service }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write   # pushes service container images to GHCR
     strategy:
       fail-fast: false
       matrix:
@@ -112,7 +114,8 @@ jobs:
     name: Create GitHub Release
     needs: build-push-sbom
     runs-on: ubuntu-24.04
-
+    permissions:
+      contents: write   # creates the GitHub Release and uploads SBOM assets
     steps:
       - name: Resolve version
         id: ver

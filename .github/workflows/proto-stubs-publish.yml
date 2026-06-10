@@ -24,8 +24,9 @@ on:
       - "protos/zynax/**/*.proto"
       - "protos/generated/**"
 
+# Least-privilege default — jobs that need more escalate per-job below (#1116).
 permissions:
-  contents: write
+  contents: read
 
 env:
   BUF_VERSION: "1.47.2"
@@ -34,6 +35,8 @@ jobs:
   publish-stubs:
     name: publish-stubs
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # creates the proto-stubs-* GitHub Release with stub archives
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
