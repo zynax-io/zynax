@@ -383,3 +383,20 @@ but the `gh issue list --state open` query may lag due to GitHub API eventual co
   Category: domain
 - Rule: "When `gh pr merge --squash` fails with 'base branch policy prohibits the merge' after CI passes, the branch is behind main. Run `git fetch origin main && git rebase --signoff origin/main && git push --force-with-lease`, then retry with `--auto` flag."
   Category: structural-workaround
+
+## Session — 2026-06-10 (issues #804, #491)
+
+### Effective patterns
+- Mirroring the #803 compiler `PolicyGate.checkCapabilityQuota` shape (per-namespace config map + injected counter port + fail-open semantics) into the engine-adapter second gate kept both quota gates consistent and self-reviewing (#804).
+- Keeping the new quota checker self-contained in `infrastructure/` (no change to `domain.ActivityInput` or existing dispatch code) meant existing `DispatchCapabilityActivity` tests passed untouched (#804).
+- One shared `libs/zynaxobs` lib for cross-cutting observability (interceptor + promhttp handler + tracer) reused by all 7 services kept the functional diff ~250 LOC despite touching every service — the canvas's "shared helper in libs/" guidance (#491).
+- For services with no existing HTTP server (event-bus, agent-registry, task-broker, memory-service), a `StartMetricsServer(port)` helper returning `*http.Server` avoided hand-rolling a server in each main.go (#491).
+
+### Edge cases discovered
+- New `libs/*` modules MUST pin shared deps (`google.golang.org/grpc`, `google.golang.org/protobuf`, `go.opentelemetry.io/otel*`) to the SAME versions every other go.mod uses — CI runs both `zynax-ci check deps` (version-alignment) and a Trivy `security` gate that fail on drift or known-CVE versions. `go mod tidy` alone resolves lower-but-valid versions that still trip both gates; pin direct requires explicitly (#491).
+- `make lint-go` only iterates `services/` — it does NOT lint `libs/`. Lint a new lib via the tools Docker image with `--config ../../tools/golangci-lint.yml` (#491).
+- `funlen` (40-stmt limit) + `contextcheck` fire easily: extract a `newGRPCServer(...)` helper rather than inlining setup; a returned-closure cleanup trips `contextcheck` (wants ctx threaded) — use inline `defer func(){ _ = shutdown(context.Background()) }()` (#491).
+- **Adding a new `libs/*` shared module that services `replace =>` requires updating the Docker build context.** `infra/docker/Dockerfile.service` only COPYs the libs it knows about (e.g. `libs/zynaxconfig`); a new `libs/zynaxobs` replace directive makes `go mod download` fail in the image build (`reading ../../libs/zynaxobs/go.mod: no such file`). The PR's own CI does NOT catch this — release.yml builds images only post-merge — so it lands red on main. Update Dockerfile.service COPY lines in the SAME PR (regression in #491, fixed by #1067).
+
+### Failed approaches
+- Pinning the new lib to the versions `go mod tidy` first resolved (grpc v1.67.1 / otel 1.31.0) passed local build/tests but failed CI deps-alignment + Trivy gates — had to bump to repo-prevailing versions and re-tidy every consumer (#491).

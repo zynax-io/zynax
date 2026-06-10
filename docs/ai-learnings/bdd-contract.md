@@ -93,3 +93,14 @@
   Category: structural-workaround
 - Rule: "Before writing a test file, check `spec/schemas/` for the actual filename of schemas referenced in the issue. Use the exact path from the issue body — mismatches are intentional and are part of the xfail contract."
   Category: domain
+
+## Session — 2026-06-10 (issue #811)
+
+### Effective patterns
+- Mirror-then-diverge: cloning `e2e-happy.sh` wholesale and replacing only the engine-specific steps (`?engine=argo`, assert Argo `Workflow` CR phase) kept config/helpers/polling identical — the diff reads as "same harness, engine swapped".
+- Source-anchored assertion: confirmed via `argo_engine.go` that the Argo `Workflow` resource name == runID == api-gateway run_id, so `kubectl get workflow.argoproj.io <run_id> -o jsonpath='{.status.phase}'` locates the CR with no label guessing; cited the file path in a comment.
+- Verified the `?engine=` query param at its source (api-gateway `handler.go: r.URL.Query().Get("engine")`) rather than trusting issue text.
+- Matched PR typing to the predecessor: #810's merged PR was `test(infra):` / label `type: test`, not the canvas's `feat:` — look up the sibling PR's actual type.
+
+### Edge cases discovered
+- shellcheck absent on host; run it via `docker run --rm -v <wt>:/mnt koalaman/shellcheck:stable <relpath>` for real lint coverage.
