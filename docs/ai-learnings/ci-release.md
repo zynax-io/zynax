@@ -448,3 +448,14 @@ to `imagetools create`). A re-sign pass was not performed; the Jun-8 `main` imag
 ### Proposed expert prompt update
 - Rule: "workflow-compiler and other core platform services in `docker-compose.yml` use floating `:main` tags by design. Only adapter services (e.g., `http-adapter`) in `docker-compose.services.yml` use digest pins. Skip Phase 4a digest update when the service is not referenced with a digest pin in any compose file."
   Category: domain
+
+## Session — 2026-06-10 (post-merge PR #1062 / issue #804)
+
+Post-merge verification of an engine-adapter change. Outcome: SKIP — image published, CI green, no digest pin to update.
+
+### Effective patterns
+- `grep -rn "<svc>@sha256"` across the whole repo BEFORE assuming a matrix service has a digest pin. engine-adapter is in the release matrix and publishes an image, but is referenced only by mutable tag (`ghcr.io/zynax-io/zynax/engine-adapter:main`) — it has no `@sha256:` pin anywhere, so the correct terminal state is SKIP (no branch, no PR).
+- The authoritative "image published for this exact commit" signal is a `success` Release run PLUS the GHCR tag `main-<short-sha>` on the package's newest version — not the run conclusion alone.
+
+### Edge cases discovered
+- A single merge SHA can show multiple "Post-Merge Completeness (Wave 3)" runs (re-runs). Treat any one `success` as sufficient; don't block waiting for a specific run instance.

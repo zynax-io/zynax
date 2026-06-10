@@ -91,3 +91,22 @@
 ### Proposed expert prompt update
 - Rule: "Before writing any e2e assertion for a CloudEvent type, `grep -rn` the event type string in engine-adapter and event-bus implementations to confirm the exact string. Canvas descriptions sometimes use simplified names that differ from actual Go constants."
   Category: domain
+
+## Session — 2026-06-10 (issues #812, #813)
+
+Completed EPIC G (#770) e2e harness: G.4 `e2e-failure.sh` (#812) and G.5 `helm-upgrade.sh` + gated `e2e-smoke.yml` (#813).
+
+### Effective patterns
+- Mirror the sibling e2e script verbatim (helpers, env-var block, JetStream assertion ladder) and invert only the expected outcome (succeeded → failed). Small diff, consistent conventions, passes expert/lint gates first try.
+- Generate the intentionally-broken workflow fixture at runtime via `mktemp` + trap-cleanup instead of committing it under `spec/workflows/examples/` — avoids publishing a broken reference workflow; keeps the change to script+README only.
+- For the gated `e2e-smoke.yml`, copy the exact SHA-pinned action refs from an existing workflow (`helm-lint.yml`) rather than inventing version tags, and keep the kind job NON-required so it never blocks merge (BLOCKED mergeStateStatus only reflects the optional job; required checks gate the actual merge).
+
+### Edge cases discovered
+- `git commit -s` does NOT dedupe `Signed-off-by` when an `Assisted-by` trailer sits between the existing sign-off and the appended one — produces a duplicate DCO trailer. Put `Assisted-by` BEFORE a single `Signed-off-by` and let `-s` add the only sign-off (omit any manual one from the message file).
+- The `security` job can fail transiently on HTTP 429 at `actions/checkout` (repo fetch rate-limit) before reaching govulncheck/bandit/pip-audit. A shell-only diff cannot cause this; `gh run rerun <run> --failed` clears it.
+- Two sibling PRs that both document `scripts/e2e/` in `README.md` produce a rebase conflict on the second merge. Resolve as a UNION (keep all script entries) — the orchestrator/merge-pass must expect this when batching adjacent e2e stories.
+
+### Proposed expert prompt update
+- Rule: "When committing with `-s` and the message also carries an `Assisted-by` trailer, place `Assisted-by` BEFORE a single `Signed-off-by` (or omit the manual sign-off entirely and let `-s` add it). A non-adjacent existing sign-off makes `-s` append a duplicate."
+  Category: structural-workaround
+  Reason: DCO passes either way, but duplicate trailers are reviewer noise and avoidable with deterministic ordering.
