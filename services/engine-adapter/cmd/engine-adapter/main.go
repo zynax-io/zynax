@@ -130,7 +130,7 @@ func run(cfg config) error {
 	}
 	probes := api.NewProbes(int64(cfg.LivenessThresholdS), brokerReadyFn)
 
-	grpcSrv, err := startGRPC(cfg, engine, probes)
+	grpcSrv, healthSvc, err := startGRPC(cfg, engine, probes)
 	if err != nil {
 		return fmt.Errorf("gRPC start: %w", err)
 	}
@@ -152,6 +152,9 @@ func run(cfg config) error {
 	<-ctx.Done()
 
 	slog.Info("shutting down")
+	// Drain: report NOT_SERVING so load balancers stop routing before the
+	// graceful stop completes (canvas O-step 2, #656).
+	setHealth(healthSvc, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 	grpcSrv.GracefulStop()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -278,10 +281,10 @@ func dialGRPCClients(cfg config) (*grpc.ClientConn, *grpc.ClientConn, error) {
 	return brokerConn, eventBusConn, nil
 }
 
-func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*grpc.Server, error) {
+func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*grpc.Server, *health.Server, error) {
 	serverCreds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
-		return nil, fmt.Errorf("tls credentials: %w", err)
+		return nil, nil, fmt.Errorf("tls credentials: %w", err)
 	}
 	srv := grpc.NewServer(
 		grpc.Creds(serverCreds),
@@ -295,12 +298,12 @@ func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*g
 
 	healthSvc := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(srv, healthSvc)
-	healthSvc.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	setHealth(healthSvc, grpc_health_v1.HealthCheckResponse_SERVING)
 	zynaxv1.RegisterEngineAdapterServiceServer(srv, api.NewHandler(engine))
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
 	if err != nil {
-		return nil, fmt.Errorf("listen :%d: %w", cfg.GRPCPort, err)
+		return nil, nil, fmt.Errorf("listen :%d: %w", cfg.GRPCPort, err)
 	}
 
 	go func() {
@@ -309,7 +312,14 @@ func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*g
 		}
 	}()
 
-	return srv, nil
+	return srv, healthSvc, nil
+}
+
+// setHealth sets both the overall "" key and the per-service named key to the
+// given serving status (canvas O-step 2, #656).
+func setHealth(h *health.Server, st grpc_health_v1.HealthCheckResponse_ServingStatus) {
+	h.SetServingStatus("", st)
+	h.SetServingStatus(zynaxv1.EngineAdapterService_ServiceDesc.ServiceName, st)
 }
 
 func startHTTP(cfg config, probes *api.Probes) *http.Server {

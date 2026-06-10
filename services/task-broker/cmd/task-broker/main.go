@@ -96,7 +96,7 @@ func run(cfg config) error {
 	executor := infrastructure.NewAgentExecutor(creds)
 	svc := domain.NewTaskService(repo, finder, executor)
 
-	srv := newGRPCServer(creds, svc)
+	srv, healthSvc := newGRPCServer(creds, svc)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
 	if err != nil {
@@ -111,14 +111,22 @@ func run(cfg config) error {
 	}()
 
 	<-ctx.Done()
-	slog.Info("shutting down")
-	srv.GracefulStop()
+	gracefulShutdown(srv, healthSvc)
 	return nil
+}
+
+// gracefulShutdown drains health (NOT_SERVING) before GracefulStop() so load
+// balancers stop routing during rolling restarts (canvas O-step 2, #656).
+func gracefulShutdown(srv *grpc.Server, healthSvc *health.Server) {
+	slog.Info("shutting down")
+	setHealth(healthSvc, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+	srv.GracefulStop()
 }
 
 // newGRPCServer builds the gRPC server with metrics + tracing interceptors,
 // reflection, the TaskBroker handler, and the gRPC health service registered.
-func newGRPCServer(creds credentials.TransportCredentials, svc *domain.TaskService) *grpc.Server {
+// It returns the health server so the caller can mark NOT_SERVING on shutdown.
+func newGRPCServer(creds credentials.TransportCredentials, svc *domain.TaskService) (*grpc.Server, *health.Server) {
 	srv := grpc.NewServer(
 		grpc.Creds(creds),
 		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
@@ -129,6 +137,13 @@ func newGRPCServer(creds credentials.TransportCredentials, svc *domain.TaskServi
 
 	healthSvc := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(srv, healthSvc)
-	healthSvc.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-	return srv
+	setHealth(healthSvc, grpc_health_v1.HealthCheckResponse_SERVING)
+	return srv, healthSvc
+}
+
+// setHealth sets both the overall "" key and the per-service named key to the
+// given serving status (canvas O-step 2, #656).
+func setHealth(h *health.Server, st grpc_health_v1.HealthCheckResponse_ServingStatus) {
+	h.SetServingStatus("", st)
+	h.SetServingStatus(zynaxv1.TaskBrokerService_ServiceDesc.ServiceName, st)
 }

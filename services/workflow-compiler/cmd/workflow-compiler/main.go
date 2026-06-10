@@ -69,7 +69,7 @@ func main() {
 
 	healthSvc := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthSvc)
-	healthSvc.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	setHealth(healthSvc, grpc_health_v1.HealthCheckResponse_SERVING)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
 	if err != nil {
@@ -90,8 +90,7 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	slog.Info("shutting down")
-	grpcServer.GracefulStop()
+	drainAndStop(grpcServer, healthSvc)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
@@ -123,6 +122,21 @@ func startMetricsServer(port int) *http.Server {
 		}
 	}()
 	return srv
+}
+
+// setHealth sets both the overall "" key and the per-service named key to the
+// given serving status (canvas O-step 2, #656).
+func setHealth(h *health.Server, st grpc_health_v1.HealthCheckResponse_ServingStatus) {
+	h.SetServingStatus("", st)
+	h.SetServingStatus(zynaxv1.WorkflowCompilerService_ServiceDesc.ServiceName, st)
+}
+
+// drainAndStop drains health (NOT_SERVING) before GracefulStop() so load
+// balancers stop routing during rolling restarts (canvas O-step 2, #656).
+func drainAndStop(srv *grpc.Server, h *health.Server) {
+	slog.Info("shutting down")
+	setHealth(h, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+	srv.GracefulStop()
 }
 
 // buildPolicyGate constructs a domain.PolicyGate from the environment-backed
