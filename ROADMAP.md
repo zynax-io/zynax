@@ -201,7 +201,7 @@ Each roadmap milestone maps to a GitHub Milestone:
 **Goal:** Production deployment on Kubernetes. Argo engine support.
 
 > Label: `milestone: M6` · Target: v0.5.0 · Plan: [docs/milestones/M6-planning.md](docs/milestones/M6-planning.md)
-> Progress: 108 issues closed / 25 open as of 2026-06-09.
+> Progress: 143 issues closed / 14 open as of 2026-06-10.
 
 **Process health (complete):**
 - [x] K8s startup/readiness/liveness probe semantics in api-gateway + engine-adapter (PR #821)
@@ -222,17 +222,22 @@ Each roadmap milestone maps to a GitHub Milestone:
 - [x] Container image source-of-truth — `images.yaml` + drift gate (EPIC Images #855; ADR-024)
 - [x] Self-hosting dev-automation — orchestrator + expert mesh (EPIC DevAuto #873, Waves 0–2)
 - [x] Orchestrator concurrency hardening — worktree isolation + idempotent dispatch (EPIC #1001)
+- [x] `ArgoEngine` adapter + multi-engine dispatch (EPIC Argo #766, #798)
+- [x] Multi-namespace support in workflow-compiler (EPIC NS #767)
+- [x] Policy enforcement: routing policies, rate limits, capability quotas (EPIC E #768)
+- [x] Prometheus `/metrics` per-request counters in all services (#491; OTel traces → M7 #467)
+- [x] `zynax-sdk` Python package published to PyPI (EPIC SDK #769)
+- [x] Memory service — Redis KV + pgvector context (EPIC J #773)
+- [x] End-to-end harness — kind + Helm + reference workflows (EPIC G #770)
+- [x] Native multi-arch build pipeline — QEMU eliminated (EPIC Build #837)
+- [x] gRPC Health Checking Protocol in all services (#74, #656)
+- [x] DevAuto Wave 3 — post-merge completeness mesh (#880)
 
 **Feature EPICs — in progress / pending:**
-- [ ] `ArgoEngine` adapter (EPIC Argo #766 — O1–O3 merged; multi-engine dispatch #798 pending)
-- [ ] Multi-namespace support in workflow-compiler (EPIC NS #767)
-- [ ] Policy enforcement: routing policies, rate limits, capability quotas (EPIC E #768)
-- [ ] Prometheus `/metrics` + OTel baseline (EPIC #467 → #491)
-- [ ] `zynax-sdk` Python package published to PyPI (EPIC SDK #769 — TestPyPI dry-run merged)
-- [ ] Memory service — Redis KV + vector context (EPIC J #773 — scaffold + KV adapter merged)
-- [ ] End-to-end harness — kind + Helm + reference workflows (EPIC G #770)
-- [ ] Native multi-arch build pipeline — eliminate QEMU (EPIC Build #837)
-- [ ] DevAuto Waves 3–4 — post-merge completeness mesh + AgentDef workflows (#880, #881)
+- [ ] e2e-green: e2e-smoke gate executes a workflow end-to-end (EPIC #1086 — O1+O2 merged via PR #1095)
+- [ ] Postgres off deprecated Bitnami images (EPIC #1073 — ADR-026 merged)
+- [ ] CI-E2E: e2e smoke + upgrade gate on infra/services changes (EPIC #771)
+- [ ] DevAuto Wave 4 — self-hosted issue-delivery engine (#881 — canvas Aligned, stories #1096–#1104)
 
 ---
 

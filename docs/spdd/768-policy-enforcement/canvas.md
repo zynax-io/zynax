@@ -7,7 +7,7 @@
 **Issue:** #768
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-02
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #801 (E.1) · #802 (E.2) · #803 (E.3) · #804 (E.4)
 

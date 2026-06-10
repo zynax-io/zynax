@@ -20,7 +20,7 @@
 | M3 — Temporal Execution | ⚠ **Partial** | v0.2.0 | `WorkflowEngine` interface, `TemporalEngine`, `IRInterpreterWorkflow` state machine, `DispatchCapabilityActivity`, cel-go guard evaluation, 5 `EngineAdapterService` gRPC methods. **Not delivered in M3:** task-broker + agent-registry (delivered M5.C #479/#480). CloudEvents publish is a log stub. |
 | M4 — YAML System + CLI | ⚠ **Partial** | v0.3.0 | api-gateway REST layer, `zynax` CLI, Docker Compose runner, GitOps watch. **Not delivered in M4:** agent-registry routing — delivered M5.C (#480); capability dispatch was unblocked by compose wiring (#481). |
 | M5 — Adapter Library | ✅ **Complete** | v0.4.0 | task-broker MVP, agent-registry MVP, compose wiring, all five adapters (http ✅ git ✅ ci ✅ llm ✅ langgraph ✅), cel-go guard, Python SDK `Agent` base class, unified release pipeline, CI runner, distroless images, gRPC deadlines, e2e-demo wired. Released 2026-05-29. See `docs/milestones/M5-plan.md`. |
-| M6 — K8s Production | 🚧 **Active** | v0.5.0 (target) | **Delivered:** mTLS (ADR-020 #464), cosign+SBOM+multi-arch (ADR-025 #465), Postgres-backed task-broker + agent-registry (#626), Helm charts for all 7 services (#765), EventBus over NATS JetStream (#772), `images.yaml` source-of-truth + drift gate (ADR-024 #855), orchestrator self-hosting + concurrency hardening (#873, #1001), memory-service KV + vector (#773). **In progress:** ArgoEngine (#766), multi-namespace (#767), policy/rate-limit (#768), Prometheus/OTel (#467), SDK PyPI (#769), e2e harness (#770). |
+| M6 — K8s Production | 🚧 **Active** | v0.5.0 (target) | **Delivered:** mTLS (ADR-020 #464), cosign+SBOM+multi-arch (ADR-025 #465), Postgres-backed task-broker + agent-registry (#626), Helm charts for all 7 services (#765), EventBus over NATS JetStream (#772), `images.yaml` source-of-truth + drift gate (ADR-024 #855), orchestrator self-hosting + concurrency hardening (#873, #1001), memory-service KV + vector (#773). ArgoEngine + multi-engine dispatch (#766, #798), multi-namespace (#767), policy/rate-limit (#768), Prometheus /metrics (#491), SDK PyPI (#769), e2e harness (#770), native multi-arch build (#837), gRPC health protocol (#74 #656). **In progress:** e2e-green gate (#1086), Postgres off Bitnami (#1073), CI-E2E gate (#771), DevAuto Wave 4 (#881). |
 | M7 — Full Observability | 📅 **Planned** | v0.6.0 | Benchmarks, load tests, SLOs, Watch polling fix |
 | M8 — CNCF Sandbox | 📅 **Planned** | v1.0.0 | Community traction, second maintainer, trademark policy |
 
@@ -284,9 +284,9 @@ execution from any engine. Adding `ArgoEngine` or `LangGraphEngine` is ~500 LoC,
 
 | Engine | Status | Notes |
 |---|---|---|
-| `TemporalEngine` | ✅ Implemented | Only production engine today |
+| `TemporalEngine` | ✅ Implemented | Default production engine |
+| `ArgoEngine` | ✅ Implemented | EPIC #766; multi-engine dispatch via #798 |
 | `LangGraphEngine` | 📅 Planned | canvas: `docs/spdd/384-langgraph-adapter/canvas.md` |
-| `ArgoEngine` | 📅 Planned | Not yet scoped |
 
 ### Activity RetryPolicy Note
 
@@ -330,19 +330,19 @@ task-broker → agent-registry               (find capability)
 task-broker → adapter                       (execute capability)
 ```
 
-All gRPC currently uses `insecure.NewCredentials()`. TLS-by-default is planned for M6
-(ADR-020 / #488). The `ZYNAX_DEV_INSECURE=1` environment variable will gate plain-text
-in development once TLS is implemented.
+Inter-service mTLS is delivered (ADR-020 / #464): services load env-var cert paths and wire
+gRPC transport credentials. The `ZYNAX_DEV_INSECURE=1` environment variable gates plain-text
+in development.
 
-### Asynchronous Path (NATS JetStream — stub)
+### Asynchronous Path (NATS JetStream — implemented)
 
 ```
-engine-adapter → NATS (event-bus) → subscribers
+engine-adapter → event-bus (gRPC) → NATS JetStream → subscribers
 ```
 
-11 AsyncAPI event channels are defined in `spec/asyncapi/`. NATS is in the compose stack.
-`PublishLifecycleEventActivity` currently emits a WARN log and returns nil — no events
-are actually published. Event bus implementation is planned for M6.
+11 AsyncAPI event channels are defined in `spec/asyncapi/`. The EventBusService
+(EPIC #772, ADR-022) wraps NATS JetStream with Publish/Subscribe/Unsubscribe + DLQ,
+and `PublishLifecycleEventActivity` publishes workflow lifecycle CloudEvents through it (#827).
 
 ---
 
@@ -511,7 +511,7 @@ The automation system is explicitly split into two planes:
          automation/tests/test_platform_readiness.py
          @pytest.mark.xfail(strict=True)
          ← THE HONEST LINE BETWEEN PLANES →
-         Fails today. Passes only when M6.H + M6.I complete.
+         Fails today. M6.H + M6.I are complete; flip tracked in #1103.
                              │
 ┌────────────────────────────▼────────────────────────────────┐
 │  ASPIRATIONAL PLANE (Wave 4)                                │

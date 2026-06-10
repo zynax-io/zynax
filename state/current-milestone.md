@@ -28,7 +28,7 @@ See [docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md).
 ## M6 — Progress (🚧 Active)
 
 Full plan + per-EPIC status: **[docs/milestones/M6-planning.md](../docs/milestones/M6-planning.md)**.
-As of 2026-06-09: **108 issues closed / 25 open**.
+As of 2026-06-10: **143 issues closed / 14 open**.
 
 ### EPICs delivered ✅
 | EPIC | Issue | Notes |
@@ -42,14 +42,21 @@ As of 2026-06-09: **108 issues closed / 25 open**.
 | Orchestrator concurrency hardening | #1001 | worktree isolation + idempotent dispatch |
 | Health probes · mTLS · supply-chain | #463 #464 #465 | startup/readiness/liveness, cert-manager, cosign+SBOM |
 | memory-service KV + vector | #773 | Redis KV + pgvector adapters, namespace TTL isolation, all 10 RPCs + BDD |
+| ArgoEngine | #766 | ArgoEngine WorkflowEngine + multi-engine dispatch (#798) |
+| Multi-namespace support | #767 | namespace isolation in workflow-compiler |
+| Policy enforcement | #768 | routing policies, rate limits (#802), capability quotas (#803 #804) |
+| SDK PyPI publish | #769 | zynax-sdk on PyPI + supply-chain hardening |
+| e2e harness | #770 | kind + Helm + reference workflows (#811 #812 #813) |
+| Native multi-arch build | #837 | QEMU eliminated, image sizes audited (#841) |
+| gRPC health protocol | #74 #656 | grpc.health.v1 in all services, K8s-native probes |
+| Prometheus /metrics | #491 | per-request counters in all services (OTel rest → M7 #467) |
+| DevAuto Wave 3 | #880 | post-merge completeness mesh |
 
 ### In progress / remaining
-ArgoEngine (#766, O1–O3 merged), multi-namespace (#767), policy/rate-limit (#768),
-Prometheus + OTel (#467/#491), SDK PyPI publish (#769),
-e2e harness (#770) + **e2e-green execution path (#1086 — O1 #1087 / O3 #1089 ready)**,
+**e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ready)**,
 Postgres off Bitnami (#1073 — O1 ADR-026 ✅, #1076→#1079 chain),
-native multi-arch build (#837), DevAuto Waves 3–4 (#880/#881),
-gRPC health protocol (#74; #656 ✅ merged).
+CI-E2E gate (#771 — #1070 ✅, #1071 remaining),
+DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created).
 
 ---
 
@@ -61,14 +68,14 @@ up but fails at the happy-path assertion; this epic closes the execution-path ga
 
 | Step | Story | Type | Size | Depends on |
 |------|-------|------|------|-----------|
-| O1 | [#1087](https://github.com/zynax-io/zynax/issues/1087) expose api-gateway on host (NodePort 30080) | feat(infra) | S | — (ready) |
+| O1 | [#1087](https://github.com/zynax-io/zynax/issues/1087) expose api-gateway on host (NodePort 30080) | feat(infra) | S | ✅ merged (PR #1095) |
+| O2 | [#1088](https://github.com/zynax-io/zynax/issues/1088) minimal capability worker + reference workflow → succeeded | feat(infra) | M | ✅ merged (PR #1095) |
 | O3 | [#1089](https://github.com/zynax-io/zynax/issues/1089) event-bus + memory-service in release.yml matrix | ci(infra) | M | — (ready) |
-| O2 | [#1088](https://github.com/zynax-io/zynax/issues/1088) minimal capability worker + reference workflow → succeeded | feat(infra) | M | #1087 |
-| O4 | [#1090](https://github.com/zynax-io/zynax/issues/1090) enable event-bus + memory-service in e2e + assertions | test(infra) | M | #1087 #1088 #1089 |
-| O5 | [#1091](https://github.com/zynax-io/zynax/issues/1091) right-size e2e-smoke runner / pod resources | ci(infra) | S | #1088 |
-| O6 | [#1092](https://github.com/zynax-io/zynax/issues/1092) promote gate advisory → stable/required | ci | S | #1087 #1088 #1090 #1091 #1071 |
+| O4 | [#1090](https://github.com/zynax-io/zynax/issues/1090) enable event-bus + memory-service in e2e + assertions | test(infra) | M | #1089 |
+| O5 | [#1091](https://github.com/zynax-io/zynax/issues/1091) right-size e2e-smoke runner / pod resources | ci(infra) | S | resources merged (PR #1094); verify on full gate run |
+| O6 | [#1092](https://github.com/zynax-io/zynax/issues/1092) promote gate advisory → stable/required | ci | S | #1090 #1091 #1071 |
 
-**Ready now for `/m6-orchestrate`:** #1087 (O1) + #1089 (O3) — independent. Then O2 → O4 (+ O5 ∥) → O6.
+**Ready now for `/m6-orchestrate`:** #1089 (O3). Then O4 → O6 (with #1091 verification ∥).
 
 ## M5 — Progress
 
