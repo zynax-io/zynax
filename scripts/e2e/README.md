@@ -51,6 +51,7 @@ scripts/e2e/cluster-up.sh
 scripts/e2e/e2e-happy.sh      # Temporal happy-path: workflow.completed + memory KV
 scripts/e2e/e2e-argo.sh       # Argo engine happy-path: Workflow CR reaches Succeeded
 scripts/e2e/e2e-failure.sh    # failure-path: capability timeout → workflow.failed
+scripts/e2e/helm-upgrade.sh   # Helm upgrade --atomic + rollback (#813)
 
 # Tear the cluster down (idempotent).
 scripts/e2e/cluster-down.sh
@@ -103,9 +104,26 @@ full list):
 4. Waits for all **7 service Deployments** to reach a healthy rollout with their
    startup / liveness / readiness probes passing.
 
+## What `helm-upgrade.sh` does
+
+Validates that the platform can be safely upgraded in production (G.5 / #813):
+
+1. Ensures the release is installed via `helm upgrade --install --atomic`.
+2. Captures the current Helm revision.
+3. Runs `helm upgrade --atomic` (forces a fresh, zero-downtime rolling update);
+   `--atomic` auto-rolls-back the release on any failure.
+4. Asserts all **7 service Deployments** are healthy after the upgrade.
+5. Runs `helm rollback` to the pre-upgrade revision.
+6. Asserts all 7 service Deployments are healthy again after the rollback.
+
+A green exit proves `helm upgrade --atomic` succeeds without service interruption
+and that rollback restores every service to a healthy state.
+
 ## CI
 
 Live cluster bring-up is exercised by the gated `e2e-smoke.yml` workflow added
-in #770 step 5 (#813). It triggers only on changes to `helm/**`, `services/**`,
-or `engine-adapter/**` and is **not** a required gate on every PR. The kind
-cluster is ephemeral per job run; kubeconfigs are never committed.
+in #770 step 5 (#813). It runs `cluster-up.sh` then `helm-upgrade.sh`, triggers
+only on changes to `helm/**`, `services/**`, or `engine-adapter/**` (plus manual
+`workflow_dispatch`), and is **not** a required gate on every PR. All Actions are
+SHA-pinned. The kind cluster is ephemeral per job run; kubeconfigs are never
+committed.
