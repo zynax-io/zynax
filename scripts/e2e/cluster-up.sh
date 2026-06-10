@@ -47,12 +47,15 @@ UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
 # memory-service are not built yet (no GHCR image), so they are excluded from the
 # e2e deploy (disabled in values-e2e.yaml) and from this assertion list. Re-add
 # them once their images ship.
+# Deployment names are pinned via fullnameOverride in values-e2e.yaml to
+# `zynax-<svc>` (so the umbrella's inter-service addresses resolve), not the
+# release-prefixed `zynax-zynax-<svc>` default.
 SERVICE_DEPLOYMENTS=(
-  "${RELEASE_NAME}-zynax-api-gateway"
-  "${RELEASE_NAME}-zynax-workflow-compiler"
-  "${RELEASE_NAME}-zynax-engine-adapter"
-  "${RELEASE_NAME}-zynax-task-broker"
-  "${RELEASE_NAME}-zynax-agent-registry"
+  "zynax-api-gateway"
+  "zynax-workflow-compiler"
+  "zynax-engine-adapter"
+  "zynax-task-broker"
+  "zynax-agent-registry"
 )
 
 # ── helpers ──────────────────────────────────────────────────────────────────────

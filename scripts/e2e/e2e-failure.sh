@@ -182,7 +182,7 @@ kubectl config use-context "kind-${CLUSTER_NAME}" >/dev/null
 
 # Verify the api-gateway deployment is healthy.
 if ! kubectl -n "${NAMESPACE}" get deployment \
-    "${RELEASE_NAME}-zynax-api-gateway" >/dev/null 2>&1; then
+    "zynax-api-gateway" >/dev/null 2>&1; then
   fail "api-gateway deployment not found in namespace '${NAMESPACE}' — run cluster-up.sh first"
 fi
 

@@ -17,7 +17,15 @@
 # memory-service are NOT in the release.yml build matrix (no image is published),
 # so they are left disabled here; the smoke test covers the 5 services that have
 # images. Re-enable them once their images ship.
+#
+# fullnameOverride (#1086 O2): the umbrella wires inter-service addresses as
+# "zynax-<svc>" (registryAddr/compilerAddr/engineAddr/taskBrokerAddr), but the
+# chart fullname for release `zynax` is "zynax-zynax-<svc>", so every cross-service
+# call — and the capability-dispatch chain — fails DNS. Pinning each name to
+# "zynax-<svc>" makes all those addresses resolve. (Same class as the Temporal /
+# Postgres connectAddr overrides below.)
 zynax-api-gateway:
+  fullnameOverride: zynax-api-gateway
   image:
     tag: main
   # Expose api-gateway on the kind host port (#1087). kind-config.yaml maps host
@@ -26,22 +34,23 @@ zynax-api-gateway:
     type: NodePort
     nodePort: 30080
 zynax-workflow-compiler:
+  fullnameOverride: zynax-workflow-compiler
   image:
     tag: main
 zynax-engine-adapter:
+  fullnameOverride: zynax-engine-adapter
   image:
     tag: main
   env:
-    # The umbrella default (`zynax-umbrella-zynax-temporal-temporal-frontend`)
-    # assumes a release named `zynax-umbrella`; with release `zynax` the Temporal
-    # frontend Service is `zynax-temporal-frontend`. Correct it for the e2e
-    # release. (The umbrella default is wrong for any release name and needs a
-    # templated fix in the chart.)
+    # Temporal frontend Service for release `zynax` is `zynax-temporal-frontend`
+    # (subchart naming); the umbrella default is wrong, so correct it here.
     temporalHostPort: "zynax-temporal-frontend:7233"
 zynax-task-broker:
+  fullnameOverride: zynax-task-broker
   image:
     tag: main
 zynax-agent-registry:
+  fullnameOverride: zynax-agent-registry
   image:
     tag: main
 zynax-event-bus:
