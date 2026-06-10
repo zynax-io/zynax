@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/zynax-io/zynax/libs/zynaxconfig"
+	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/event-bus/internal/api"
 	"github.com/zynax-io/zynax/services/event-bus/internal/domain"
@@ -55,6 +56,15 @@ func run(cfg config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
+	tracerShutdown, err := zynaxobs.InitTracer(ctx, "event-bus")
+	if err != nil {
+		return fmt.Errorf("event-bus: tracer init: %w", err)
+	}
+	defer func() { _ = tracerShutdown(context.Background()) }()
+
+	metricsSrv := zynaxobs.StartMetricsServer(cfg.HealthPort)
+	defer func() { _ = metricsSrv.Shutdown(context.Background()) }()
+
 	creds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
 		return fmt.Errorf("event-bus: tls credentials: %w", err)
@@ -72,7 +82,11 @@ func run(cfg config) error {
 
 	handler := api.NewHandler(bus)
 
-	srv := grpc.NewServer(grpc.Creds(creds))
+	srv := grpc.NewServer(
+		grpc.Creds(creds),
+		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
+		grpc.ChainUnaryInterceptor(zynaxobs.MetricsUnaryInterceptor("event-bus")),
+	)
 	reflection.Register(srv)
 	zynaxv1.RegisterEventBusServiceServer(srv, handler)
 

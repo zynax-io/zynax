@@ -24,6 +24,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/api"
 	"github.com/zynax-io/zynax/services/workflow-compiler/internal/config"
@@ -48,10 +49,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	tracerShutdown, err := zynaxobs.InitTracer(context.Background(), "workflow-compiler")
+	if err != nil {
+		slog.Error("tracer init failed", "err", err)
+		os.Exit(1)
+	}
+
 	grpcServer := grpc.NewServer(
 		grpc.Creds(serverCreds),
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		grpc.ChainUnaryInterceptor(requestIDServerInterceptor),
+		grpc.ChainUnaryInterceptor(
+			zynaxobs.MetricsUnaryInterceptor("workflow-compiler"),
+			requestIDServerInterceptor,
+		),
 	)
 	reflection.Register(grpcServer)
 
@@ -67,23 +77,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// HTTP server: /healthz probe + /metrics for Prometheus scraping.
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	metricsSrv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.MetricsPort),
-		Handler:      mux,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-	}
-	go func() {
-		if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("metrics server error", "err", err)
-		}
-	}()
+	metricsSrv := startMetricsServer(cfg.MetricsPort)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
@@ -103,7 +97,32 @@ func main() {
 	if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("metrics server shutdown error", "err", err)
 	}
+	if err := tracerShutdown(shutdownCtx); err != nil {
+		slog.Error("tracer shutdown error", "err", err)
+	}
 	slog.Info("shutdown complete")
+}
+
+// startMetricsServer starts the HTTP server exposing /metrics (Prometheus) and a
+// /healthz probe on the metrics port in a background goroutine.
+func startMetricsServer(port int) *http.Server {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	srv := &http.Server{
+		Addr:         fmt.Sprintf(":%d", port),
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("metrics server error", "err", err)
+		}
+	}()
+	return srv
 }
 
 // buildPolicyGate constructs a domain.PolicyGate from the environment-backed

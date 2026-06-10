@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/engine-adapter/internal/api"
 	"github.com/zynax-io/zynax/services/engine-adapter/internal/domain"
@@ -35,6 +36,7 @@ import (
 type config struct {
 	GRPCPort            int
 	MetricsPort         int
+	AdminPort           int
 	LogLevel            string
 	TemporalHostPort    string
 	TemporalNamespace   string
@@ -59,6 +61,7 @@ func loadConfig() config {
 	return config{
 		GRPCPort:            getEnvInt("ZYNAX_ENGINE_ADAPTER_GRPC_PORT", 50055),
 		MetricsPort:         getEnvInt("ZYNAX_ENGINE_ADAPTER_METRICS_PORT", 9095),
+		AdminPort:           getEnvInt("ZYNAX_ENGINE_ADAPTER_ADMIN_PORT", 6060),
 		LogLevel:            getEnv("ZYNAX_ENGINE_ADAPTER_LOG_LEVEL", "info"),
 		TemporalHostPort:    getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_HOST_PORT", "localhost:7233"),
 		TemporalNamespace:   getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE", "default"),
@@ -96,6 +99,19 @@ func main() {
 func run(cfg config) error {
 	slog.Info("selecting workflow engine", "active_engine", cfg.ActiveEngine)
 
+	// Initialize OTel tracing from OTEL_EXPORTER_OTLP_ENDPOINT (no-op when unset).
+	tracerShutdown, err := zynaxobs.InitTracer(context.Background(), "engine-adapter")
+	if err != nil {
+		return fmt.Errorf("tracer init: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if shutdownErr := tracerShutdown(shutdownCtx); shutdownErr != nil {
+			slog.Error("tracer shutdown error", "err", shutdownErr)
+		}
+	}()
+
 	engine, cleanup, brokerConn, err := buildEngine(cfg)
 	if err != nil {
 		return fmt.Errorf("engine setup: %w", err)
@@ -120,6 +136,7 @@ func run(cfg config) error {
 	}
 
 	httpSrv := startHTTP(cfg, probes)
+	adminSrv := startAdmin(cfg)
 
 	// Mark started: engine built, Temporal worker running, gRPC server listening.
 	probes.MarkStarted()
@@ -141,6 +158,9 @@ func run(cfg config) error {
 	defer cancel()
 	if shutdownErr := httpSrv.Shutdown(shutdownCtx); shutdownErr != nil {
 		slog.Error("http shutdown error", "err", shutdownErr)
+	}
+	if shutdownErr := adminSrv.Shutdown(shutdownCtx); shutdownErr != nil {
+		slog.Error("admin shutdown error", "err", shutdownErr)
 	}
 	slog.Info("shutdown complete")
 	return nil
@@ -265,7 +285,11 @@ func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*g
 	}
 	srv := grpc.NewServer(
 		grpc.Creds(serverCreds),
-		grpc.ChainUnaryInterceptor(makeRequestIDInterceptor(probes)),
+		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
+		grpc.ChainUnaryInterceptor(
+			zynaxobs.MetricsUnaryInterceptor("engine-adapter"),
+			makeRequestIDInterceptor(probes),
+		),
 	)
 	reflection.Register(srv)
 
@@ -291,6 +315,7 @@ func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*g
 func startHTTP(cfg config, probes *api.Probes) *http.Server {
 	mux := http.NewServeMux()
 	probes.Register(mux)
+	zynaxobs.RegisterMetrics(mux)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.MetricsPort),
@@ -303,6 +328,28 @@ func startHTTP(cfg config, probes *api.Probes) *http.Server {
 			slog.Error("http server error", "err", err)
 		}
 	}()
+	return srv
+}
+
+// startAdmin starts the pprof admin server on a separate port. pprof is kept off the
+// production gRPC and metrics ports so profiling is never accidentally exposed
+// alongside the API (canvas Norms — pprof on engine-adapter admin port only).
+func startAdmin(cfg config) *http.Server {
+	mux := http.NewServeMux()
+	zynaxobs.RegisterPprof(mux)
+
+	srv := &http.Server{
+		Addr:         fmt.Sprintf(":%d", cfg.AdminPort),
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 30 * time.Second,
+	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("admin server error", "err", err)
+		}
+	}()
+	slog.Info("pprof admin server started", "admin_port", cfg.AdminPort)
 	return srv
 }
 
