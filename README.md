@@ -381,7 +381,7 @@ make test        # full suite (unit + BDD + coverage gate)
 | **M3 — Temporal Execution** | ⚠ **Partial** | v0.2.0 | [Epic #214](https://github.com/zynax-io/zynax/issues/214) · [Canvas](docs/spdd/214-temporal-execution/canvas.md) · task-broker + agent-registry delivered M5.C |
 | **M4 — YAML System + CLI** | ⚠ **Partial** | v0.3.0 | [Epic #314](https://github.com/zynax-io/zynax/issues/314) · [Canvas](docs/spdd/314-yaml-system-cli/canvas.md) · agent-registry delivered M5.C · compose wired (#481 ✅) |
 | **M5 — Adapter Library** | ✅ **Complete** | v0.4.0 | [Plan](docs/milestones/M5-plan.md) · all 5 adapters ✅ · M5.C ✅ · M5.D ✅ · M5.E ✅ · E2E demo ✅ · v0.4.0 released 2026-05-29 |
-| **M6 — K8s Production-Ready** | 🚧 **Active** | v0.5.0 (target) | [Plan](docs/milestones/M6-planning.md) · delivered: Helm charts (#765) ✅ · Postgres repos (#626) ✅ · EventBus (#772) ✅ · images-SoT + ADR-024 (#855) ✅ · mTLS (#464) ✅ · supply-chain (#465) ✅ · orchestrator hardening (#1001) ✅ · memory-service KV+vector (#773) ✅ · in progress: Argo engine (#766), observability (#467), rate-limiting/policy (#768), e2e harness (#770), SDK PyPI (#769) |
+| **M6 — K8s Production-Ready** | 🚧 **Active** | v0.5.0 (target) | [Plan](docs/milestones/M6-planning.md) · delivered: Helm charts (#765) ✅ · Postgres repos (#626) ✅ · EventBus (#772) ✅ · images-SoT + ADR-024 (#855) ✅ · mTLS (#464) ✅ · supply-chain (#465) ✅ · orchestrator hardening (#1001) ✅ · memory-service KV+vector (#773) ✅ · Argo engine (#766) ✅ · multi-namespace (#767) ✅ · rate-limiting/policy (#768) ✅ · SDK PyPI (#769) ✅ · e2e harness (#770) ✅ · multi-arch build (#837) ✅ · gRPC health (#656) ✅ · Prometheus /metrics (#491) ✅ · in progress: e2e-green gate (#1086), Postgres off Bitnami (#1073), CI-E2E gate (#771), DevAuto Wave 4 (#881) |
 
 **M1** delivered the contracts-only foundation: 8 gRPC services defined as protobuf contracts,
 AsyncAPI spec covering 11 event channels, generated Go + Python stubs, 140+ BDD contract
@@ -421,11 +421,11 @@ Current implementation status per service and adapter (as of M6 active developme
 | Service | Status | Notes |
 |---------|--------|-------|
 | api-gateway | ✅ Implemented | REST → gRPC translation, bearer auth, context deadline propagation |
-| workflow-compiler | ✅ Implemented | YAML → WorkflowIR; in-memory store (ephemeral — re-compile on restart; durable storage in M6 [#466](https://github.com/zynax-io/zynax/issues/466)) |
-| engine-adapter | ✅ Implemented | Temporal backend; cel-go guard evaluation; CloudEvents = log-only (NATS not wired until M6) |
-| task-broker | 🟡 MVP | In-memory; restart loses in-flight tasks; gRPC wired in compose |
-| agent-registry | 🟡 MVP | In-memory round-robin with heartbeat; gRPC wired in compose |
-| event-bus | 🟡 In progress | M6 — NATS JetStream gRPC wrapper implemented (EPIC #772: Publish/Subscribe/Unsubscribe + DLQ); engine-adapter CloudEvents wiring pending |
+| workflow-compiler | ✅ Implemented | YAML → WorkflowIR; stateless — no in-memory IR store ([#466](https://github.com/zynax-io/zynax/issues/466)); multi-namespace support ([#767](https://github.com/zynax-io/zynax/issues/767)) |
+| engine-adapter | ✅ Implemented | Temporal + Argo backends ([#766](https://github.com/zynax-io/zynax/issues/766)); cel-go guard evaluation; CloudEvents lifecycle events published via event-bus (#827) |
+| task-broker | ✅ Implemented | Postgres-backed TaskRepository on pgx/v5 (EPIC [#626](https://github.com/zynax-io/zynax/issues/626)); gRPC wired in compose + Helm |
+| agent-registry | ✅ Implemented | Postgres-backed AgentRepository on pgx/v5 (EPIC [#626](https://github.com/zynax-io/zynax/issues/626)); round-robin with heartbeat |
+| event-bus | ✅ Implemented | NATS JetStream gRPC wrapper (EPIC #772: Publish/Subscribe/Unsubscribe + DLQ, ADR-022); engine-adapter lifecycle wiring merged (#827) |
 | memory-service | ✅ Implemented | M6 — Redis KV + pgvector; all 10 RPCs, namespace TTL isolation, integration + BDD tests (EPIC #773) |
 
 ### Execution Adapters

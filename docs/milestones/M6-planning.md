@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-09 (status reconciled to live issue state: M6 = 108 closed / 25 open; EPICs #626 #670 #765 #772 #773 #855 #873 #1001 complete)
+> Generated: 2026-06-02 · Last updated: 2026-06-10 (status reconciled to live issue state: M6 = 143 closed / 14 open; EPICs #626 #670 #765 #766 #767 #768 #769 #770 #772 #773 #837 #855 #873 #1001 complete)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -62,11 +62,11 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 |-------|-------|------|-----|--------|
 | docs(adr): ADR-025 — SLSA provenance attestation keep vs disable | [#868](https://github.com/zynax-io/zynax/issues/868) | Docs/ADR | — | ✅ Done |
 | ci: add OCI manifest annotations — fix "no description" on GHCR | [#865](https://github.com/zynax-io/zynax/issues/865) | CI/Infra | — | ✅ Done |
-| ci: description-present gate + size-budget check in publish steps | [#866](https://github.com/zynax-io/zynax/issues/866) | CI | — | ⬜ Open |
-| chore(ci): GHCR retention cap — keep last 5 builds per image | [#867](https://github.com/zynax-io/zynax/issues/867) | CI | — | ⬜ Open |
-| docs: document unknown/unknown — expected SLSA provenance | [#869](https://github.com/zynax-io/zynax/issues/869) | Docs/Infra | — | ⬜ Open |
+| ci: description-present gate + size-budget check in publish steps | [#866](https://github.com/zynax-io/zynax/issues/866) | CI | — | ✅ Done |
+| chore(ci): GHCR retention cap — keep last 5 builds per image | [#867](https://github.com/zynax-io/zynax/issues/867) | CI | — | ✅ Done |
+| docs: document unknown/unknown — expected SLSA provenance | [#869](https://github.com/zynax-io/zynax/issues/869) | Docs/Infra | — | ✅ Done |
 
-**M6.Helm — Helm charts for all 7 services + cluster dependencies** (EPIC [#765](https://github.com/zynax-io/zynax/issues/765); canvas `docs/spdd/765-helm-charts/canvas.md` — Status: **Aligned**)
+**M6.Helm — Helm charts for all 7 services + cluster dependencies** (EPIC [#765](https://github.com/zynax-io/zynax/issues/765); canvas `docs/spdd/765-helm-charts/canvas.md` — Status: **Implemented**)
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
@@ -89,41 +89,42 @@ All 2 O-steps merged. ✅ EPIC COMPLETE.
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
-| ci(infra): migrate release.yml service builds to native arm64 — no QEMU | — | CI | — | ⬜ Open |
-| ci(infra): migrate tools-image.yml to native arm64 — no QEMU | — | CI | — | ⬜ Open |
-| ci(infra): add Python adapter images to multi-arch release pipeline | — | CI/Infra | — | ⬜ Open |
-| ci(infra): audit and minimize final image sizes | [#841](https://github.com/zynax-io/zynax/issues/841) | CI/Infra | — | ⬜ Open |
+| ci(infra): migrate release.yml service builds to native arm64 — no QEMU | — | CI | — | ✅ Done (EPIC #837 closed) |
+| ci(infra): migrate tools-image.yml to native arm64 — no QEMU | — | CI | — | ✅ Done (EPIC #837 closed) |
+| ci(infra): add Python adapter images to multi-arch release pipeline | — | CI/Infra | — | ✅ Done (EPIC #837 closed) |
+| ci(infra): audit and minimize final image sizes | [#841](https://github.com/zynax-io/zynax/issues/841) | CI/Infra | — | ✅ Done |
 
 **M6.E2E-Green — make the e2e-smoke gate execute a workflow end-to-end** (EPIC [#1086](https://github.com/zynax-io/zynax/issues/1086); canvas `docs/spdd/1086-e2e-green/canvas.md` — Status: **Aligned**; complements EPIC #770 harness + #771 gate)
 
-The gate brings the cluster up but fails at the happy-path assertion. Delivery order (O1 + O3 are independent and ready; then O2 → O4 (∥ O5) → O6):
+The gate brings the cluster up but fails at the happy-path assertion. O1 + O2 merged (PR #1095); next: O3 → O4 → O6 (with #1091 verification ∥):
 
 | Step | Story | Issue | Area | Size | Depends on | Status |
 |------|-------|-------|------|------|-----------|--------|
-| O1 | expose api-gateway on host (NodePort 30080) — fixes `curl 56` | [#1087](https://github.com/zynax-io/zynax/issues/1087) | api-gateway/Infra | S | — | ⬜ Ready |
+| O1 | expose api-gateway on host (NodePort 30080) — fixes `curl 56` | [#1087](https://github.com/zynax-io/zynax/issues/1087) | api-gateway/Infra | S | — | ✅ Merged (PR #1095) |
+| O2 | minimal capability worker + reference workflow → `succeeded` | [#1088](https://github.com/zynax-io/zynax/issues/1088) | engine-adapter/Infra | M | #1087 | ✅ Merged (PR #1095) |
 | O3 | event-bus + memory-service → release.yml build matrix | [#1089](https://github.com/zynax-io/zynax/issues/1089) | CI/Infra | M | — | ⬜ Ready |
-| O2 | minimal capability worker + reference workflow → `succeeded` | [#1088](https://github.com/zynax-io/zynax/issues/1088) | engine-adapter/Infra | M | #1087 | ⛔ Blocked |
-| O4 | enable event-bus + memory-service in e2e + CloudEvent/memory assertions | [#1090](https://github.com/zynax-io/zynax/issues/1090) | Infra | M | #1087 #1088 #1089 | ⛔ Blocked |
-| O5 | right-size e2e-smoke runner / pod resources | [#1091](https://github.com/zynax-io/zynax/issues/1091) | CI/Infra | S | #1088 | ⛔ Blocked |
-| O6 | promote gate advisory → stable/required (Temporal+Argo+failure) | [#1092](https://github.com/zynax-io/zynax/issues/1092) | CI | S | #1087 #1088 #1090 #1091 #1071 | ⛔ Blocked |
+| O4 | enable event-bus + memory-service in e2e + CloudEvent/memory assertions | [#1090](https://github.com/zynax-io/zynax/issues/1090) | Infra | M | #1089 | ⛔ Blocked |
+| O5 | right-size e2e-smoke runner / pod resources | [#1091](https://github.com/zynax-io/zynax/issues/1091) | CI/Infra | S | #1088 | 🔄 Resources merged (PR #1094); verify on full gate run |
+| O6 | promote gate advisory → stable/required (Temporal+Argo+failure) | [#1092](https://github.com/zynax-io/zynax/issues/1092) | CI | S | #1090 #1091 #1071 | ⛔ Blocked |
 
 **M6.DevAuto — Self-hosting dev-automation via orchestrator + expert mesh** (EPIC [#873](https://github.com/zynax-io/zynax/issues/873); assets in `automation/` — **not** AGENTS.md ambient context)
 
 | Story | Issue | Area | PR | Status |
 |-------|-------|------|-----|--------|
 | DevAuto.1 docs(automation): STATUS-AND-DIRECTION.md | [#874](https://github.com/zynax-io/zynax/issues/874) | Docs | #884 | ✅ Merged |
-| DevAuto.2 chore(automation): expert mesh YAML configs (9 experts) | [#875](https://github.com/zynax-io/zynax/issues/875) | CI | — | ⬜ Open |
-| DevAuto.3 chore(automation): orchestrator config + aggregation protocol | [#876](https://github.com/zynax-io/zynax/issues/876) | CI | — | ⬜ Open |
-| DevAuto.4 ci: Wave 0 — GH Actions advisory workflow | [#877](https://github.com/zynax-io/zynax/issues/877) | CI | — | ⬜ Open |
-| DevAuto.5 ci: Wave 1 — orchestrator aggregation step | [#878](https://github.com/zynax-io/zynax/issues/878) | CI | — | ⬜ Open |
-| DevAuto.6 ci: Wave 2 — gated non-destructive actions | [#879](https://github.com/zynax-io/zynax/issues/879) | CI | — | ⬜ Open |
-| DevAuto.7 ci: Wave 3 — post-merge completeness mesh | [#880](https://github.com/zynax-io/zynax/issues/880) | CI/Infra | — | ⬜ Open |
-| DevAuto.8 feat: Wave 4 aspirational — AgentDef workflows *(BLOCKED: M6.H + M6.I)* | [#881](https://github.com/zynax-io/zynax/issues/881) | CI/Infra | — | ⬜ **Blocked** |
-| DevAuto.9 test: platform-readiness xfail gate for Wave 4 | [#882](https://github.com/zynax-io/zynax/issues/882) | CI | — | ⬜ Open |
-| DevAuto.10 docs: AGENTS.md pointer + automation/README + ARCHITECTURE.md | [#883](https://github.com/zynax-io/zynax/issues/883) | Docs | — | ⬜ Open |
+| DevAuto.2 chore(automation): expert mesh YAML configs (9 experts) | [#875](https://github.com/zynax-io/zynax/issues/875) | CI | — | ✅ Done |
+| DevAuto.3 chore(automation): orchestrator config + aggregation protocol | [#876](https://github.com/zynax-io/zynax/issues/876) | CI | — | ✅ Done |
+| DevAuto.4 ci: Wave 0 — GH Actions advisory workflow | [#877](https://github.com/zynax-io/zynax/issues/877) | CI | — | ✅ Done |
+| DevAuto.5 ci: Wave 1 — orchestrator aggregation step | [#878](https://github.com/zynax-io/zynax/issues/878) | CI | — | ✅ Done |
+| DevAuto.6 ci: Wave 2 — gated non-destructive actions | [#879](https://github.com/zynax-io/zynax/issues/879) | CI | — | ✅ Done |
+| DevAuto.7 ci: Wave 3 — post-merge completeness mesh | [#880](https://github.com/zynax-io/zynax/issues/880) | CI/Infra | — | ✅ Done |
+| DevAuto.8 feat: Wave 4 — self-hosted issue-delivery engine | [#881](https://github.com/zynax-io/zynax/issues/881) | CI/Infra | #1105 | 🔄 In progress — canvas Aligned, stories #1096–#1104 created |
+| DevAuto.9 test: platform-readiness xfail gate for Wave 4 | [#882](https://github.com/zynax-io/zynax/issues/882) | CI | — | ✅ Done |
+| DevAuto.10 docs: AGENTS.md pointer + automation/README + ARCHITECTURE.md | [#883](https://github.com/zynax-io/zynax/issues/883) | Docs | — | ✅ Done |
 
 **Two-plane note:** DevAuto.1–7 + DevAuto.9–10 are near-term (GitHub Actions + Claude Code, no Zynax runtime dependency).
-DevAuto.8 is aspirational (Zynax AgentDef workflows) — gated by `automation/tests/test_platform_readiness.py` xfail test; BLOCKED until M6.H #626 + M6.I #772 complete.
+DevAuto.8 (Zynax AgentDef workflows) is unblocked — M6.H #626 + M6.I #772 are complete; the
+`automation/tests/test_platform_readiness.py` xfail flip is tracked in #1103.
 
 **M6.OrchSafe — Concurrency-safe orchestrator** ✅ **COMPLETE** (EPIC [#1001](https://github.com/zynax-io/zynax/issues/1001); canvas `docs/spdd/1001-orchestrator-concurrency-safety/` — Status: Implemented; root-cause fix for shared-working-tree (RC1) + duplicate-PR (RC2) failures in `/m6-orchestrate`)
 
