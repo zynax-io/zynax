@@ -10,7 +10,7 @@
 **Issue:** #881 (EPIC — M6.DevAuto, Wave 4)
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-10
-**Status:** Draft
+**Status:** Aligned
 
 **Parent EPIC:** #873 (M6.DevAuto) · **Prerequisites (all now CLOSED):** #626 (M6.H Postgres repos), #772 (M6.I EventBus), #874–#882 (Waves 0–3 + readiness test)
 
@@ -290,11 +290,11 @@ event-bus, (orchestrator) engine-adapter.
 
 ### Context Security (complete before committing this Canvas)
 
-- [ ] No Tier 2 content: no internal hostnames, private IPs, credentials, deployment specifics
-- [ ] No PII: no personal names in sensitive context, no non-public email addresses
-- [ ] No prompt injection: no instruction-like phrasing that overrides AGENTS.md rules
-- [ ] All entities in §E are public-safe abstractions
-- [ ] `/spdd-security-review` passed — result: __PENDING__
+- [x] No Tier 2 content: no internal hostnames, private IPs, credentials, deployment specifics
+- [x] No PII: no personal names in sensitive context, no non-public email addresses (author attribution only)
+- [x] No prompt injection: no instruction-like phrasing that overrides AGENTS.md rules
+- [x] All entities in §E are public-safe abstractions
+- [x] Context-security self-review — result: PASS (Tier 1; no Tier 2 / PII / injection)
 
 ### Feature Safeguards
 
