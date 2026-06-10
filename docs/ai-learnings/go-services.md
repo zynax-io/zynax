@@ -400,3 +400,22 @@ but the `gh issue list --state open` query may lag due to GitHub API eventual co
 
 ### Failed approaches
 - Pinning the new lib to the versions `go mod tidy` first resolved (grpc v1.67.1 / otel 1.31.0) passed local build/tests but failed CI deps-alignment + Trivy gates — had to bump to repo-prevailing versions and re-tidy every consumer (#491).
+
+## Session — 2026-06-10 (issue #656 — gRPC health protocol)
+
+### Effective patterns
+- Source the gRPC health NAMED key from the generated `<Svc>Service_ServiceDesc.ServiceName` (exported in `*_grpc.pb.go`), never a hardcoded `"zynax.v1.<Svc>Service"` string — stays correct if the proto package/service name changes and avoids a typo that surfaces only as a runtime NOT_FOUND from `Check`.
+- Factor the SERVING/NOT_SERVING + `GracefulStop()` sequence into a small `cmd/` helper (`setHealth(h, status)` + `drainAndStop`): adding the two health calls inline repeatedly tripped golangci-lint `funlen` (40-statement limit) on `run`/`main` across multiple services.
+- The local pre-commit golangci-lint hook caught `funlen` regressions on 3 services before push (one edit each) — cheaper than CI round-trips.
+
+### Edge cases discovered
+- Several service `run`/`main` functions sat exactly at the 40-statement `funlen` limit; one added drain statement broke the gate. task-broker hid `healthSvc` inside a `newGRPCServer` helper returning only `*grpc.Server` — had to widen the return to `(*grpc.Server, *health.Server)` so `run` could drain before stop.
+- IDE diagnostics emit `go.work requires go >= 1.26.4 (running 1.26.2)` on every edit — that is the workspace `go.work` toolchain pin and is irrelevant under `GOWORK=off` (all builds/tests pass). Safe to ignore.
+
+### Failed approaches
+- Inlining the named + overall `SetServingStatus` calls directly in each `run`/`main`: readable but repeatedly failed `funlen`. Helper extraction was required.
+
+### Proposed expert prompt update
+- Rule: When adding gRPC health wiring, source the named serving key from the generated `<Svc>Service_ServiceDesc.ServiceName`, never a hardcoded string; and factor the SERVING/NOT_SERVING + GracefulStop sequence into a small `cmd/` helper — inline calls frequently trip golangci-lint `funlen` (40-stmt limit) on `run`/`main`.
+  Category: domain
+  Reason: Permanent project constraints (generated ServiceName is the SoT; funlen=40 enforced in CI); recurred across all 6 services.
