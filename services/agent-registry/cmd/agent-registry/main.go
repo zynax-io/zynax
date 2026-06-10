@@ -97,7 +97,7 @@ func run(cfg config) error {
 
 	healthSvc := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(srv, healthSvc)
-	healthSvc.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	setHealth(healthSvc, grpc_health_v1.HealthCheckResponse_SERVING)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
 	if err != nil {
@@ -113,8 +113,18 @@ func run(cfg config) error {
 
 	<-ctx.Done()
 	slog.Info("shutting down")
+	// Drain: report NOT_SERVING so load balancers stop routing before the
+	// graceful stop completes (canvas O-step 2, #656).
+	setHealth(healthSvc, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 	srv.GracefulStop()
 	return nil
+}
+
+// setHealth sets both the overall "" key and the per-service named key to the
+// given serving status (canvas O-step 2, #656).
+func setHealth(h *health.Server, st grpc_health_v1.HealthCheckResponse_ServingStatus) {
+	h.SetServingStatus("", st)
+	h.SetServingStatus(zynaxv1.AgentRegistryService_ServiceDesc.ServiceName, st)
 }
 
 func parseLogLevel(level string) slog.Level {
