@@ -35,15 +35,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege default — jobs that need more escalate per-job below (#1116).
 permissions:
   contents: read
-  pull-requests: write
-  statuses: write
 
 jobs:
   kb-previsualize:
     name: kb-content-previsualized
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write   # posts the KB content preview comment
+      statuses: write        # sets the kb-content-previsualized commit status
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -73,7 +76,7 @@ jobs:
 
       - name: Post KB content preview comment
         if: steps.extract.outputs.has_additions == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           ADDITIONS: ${{ steps.extract.outputs.additions }}
         with:

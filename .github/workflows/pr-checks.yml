@@ -5,6 +5,7 @@
 #
 # Jobs:
 #   actionlint           → GitHub Actions workflow YAML and expression linting
+#   dependency-review    → blocks new HIGH-severity CVEs in dependency manifests
 #   conventional-commit  → PR title follows Conventional Commits format
 #   proto-check          → buf breaking-change detection + generated stubs freshness
 #   layer-boundaries     → detects cross-layer imports (ADR-001 §separation)
@@ -30,9 +31,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+# Least-privilege default — jobs that need more escalate per-job below (#1116).
 permissions:
   contents: read
-  pull-requests: write
 
 defaults:
   run:
@@ -53,6 +54,23 @@ jobs:
       - name: Lint all workflow files
         run: actionlint -color
 
+# ── Dependency Review (HIGH CVE gate) ─────────────────────────────────────────
+# Blocks PRs that introduce dependencies with known HIGH/CRITICAL CVEs in
+# go.mod / pyproject.toml manifests, via the GitHub Dependency Graph diff.
+  dependency-review:
+    name: Dependency review (HIGH CVEs)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read   # reads the dependency diff via the Dependency Graph API
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Block new HIGH-severity vulnerable dependencies
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
 # ── Conventional Commit Title ─────────────────────────────────────────────────
   conventional-commit:
     name: Conventional Commit title
@@ -61,8 +79,10 @@ jobs:
     container:
       image: ghcr.io/zynax-io/zynax/ci-runner@sha256:04074b10bb681e0cbeffd053b9d7cc6aaef4b7b92fd08b3a3c9ee3ede877b782
       options: --user root
+    permissions:
+      pull-requests: read   # action-semantic-pull-request reads the PR title
     steps:
-      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

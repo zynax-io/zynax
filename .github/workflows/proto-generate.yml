@@ -23,9 +23,9 @@ on:
       - "protos/buf.gen.yaml"
       - "infra/docker/Dockerfile.tools"
 
+# Least-privilege default — jobs that need more escalate per-job below (#1116).
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 env:
   BUF_VERSION: "1.69.0"
@@ -34,6 +34,9 @@ jobs:
   regenerate-stubs:
     name: regenerate-stubs
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write        # pushes the chore/proto-regen-* branch with regenerated stubs
+      pull-requests: write   # opens the follow-up stub-regeneration PR
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
