@@ -44,6 +44,20 @@ zynax-event-bus:
 zynax-memory-service:
   enabled: false
 
+# ── Resource right-sizing for the e2e smoke runner (#1091) ────────────────────
+# The CI runner (ubuntu-latest, 2 CPU / 7 GB) is below the harness's documented
+# 4 CPU / 8 GB minimum, so the full default stack drives the node into
+# memory-pressure eviction. These overrides trim the smoke footprint WITHOUT
+# touching the chart defaults (production is unchanged). See #1091 for the
+# before/after analysis. Key levers: drop unused pods (NATS, Temporal Web UI),
+# slash Temporal history shards, and cap the otherwise-unbounded Temporal pods.
+
+# NATS is only consumed by event-bus, which is disabled above. With no service
+# referencing it, the happy/failure assertions already run with SKIP_NATS=1, so
+# the NATS StatefulSet + nats-box + 5Gi PVC are pure overhead in the smoke test.
+zynax-nats:
+  enabled: false
+
 # ── Postgres ────────────────────────────────────────────────────────────────
 # Use a deterministic, pre-created credentials Secret (created by cluster-up.sh)
 # instead of the chart's auto-generated password, so the Temporal schema Job and
@@ -67,6 +81,16 @@ zynax-postgres:
       tag: 16.4.0-debian-12-r12
     auth:
       existingSecret: zynax-postgres-creds
+    # Trim the reservation for a single-workflow smoke test (default is
+    # 250m/256Mi req, 1000m/1Gi lim).
+    primary:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
 
 # ── Temporal ──────────────────────────────────────────────────────────────────
 # Point the Temporal schema/connection at the Postgres SUPERUSER for the e2e
@@ -81,15 +105,47 @@ zynax-postgres:
 # default is wrong for production too and needs a separate fix.
 zynax-temporal:
   temporal:
+    # The Web UI is not needed to run or assert a workflow — drop it (#1091).
+    web:
+      enabled: false
     server:
       config:
         persistence:
+          # The kind cluster is always a fresh, ephemeral deploy, so lowering the
+          # shard count is safe (it cannot change on an existing deployment) and
+          # is the single biggest cut to Temporal-history memory. Default is 512.
+          numHistoryShards: 4
           datastores:
             default:
               sql:
                 user: postgres
                 connectAddr: "zynax-postgresql:5432"
+                # Fewer Postgres backends for the smoke test (default 20/store).
+                maxConns: 5
+                maxIdleConns: 2
             visibility:
               sql:
                 user: postgres
                 connectAddr: "zynax-postgresql:5432"
+                maxConns: 5
+                maxIdleConns: 2
+      # Cap every Temporal server role (frontend/history/matching/worker), which
+      # the upstream chart leaves unbounded (resources: {}). With 4 shards these
+      # limits are comfortable and give the kubelet accurate accounting so the
+      # node is never driven into memory-pressure eviction.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 96Mi
+        limits:
+          cpu: 400m
+          memory: 256Mi
+    # admintools is only used to register the Temporal namespace — keep it tiny.
+    admintools:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
