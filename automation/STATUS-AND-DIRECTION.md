@@ -261,6 +261,10 @@ flags: []                 # tier-2 security flags or blocker flags (empty if non
 
 ### Wave 3 — Post-Merge Completeness Mesh (near-term)
 
+> **Demoted (#1113):** the per-merge mesh (`post-merge-completeness.yml`) is now a
+> schedule-only `weekly-audit.yml` that fails loudly instead of auto-filing `[AUTO]` issues.
+> The description below is the original Wave 3 design, kept for historical context.
+
 - **Plane:** Near-term
 - **Trigger:** `workflow_run` on `service-release.yml` completion + `push` to main
 - **What runs:** 4 post-merge experts (image-test, integration, drift-check, security-rescan) + completeness-verdict aggregator
@@ -286,6 +290,9 @@ flags: []                 # tier-2 security flags or blocker flags (empty if non
 ---
 
 ## 8. Post-Merge Completeness Agents (Wave 3 Detail)
+
+> **Demoted (#1113):** these agents now run as the schedule-only `weekly-audit.yml`
+> (no per-merge triggers, no `[AUTO]` issue creation — a red run is the signal).
 
 All post-merge agents are in the **near-term plane** (GitHub Actions).
 
