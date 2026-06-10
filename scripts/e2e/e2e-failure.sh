@@ -186,6 +186,14 @@ if ! kubectl -n "${NAMESPACE}" get deployment \
   fail "api-gateway deployment not found in namespace '${NAMESPACE}' — run cluster-up.sh first"
 fi
 
+# Resolve the api-gateway bearer key from the zynax-gw-api-key secret (random,
+# provisioned by cluster-up.sh) when the caller did not supply one (avoids 401).
+if [[ -z "${ZYNAX_API_KEY}" ]]; then
+  ZYNAX_API_KEY=$(kubectl -n "${NAMESPACE}" get secret zynax-gw-api-key \
+    -o jsonpath='{.data.api-key}' 2>/dev/null | base64 -d || true)
+  [[ -n "${ZYNAX_API_KEY}" ]] && log "using api-gateway key from the zynax-gw-api-key secret."
+fi
+
 # Verify NATS exists — the workflow.failed CloudEvent assertion needs it.
 if ! kubectl -n "${NAMESPACE}" get deployment \
     "${RELEASE_NAME}-zynax-event-bus" >/dev/null 2>&1; then
@@ -195,6 +203,15 @@ fi
 SKIP_NATS="${SKIP_NATS:-0}"
 
 log "preflight passed (capability timeout = ${ZYNAX_CAPABILITY_TIMEOUT})."
+
+# Reach api-gateway via a port-forward by default — the kind NodePort host
+# mapping (8080 -> 30080) is reset by kube-proxy on the GitHub runner. A
+# port-forward tunnels through the kube-apiserver. Honors an overridden API_GW_URL.
+if [[ "${API_GW_URL}" == "http://localhost:8080" ]]; then
+  GW_LOCAL_PORT="${GW_LOCAL_PORT:-18080}"
+  port_forward "svc/zynax-api-gateway" "${GW_LOCAL_PORT}" 8080
+  API_GW_URL="http://localhost:${GW_LOCAL_PORT}"
+fi
 
 # ── 1. Submit a workflow with an unreachable capability ───────────────────────────
 
@@ -237,11 +254,12 @@ while [[ $ELAPSED -lt $POLL_TIMEOUT ]]; do
   FINAL_STATUS=$(printf '%s' "${STATUS_RESPONSE}" | jq -r '.status // empty')
   log "  [${ELAPSED}s] status=${FINAL_STATUS}"
 
+  # Accept lowercase aliases and the WorkflowStatus proto enum names.
   case "${FINAL_STATUS}" in
-    failed|error)
+    failed|error|*FAILED|*ERROR|*CANCELED|*TERMINATED|*TIMED_OUT)
       break
       ;;
-    succeeded|completed)
+    succeeded|completed|*COMPLETED|*SUCCEEDED)
       fail "workflow unexpectedly reached terminal SUCCESS state '${FINAL_STATUS}' — the unreachable capability should have timed out. Response: ${STATUS_RESPONSE}"
       ;;
   esac
@@ -249,9 +267,12 @@ while [[ $ELAPSED -lt $POLL_TIMEOUT ]]; do
   ELAPSED=$((ELAPSED + POLL_INTERVAL))
 done
 
-if [[ "${FINAL_STATUS}" != "failed" && "${FINAL_STATUS}" != "error" ]]; then
-  fail "workflow did not reach terminal failure within ${POLL_TIMEOUT}s. Last status: '${FINAL_STATUS}'"
-fi
+case "${FINAL_STATUS}" in
+  failed|error|*FAILED|*ERROR|*CANCELED|*TERMINATED|*TIMED_OUT) ;;
+  *)
+    fail "workflow did not reach terminal failure within ${POLL_TIMEOUT}s. Last status: '${FINAL_STATUS}'"
+    ;;
+esac
 
 FAIL_ELAPSED=$(( $(date +%s) - START_TS ))
 pass "step 2: workflow reached terminal failure state '${FINAL_STATUS}' after ~${FAIL_ELAPSED}s (run_id=${RUN_ID})."
