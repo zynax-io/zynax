@@ -36,6 +36,7 @@ a PR against `docs/adr/`.
 | [ADR-023](ADR-023-restrict-direct-pushes-to-main.md) | Restrict direct pushes to `main`; rebase-merge only | Accepted | 2026-06-03 | All branches, PRs, and merge operations |
 | [ADR-024](ADR-024-image-reference-management.md) | Container image reference management — `images.yaml` source of truth | Accepted | 2026-06-08 | `images/images.yaml`, all CI workflow files, Dockerfiles, `config/ci-runner-digest.txt` |
 | [ADR-025](ADR-025-slsa-provenance-attestation.md) | SLSA provenance attestation: keep vs disable | Accepted | 2026-06-08 | `tools-image.yml`, `release.yml` — all `docker/build-push-action` steps |
+| [ADR-026](ADR-026-postgres-distribution.md) | Postgres distribution + target major version (official `postgres:17` + thin chart) | Accepted | 2026-06-10 | `helm/charts/postgres/`, `images/images.yaml`, all production Postgres — EPIC #1073 |
 
 ---
 
