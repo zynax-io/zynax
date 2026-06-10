@@ -47,12 +47,15 @@ UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
 # memory-service are not built yet (no GHCR image), so they are excluded from the
 # e2e deploy (disabled in values-e2e.yaml) and from this assertion list. Re-add
 # them once their images ship.
+# Deployment names are pinned via fullnameOverride in values-e2e.yaml to
+# `zynax-<svc>` (so the umbrella's inter-service addresses resolve), not the
+# release-prefixed `zynax-zynax-<svc>` default.
 SERVICE_DEPLOYMENTS=(
-  "${RELEASE_NAME}-zynax-api-gateway"
-  "${RELEASE_NAME}-zynax-workflow-compiler"
-  "${RELEASE_NAME}-zynax-engine-adapter"
-  "${RELEASE_NAME}-zynax-task-broker"
-  "${RELEASE_NAME}-zynax-agent-registry"
+  "zynax-api-gateway"
+  "zynax-workflow-compiler"
+  "zynax-engine-adapter"
+  "zynax-task-broker"
+  "zynax-agent-registry"
 )
 
 # ── helpers ──────────────────────────────────────────────────────────────────────
@@ -208,6 +211,19 @@ for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
 done
 
 log "all 5 service deployments are healthy."
+
+# ── 5. deploy the echo capability worker (#1088) ────────────────────────────────
+
+# The umbrella deploys only the platform services — no capability provider — so
+# dispatched tasks are never claimed. Deploy a minimal langgraph-adapter that
+# registers the "echo" capability with agent-registry and completes its tasks,
+# letting spec/workflows/examples/e2e-demo.yaml reach a terminal succeeded state.
+# agent-registry is healthy by now (step 4), so the worker registers on startup.
+log "deploying echo capability worker…"
+kubectl -n "${NAMESPACE}" apply -f "${SCRIPT_DIR}/manifests/echo-worker.yaml"
+kubectl -n "${NAMESPACE}" rollout status deployment/echo-worker --timeout "${WAIT_TIMEOUT}"
+log "echo-worker is healthy and registered."
+
 kubectl -n "${NAMESPACE}" get pods -o wide
 
 log "cluster '${CLUSTER_NAME}' is up. api-gateway REST is reachable on host port 8080."

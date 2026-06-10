@@ -17,6 +17,10 @@ serviceAccount:
 service:
   type: ClusterIP
   port: 8080
+  # nodePort is only rendered when type is NodePort (e.g. the e2e kind cluster,
+  # which maps host 8080 -> nodePort 30080). Null by default so production
+  # ClusterIP deployments are unaffected.
+  nodePort: null
 
 # Non-secret env vars for the api-gateway (prefix: ZYNAX_GW_)
 env:

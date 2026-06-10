@@ -45,7 +45,9 @@ API_GW_URL="${API_GW_URL:-http://localhost:8080}"
 ZYNAX_API_KEY="${ZYNAX_API_KEY:-}"
 POLL_TIMEOUT="${POLL_TIMEOUT:-120}"
 POLL_INTERVAL="${POLL_INTERVAL:-5}"
-WORKFLOW_FILE="${WORKFLOW_FILE:-${REPO_ROOT}/spec/workflows/examples/code-review.yaml}"
+# Default to the minimal echo workflow (#1088): a single "echo" capability that
+# the deployed echo-worker satisfies, so the run reaches terminal succeeded.
+WORKFLOW_FILE="${WORKFLOW_FILE:-${REPO_ROOT}/spec/workflows/examples/e2e-demo.yaml}"
 
 # Sentinel key for memory-service roundtrip assertion.
 MEMORY_WF_ID="e2e-happy-$(date +%s)"
@@ -128,8 +130,17 @@ kubectl config use-context "kind-${CLUSTER_NAME}" >/dev/null
 
 # Verify the api-gateway deployment is healthy.
 if ! kubectl -n "${NAMESPACE}" get deployment \
-    "${RELEASE_NAME}-zynax-api-gateway" >/dev/null 2>&1; then
+    "zynax-api-gateway" >/dev/null 2>&1; then
   fail "api-gateway deployment not found in namespace '${NAMESPACE}' — run cluster-up.sh first"
+fi
+
+# Resolve the api-gateway bearer key. api-gateway requires ZYNAX_GW_API_KEY and
+# cluster-up.sh provisions a random one in the zynax-gw-api-key secret, so read
+# it from there when the caller did not supply ZYNAX_API_KEY (avoids a 401).
+if [[ -z "${ZYNAX_API_KEY}" ]]; then
+  ZYNAX_API_KEY=$(kubectl -n "${NAMESPACE}" get secret zynax-gw-api-key \
+    -o jsonpath='{.data.api-key}' 2>/dev/null | base64 -d || true)
+  [[ -n "${ZYNAX_API_KEY}" ]] && log "using api-gateway key from the zynax-gw-api-key secret."
 fi
 
 # Verify NATS and memory-service deployments exist.
@@ -148,6 +159,17 @@ fi
 SKIP_MEMORY="${SKIP_MEMORY:-0}"
 
 log "preflight passed."
+
+# Reach api-gateway via a port-forward by default. The NodePort host mapping
+# (host 8080 -> nodePort 30080) works locally but kube-proxy can reset it on the
+# GitHub runner when the control-plane node forwards to a pod on a worker node.
+# A port-forward tunnels through the kube-apiserver and is environment-independent.
+# Honors a caller-provided API_GW_URL (skip the forward if it was overridden).
+if [[ "${API_GW_URL}" == "http://localhost:8080" ]]; then
+  GW_LOCAL_PORT="${GW_LOCAL_PORT:-18080}"
+  port_forward "svc/zynax-api-gateway" "${GW_LOCAL_PORT}" 8080
+  API_GW_URL="http://localhost:${GW_LOCAL_PORT}"
+fi
 
 # ── 1. Submit workflow via api-gateway ───────────────────────────────────────────
 
@@ -181,11 +203,13 @@ while [[ $ELAPSED -lt $POLL_TIMEOUT ]]; do
   FINAL_STATUS=$(printf '%s' "${STATUS_RESPONSE}" | jq -r '.status // empty')
   log "  [${ELAPSED}s] status=${FINAL_STATUS}"
 
+  # Accept both lowercase aliases and the WorkflowStatus proto enum names the
+  # api-gateway returns (e.g. WORKFLOW_STATUS_COMPLETED / _FAILED).
   case "${FINAL_STATUS}" in
-    succeeded|completed)
+    succeeded|completed|*COMPLETED|*SUCCEEDED)
       break
       ;;
-    failed|error)
+    failed|error|*FAILED|*ERROR|*CANCELED|*TERMINATED|*TIMED_OUT)
       fail "workflow reached terminal failure state '${FINAL_STATUS}'. Response: ${STATUS_RESPONSE}"
       ;;
   esac
@@ -193,9 +217,12 @@ while [[ $ELAPSED -lt $POLL_TIMEOUT ]]; do
   ELAPSED=$((ELAPSED + POLL_INTERVAL))
 done
 
-if [[ "${FINAL_STATUS}" != "succeeded" && "${FINAL_STATUS}" != "completed" ]]; then
-  fail "workflow did not reach succeeded within ${POLL_TIMEOUT}s. Last status: '${FINAL_STATUS}'"
-fi
+case "${FINAL_STATUS}" in
+  succeeded|completed|*COMPLETED|*SUCCEEDED) ;;
+  *)
+    fail "workflow did not reach succeeded within ${POLL_TIMEOUT}s. Last status: '${FINAL_STATUS}'"
+    ;;
+esac
 
 pass "step 2: workflow reached terminal success state '${FINAL_STATUS}' (run_id=${RUN_ID})."
 

@@ -54,11 +54,11 @@ UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
 # cluster-up.sh). event-bus + memory-service are excluded — no GHCR image is
 # published for them yet (not in the release.yml build matrix).
 SERVICE_DEPLOYMENTS=(
-  "${RELEASE_NAME}-zynax-api-gateway"
-  "${RELEASE_NAME}-zynax-workflow-compiler"
-  "${RELEASE_NAME}-zynax-engine-adapter"
-  "${RELEASE_NAME}-zynax-task-broker"
-  "${RELEASE_NAME}-zynax-agent-registry"
+  "zynax-api-gateway"
+  "zynax-workflow-compiler"
+  "zynax-engine-adapter"
+  "zynax-task-broker"
+  "zynax-agent-registry"
 )
 
 # Helm value flags shared by every install/upgrade so the release shape is
