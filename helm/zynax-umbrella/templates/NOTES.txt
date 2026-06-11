@@ -20,10 +20,10 @@ Enabled components:
   NATS JetStream:            {{ .Release.Name }}-zynax-nats.{{ .Release.Namespace }}:4222
 {{- end }}
 {{- if index .Values "zynax-postgres" "enabled" }}
-  Postgres 16:               {{ .Release.Name }}-zynax-postgres-postgresql.{{ .Release.Namespace }}:5432
+  Postgres 17:               {{ .Release.Name }}-postgresql.{{ .Release.Namespace }}:5432
 {{- end }}
 {{- if index .Values "zynax-temporal" "enabled" }}
-  Temporal Frontend:         {{ .Release.Name }}-zynax-temporal-temporal-frontend.{{ .Release.Namespace }}:7233
+  Temporal Frontend:         {{ .Release.Name }}-temporal-frontend.{{ .Release.Namespace }}:7233
 {{- end }}
 
 Placeholder charts (disabled until implementation EPICs merge):

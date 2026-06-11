@@ -20,12 +20,18 @@
 
 postgresql:
   # Docker Official Image (library/postgres) — maintained, CVE-patched,
-  # digest-pinnable (ADR-026). The digest pin lands in images/images.yaml
-  # (ADR-024, EPIC #1073 O-step 5). Never use a moving `latest` tag.
+  # digest-pinned (ADR-026). Never use a moving `latest` tag.
   image:
     registry: docker.io
     repository: postgres
     tag: "17.10"
+    # Multi-arch index digest for the tag above — the authoritative pin.
+    # Source of truth is images/images.yaml (ADR-024); the banner region is
+    # stamped by `make sync-images` and gated by `make check-images`.
+    # DO NOT edit the digest by hand.
+    # BEGIN zynax-ci:images:postgres
+    digest: "sha256:ef92240eff6b0bcce8ccf038c2edcd0d8fd8ef90621849993b8c8995881ab09a"
+    # END zynax-ci:images:postgres
     pullPolicy: IfNotPresent
 
   auth:

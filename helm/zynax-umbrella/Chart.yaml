@@ -51,11 +51,11 @@ dependencies:
     repository: "file://../charts/nats"
     condition: zynax-nats.enabled
   - name: zynax-postgres
-    version: "0.2.0"
+    version: "0.3.0"
     repository: "file://../charts/postgres"
     condition: zynax-postgres.enabled
   - name: zynax-temporal
-    version: "0.1.0"
+    version: "0.1.1"
     repository: "file://../charts/temporal"
     condition: zynax-temporal.enabled
   # cert-manager resources (ClusterIssuer + per-service Certificates).

@@ -1,7 +1,8 @@
 Zynax Postgres 17 — single cluster-level StatefulSet (ADR-008 + ADR-021 + ADR-026)
 
 Image: Docker Official Image `postgres` (ADR-026) — maintained, CVE-patched,
-digest-pinnable (pin lands in images/images.yaml, ADR-024).
+digest-pinned via images/images.yaml (ADR-024; `make sync-images` stamps the
+chart values, `make check-images` gates drift).
 
 IMPORTANT: each Zynax service uses a DEDICATED schema. No cross-schema access.
 

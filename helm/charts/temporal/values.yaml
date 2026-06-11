@@ -5,14 +5,17 @@
 # See: https://github.com/temporalio/helm-charts
 #
 # Persistence: Temporal uses the cluster Postgres instance (zynax-postgres subchart,
-# ADR-021). Two schemas required: `temporal` (default store) and `temporal_visibility`
-# (visibility store). Create them and the K8s Secret before installing:
+# ADR-021/ADR-026). Two databases required: `temporal` (default store) and
+# `temporal_visibility` (visibility store) — the schema Job creates them
+# (useHelmHooks: false). Create the K8s Secret before installing:
 #
 #   kubectl create secret generic temporal-db \
 #     --from-literal=password="<postgres-password>"
 #
-# The default connectAddr points to the zynax-postgres-postgresql Service created by
-# the umbrella chart. Adjust if using an external Postgres.
+# The default connectAddr points to the `<release>-postgresql` Service the
+# zynax-postgres subchart creates (helm/charts/postgres/templates/_helpers.tpl),
+# assuming the umbrella release is named `zynax` — i.e. `zynax-postgresql`.
+# Override if the release uses a different name or an external Postgres.
 
 # temporalio/temporal chart overrides
 temporal:
@@ -44,7 +47,7 @@ temporal:
               pluginName: postgres12_pgx
               driverName: postgres12_pgx
               databaseName: temporal
-              connectAddr: "zynax-postgres-postgresql:5432"
+              connectAddr: "zynax-postgresql:5432"
               connectProtocol: "tcp"
               user: zynax
               existingSecret: temporal-db
@@ -57,7 +60,7 @@ temporal:
               pluginName: postgres12_pgx
               driverName: postgres12_pgx
               databaseName: temporal_visibility
-              connectAddr: "zynax-postgres-postgresql:5432"
+              connectAddr: "zynax-postgresql:5432"
               connectProtocol: "tcp"
               user: zynax
               existingSecret: temporal-db

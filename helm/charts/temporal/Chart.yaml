@@ -6,7 +6,7 @@ description: >
   Zynax-specific value overrides. Engine-adapter connects to the Temporal Frontend
   service on port 7233. Pins Temporal server 1.31.0 (Helm chart 1.2.0).
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "1.31.0"
 dependencies:
   - name: temporal

@@ -27,7 +27,9 @@ spec:
         fsGroup: 999
       containers:
         - name: postgresql
-          image: "{{ .Values.postgresql.image.registry }}/{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          # Tag is informational; when image.digest is set it is the
+          # authoritative pin (ADR-024, synced from images/images.yaml).
+          image: "{{ .Values.postgresql.image.registry }}/{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}{{- with .Values.postgresql.image.digest }}@{{ . }}{{- end }}"
           imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
           securityContext:
             runAsNonRoot: true

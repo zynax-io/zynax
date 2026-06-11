@@ -58,6 +58,16 @@ images:
       - agents/adapters/langgraph/Dockerfile
       - agents/adapters/llm/Dockerfile
 
+  # Postgres base image for the thin project-owned chart (ADR-026). The chart
+  # renders `<ref>:<tag>@<digest>`; the digest is the multi-arch index digest
+  # of the tag and is stamped into the chart values via the banner region.
+  - name: postgres
+    ref: postgres
+    tag: "17.10"
+    digest: sha256:ef92240eff6b0bcce8ccf038c2edcd0d8fd8ef90621849993b8c8995881ab09a
+    consumers:
+      - helm/charts/postgres/values.yaml
+
   # ── Zynax service images ──────────────────────────────────────────────────
   # Digest = the manifest digest of :latest (== the newest main-<sha> tag).
   # Maintained ATOMICALLY by the release.yml retag-on-merge bot commit
