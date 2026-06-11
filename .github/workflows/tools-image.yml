@@ -2,7 +2,7 @@
 # Zynax — Developer Tools + CI Runner Images
 #
 # Builds and pushes two images to GHCR on every merge to main that touches
-# the relevant Dockerfiles or zynax-ci source. Also triggered on version tags.
+# the relevant Dockerfiles or zynax-ci source.
 #
 # Images:
 #   ghcr.io/zynax-io/zynax/tools      — developer tools for local `make` commands
@@ -11,12 +11,22 @@
 # Tags (both images):
 #   :latest      (always points to the newest main build)
 #   :main-<sha>  (immutable per-commit tag)
-#   :v*.*.*      (on version tag pushes)
+#   :v*.*.*      — applied by release.yml retag-version (ADR-027): version
+#                  promotion is a retag of the newest main-<sha>, never a
+#                  rebuild. The tags trigger was removed with #1120.
 #
 # Build strategy (#839):
 #   Job A (ubuntu-24.04):      build tools:amd64   + ci-runner:amd64   (by-digest, no tag)
 #   Job B (ubuntu-24.04-arm):  build tools:arm64   + ci-runner:arm64   (by-digest, no tag)
-#   Job C (ubuntu-24.04):      imagetools merge → cosign sign → SBOM → prune
+#   Job C (ubuntu-24.04):      imagetools merge → atomic ci-runner digest
+#                              commit to images.yaml ([skip ci]) → prune
+#
+# Deviation from the full ADR-027 retag model (recorded, #1120): these images
+# stay post-merge builds — there is no pre-merge staging lane for them because
+# they are multi-arch (the staging lane is amd64-only) and the ci-runner is
+# the CI bootstrap image itself. The retag-model elements that DO apply here:
+# version tags are retag-only (release.yml) and the digest sync is an atomic
+# bot commit instead of an [AUTO] tracking issue.
 #
 # No docker/setup-qemu-action — each platform compiles natively for < 15 min wall-clock.
 
@@ -29,8 +39,6 @@ on:
       - 'infra/docker/Dockerfile.tools'
       - 'infra/docker/Dockerfile.ci-runner'
       - 'cmd/zynax-ci/**'
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
 
 # Least-privilege default — jobs that need more escalate per-job below (#1116).
@@ -41,7 +49,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: zynax-io/zynax/tools
   CI_RUNNER_IMAGE: zynax-io/zynax/ci-runner
-  SYFT_VERSION: "1.44.0"
   GHCR_KEEP_VERSIONS: "5"
 
 # ---------------------------------------------------------------------------
@@ -155,15 +162,20 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [build-amd64, build-arm64]
     permissions:
-      contents: read
+      contents: write   # atomic ci-runner digest commit to main (ADR-027 §ADR-023 exception)
       packages: write   # creates multi-arch manifests and prunes old GHCR versions
-      id-token: write   # cosign keyless OIDC signing on tag builds
-      issues: write     # opens the ci-runner digest bump-tracking issue
+      id-token: write   # cosign keyless OIDC signing
     outputs:
       tools-digest:     ${{ steps.create-tools-manifest.outputs.digest }}
       ci-runner-digest: ${{ steps.create-ci-runner-manifest.outputs.digest }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # The digest sync commit stamps workflow files: GITHUB_TOKEN cannot
+          # push those (App `workflows` permission). checkout persists this
+          # token for all later git commands (a remote set-url would be
+          # overridden by the persisted auth header).
+          token: ${{ secrets.BOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Log in to GHCR
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
@@ -240,79 +252,61 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           image-type: tooling
           extra-summary: >
-            Update `images/images.yaml` ci-runner digest and run `make sync-images`.
+            ci-runner digest synced to `images/images.yaml` automatically by this run (ADR-027).
 
-      # --- cosign sign (tag builds + workflow_dispatch) ---
+      # --- cosign sign (every main build — parity with release.yml promotions) ---
       - name: Install cosign
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
       - name: Sign tools image
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
           cosign sign --yes \
             "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.create-tools-manifest.outputs.digest }}"
 
       - name: Sign ci-runner image
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         run: |
           cosign sign --yes \
             "${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}@${{ steps.create-ci-runner-manifest.outputs.digest }}"
 
-      # --- Syft SBOM ---
-      - name: Install syft ${{ env.SYFT_VERSION }}
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-        run: |
-          curl -sSfL \
-            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
-            -o /tmp/syft.tar.gz
-          tar -xzf /tmp/syft.tar.gz -C /usr/local/bin syft
-          rm /tmp/syft.tar.gz
-
-      - name: Generate tools SBOM (SPDX)
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-        run: |
-          syft \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.create-tools-manifest.outputs.digest }}" \
-            -o spdx-json \
-            --file tools-sbom.spdx.json
-
-      - name: Generate ci-runner SBOM (SPDX)
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-        run: |
-          syft \
-            "${{ env.REGISTRY }}/${{ env.CI_RUNNER_IMAGE }}@${{ steps.create-ci-runner-manifest.outputs.digest }}" \
-            -o spdx-json \
-            --file ci-runner-sbom.spdx.json
-
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+      # --- Atomic ci-runner digest sync (ADR-027, #1120) ---
+      # Replaces the [AUTO] bump-tracking issue: the new digest lands on main
+      # in the same run that published the image. The ci-runner entry's
+      # consumers are banner-stamped WORKFLOW files, which the default
+      # GITHUB_TOKEN cannot push (GitHub App `workflows` permission) — use
+      # the BOT_GITHUB_TOKEN fine-grained PAT (contents + workflows write).
+      # [skip ci] keeps this commit from triggering any workflow → no loop.
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        if: github.event_name == 'push'
         with:
-          name: sbom-tools
-          path: tools-sbom.spdx.json
-          retention-days: 7
+          go-version-file: cmd/zynax-ci/go.mod
+          cache-dependency-path: cmd/zynax-ci/go.sum
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-        with:
-          name: sbom-ci-runner
-          path: ci-runner-sbom.spdx.json
-          retention-days: 7
-
-      # --- Open ci-runner bump issue ---
-      - name: Open ci-runner bump issue
+      - name: Sync ci-runner digest to images.yaml [skip ci]
         if: github.event_name == 'push'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DIGEST: ${{ steps.create-ci-runner-manifest.outputs.digest }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          SHORT="${DIGEST:7:16}"
-          gh issue create \
-            --title "chore(ci): bump ci-runner digest to ${SHORT}" \
-            --label "type: chore,area: ci" \
-            --body "$(printf '## ci-runner digest bump\n\n**New digest:** `%s`\n**Built by:** %s\n\n## Steps\n\n```bash\n# 1. Edit images/images.yaml — update ci-runner digest\n# 2. make sync-images\n# 3. Verify: make check-images\n# 4. Open PR, CI green, squash-merge, delete branch\n```\n\n## Checklist\n\n- [ ] `images/images.yaml` updated with new digest `%s`\n- [ ] `make sync-images` ran (all consumers stamped)\n- [ ] `make check-images` exits 0\n- [ ] PR merged (squash), branch deleted\n' \
-              "$DIGEST" "$RUN_URL" "$DIGEST")"
+          set -euo pipefail
+          python3 scripts/update_image_digest.py --name ci-runner \
+            --ref ghcr.io/zynax-io/zynax/ci-runner --digest "${DIGEST}"
+          (cd cmd/zynax-ci && GOWORK=off go run . images sync --root "${GITHUB_WORKSPACE}")
+          if git diff --quiet; then
+            echo "✅ ci-runner digest already current — nothing to commit (idempotent re-run)."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git commit -s \
+            -m "chore(images): bump ci-runner digest to ${DIGEST:7:14} [skip ci]" \
+            -m "Automated digest sync after tools-image build on main (ADR-027 — replaces the [AUTO] bump issue)."
+          git pull --rebase origin main
+          git push origin HEAD:main || {
+            echo "::error::Digest push to main rejected. Requires the ADR-027 §ADR-023"
+            echo "::error::bot exception (ruleset bypass) and BOT_GITHUB_TOKEN with"
+            echo "::error::contents+workflows write — see PR #1120 notes."
+            exit 1
+          }
 
       # --- Prune old builds ---
       - name: Prune old tools builds

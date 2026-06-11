@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-10 (status reconciled to live issue state: M6 = 143 closed / 14 open; EPICs #626 #670 #765 #766 #767 #768 #769 #770 #772 #773 #837 #855 #873 #1001 complete)
+> Generated: 2026-06-02 · Last updated: 2026-06-11 (status reconciled to live issue state: M6 = 143 closed / 17 open; EPICs #626 #670 #765 #766 #767 #768 #769 #770 #772 #773 #837 #855 #873 #1001 complete; CI-overhaul EPIC #1109 in flight — #1116 #1118 #1120 merged, see `docs/contributing/ci-delivery-overhaul-prompt.md`)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.

@@ -30,7 +30,7 @@ See [docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md).
 ## M6 — Progress (🚧 Active)
 
 Full plan + per-EPIC status: **[docs/milestones/M6-planning.md](../docs/milestones/M6-planning.md)**.
-As of 2026-06-10: **143 issues closed / 14 open**.
+As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#1122 added 2026-06-10).
 
 ### EPICs delivered ✅
 | EPIC | Issue | Notes |
@@ -79,7 +79,11 @@ up but fails at the happy-path assertion; this epic closes the execution-path ga
 
 **Ready now for `/milestone-orchestrate`:** #1089 (O3). Then O4 → O6 (with #1091 verification ∥).
 
-## Recently Closed (last updated 2026-06-09)
+## Recently Closed (last updated 2026-06-11)
+
+**M6 CI/CD overhaul (EPIC #1109) — 2026-06-11 session:**
+- **#1118** ci: pre-merge build-images gate — staging lane, Hadolint, Trivy, SBOM (PR #1132)
+- **#1120** ci: release.yml retag model — workflow_run promotion + atomic images.yaml digest sync (ADR-027)
 
 **M6 batch — 2026-06-08 session:**
 - **#799** feat(workflow-compiler): namespace-scoped capability routing (PR #977)
