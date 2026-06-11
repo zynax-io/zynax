@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # Shared service image template. Build context must be repo root.
 # Usage: docker build -f infra/docker/Dockerfile.service --build-arg SVC=<name> .
+#
+# Delivery (ADR-027 shift-left pipeline): every Docker-touching PR builds this
+# image once into the GHCR staging lane (ci.yml build-images: Hadolint + Trivy
+# + SBOM); merges and version tags only RETAG that artifact (release.yml) —
+# the image in production is the exact binary that passed the pre-merge gate.
 #        Covers all five Go services: api-gateway, workflow-compiler, engine-adapter,
 #        task-broker, agent-registry.
 #
