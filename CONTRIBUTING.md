@@ -186,6 +186,11 @@ make lint-proto        # Proto-only: buf lint + buf breaking
 
 ## 4. Engineering Standards
 
+**How we work:** the [Engineering Manifesto](docs/contributing/engineering-manifesto.md)
+is the normative statement of our engineering culture — 15 principles, each citing the
+CI check, workflow, or ruleset that enforces it, plus DORA targets and the CNCF patterns
+we adopt. Read it first; everything below is the practical how-to.
+
 See [`AGENTS.md §Hard Constraints`](AGENTS.md#hard-constraints) and the per-layer
 files `services/AGENTS.md`, `agents/AGENTS.md`, and `protos/AGENTS.md`.
 CI enforces all standards — PRs fail if any check is red.
