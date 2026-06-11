@@ -6,6 +6,7 @@
 # image once into the GHCR staging lane (ci.yml build-images: Hadolint + Trivy
 # + SBOM); merges and version tags only RETAG that artifact (release.yml) —
 # the image in production is the exact binary that passed the pre-merge gate.
+# Staging copies are deleted after promotion (merged PRs) or on close (#1119).
 #        Covers all five Go services: api-gateway, workflow-compiler, engine-adapter,
 #        task-broker, agent-registry.
 #

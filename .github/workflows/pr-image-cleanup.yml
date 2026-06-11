@@ -17,14 +17,20 @@
 # must be resolved through the API either way — doing the DELETE with the
 # same API keeps third-party action surface at zero (supply chain, #1116).
 #
-# Ordering vs the retag model (§3C, #1120): as of #1119 nothing post-merge
-# consumes the staging image (release.yml builds from scratch), so deleting on
-# close is unconditionally safe. When #1120 converts release.yml to retag the
-# staging manifest into the production package, the retag job MUST tolerate or
-# precede this cleanup — retagging copies the manifest into a DIFFERENT GHCR
-# package (zynax/<svc>, not zynax/staging/<svc>), so once promoted the staging
-# version is dead weight; #1120 must sequence its retag before this delete
-# (e.g. workflow_run chaining) or re-trigger the build. Tracked on #1120.
+# Ordering vs the retag model (§3C, #1120): release.yml's retag-on-merge job
+# promotes the staging manifest AFTER the post-merge CI run completes — several
+# minutes after the PR closes. Deleting on merge would therefore race (and
+# win) against the promotion, leaving nothing to retag (observed live on
+# PR #1137). Split of responsibilities:
+#   - PRs closed WITHOUT merging → cleaned up here (the only consumer of the
+#     staging image was the PR itself).
+#   - Merged PRs → release.yml retag-on-merge deletes each staging version
+#     right after promoting + signing it (the manifest is copied into the
+#     production package zynax/<svc>, so the staging version is dead weight
+#     the moment promotion lands).
+# A merged PR whose post-merge CI never goes green keeps its staging images
+# until the run is fixed/re-run — that is intentional: they are still the
+# only promotable artifact for that merge.
 
 name: PR Image Cleanup
 
@@ -42,6 +48,9 @@ concurrency:
 jobs:
   cleanup:
     name: "Delete staging: ${{ matrix.service }}"
+    # Merged PRs are cleaned by release.yml retag-on-merge AFTER promotion —
+    # deleting here would race the retag and strand the merge unpromoted.
+    if: github.event.pull_request.merged == false
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false

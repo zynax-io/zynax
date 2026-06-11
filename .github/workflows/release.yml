@@ -137,10 +137,15 @@ jobs:
       # AND attestation manifests (ADR-025) — and is idempotent: re-running
       # points the same tags at the same digest. One cosign signature per
       # digest covers every tag pointing at it (main-<sha>, main, latest).
+      # After promote+sign the staging version is dead weight and is deleted
+      # HERE — pr-image-cleanup.yml only handles PRs closed without merging
+      # (deleting on merge-close would race this job and strand the merge
+      # unpromoted; observed live on PR #1137).
       - name: Retag staging → main-<sha> + main + latest, sign
         id: retag
         if: steps.pr.outputs.promote == 'true'
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_SHA: ${{ steps.pr.outputs.pr_sha }}
           MERGE_SHA: ${{ steps.pr.outputs.merge_sha }}
         run: |
@@ -164,6 +169,22 @@ jobs:
             cosign sign --yes "${IMAGE_PREFIX}/${svc}@${DIGEST}"
             echo "${svc} ${DIGEST}" >> /tmp/promoted.txt
             echo "✅ ${svc} → main-${MERGE_SHA} / main / latest (${DIGEST})"
+
+            # Promotion copied the manifest into zynax/<svc>; drop the staging
+            # version (same API pattern as pr-image-cleanup.yml — 404 and
+            # already-deleted are quiet no-ops for idempotent re-runs).
+            PKG="zynax%2Fstaging%2F${svc}"
+            IDS=$(gh api --paginate "/orgs/zynax-io/packages/container/${PKG}/versions" \
+              --jq ".[] | select(.metadata.container.tags[]? == \"pr-${PR_SHA}\") | .id" \
+              2>/dev/null) || IDS=""
+            for ID in ${IDS}; do
+              if ! [[ "${ID}" =~ ^[0-9]+$ ]]; then
+                continue
+              fi
+              gh api --method DELETE \
+                "/orgs/zynax-io/packages/container/${PKG}/versions/${ID}" \
+                && echo "🧹 ${svc}: staging version ${ID} (pr-${PR_SHA}) deleted"
+            done
           done
           if [ -s /tmp/promoted.txt ]; then
             echo "promoted=true" >> "$GITHUB_OUTPUT"
