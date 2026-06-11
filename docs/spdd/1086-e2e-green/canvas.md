@@ -102,8 +102,11 @@ EPIC #770 (harness) and #771 (CI-E2E gate).
    `POST /api/v1/apply` succeeds. (Gap 1)
 2. **[O2]** Add a minimal echo/mock capability worker + a minimal reference workflow; prove a
    dispatch round-trips and the workflow reaches `succeeded`. (Gap 2; depends O1)
-3. **[O3]** Add event-bus + memory-service to the `release.yml` build matrix and publish their
-   images. (Gap 3a)
+3. **[O3]** ✅ Add event-bus + memory-service to the pre-merge `build-images` matrix in `ci.yml`
+   and publish their images. (Gap 3a; rescoped 2026-06-11 from `release.yml` to the shift-left
+   model — ADR-027, #1118/#1120. Satisfied by PR #1132: all 12 Build+scan legs green,
+   `ghcr.io/zynax-io/zynax/{event-bus,memory-service}:main` promoted by retag, digests in
+   `images/images.yaml`. Issue #1089 closed with evidence.)
 4. **[O4]** Re-enable event-bus + memory-service in the e2e deploy and turn on the CloudEvent +
    memory-`Get` assertions. (Gap 3b; depends O1, O2, O3)
 5. **[O5]** Right-size the `e2e smoke` runner / per-pod resource requests so the full stack fits

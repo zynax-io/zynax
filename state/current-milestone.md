@@ -55,7 +55,7 @@ As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#
 | DevAuto Wave 3 | #880 | post-merge completeness mesh |
 
 ### In progress / remaining
-**e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ready)**,
+**e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132)**,
 Postgres off Bitnami (#1073 — O1 ADR-026 ✅, #1076→#1079 chain),
 CI-E2E gate (#771 — #1070 ✅, #1071 remaining),
 DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created).
@@ -72,12 +72,12 @@ up but fails at the happy-path assertion; this epic closes the execution-path ga
 |------|-------|------|------|-----------|
 | O1 | [#1087](https://github.com/zynax-io/zynax/issues/1087) expose api-gateway on host (NodePort 30080) | feat(infra) | S | ✅ merged (PR #1095) |
 | O2 | [#1088](https://github.com/zynax-io/zynax/issues/1088) minimal capability worker + reference workflow → succeeded | feat(infra) | M | ✅ merged (PR #1095) |
-| O3 | [#1089](https://github.com/zynax-io/zynax/issues/1089) event-bus + memory-service in release.yml matrix | ci(infra) | M | — (ready) |
+| O3 | [#1089](https://github.com/zynax-io/zynax/issues/1089) event-bus + memory-service in pre-merge build-images matrix | ci(infra) | M | ✅ satisfied by PR #1132 (shift-left, ADR-027) — closed with evidence |
 | O4 | [#1090](https://github.com/zynax-io/zynax/issues/1090) enable event-bus + memory-service in e2e + assertions | test(infra) | M | #1089 |
 | O5 | [#1091](https://github.com/zynax-io/zynax/issues/1091) right-size e2e-smoke runner / pod resources | ci(infra) | S | resources merged (PR #1094); verify on full gate run |
 | O6 | [#1092](https://github.com/zynax-io/zynax/issues/1092) promote gate advisory → stable/required | ci | S | #1090 #1091 #1071 |
 
-**Ready now for `/milestone-orchestrate`:** #1089 (O3). Then O4 → O6 (with #1091 verification ∥).
+**Ready now for `/milestone-orchestrate`:** #1090 (O4 — O3 #1089 closed). Then O6 (with #1091 verification ∥).
 
 ## Recently Closed (last updated 2026-06-11)
 
@@ -310,14 +310,13 @@ Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is B
 
 **Immediate (unblocked):**
 - **#1087** feat(infra): expose api-gateway on host port for e2e (NodePort 30080) — #1086 O1 ✅ ready
-- **#1089** ci(infra): event-bus + memory-service in release.yml matrix — #1086 O3 ✅ ready
 - **#1076** refactor(infra): replace postgres subchart image source — #1073 O2 ✅ ready (ADR-026 chose official postgres:17)
 - **#1071** ci(infra): Temporal-vs-Argo engine matrix in e2e-smoke — #771 O2 ✅ ready (#1070 merged)
 - **#867** chore(ci): GHCR retention cap — last 5 builds only
 - **#840** ci(infra): Python adapters in multi-arch release pipeline
 - **#841** ci(infra): audit and minimize image sizes
 
-**M6.E2E-Green chain (after O1/O3):** #1088 (O2, needs #1087) → #1090 (O4, needs #1087 #1088 #1089) → #1091 (O5, needs #1088) → #1092 (O6, needs #1087 #1088 #1090 #1091 #1071).
+**M6.E2E-Green chain (O1 #1087 / O2 #1088 / O3 #1089 all ✅):** #1090 (O4, unblocked) → #1091 (O5, needs #1088) → #1092 (O6, needs #1087 #1088 #1090 #1091 #1071).
 **M6.Postgres chain (after #1076):** #1077 → #1078 → #1079 (sequential).
 
 **M6.Argo continuation (after #795 merges):**
