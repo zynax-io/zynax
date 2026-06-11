@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: Apache-2.0
+# PR image cleanup — delete staging-lane images when a PR closes (#1119, ADR-027).
+#
+# The pre-merge build-images job in ci.yml pushes staging/<svc>:pr-<head-sha>
+# images to GHCR for every docker-relevant PR. Without cleanup that lane grows
+# unbounded. This workflow fires on PR close — merged AND abandoned — and
+# deletes the package versions tagged with the closed PR's head SHA, keeping
+# GHCR storage bounded with zero manual hygiene.
+#
+# A PR that never built staging images (e.g. docs-only) simply finds no
+# matching version and exits 0 — fail-fast is off and a missing package or
+# version is never an error.
+#
+# Tag-targeted deletion uses the GitHub REST API directly via the runner's
+# preinstalled `gh` CLI: actions/delete-package-versions cannot select a
+# container version by tag (long-open upstream request), so the version id
+# must be resolved through the API either way — doing the DELETE with the
+# same API keeps third-party action surface at zero (supply chain, #1116).
+#
+# Ordering vs the retag model (§3C, #1120): as of #1119 nothing post-merge
+# consumes the staging image (release.yml builds from scratch), so deleting on
+# close is unconditionally safe. When #1120 converts release.yml to retag the
+# staging manifest into the production package, the retag job MUST tolerate or
+# precede this cleanup — retagging copies the manifest into a DIFFERENT GHCR
+# package (zynax/<svc>, not zynax/staging/<svc>), so once promoted the staging
+# version is dead weight; #1120 must sequence its retag before this delete
+# (e.g. workflow_run chaining) or re-trigger the build. Tracked on #1120.
+
+name: PR Image Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  packages: write
+
+concurrency:
+  group: pr-image-cleanup-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: "Delete staging: ${{ matrix.service }}"
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep in sync with the build-images matrix in ci.yml (#1118) — every
+        # service that pushes to the staging lane must be cleaned up here.
+        service:
+          - api-gateway
+          - engine-adapter
+          - workflow-compiler
+          - task-broker
+          - agent-registry
+          - event-bus
+          - memory-service
+          - http-adapter
+          - llm-adapter
+          - langgraph-adapter
+          - ci-adapter
+          - git-adapter
+    steps:
+      - name: Delete staging package version for pr-<head-sha>
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SERVICE: ${{ matrix.service }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          TAG="pr-${HEAD_SHA}"
+          PKG="zynax%2Fstaging%2F${SERVICE}"
+
+          # 404 (package never created — service never built on any PR) is a
+          # quiet no-op, same as a docs-only PR that built nothing.
+          IDS=$(gh api --paginate "/orgs/${OWNER}/packages/container/${PKG}/versions" \
+            --jq ".[] | select(.metadata.container.tags[]? == \"${TAG}\") | .id" \
+            2>/dev/null || true)
+
+          if [ -z "${IDS}" ]; then
+            echo "No staging version tagged ${TAG} for ${SERVICE} — nothing to delete."
+            exit 0
+          fi
+
+          for ID in ${IDS}; do
+            gh api --method DELETE \
+              "/orgs/${OWNER}/packages/container/${PKG}/versions/${ID}"
+            echo "Deleted staging/${SERVICE} version ${ID} (tag ${TAG})."
+          done

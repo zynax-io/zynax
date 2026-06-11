@@ -739,6 +739,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Keep in sync with the cleanup matrix in pr-image-cleanup.yml (#1119) —
+        # every service pushed to the staging lane must be deleted on PR close.
         include:
           # Go services — shared template infra/docker/Dockerfile.service (#668)
           - { service: api-gateway }
