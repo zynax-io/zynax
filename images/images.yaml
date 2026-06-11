@@ -46,10 +46,14 @@ images:
       - agents/adapters/http/Dockerfile
       - infra/docker/Dockerfile.service
 
-  - name: python-slim
+  # Alpine (musl) replaced Debian slim for the Python adapters: trixie's
+  # perl-base/ncurses carried unfixed CRITICAL/HIGH CVEs the adapters never
+  # use, and every locked native dep ships musllinux wheels (protobuf falls
+  # back to its pure-python wheel), so the install stays wheels-only.
+  - name: python-alpine
     ref: python
-    tag: "3.12-slim"
-    digest: sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
+    tag: "3.12-alpine"
+    digest: sha256:4d5e6e9fdab73ef5833d6c9c4e12503e838b7e19a56362d51b7206b2739ca103
     consumers:
       - agents/adapters/langgraph/Dockerfile
       - agents/adapters/llm/Dockerfile
