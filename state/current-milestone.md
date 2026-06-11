@@ -84,6 +84,8 @@ up but fails at the happy-path assertion; this epic closes the execution-path ga
 **M6 CI/CD overhaul (EPIC #1109) — 2026-06-11 session:**
 - **#1118** ci: pre-merge build-images gate — staging lane, Hadolint, Trivy, SBOM (PR #1132)
 - **#1120** ci: release.yml retag model — workflow_run promotion + atomic images.yaml digest sync (ADR-027)
+- **#1122** docs(contributing): engineering manifesto — 15 enforced principles, DORA targets, CNCF patterns
+  (capstone of EPIC #1107 — **all child issues done; #1107 ready to close**)
 
 **M6 batch — 2026-06-08 session:**
 - **#799** feat(workflow-compiler): namespace-scoped capability routing (PR #977)

@@ -78,6 +78,7 @@ Tiers (ADR-016): BDD at gRPC boundaries (`protos/tests/`), unit ≥ 90% on `inte
 
 > No shared DB · No Layer 1→3 coupling · Contracts before implementations.
 > See [AGENTS.md §The Three-Layer Separation](AGENTS.md#the-three-layer-separation-non-negotiable) and [§Five Non-Negotiable Mandates](AGENTS.md#five-non-negotiable-mandates).
+> Engineering culture (15 enforced principles, DORA targets): [docs/contributing/engineering-manifesto.md](docs/contributing/engineering-manifesto.md).
 
 ## SPDD — feat: PR Workflow
 
