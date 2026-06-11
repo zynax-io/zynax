@@ -38,6 +38,7 @@ a PR against `docs/adr/`.
 | [ADR-025](ADR-025-slsa-provenance-attestation.md) | SLSA provenance attestation: keep vs disable | Accepted | 2026-06-08 | `tools-image.yml`, `release.yml` — all `docker/build-push-action` steps |
 | [ADR-026](ADR-026-postgres-distribution.md) | Postgres distribution + target major version (official `postgres:17` + thin chart) | Accepted | 2026-06-10 | `helm/charts/postgres/`, `images/images.yaml`, all production Postgres — EPIC #1073 |
 | [ADR-027](ADR-027-shift-left-pipeline.md) | Shift-left pipeline model — build once pre-merge, promote by retag | Accepted | 2026-06-11 | `ci.yml` build-images, `release.yml` retag jobs, GHCR staging lane — EPIC #1109 |
+| [ADR-028](ADR-028-agentdef-vs-workflow-self-hosted-automation.md) | AgentDef-vs-Workflow split for self-hosted automation + context-slice injection contract | Accepted | 2026-06-11 | `automation/workflows/**`, `spec/schemas/agent-def.schema.json`, `spec/schemas/workflow.schema.json` — EPIC #881 |
 
 ---
 

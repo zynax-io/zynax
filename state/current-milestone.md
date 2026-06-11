@@ -58,7 +58,7 @@ As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#
 **e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132)**,
 Postgres off Bitnami (#1073 — O1 ADR-026 ✅, #1076→#1079 chain),
 CI-E2E gate (#771 — #1070 ✅, #1071 remaining),
-DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created).
+DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created; O1 #1096 ✅ ADR-028).
 
 ---
 
@@ -300,7 +300,7 @@ Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is B
 | DevAuto.5 ci: Wave 1 orchestrator aggregation | [#878](https://github.com/zynax-io/zynax/issues/878) | ⬜ Ready |
 | DevAuto.6 ci: Wave 2 | [#879](https://github.com/zynax-io/zynax/issues/879) | ⬜ Pending |
 | DevAuto.7 ci: Wave 3 | [#880](https://github.com/zynax-io/zynax/issues/880) | ⬜ Pending |
-| DevAuto.8 feat: Wave 4 aspirational | [#881](https://github.com/zynax-io/zynax/issues/881) | ⬜ **BLOCKED on #626 + #772 — now UNBLOCKED** |
+| DevAuto.8 feat: Wave 4 aspirational | [#881](https://github.com/zynax-io/zynax/issues/881) | 🔄 In progress — O1 [#1096](https://github.com/zynax-io/zynax/issues/1096) ✅ (ADR-028); O2–O9 #1097–#1104 |
 | DevAuto.9 test: xfail gate | [#882](https://github.com/zynax-io/zynax/issues/882) | ⬜ Pending |
 | DevAuto.10 docs: AGENTS.md pointer + README | [#883](https://github.com/zynax-io/zynax/issues/883) | ⬜ Pending |
 
