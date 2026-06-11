@@ -86,6 +86,13 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
+          # The digest push must bypass main's ruleset. GitHub's API does not
+          # accept the built-in Actions app as a repo-ruleset bypass actor, so
+          # the bypass is granted to the repository-admin role and the push
+          # authenticates with BOT_GITHUB_TOKEN (admin-owned fine-grained PAT,
+          # contents:write). Falls back to GITHUB_TOKEN, which fails loudly at
+          # the push step until the secret exists.
+          token: ${{ secrets.BOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
 
       # A CI run on main is the post-merge run: workflow_run.head_sha is the
       # merge commit. The staging lane is tagged with the PR head SHA —
@@ -167,10 +174,9 @@ jobs:
 
       # Atomic digest sync (ADR-027): the promoted digests land on main in
       # the same run that promoted them. Service entries in images.yaml carry
-      # no consumers, so this commit only ever touches images/images.yaml —
-      # GITHUB_TOKEN contents:write suffices (no `workflows` permission
-      # needed). If a service digest ever gains consumer files, add an
-      # `images sync` stamp step here and switch to BOT_GITHUB_TOKEN.
+      # no consumers, so this commit only ever touches images/images.yaml.
+      # If a service digest ever gains consumer files, add an `images sync`
+      # stamp step here (BOT_GITHUB_TOKEN already covers workflow stamps).
       - name: Commit digest update to main [skip ci]
         if: steps.retag.outputs.promoted == 'true'
         env:
