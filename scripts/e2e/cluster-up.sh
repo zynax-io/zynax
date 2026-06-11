@@ -20,6 +20,12 @@
 #   CERT_MANAGER_VERSION  cert-manager release tag    (default: v1.14.5)
 #   KIND_NODE_IMAGE       kind node image (digest-pinnable)
 #   WAIT_TIMEOUT          per-resource rollout wait   (default: 600s)
+#   E2E_IMAGE_TAG         service image tag override — set by e2e-smoke.yml to
+#                         pr-<head-sha> so the cluster runs the exact staging
+#                         images built pre-merge (#1118 / ADR-027). Unset =
+#                         values-e2e.yaml default (:main lane).
+#   E2E_IMAGE_PREFIX      registry prefix for E2E_IMAGE_TAG
+#                         (default: ghcr.io/zynax-io/zynax/staging)
 #
 # Minimum host resources: 4 CPU, 8 GB RAM (see scripts/e2e/README.md).
 
@@ -163,6 +169,20 @@ log "deploying zynax-umbrella as release '${RELEASE_NAME}' in namespace '${NAMES
 # the release shape is identical across revisions): service image tags pinned to
 # `main`, event-bus/memory-service disabled (no image yet), and the Postgres /
 # Temporal credential wiring.
+# E2E_IMAGE_TAG (set by e2e-smoke.yml for docker-touching PRs) repoints the 5
+# deployed services at the pre-merge staging lane — helm-upgrade.sh applies the
+# same overrides so the release shape stays identical across revisions.
+IMAGE_OVERRIDES=()
+if [[ -n "${E2E_IMAGE_TAG:-}" ]]; then
+  E2E_IMAGE_PREFIX="${E2E_IMAGE_PREFIX:-ghcr.io/zynax-io/zynax/staging}"
+  log "service image lane override: ${E2E_IMAGE_PREFIX}/<svc>:${E2E_IMAGE_TAG}"
+  for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry; do
+    IMAGE_OVERRIDES+=(
+      --set "zynax-${svc}.image.repository=${E2E_IMAGE_PREFIX}/${svc}"
+      --set "zynax-${svc}.image.tag=${E2E_IMAGE_TAG}"
+    )
+  done
+fi
 # NOTE: no --wait here. engine-adapter cannot become Ready until the Temporal
 # `default` namespace is registered (step 3.5), and a Helm --wait would deadlock
 # waiting on it. Readiness is asserted explicitly by the rollout loop in step 4.
@@ -170,7 +190,8 @@ helm upgrade --install "${RELEASE_NAME}" "${UMBRELLA_CHART}" \
   --namespace "${NAMESPACE}" \
   --create-namespace \
   -f "${SCRIPT_DIR}/values-e2e.yaml" \
-  --set zynax-cert-manager.enabled=true
+  --set zynax-cert-manager.enabled=true \
+  "${IMAGE_OVERRIDES[@]}"
 
 # ── 3.5 register the Temporal 'default' namespace ────────────────────────────────
 

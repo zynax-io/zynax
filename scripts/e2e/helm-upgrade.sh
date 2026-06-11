@@ -69,6 +69,17 @@ HELM_SET_FLAGS=(
   -f "${SCRIPT_DIR}/values-e2e.yaml"
   --set zynax-cert-manager.enabled=true
 )
+# Staging-lane override (#1118 / ADR-027) — mirrors cluster-up.sh so the upgrade
+# and rollback exercise the SAME images the install deployed.
+if [[ -n "${E2E_IMAGE_TAG:-}" ]]; then
+  E2E_IMAGE_PREFIX="${E2E_IMAGE_PREFIX:-ghcr.io/zynax-io/zynax/staging}"
+  for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry; do
+    HELM_SET_FLAGS+=(
+      --set "zynax-${svc}.image.repository=${E2E_IMAGE_PREFIX}/${svc}"
+      --set "zynax-${svc}.image.tag=${E2E_IMAGE_TAG}"
+    )
+  done
+fi
 
 # ── helpers ──────────────────────────────────────────────────────────────────────
 
