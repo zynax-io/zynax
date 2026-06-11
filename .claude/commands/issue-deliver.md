@@ -1,11 +1,11 @@
 ---
-description: Fully autonomous M6 story delivery — claims issue via GitHub label, runs SPDD pipeline for feat: issues, implements, waits for CI, verifies Docker artifacts, merges, and marks done. Cross-machine safe.
+description: Fully autonomous milestone story delivery — claims issue via GitHub label, runs SPDD pipeline for feat: issues, implements, waits for CI, verifies Docker artifacts, merges, and marks done. Cross-machine safe.
 argument-hint: "<story-or-epic-issue-number>"
 ---
 
-# /m6-issue-generate — Autonomous M6 Story Delivery
+# /issue-deliver — Autonomous Milestone Story Delivery
 
-End-to-end, unattended delivery of a single M6 issue: claim → canvas (if feat:) → implement →
+End-to-end, unattended delivery of a single story issue: claim → canvas (if feat:) → implement →
 local checks → push → PR → wait for CI → verify artifacts → squash-merge → cleanup → done.
 
 > **Rules are not restated here.** Commit format, DCO + `Assisted-by` trailers, `GOWORK=off`,
@@ -24,7 +24,7 @@ local checks → push → PR → wait for CI → verify artifacts → squash-mer
 Two layers prevent duplicate work across concurrent sessions on any machine:
 
 1. **Soft claim** — add `status: in-progress` label + self-assign the issue on GitHub (visible
-   immediately to all sessions and to `/m6-plan`). This is a *signal*, not a lock.
+   immediately to all sessions and to `/milestone-plan`). This is a *signal*, not a lock.
 2. **Hard claim** — push an empty branch to GitHub before writing any code. Only one `git push -u
    origin $BRANCH` wins when two sessions race. A rejected push means the story is taken → stop.
 
@@ -35,11 +35,24 @@ Always check both before starting. Never assume an issue is free just because yo
 ## STEP 0 — Pre-flight: read the rules
 
 ```bash
+# ── Active-milestone config (SSoT: state/milestone.yaml) ────────────────────
+# Loaded at runtime; no milestone name, number, or label is hardcoded in this
+# file. Updated only by /milestone-close and /milestone-new.
+CFG=state/milestone.yaml
+MILESTONE_NAME=$(awk '/^active:/{f=1} f && /^  name:/{print $2; exit}' "$CFG")
+MILESTONE_TITLE=$(awk -F'"' '/^active:/{f=1} f && /^  title:/{print $2; exit}' "$CFG")
+MILESTONE_NUMBER=$(awk '/^active:/{f=1} f && /^  github_milestone_number:/{print $2; exit}' "$CFG")
+MILESTONE_VERSION=$(awk '/^active:/{f=1} f && /^  version:/{print $2; exit}' "$CFG")
+PLANNING_DOC=$(awk '/^active:/{f=1} f && /^  planning_doc:/{print $2; exit}' "$CFG")
+MILESTONE_LABEL=$(awk -F'"' '/^    milestone:/{print $2; exit}' "$CFG")
+GH_MILESTONE="${MILESTONE_TITLE} (${MILESTONE_NAME})"   # GitHub milestone title
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Mandatory reads every run — do not skip
 cat CLAUDE.md                            # dev loop, PR-size, SPDD rules
 cat AGENTS.md                            # constitution: layer boundaries, mandates, anti-patterns
 cat state/current-milestone.md           # active blockers, health
-cat docs/milestones/M6-planning.md       # dependency table, EPIC status
+cat "$PLANNING_DOC"       # dependency table, EPIC status
 ```
 
 ---
@@ -152,7 +165,7 @@ Go to **STEP 3-EPIC**. Otherwise skip to **STEP 3.5**.
 
 ## STEP 3.5 — Identify expert persona and start activity log
 
-Determine which expert persona applies to this issue (same routing table as `/m6-orchestrate`):
+Determine which expert persona applies to this issue (same routing table as `/milestone-orchestrate`):
 
 ```bash
 EXPERT_TAG="general"
@@ -237,7 +250,7 @@ fi
 
 # If canvas not Aligned, run SPDD pipeline (STEP 4-CANVAS will handle this)
 # Find the next open story issue for this EPIC (lowest step number, not yet in-progress or done)
-STORY_ISSUES=$(gh issue list --milestone "K8s Production-Ready (M6)" --state open \
+STORY_ISSUES=$(gh issue list --milestone "$GH_MILESTONE" --state open \
   --json number,title,body,labels \
   --jq ".[] | select(.body | test(\"#${ISSUE_N}\")) | {n:.number,title:.title,labels:[.labels[].name]}")
 
@@ -311,9 +324,17 @@ if [ -z "$CANVAS_DIR" ] || [ "$CANVAS_STATUS" != "Aligned" ]; then
 fi
 
 # Create story issues if not yet created for this EPIC
-STORY_COUNT=$(gh issue list --milestone "K8s Production-Ready (M6)" --state all \
+STORY_COUNT=$(gh issue list --milestone "$GH_MILESTONE" --state all \
   --json body --jq "[.[] | select(.body | test(\"#${EPIC_N}\"))] | length")
 [ "$STORY_COUNT" -eq 0 ] && /spdd-story "$EPIC_N"
+
+# Locked decision (#1107): /spdd-story is milestone-agnostic — it applies NO
+# milestone label. The CALLER (this command) injects the active milestone label
+# and GitHub milestone on every story it just created.
+for STORY in $(gh issue list --state open --limit 100 --json number,body \
+  --jq ".[] | select(.body | test(\"#${EPIC_N}\")) | .number"); do
+  gh issue edit "$STORY" --add-label "$MILESTONE_LABEL" --milestone "$GH_MILESTONE"
+done
 ```
 
 ---
@@ -327,7 +348,7 @@ echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CLAIM: creating branch + hard cl
 
 # Deterministic claim key (load-bearing). The branch ref pushed here is a PURE
 # function of the issue number — `<type>/<N>`, with NO slug. This is the SAME ref
-# `/m6-orchestrate` derives for the same issue, so the two entry points share one
+# `/milestone-orchestrate` derives for the same issue, so the two entry points share one
 # mutex: when two sessions race the same story they push the identical ref and only
 # one `git push` wins. A title-derived slug must NOT be part of the claim key — two
 # sessions could otherwise derive two different branches and both win.
@@ -387,7 +408,7 @@ body's scope and acceptance criteria. Read all referenced files before writing a
 issue/PR state, not by memory or the previous doc snapshot. Doc drift is silent (no CI gate
 flags a stale milestone label) and compounds every iteration, so reconcile at delivery time:
 
-1. `docs/milestones/M6-planning.md` — flip this story's row ⬜→✅ (and its EPIC header to
+1. `"$PLANNING_DOC"` — flip this story's row ⬜→✅ (and its EPIC header to
    `Implemented`/COMPLETE if this was the last open O-step); refresh the "Last updated" line.
 2. `state/current-milestone.md` — update EPIC progress + the "as of" date.
 3. Canvas O-step — mark ✅. **If this issue closed the EPIC's last O-step, flip the canvas
@@ -401,9 +422,9 @@ flags a stale milestone label) and compounds every iteration, so reconcile at de
 **Consistency check before opening the PR** (catches drift the row-flip missed):
 ```bash
 # Each milestone's marker must agree across all status surfaces.
-grep -nE 'M6|🚧|📅|✅|🟡' README.md ROADMAP.md ARCHITECTURE.md CLAUDE.md \
-  state/current-milestone.md docs/milestones/M6-planning.md | grep -iE 'planned|active|complete'
-# An EPIC marked Implemented in M6-planning must have its canvas Status: Implemented:
+grep -nE "${MILESTONE_NAME}|🚧|📅|✅|🟡" README.md ROADMAP.md ARCHITECTURE.md CLAUDE.md \
+  state/current-milestone.md "$PLANNING_DOC" | grep -iE 'planned|active|complete'
+# An EPIC marked Implemented in the planning doc must have its canvas Status: Implemented:
 for c in docs/spdd/*/canvas.md; do grep -H -m1 '^\*\*Status:\*\*' "$c"; done
 ```
 
@@ -495,7 +516,7 @@ cat > /tmp/pr-body-${ISSUE_N}.md << 'EOF'
 - [x] `make test-bdd` — all scenarios pass  [evidence / N/A]
 
 ### Engineering hygiene
-- [x] `M6-planning.md` row ⬜→✅ in this diff
+- [x] Planning-doc row ⬜→✅ in this diff
 - [x] `current-milestone.md` updated in this diff
 - [x] Canvas O-step ✅; `/spdd-sync` run if impl diverged
 - [x] Branched off fresh `origin/main` · PR ≤900 lines · trailers on every commit
@@ -510,7 +531,7 @@ ${COMMIT_TYPE}(<scope>): <subject>
 
 Closes #${ISSUE_N}
 
-Assisted-by: Claude/claude-sonnet-4-6
+Assisted-by: Claude/<model-id-of-this-session>
 EOF
 )"
 
@@ -530,7 +551,7 @@ PR_URL=$(gh pr create \
   --base main \
   --title "${COMMIT_TYPE}(<scope>): <subject>" \
   --assignee "@me" \
-  --label "type: ${COMMIT_TYPE},milestone: M6,area: <area>" \
+  --label "type: ${COMMIT_TYPE}" --label "$MILESTONE_LABEL" --label "area: <area>" \
   --body-file "/tmp/pr-body-${ISSUE_N}.md")
 
 PR_N=$(echo "$PR_URL" | grep -oP '\d+$')
@@ -546,8 +567,18 @@ CURRENT_STEP="10-CI"; check_ctx_budget
 echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CI_WAIT: PR #$PR_N — waiting for required checks  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 ```
 
-Unlike `/resume-m6`, this command waits for CI to complete before merging. This is intentional —
+Unlike `/resume-milestone`, this command waits for CI to complete before merging. This is intentional —
 the command's contract is end-to-end autonomous delivery, not a fire-and-forget push.
+
+> **Foreground only — never end the turn here.** The CI wait MUST be a blocking foreground
+> call in your current turn (`gh pr checks "$PR_N" --watch --interval 30`, or the poll loop
+> below). Never arm a *background* watch and end your turn "to wait for the notification" —
+> in an agent session that strands the delivery at an open PR (observed 2026-06-11: six of
+> seven agents stranded exactly this way). You are not done until STEP 14's report prints.
+>
+> **Merge-ready signal:** all *required* checks green is the gate. `mergeStateStatus` of
+> `CLEAN` is ready; `UNSTABLE` with only non-required checks pending is ALSO ready — do not
+> deadlock waiting for advisory checks. `BEHIND` means rebase onto origin/main and re-run.
 
 ```bash
 echo "Waiting for CI on PR #$PR_N (this may take 5–20 minutes)..."
@@ -697,7 +728,7 @@ gh issue edit "$ISSUE_N" --remove-label "status: in-progress" 2>/dev/null || tru
 
 # EPIC completion check: if all stories for the parent EPIC are now closed, close the EPIC too
 if [ -n "$EPIC_N" ] && [ "$EPIC_N" != "$ISSUE_N" ]; then
-  OPEN_STORIES=$(gh issue list --milestone "K8s Production-Ready (M6)" --state open \
+  OPEN_STORIES=$(gh issue list --milestone "$GH_MILESTONE" --state open \
     --json body --jq "[.[] | select(.body | test(\"#${EPIC_N}\"))] | length")
   if [ "$OPEN_STORIES" -eq 0 ]; then
     gh issue close "$EPIC_N" --reason completed \
@@ -711,11 +742,11 @@ if [ -n "$EPIC_N" ] && [ "$EPIC_N" != "$ISSUE_N" ]; then
 
       All O-steps merged for EPIC #${EPIC_N}.
 
-      Assisted-by: Claude/claude-sonnet-4-6"
+      Assisted-by: Claude/<model-id-of-this-session>"
       git push -u origin HEAD
       gh pr create --title "docs(spdd): mark EPIC #${EPIC_N} canvas Implemented" \
         --body "All O-steps for EPIC #${EPIC_N} have been merged. Closing canvas." \
-        --label "type: docs,milestone: M6"
+        --label "type: docs" --label "$MILESTONE_LABEL"
     }
   fi
 fi
@@ -730,7 +761,7 @@ PR:          #$PR_N — MERGED
 CI:          All required checks passed ✓
 Artifacts:   $([ "$TOUCHES_IMAGE" -gt 0 ] && echo "Docker images verified ✓" || echo "N/A (no image-touching files)")
 Issue state: CLOSED ✓
-Next:        Run /m6-plan to see what to pick up next.
+Next:        Run /milestone-plan to see what to pick up next.
 EOF
 
 # Remove the isolated worktree — all work is merged, nothing to keep

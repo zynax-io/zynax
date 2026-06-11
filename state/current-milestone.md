@@ -77,7 +77,7 @@ up but fails at the happy-path assertion; this epic closes the execution-path ga
 | O5 | [#1091](https://github.com/zynax-io/zynax/issues/1091) right-size e2e-smoke runner / pod resources | ci(infra) | S | resources merged (PR #1094); verify on full gate run |
 | O6 | [#1092](https://github.com/zynax-io/zynax/issues/1092) promote gate advisory → stable/required | ci | S | #1090 #1091 #1071 |
 
-**Ready now for `/m6-orchestrate`:** #1089 (O3). Then O4 → O6 (with #1091 verification ∥).
+**Ready now for `/milestone-orchestrate`:** #1089 (O3). Then O4 → O6 (with #1091 verification ∥).
 
 ## Recently Closed (last updated 2026-06-09)
 

@@ -1,9 +1,9 @@
 ---
-description: Resume Zynax M6 work — one canvas per EPIC, /spdd-story creates all story issues in GitHub, /spdd-generate implements one O-step at a time, stop after the cluster is merged.
+description: Resume work on the active milestone (state/milestone.yaml) — one canvas per EPIC, /spdd-story creates all story issues in GitHub, /spdd-generate implements one O-step at a time, stop after the cluster is merged.
 argument-hint: "[optional: epic issue number or story issue number to prefer, e.g. 765 766]"
 ---
 
-# Resume M6 — K8s Production-Ready (v0.5.0)
+# Resume Milestone — active milestone from state/milestone.yaml
 
 Pick the next ready EPIC, decompose it into story issues via `/spdd-story`, ship each story as its
 own PR in O-step order, merge them in order, leave every state file consistent, then stop.
@@ -31,7 +31,7 @@ issue). Open all story-PRs in the cluster, enable auto-merge on the first PR, an
 block waiting for CI. The STEP 1.5 merge pass at the start of the *next* session merges green PRs in
 O-step order and enables auto-merge on the next one. `Closes #<story-N>` in the PR body closes the
 story issue automatically on squash-merge. Every PR flips its own story-issue row in
-`docs/milestones/M6-planning.md` and updates `state/current-milestone.md` in its own diff.
+`"$PLANNING_DOC"` and updates `state/current-milestone.md` in its own diff.
 
 ---
 
@@ -58,50 +58,59 @@ story issue automatically on squash-merge. Every PR flips its own story-issue ro
 
 ## STEP 1 — Orient & resume (run first)
 
-**1.1 Sync main**
+**1.1 Sync main + load milestone config**
 ```bash
 git fetch origin --prune && git checkout main && git pull --rebase origin main
 [ "$(git rev-parse main)" = "$(git rev-parse origin/main)" ] || { echo "main diverged — STOP"; exit 1; }
 [ -z "$(git status --porcelain)" ] || { echo "dirty tree — STOP"; git status; exit 1; }
+
+# ── Active-milestone config (SSoT: state/milestone.yaml) ────────────────────
+# Loaded at runtime; no milestone name, number, or label is hardcoded in this
+# file. Updated only by /milestone-close and /milestone-new.
+CFG=state/milestone.yaml
+MILESTONE_NAME=$(awk '/^active:/{f=1} f && /^  name:/{print $2; exit}' "$CFG")
+MILESTONE_TITLE=$(awk -F'"' '/^active:/{f=1} f && /^  title:/{print $2; exit}' "$CFG")
+MILESTONE_NUMBER=$(awk '/^active:/{f=1} f && /^  github_milestone_number:/{print $2; exit}' "$CFG")
+MILESTONE_VERSION=$(awk '/^active:/{f=1} f && /^  version:/{print $2; exit}' "$CFG")
+PLANNING_DOC=$(awk '/^active:/{f=1} f && /^  planning_doc:/{print $2; exit}' "$CFG")
+MILESTONE_LABEL=$(awk -F'"' '/^    milestone:/{print $2; exit}' "$CFG")
+GH_MILESTONE="${MILESTONE_TITLE} (${MILESTONE_NAME})"   # GitHub milestone title
+# ─────────────────────────────────────────────────────────────────────────────
 ```
 
 **1.2 Read** — mandatory every session:
 - `state/current-milestone.md`
-- `docs/milestones/M6-planning.md` (M6 epic/story tables + risk table)
+- `"$PLANNING_DOC"` (epic/story tables + risk table)
 - `CLAUDE.md`
 
 | Read when | File |
 |---|---|
-| Any EPIC touching event-bus | ADR-022 Accepted (#764 closed) — EPIC I (#772) needs canvas via `/spdd-reasons-canvas 772` |
-| Any memory-service work | Confirm single-store choice is in J.2 canvas safeguards |
 | Proto or BDD boundary touched | `protos/AGENTS.md` + `docs/patterns/bdd-contract-testing.md` |
 | Helm chart work | `infra/AGENTS.md` + `docs/patterns/helm-charts.md` |
-| Any ADR-governed decision | `docs/adr/INDEX.md` — ADR-022 (event-bus) Accepted; all 22 ADRs stable |
-| M6.Images SoT work (#855, #856–#862) | `cmd/zynax-ci/AGENTS.md` + `images/images.yaml` (created in O1); O1 is `chore:` (implement directly); O2+O3 are the keystone cluster (`feat:`+`ci:`) |
-| M6.Images GHCR hygiene (#865–#869) | Root cause confirmed: all images have `"annotations": null` on OCI index (no description shown); `unknown/unknown` = SLSA provenance attestation (expected, do NOT disable); deliver #868 ADR-025 first, then #865 annotations, then #866 gate, #867 retention, #869 docs |
-| M6.Build work (#837, #841) | Native arm64 runners; B.1–B.3 story issues must be created from EPIC body before implementing |
-| M6.DevAuto work (#873, #874–#883) | Read `automation/STATUS-AND-DIRECTION.md` first; two-plane model — near-term Waves 0–3 (ci:/chore:/docs:, SPDD-exempt) vs aspirational Wave 4 (#881, BLOCKED on #626 + #772); failing test in #882 gates Wave 4 |
+| Any ADR-governed decision | `docs/adr/INDEX.md` — check the ADR that governs the area before changing it |
+| Image / GHCR / release work | `images/images.yaml` (SoT — ADR-024) + ADR-025 (attestations) + ADR-027 (retag model) |
+| EPIC-specific caveats | The EPIC's row + notes in `"$PLANNING_DOC"` — milestone-specific guidance lives there, never here |
 
 Run `/help` to confirm all SPDD commands are available.
 
-**1.3 Reconcile M6 milestone ⟷ planning doc**
+**1.3 Reconcile GitHub milestone ⟷ planning doc**
 ```bash
-gh issue list --milestone "K8s Production-Ready (M6)" --state open   --limit 200 --json number,title,labels,state
-gh issue list --milestone "K8s Production-Ready (M6)" --state closed --limit 200 --json number,title,labels,state
+gh issue list --milestone "$GH_MILESTONE" --state open   --limit 200 --json number,title,labels,state
+gh issue list --milestone "$GH_MILESTONE" --state closed --limit 200 --json number,title,labels,state
 ```
 Open issue ⇒ ⬜ row; closed issue ⇒ ✅ row. Any mismatch → fix via a dedicated `docs:` branch
 and PR (never a direct commit to `main`):
 ```bash
 git checkout -b docs/milestone-sync-$(date +%Y%m%d)
-# edit M6-planning.md and/or current-milestone.md
-git add docs/milestones/M6-planning.md state/current-milestone.md
-git commit -s -m "docs(milestones): reconcile M6 planning table — <what changed>
+# edit "$PLANNING_DOC" and/or current-milestone.md
+git add "$PLANNING_DOC" state/current-milestone.md
+git commit -s -m "docs(milestones): reconcile ${MILESTONE_NAME} planning table — <what changed>
 
 Assisted-by: Claude/<model>"
 git push -u origin HEAD
-gh pr create --title "docs(milestones): reconcile M6 planning table" \
+gh pr create --title "docs(milestones): reconcile ${MILESTONE_NAME} planning table" \
   --body "Reconcile open/closed issue state with delivery table." \
-  --label "type: docs,milestone: M6"
+  --label "type: docs" --label "$MILESTONE_LABEL"
 gh pr checks <PR> --watch
 git fetch origin main && git rebase origin/main && git push --force-with-lease
 gh pr merge <PR> --squash
@@ -156,27 +165,22 @@ Otherwise pick new work below.
 
 ## STEP 2 — Pick an EPIC
 
-**Priority order** (highest first — but always check blockers first):
+**Priority order** lives in the EPIC table of `"$PLANNING_DOC"` — top-to-bottom table order is
+the priority. Never hardcode EPIC or issue numbers in this command file; the planning doc and
+the live issue bodies are the source of truth.
 
-| Priority | EPIC | Issue | Status gate |
-|---|---|---|---|
-| ✅ | M6.A Health probes | #463 | **COMPLETE** — #487 merged in PR #821 |
-| ✅ | M6.D Stateless compiler | #466 | **COMPLETE** — #490 merged in PR #774 |
-| ✅ | M6.B mTLS | #464 | **COMPLETE** — #488 merged in PR #831 |
-| ✅ | M6.C Supply chain | #465 | **COMPLETE** — #489 merged in PR #833 |
-| 1 | M6.Helm | #765 | canvas `Aligned` `docs/spdd/765-helm-charts/canvas.md`; children #779–#792 |
-| 2 | M6.H Postgres repos | #626 | canvas `Aligned` `docs/spdd/626-postgres-repos/canvas.md`; children #793 #794 |
-| 3 | M6.F Config convergence | #670 | refactor/ci — SPDD-exempt; children #667 #668 #669 |
-| 4 | M6.Images — SoT | #855 | canvas `Aligned` `docs/spdd/855-images-sot/canvas.md`; SoT children: #856–#862 (O1 `chore:` direct; O2+O3 keystone cluster); **GHCR hygiene children: #865–#869 — SPDD-exempt; deliver in order #868 → #865 → #866 → #867 → #869** |
-| 4a | M6.Build | #837 | SPDD-exempt (ci:/chore:); B.1–B.3 story issues not yet created — create from EPIC body; B.4 = #841 (image size audit); goal: zero QEMU, native arm64 runners, Python adapters in release pipeline |
-| 4b | M6.DevAuto | #873 | Near-term waves 0–3 are SPDD-exempt (ci:/chore:/docs:); Wave 4 (#881) is feat: — needs canvas + BLOCKED on #626 + #772; start with DevAuto.1 (#874) → DevAuto.2 (#875) → DevAuto.3 (#876) → Wave 0 (#877); assets in `automation/` only |
-| 5 | M6.NS Multi-namespace | #767 | canvas `Aligned` `docs/spdd/767-multi-namespace/canvas.md`; children #799 #800; D.1 done (#774) |
-| 6 | M6.Argo | #766 | canvas `Aligned` `docs/spdd/766-argo-engine/canvas.md`; children #795–#798 |
-| 7 | M6.SDK PyPI | #769 | canvas `Aligned` `docs/spdd/769-sdk-pypi/canvas.md`; children #805–#808 |
-| 8 | M6.Policy | #768 | canvas `Aligned` `docs/spdd/768-policy-enforcement/canvas.md`; children #801–#804 |
-| 9 | M6.J memory-service | #773 | canvas `Aligned` `docs/spdd/773-memory-service/canvas.md`; children #814–#819; **BLOCKED on #626** |
-| 10 | M6.I event-bus | #772 | ADR-022 Accepted (#764 closed) — no canvas yet; run `/spdd-reasons-canvas 772` first |
-| 11 | M6.G e2e harness | #770 | canvas `Aligned` `docs/spdd/770-e2e-harness/canvas.md`; children #809–#813; BLOCKED on EPIC A + I + J + B |
+```bash
+# Live EPIC list (cross-check against the planning-doc table; this is the
+# runtime truth when the static open_epics hint in state/milestone.yaml is stale)
+gh issue list --milestone "$GH_MILESTONE" --label "type: epic" --state open \
+  --limit 50 --json number,title,labels
+```
+
+For each candidate EPIC, the status gate is determined live:
+- canvas at `docs/spdd/<EPIC_N>-*/canvas.md` with `Status: Aligned` → implementable
+- canvas `Status: Draft` or missing (and EPIC is `feat:`) → STEP 3A first
+- `refactor:/ci:/chore:` EPIC → SPDD-exempt → STEP 3D
+- body names an open blocker ("Depends on #N" / "Pending #N" with #N open) → BLOCKED, skip
 
 **Pre-filter: skip EPICs already claimed by another session**
 
@@ -227,10 +231,10 @@ Review output: verify ADR constraints, tier classification, Tier 2 flags.
 ```
 Canvas is written to `docs/spdd/<EPIC_N>-<slug>/canvas.md` (Status: Draft).
 
-**Canvas must include** for M6 EPICs:
+**Canvas must include** for infra EPICs:
 - **R**: exact K8s DoD (observable outcomes, not just "charts exist")
 - **E**: every new resource type, every gRPC contract touched
-- **A**: what we WILL do and what we WON'T (e.g. "no OTel traces — that is M7")
+- **A**: what we WILL do and what we WON'T (e.g. "no OTel traces — that is a later milestone")
 - **S-Structure**: every file created or modified, K8s resource kind for infra EPICs
 - **O**: one O-step per story PR, each ≤400 lines — number them to match story issue titles
 - **N**: GOWORK=off, DCO+Assisted-by, test coverage gate, liveness threshold env var etc.
@@ -247,7 +251,7 @@ Must PASS before committing. Any Tier 2 findings → move to `canvas.private.md`
 
 Check whether story issues already exist before creating:
 ```bash
-gh issue list --milestone "K8s Production-Ready (M6)" --state all \
+gh issue list --milestone "$GH_MILESTONE" --state all \
   --json number,title,body --jq '.[] | select(.body | test("#<EPIC_N>"))' | head -40
 ```
 
@@ -258,8 +262,8 @@ If stories are missing, run:
 
 `/spdd-story` will create one GitHub issue per O-step. **Each story issue MUST have:**
 - Title: `feat(<scope>): <story-title> (#<EPIC_N>, step <N>)` — conventional-commit form
-- Labels: `type: feature`, `area: <area>`, `milestone: M6`, `size/<S|M|L>`, `spdd: canvas-step`
-- Milestone: `K8s Production-Ready (M6)`
+- Labels: `type: feature`, `area: <area>`, `$MILESTONE_LABEL`, `size/<S|M|L>`, `spdd: canvas-step`
+- Milestone: `$GH_MILESTONE`
 - Body includes:
   - Story (as-a / I-want / so-that)
   - Canvas reference: `docs/spdd/<EPIC_N>-<slug>/canvas.md` O-step N
@@ -269,11 +273,11 @@ If stories are missing, run:
   - Size estimate
   - Dependencies (previous O-step issue, if any)
   - Test plan checklist (see template below)
-  - `Assisted-by: Claude/claude-sonnet-4-6`
+  - `Assisted-by: Claude/<model-id-of-this-session>`
 
 Verify all stories were created:
 ```bash
-gh issue list --label "milestone: M6" --state open --json number,title \
+gh issue list --label "$MILESTONE_LABEL" --state open --json number,title \
   --jq '.[] | select(.title | test("#<EPIC_N>"))'
 ```
 
@@ -281,7 +285,7 @@ gh issue list --label "milestone: M6" --state open --json number,title \
 
 ```bash
 # Find which O-steps are already merged (look for closed story issues)
-gh issue list --label "milestone: M6" --state closed --json number,title,body \
+gh issue list --label "$MILESTONE_LABEL" --state closed --json number,title,body \
   --jq '.[] | select(.body | test("#<EPIC_N>.*step")) | {n:.number,title}'
 
 # Collect all open/draft PR head-refs and remote branches (parallel-session filter)
@@ -292,7 +296,7 @@ CLAIMED=$(printf '%s\n%s\n' \
   | sort -u)
 
 # List open story issues for this EPIC (lowest step number first), skip already-claimed ones
-gh issue list --label "milestone: M6" --state open --json number,title,body \
+gh issue list --label "$MILESTONE_LABEL" --state open --json number,title,body \
   --jq '.[] | select(.body | test("#<EPIC_N>.*step")) | {n:.number,title}' \
   | head -10
 # For each candidate story #N: check if any branch matching <type>/<N>-* is in $CLAIMED
@@ -309,8 +313,8 @@ No canvas required. Implement directly from the issue body. Each story issue sti
 test plan template and labels — create them via:
 ```bash
 gh issue create --title "<type>(<scope>): <title> (#<EPIC_N>, step <N>)" \
-  --label "type: <refactor|ci|chore>,area: <area>,milestone: M6,size/<S|M>" \
-  --milestone "K8s Production-Ready (M6)" \
+  --label "type: <refactor|ci|chore>,area: <area>" --label "$MILESTONE_LABEL" --label "size/<S|M>" \
+  --milestone "$GH_MILESTONE" \
   --body "$(cat <<'EOF'
 ## Context
 Closes the <N>th step of <EPIC_N> (<epic title>).
@@ -332,7 +336,7 @@ Closes the <N>th step of <EPIC_N> (<epic title>).
 
 ## Size estimate: <XS/S/M>
 
-Assisted-by: Claude/claude-sonnet-4-6
+Assisted-by: Claude/<model-id-of-this-session>
 EOF
 )"
 ```
@@ -403,7 +407,7 @@ Capture all output — paste into PR body test plan checkboxes.
 ## STEP 6 — State consistency (per story PR, in its own diff)
 
 Each story PR updates:
-1. `docs/milestones/M6-planning.md` — flip this story's row ⬜→✅; bump "Last updated"
+1. `"$PLANNING_DOC"` — flip this story's row ⬜→✅; bump "Last updated"
 2. `state/current-milestone.md` — update EPIC progress; note if EPIC is now fully done
 3. Epic canvas O-step — mark it ✅; run `/spdd-sync <canvas>` if implementation diverged
 4. `services/<svc>/AGENTS.md` — only if a new gRPC method, K8s resource type, or env var was added
@@ -434,7 +438,7 @@ echo -n "<type>(<scope>): <subject>" | wc -c   # ≤ 72
 gh pr create --base <main|branch-below> \
   --title "<type>(<scope>): <subject>" \
   --assignee "@me" \
-  --label "type: <kind>,milestone: M6,area: <area>" \
+  --label "type: <kind>" --label "$MILESTONE_LABEL" --label "area: <area>" \
   --body-file pr-body-<N>.md
 ```
 
@@ -479,8 +483,8 @@ STEP 1.5 pass will check `mergeStateStatus` and merge when green.
 
 **Post-merge cleanup happens automatically:**
 - Story issue closes via `Closes #<N>` in PR body (squash-merge carries it)
-- `M6-planning.md` row ⬜→✅ is in the PR diff — merged with the code
-- After the merge pass, verify: `grep -nE "#?$STORY\b" docs/milestones/M6-planning.md` — row must be ✅
+- Planning-doc row ⬜→✅ is in the PR diff — merged with the code
+- After the merge pass, verify: `grep -nE "#?$STORY\b" "$PLANNING_DOC"` — row must be ✅
 
 ---
 
@@ -489,7 +493,7 @@ STEP 1.5 pass will check `mergeStateStatus` and merge when green.
 When ALL O-steps of an EPIC are merged:
 ```bash
 # Check all story issues for this EPIC are closed
-gh issue list --label "milestone: M6" --state open --json number,title,body \
+gh issue list --label "$MILESTONE_LABEL" --state open --json number,title,body \
   --jq '.[] | select(.body | test("#<EPIC_N>.*step"))'  # should be empty
 
 # Update epic issue itself
@@ -517,7 +521,7 @@ Mark the EPIC canvas `Status: Implemented` (small docs: commit). Post the sessio
 | EPIC has canvas Aligned but no story issues | STEP 3B: create stories, then STEP 4 |
 | EPIC has no canvas | STEP 3A: full pipeline |
 | EPIC is BLOCKED (#764 for EPIC I, #626 for EPIC J, #626+#772 for DevAuto.8 #881) | Pick next unblocked EPIC |
-| All EPICs exhausted | Report M6 exit-criteria; ask re: milestone close / M7 |
+| All EPICs exhausted | Report milestone exit-criteria; recommend /milestone-close |
 
 ---
 
@@ -559,11 +563,11 @@ Mark the EPIC canvas `Status: Implemented` (small docs: commit). Post the sessio
 - [ ] <criterion mapped to acceptance criteria above>  [evidence: test / file:line / log]
 
 ### Engineering hygiene
-- [ ] **`M6-planning.md` row ⬜→✅ in this diff** (mandatory)
+- [ ] **Planning-doc row ⬜→✅ in this diff** (mandatory)
 - [ ] **`current-milestone.md` updated in this diff** (mandatory)
 - [ ] Canvas O-step <N> marked ✅; `/spdd-sync` run if impl diverged
 - [ ] Branched from fresh `origin/main` · PR ≤900 lines · trailers on every commit
-- [ ] No out-of-scope edits · observability (traces/dashboards) deferred to M7
+- [ ] No out-of-scope edits · observability (traces/dashboards) deferred to a later milestone
 ```
 
 ---
@@ -579,8 +583,8 @@ Mark the EPIC canvas `Status: Implemented` (small docs: commit). Post the sessio
 |---|---|---|---|---|---|
 | #A | <url> | <feat/…> | <S/M> | O-step N | MERGED |
 
-**State files:** M6-planning rows ⬜→✅ <list> · current-milestone <change> · canvas O-steps ✅ <list> · AGENTS.md <svc/N/A>
-**Verify (all ✓ to continue):** story issues CLOSED ✓ · PRs MERGED ✓ · M6-planning lockstep ✓ · no stray PRs/branches, tree clean ✓
+**State files:** planning-doc rows ⬜→✅ <list> · current-milestone <change> · canvas O-steps ✅ <list> · AGENTS.md <svc/N/A>
+**Verify (all ✓ to continue):** story issues CLOSED ✓ · PRs MERGED ✓ · planning-doc lockstep ✓ · no stray PRs/branches, tree clean ✓
 **Blockers:** <list any blocking issues — e.g. "#764 EBUS-DECISION unresolved — EPIC I stays blocked">
 **Repo state:** main HEAD <sha> "<subject>" · my open PRs <list/none> · health <green | red on #PR>
 **Next:** EPIC <#N title> · O-step <N> (#story-issue) · review first: <canvas / issue / N/A>

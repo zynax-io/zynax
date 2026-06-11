@@ -258,14 +258,14 @@ nats, _ := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerR
 })
 ```
 
-*(Applied via /m6-learn from #818 (Redis) + #828 (NATS).)*
+*(Applied via /milestone-learn from #818 (Redis) + #828 (NATS).)*
 
 ---
 
 ## Git safety
 
-You run in your own isolated git worktree (EPIC #1001 — `m6-orchestrate` STEP 6 /
-`m6-issue-generate` STEP 2.5): a private checkout with its own `HEAD` and index. Branch
+You run in your own isolated git worktree (EPIC #1001 — `milestone-orchestrate` STEP 6 /
+`issue-deliver` STEP 2.5): a private checkout with its own `HEAD` and index. Branch
 switches, `git add`, and `git stash` here are invisible to sibling agents and theirs to you,
 so no defensive branch-verify before each Bash call, no explicit-path-only staging to dodge
 sibling contamination, and no stash-avoidance is needed.

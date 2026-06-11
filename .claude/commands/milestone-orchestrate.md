@@ -1,9 +1,9 @@
 ---
-description: Parallel M6 orchestrator — reads state, claims up to 3 issues per batch, routes each to the right domain expert subagent, runs them in parallel, collects results and learnings. Orchestrator never reads code files directly.
+description: Parallel milestone orchestrator — reads state, claims up to 3 issues per batch, routes each to the right domain expert subagent, runs them in parallel, collects results and learnings. Orchestrator never reads code files directly.
 argument-hint: "[--batch-size N]  default: 3"
 ---
 
-# /m6-orchestrate — Parallel M6 Delivery Orchestrator
+# /milestone-orchestrate — Parallel Milestone Delivery Orchestrator
 
 Thin coordination layer: read state → claim issues → fan out to expert subagents in parallel →
 collect results → persist learnings → report.
@@ -51,9 +51,22 @@ git -C "$REPO" fetch origin --prune
 git -C "$REPO" worktree add "$COORD_WT" origin/main   # detached at origin/main
 cd "$COORD_WT"
 
+# ── Active-milestone config (SSoT: state/milestone.yaml) ────────────────────
+# Loaded at runtime; no milestone name, number, or label is hardcoded in this
+# file. Updated only by /milestone-close and /milestone-new.
+CFG=state/milestone.yaml
+MILESTONE_NAME=$(awk '/^active:/{f=1} f && /^  name:/{print $2; exit}' "$CFG")
+MILESTONE_TITLE=$(awk -F'"' '/^active:/{f=1} f && /^  title:/{print $2; exit}' "$CFG")
+MILESTONE_NUMBER=$(awk '/^active:/{f=1} f && /^  github_milestone_number:/{print $2; exit}' "$CFG")
+MILESTONE_VERSION=$(awk '/^active:/{f=1} f && /^  version:/{print $2; exit}' "$CFG")
+PLANNING_DOC=$(awk '/^active:/{f=1} f && /^  planning_doc:/{print $2; exit}' "$CFG")
+MILESTONE_LABEL=$(awk -F'"' '/^    milestone:/{print $2; exit}' "$CFG")
+GH_MILESTONE="${MILESTONE_TITLE} (${MILESTONE_NAME})"   # GitHub milestone title
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Read only these four files — nothing else (from the coordinator worktree)
 cat state/current-milestone.md           # blockers, active work
-cat docs/milestones/M6-planning.md       # EPIC status + dependency table
+cat "$PLANNING_DOC"       # EPIC status + dependency table
 ```
 
 ```bash
@@ -61,7 +74,7 @@ cat docs/milestones/M6-planning.md       # EPIC status + dependency table
 BATCH_SIZE=${ARGUMENTS:-3}               # default 3 parallel issues
 
 OPEN=$(gh issue list \
-  --milestone "K8s Production-Ready (M6)" \
+  --milestone "$GH_MILESTONE" \
   --state open --limit 300 \
   --json number,title,body,labels,assignees)
 
@@ -106,11 +119,11 @@ done <<< "$OPEN_PRS_JSON"
 
 ## STEP 3 — Select READY batch
 
-Using the same classification logic as `/m6-plan`:
+Using the same classification logic as `/milestone-plan`:
 
 ```bash
 # For each open issue: classify as READY / IN_PROGRESS / BLOCKED
-# Priority order from M6-planning.md EPIC table
+# Priority order from the EPIC table in "$PLANNING_DOC"
 # Select top $BATCH_SIZE READY issues for this session
 
 # Quick filter:
@@ -216,7 +229,7 @@ Then spawn:
 
 ```
 Agent({
-  description: "M6 story #N — <issue title>",
+  description: "Story #N — <issue title>",
   subagent_type: "claude",
   run_in_background: true,
   prompt: """
@@ -262,7 +275,7 @@ Agent({
 
     ---
 
-    Your task: implement M6 story issue #N end-to-end.
+    Your task: implement story issue #N end-to-end.
 
     ## Issue details
     <full issue body from gh issue view N>
@@ -275,7 +288,7 @@ Agent({
        If already claimed: remove your worktree (cleanup below), stop, and report.
     2. From inside "$WT", claim with the DETERMINISTIC KEY before any code: the branch
        ref is `<type>/<N>` — a pure function of the issue number, NO slug. Push it empty
-       (atomic hard claim). This is the same key /m6-issue-generate derives, so it is the
+       (atomic hard claim). This is the same key /issue-deliver derives, so it is the
        sole mutex: if a sibling already pushed `<type>/<N>` your push is rejected → stop,
        run cleanup, report "claim lost". Apply any human-readable slug only AFTER the push
        wins (rename + push the slugged ref); never let a slug into the claim push.
@@ -300,7 +313,7 @@ Agent({
     - Affected services: <comma-separated list, e.g. "memory-service,event-bus" or "none">
     ```
 
-    ## Session Learnings (required — emit verbatim in this shape so /m6-learn can parse it)
+    ## Session Learnings (required — emit verbatim in this shape so /milestone-learn can parse it)
     ```
     ## Session Learnings
     - domain: <go-services|ci-release|infra-helm|python-adapters|bdd-contract|spdd-canvas>
@@ -559,11 +572,11 @@ git commit -s -m "docs(ai-learnings): append session learnings — issues $BATCH
 
 $(date +%Y-%m-%d) batch: $BATCH_SIZE issues.
 
-Assisted-by: Claude/claude-sonnet-4-6"
+Assisted-by: Claude/<model-id-of-this-session>"
 git push -u origin "$LEARN_BRANCH"
 LEARN_PR=$(gh pr create --title "docs(ai-learnings): append session learnings — $(date +%Y-%m-%d)" \
   --body "Appending learnings from batch: issues $BATCH_ISSUES" \
-  --label "type: docs,milestone: M6" | tail -1)
+  --label "type: docs" --label "$MILESTONE_LABEL" | tail -1)
 gh pr merge "$LEARN_PR" --squash --auto
 ```
 
@@ -591,7 +604,7 @@ Batch size: N issues
 | #NNN | none (docs-only) | — | — | — | — | SKIP |
 
 Learnings: appended to docs/ai-learnings/ — PR #NNN opened for review.
-Next: run /m6-plan to see the next available batch.
+Next: run /milestone-plan to see the next available batch.
 ```
 
 After the report, remove the coordinator worktree (the per-run agent/post-merge trees were
@@ -611,7 +624,7 @@ git -C "$REPO" worktree prune
 | What orchestrator reads | What it NEVER reads |
 |---|---|
 | `state/current-milestone.md` | Any `services/*/` Go files |
-| `docs/milestones/M6-planning.md` | Any canvas body |
+| `"$PLANNING_DOC"` | Any canvas body |
 | GitHub issue list (JSON) | Any test output |
 | Open PR list (JSON) | Any workflow file contents |
 | Remote branch list | Any proto definitions |
@@ -639,7 +652,7 @@ tree, so cross-agent branch/staging/commit corruption is structurally impossible
   coordinator can only ever reclaim *this* run's trees. Globbing `/tmp/zynax-orch-*` is forbidden.
 - **User's checkout is never mutated:** the orchestrator does all its own git work in the
   coordinator worktree; `main` stays checked out (untouched) in the user's primary worktree.
-- Distinct from `/m6-issue-generate`'s `/tmp/zynax-auto-<N>` — no namespace collision.
+- Distinct from `/issue-deliver`'s `/tmp/zynax-auto-<N>` — no namespace collision.
 
 ---
 
@@ -651,15 +664,15 @@ not replace the authoritative one:
 
 | Layer | Where | Mechanism | Strength |
 |-------|-------|-----------|----------|
-| 1 — Deterministic claim key | STEP 6 dispatch prompt (+ `/m6-issue-generate` STEP 5) | Branch ref `<type>/<N>` is a pure function of the issue number; the atomic empty-branch push is the **sole mutex** shared by both entry points. Slug applied only post-claim. | Prevents two live branches for one issue. |
+| 1 — Deterministic claim key | STEP 6 dispatch prompt (+ `/issue-deliver` STEP 5) | Branch ref `<type>/<N>` is a pure function of the issue number; the atomic empty-branch push is the **sole mutex** shared by both entry points. Slug applied only post-claim. | Prevents two live branches for one issue. |
 | 2 — Pre-spawn reconcile | STEP 5 | Re-query `gh issue view` + merged-PR search before spawning; skip + drop soft claim if already delivered. | Cheap early-out; can be defeated by API lag. |
 | 3 — Completion-time merge-SHA dedupe | STEP 7 | `SEEN_ISSUES` / `SEEN_MERGE_SHAS`; on each completion re-query the authoritative merged PR; close the loser PR and skip its verifier when a different PR already delivered the issue. | **Authoritative** — operates on a merge fact (a SHA on `main`), immune to API lag. |
 
 - **Completion-time is authoritative.** Layers 1–2 reduce the race window; only layer 3 acts on
   a fact that cannot be wrong. Never treat the claim key or the pre-spawn reconcile as sufficient
   on its own.
-- **The claim key is the single mutex across both entry points.** `/m6-orchestrate` and
-  `/m6-issue-generate` derive the identical `<type>/<N>` ref, so a race between them collides on
+- **The claim key is the single mutex across both entry points.** `/milestone-orchestrate` and
+  `/issue-deliver` derive the identical `<type>/<N>` ref, so a race between them collides on
   one push. A slug must never enter the claim push.
 - **A loser PR is closed, never merged.** When two PRs target one issue, layer 3 keeps the first
   merged (the winner) and closes the redundant one; `gh pr merge` flags and the push-to-main
@@ -688,4 +701,4 @@ Heuristics:
 | Condition | Action |
 |-----------|--------|
 | `CTX_TOKENS > 60K` | Stop claiming new issues — only collect existing agent results |
-| `CTX_TOKENS > 100K` OR `CTX_COMPRESSIONS >= 1` | **STOP. Report collected results so far.** Let the human run `/m6-plan` for the next batch. |
+| `CTX_TOKENS > 100K` OR `CTX_COMPRESSIONS >= 1` | **STOP. Report collected results so far.** Let the human run `/milestone-plan` for the next batch. |
