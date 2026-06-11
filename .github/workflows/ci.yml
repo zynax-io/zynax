@@ -13,9 +13,11 @@
 #                │                  test-python ─┴──→ test-unit (wrapper, required check)
 #                └─ lint-python    (parallel; code=false skips both)
 #   dco → security  (independent)
+#   dco → changes → lint-go → build-images  (pre-merge image gate — ADR-027, #1118;
+#                                            PRs only, when docker == 'true')
 #
 # When adding a service/adapter/agent update SERVICE_LIST, GO_ADAPTER_LIST,
-# or AGENT_LIST — no other changes required.
+# AGENT_LIST — and the build-images matrix if it ships as a container image.
 
 name: CI
 
@@ -122,6 +124,7 @@ jobs:
       cli:              ${{ steps.detect.outputs.cli              == 'true' || steps.force-detect.outputs.force == 'true' }}
       adapters_go:      ${{ steps.detect.outputs.adapters_go      == 'true' || steps.force-detect.outputs.force == 'true' }}
       adapters_python:  ${{ steps.detect.outputs.adapters_python  == 'true' || steps.force-detect.outputs.force == 'true' }}
+      docker:           ${{ steps.detect.outputs.docker           == 'true' || steps.force-detect.outputs.force == 'true' }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -165,7 +168,7 @@ jobs:
               echo "code=true"; echo "proto=true"; echo "go=true"; echo "python=true"
               echo "engine_adapter=true"; echo "workflow_compiler=true"; echo "api_gateway=true"
               echo "task_broker=true"; echo "agent_registry=true"; echo "cli=true"
-              echo "adapters_go=true"; echo "adapters_python=true"
+              echo "adapters_go=true"; echo "adapters_python=true"; echo "docker=true"
             } >> "$GITHUB_OUTPUT"
             echo "ℹ️  Unknown event '${{ github.event_name }}' — all lanes enabled."
             exit 0
@@ -177,7 +180,7 @@ jobs:
               echo "code=true"; echo "proto=true"; echo "go=true"; echo "python=true"
               echo "engine_adapter=true"; echo "workflow_compiler=true"; echo "api_gateway=true"
               echo "task_broker=true"; echo "agent_registry=true"; echo "cli=true"
-              echo "adapters_go=true"; echo "adapters_python=true"
+              echo "adapters_go=true"; echo "adapters_python=true"; echo "docker=true"
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -185,12 +188,17 @@ jobs:
           code=false proto=false go=false python=false
           engine_adapter=false workflow_compiler=false api_gateway=false
           task_broker=false agent_registry=false cli=false
-          adapters_go=false adapters_python=false
+          adapters_go=false adapters_python=false docker=false
 
           while IFS= read -r f; do
             [ -z "$f" ] && continue
             if echo "$f" | grep -qE '^(services/|agents/|cmd/|protos/|go\.work(\.sum)?$)'; then
               code=true
+            fi
+            # docker: any path that ends up inside a container image (#1118 / ADR-027).
+            # Locked matrix strategy: ALL images build when ANY of these change.
+            if echo "$f" | grep -qE '^(services/|infra/docker/Dockerfile\.|agents/adapters/[^/]+/Dockerfile$)'; then
+              docker=true
             fi
             if echo "$f" | grep -qE '^(protos/|spec/|CLAUDE\.md|AGENTS\.md|.*/AGENTS\.md|docs/ai-assistant-setup\.md|\.ai/|\.claude/)'; then
               proto=true
@@ -225,8 +233,9 @@ jobs:
             echo "api_gateway=$api_gateway"; echo "task_broker=$task_broker"
             echo "agent_registry=$agent_registry"; echo "cli=$cli"
             echo "adapters_go=$adapters_go"; echo "adapters_python=$adapters_python"
+            echo "docker=$docker"
           } >> "$GITHUB_OUTPUT"
-          echo "── code=$code  proto=$proto  go=$go  python=$python"
+          echo "── code=$code  proto=$proto  go=$go  python=$python  docker=$docker"
           echo "── engine-adapter=$engine_adapter  workflow-compiler=$workflow_compiler  api-gateway=$api_gateway  task-broker=$task_broker  agent-registry=$agent_registry  cli=$cli  adapters-go=$adapters_go  adapters-python=$adapters_python"
 
 # ── Lint: Proto, AI context scan, spec validation ─────────────────────────────
@@ -698,3 +707,141 @@ jobs:
         run: |
           echo "ℹ️  No Go or Python source found — govulncheck and bandit skipped."
           echo "   trivy dependency and config scans above always run."
+
+# ── Pre-merge image build + scan (shift-left gate — ADR-027, #1118) ───────────
+# Builds every container image ONCE, pre-merge, pushes it to the public GHCR
+# staging lane (staging/<svc>:pr-<head-sha>), then gates the PR on:
+#   Hadolint (Dockerfile lint) → Trivy CRITICAL,HIGH (exit-code 1, .trivyignore
+#   honored) → SARIF to the Security tab → CycloneDX SBOM artifact (30 days).
+# On merge the staging image is RETAGGED, never rebuilt (#1120) — the image in
+# production is the exact binary that passed this gate.
+#
+# Locked matrix strategy (#1118): ALL images build when ANY docker-relevant path
+# changes (a base-image or shared-template change affects every image); the
+# whole matrix is skipped otherwise. Tag uses the PR HEAD sha (not the synthetic
+# merge sha) so the retag job can recover it from workflow_run.head_sha (ADR-027)
+# and e2e-smoke can derive it from the PR context.
+# provenance default kept (SLSA Build L1 — ADR-025): do not set provenance:false.
+  build-images:
+    name: "Build + scan: ${{ matrix.service }}"
+    runs-on: ubuntu-24.04
+    needs: [changes, lint-go]
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.docker == 'true' &&
+      needs.lint-go.result != 'failure' &&
+      (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      packages: write          # pushes staging-lane images to GHCR
+      security-events: write   # uploads trivy SARIF to the GitHub Security tab
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Go services — shared template infra/docker/Dockerfile.service (#668)
+          - { service: api-gateway }
+          - { service: engine-adapter }
+          - { service: workflow-compiler }
+          - { service: task-broker }
+          - { service: agent-registry }
+          - { service: event-bus }
+          - { service: memory-service }
+          # Adapters — per-adapter Dockerfiles (same model — spec Q3C locked)
+          - { service: http-adapter,      dockerfile: agents/adapters/http/Dockerfile }
+          - { service: llm-adapter,       dockerfile: agents/adapters/llm/Dockerfile }
+          - { service: langgraph-adapter, dockerfile: agents/adapters/langgraph/Dockerfile }
+          - { service: ci-adapter,        dockerfile: agents/adapters/ci/Dockerfile }
+          - { service: git-adapter,       dockerfile: agents/adapters/git/Dockerfile }
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Resolve staging image ref
+        id: ref
+        run: |
+          HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          echo "image=ghcr.io/zynax-io/zynax/staging/${{ matrix.service }}:pr-${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+          echo "head_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+
+      # failure-threshold starts at `error`: the Go template + 3 Go adapters carry
+      # pre-existing DL3003 warnings (RUN cd → WORKDIR). Promote to `warning`
+      # once those are cleaned up.
+      - name: Hadolint — Dockerfile lint
+        uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
+        with:
+          dockerfile: ${{ matrix.dockerfile || 'infra/docker/Dockerfile.service' }}
+          failure-threshold: error
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # cache scope matches release.yml's amd64 build so PR builds reuse the
+      # layer cache populated on main (same Dockerfile, same context).
+      - name: Build and push to staging lane
+        id: build
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile || 'infra/docker/Dockerfile.service' }}
+          build-args: SVC=${{ matrix.service }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.ref.outputs.image }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.ref.outputs.head_sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=${{ matrix.service }}-amd64
+          cache-to: type=gha,scope=${{ matrix.service }}-amd64,mode=max
+
+      - name: Trivy scan (CRITICAL,HIGH = fail)
+        id: trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          # Same DB pin + severity-source policy as release.yml (#1022).
+          # renovate: datasource=docker depName=ghcr.io/aquasecurity/trivy-db
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2@sha256:225c785a3ce630d8f8b75ab23f4d7b0b1402f94a54dfe6441e6711c7deb8dec8
+          TRIVY_VULN_SEVERITY_SOURCE: nvd,ghsa
+        with:
+          image-ref: ${{ steps.ref.outputs.image }}
+          version: v0.71.0
+          format: sarif
+          output: trivy-staging-${{ matrix.service }}.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 1
+          ignore-unfixed: false
+          trivyignores: .trivyignore
+
+      # Upload even on a failed scan so findings are visible in the Security tab.
+      - name: Upload Trivy SARIF to GitHub Security tab
+        if: always() && steps.trivy.outcome != 'skipped'
+        uses: github/codeql-action/upload-sarif@03e4368ac7daa2bd82b3e85262f3bf87ee112f57 # v3.36.0
+        with:
+          sarif_file: trivy-staging-${{ matrix.service }}.sarif
+          category: staging-${{ matrix.service }}
+
+      # SBOM from the pushed staging image — generated even when Trivy fails so
+      # the inventory of a blocked PR is still auditable.
+      - name: Generate SBOM (CycloneDX JSON)
+        if: always() && steps.build.outcome == 'success'
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ steps.ref.outputs.image }}
+          format: cyclonedx-json
+          output-file: sbom-${{ matrix.service }}.json
+          upload-artifact: false
+
+      - name: Upload SBOM artifact
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-${{ matrix.service }}-${{ steps.ref.outputs.head_sha }}
+          path: sbom-${{ matrix.service }}.json
+          retention-days: 30
