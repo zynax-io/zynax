@@ -105,10 +105,14 @@ this epic must produce for the Postgres distribution + version decision.
 1. **ADR: Postgres distribution + version decision.** Compare CloudNativePG vs official-image
    chart vs Bitnami Secure Images against maintenance, reproducibility, HA roadmap, and
    migration cost; record the choice and target major version (17.x). (`docs:` — no code.)
+   — ✅ ADR-026 (official `postgres:17` + thin project-owned chart).
 2. **Spike the chosen image in the postgres subchart** behind the existing Service name and
    Secret keys; render with `helm template` and prove the credential/init wiring is intact.
+   — ✅ #1076 (thin chart on `postgres:17.10`; Service `<release>-postgresql` preserved).
 3. **Re-wire credential Secrets + init** for the new image (admin + per-service passwords,
    ADR-021 schemas), keeping consumer DSNs unchanged.
+   — ✅ #1076 (same Secret keys `postgres-password`/`password`; init script creates the
+   app role + database; consumer DSNs unchanged).
 4. **Update Temporal datastore wiring** if the new Service name / auth differs; verify the
    schema Job (`useHelmHooks: false`, set in #1069) still bootstraps both stores.
 5. **Register the new image in `images/images.yaml`** (base image) and run `make sync-images`;

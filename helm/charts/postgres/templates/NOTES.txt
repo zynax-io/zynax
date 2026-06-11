@@ -1,4 +1,7 @@
-Zynax Postgres 16 — single cluster-level StatefulSet (ADR-008 + ADR-021)
+Zynax Postgres 17 — single cluster-level StatefulSet (ADR-008 + ADR-021 + ADR-026)
+
+Image: Docker Official Image `postgres` (ADR-026) — maintained, CVE-patched,
+digest-pinnable (pin lands in images/images.yaml, ADR-024).
 
 IMPORTANT: each Zynax service uses a DEDICATED schema. No cross-schema access.
 
@@ -7,12 +10,22 @@ Schema layout:
   agent_registry → agent-registry service (init-container migration in EPIC J / #794)
   memory_service → memory-service (init-container migration in EPIC J / #773)
 
-Connection (from within the cluster):
-  Host:     <release-name>-postgresql.<namespace>
+Connection (from within the cluster — unchanged from the previous chart):
+  Host:     {{ include "zynax-postgres.fullname" . }}.{{ .Release.Namespace }}
   Port:     5432
-  User:     zynax
-  Database: task_broker (primary; additional schemas via migration)
+  User:     {{ .Values.postgresql.auth.username }}
+  Database: {{ .Values.postgresql.auth.database }} (primary; additional schemas via migration)
+
+Credentials:
+  Secret:   {{ include "zynax-postgres.secretName" . }}
+  Keys:     {{ .Values.postgresql.auth.secretKeys.adminPasswordKey }} (superuser) ·
+            {{ .Values.postgresql.auth.secretKeys.userPasswordKey }} (application user)
+  Production MUST set postgresql.auth.existingSecret (chart-generated Secret is
+  a dev/e2e convenience only).
 
 Service DSNs are wired via K8s Secrets — set db.secretName in each service chart.
 Schema migrations run as init-containers in each service Deployment (EPIC J).
 HA / read-replicas are out of M6 scope.
+
+NOTE: major-version upgrades on a stateful volume are NOT in-place — see the
+migration note tracked in EPIC #1073 (O-step 8).

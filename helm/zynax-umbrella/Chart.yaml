@@ -5,13 +5,13 @@ description: >
   Umbrella chart for the full Zynax platform. Aggregates all 7 service charts
   (api-gateway, workflow-compiler, engine-adapter, task-broker, agent-registry,
   event-bus, memory-service) and the cluster dependency subcharts (NATS JetStream,
-  Postgres 16, Temporal). Used as the deployment unit for the e2e harness (EPIC G
+  Postgres 17, Temporal). Used as the deployment unit for the e2e harness (EPIC G
   #770) and staging/production cluster deployments.
 
   Placeholder charts (event-bus, memory-service) are disabled by default until
   their implementation EPICs (I #772, J #773) merge.
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "0.5.0"
 dependencies:
   # ── Service charts ────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ dependencies:
     repository: "file://../charts/nats"
     condition: zynax-nats.enabled
   - name: zynax-postgres
-    version: "0.1.0"
+    version: "0.2.0"
     repository: "file://../charts/postgres"
     condition: zynax-postgres.enabled
   - name: zynax-temporal
