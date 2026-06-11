@@ -90,3 +90,18 @@ images:
     ref: ghcr.io/zynax-io/zynax/http-adapter
     digest: sha256:b12750bf90c3617078ace8b90be54c137dc50a8d4b64916ed31dd11e9f2b27df
     consumers: []
+
+  - name: langgraph-adapter
+    ref: ghcr.io/zynax-io/zynax/langgraph-adapter
+    digest: sha256:e1ef50d77037bbc91ba4dc8e23d27b2e23bb56d5bf140d4b50a360bfaf70440a
+    consumers: []
+
+  - name: ci-adapter
+    ref: ghcr.io/zynax-io/zynax/ci-adapter
+    digest: sha256:48046506516bddd8f79cbf05d2db708b649b928937b7b5da3fff70661aeff013
+    consumers: []
+
+  - name: git-adapter
+    ref: ghcr.io/zynax-io/zynax/git-adapter
+    digest: sha256:e10cf38788271f924f18a7725dc8948e7516f5cd2a7954310cbaeef034040c06
+    consumers: []
