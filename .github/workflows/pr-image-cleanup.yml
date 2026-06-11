@@ -74,10 +74,13 @@ jobs:
           PKG="zynax%2Fstaging%2F${SERVICE}"
 
           # 404 (package never created — service never built on any PR) is a
-          # quiet no-op, same as a docs-only PR that built nothing.
+          # quiet no-op, same as a docs-only PR that built nothing. On a non-2xx
+          # response gh api exits non-zero but still prints the JSON error body
+          # to stdout, so reset IDS on failure — an `|| true` INSIDE the
+          # substitution would keep that body and feed garbage to the loop.
           IDS=$(gh api --paginate "/orgs/${OWNER}/packages/container/${PKG}/versions" \
             --jq ".[] | select(.metadata.container.tags[]? == \"${TAG}\") | .id" \
-            2>/dev/null || true)
+            2>/dev/null) || IDS=""
 
           if [ -z "${IDS}" ]; then
             echo "No staging version tagged ${TAG} for ${SERVICE} — nothing to delete."
@@ -85,6 +88,11 @@ jobs:
           fi
 
           for ID in ${IDS}; do
+            # Belt and braces: only numeric version ids reach the DELETE call.
+            if ! [[ "${ID}" =~ ^[0-9]+$ ]]; then
+              echo "Skipping non-numeric version id token: ${ID}"
+              continue
+            fi
             gh api --method DELETE \
               "/orgs/${OWNER}/packages/container/${PKG}/versions/${ID}"
             echo "Deleted staging/${SERVICE} version ${ID} (tag ${TAG})."
