@@ -118,7 +118,7 @@ helm upgrade --install cert-manager cert-manager \
 # ── 2.5 provision Postgres + Temporal credentials ───────────────────────────────
 
 # The Temporal schema Job and server connect to the bundled Postgres using the
-# `temporal-db` Secret, and the bitnami Postgres subchart reads its password from
+# `temporal-db` Secret, and the Postgres subchart reads its passwords from
 # the `zynax-postgres-creds` Secret (values-e2e.yaml sets auth.existingSecret).
 # Pre-create both with a single shared password so they always match. The schema
 # Job runs `temporal-sql-tool create-database`, which only the Postgres superuser

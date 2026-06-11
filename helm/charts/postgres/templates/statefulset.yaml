@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Single-instance Postgres StatefulSet on the Docker Official Image
+# (ADR-026). HA / read-replicas are out of scope (EPIC #1073 "WON'T";
+# revisit via CloudNativePG if an HA roadmap is adopted).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "zynax-postgres.fullname" . }}
+  labels:
+    {{- include "zynax-postgres.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: {{ include "zynax-postgres.fullname" . }}-hl
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "zynax-postgres.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "zynax-postgres.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        # uid/gid 999 = the `postgres` user baked into the official image.
+        fsGroup: 999
+      containers:
+        - name: postgresql
+          image: "{{ .Values.postgresql.image.registry }}/{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            # Sub-directory of the volume mount so initdb never sees a
+            # non-empty directory (lost+found) on first boot.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            # Superuser ("postgres") password — same Secret key the previous
+            # wrapper used (auth.secretKeys.adminPasswordKey).
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zynax-postgres.secretName" . }}
+                  key: {{ .Values.postgresql.auth.secretKeys.adminPasswordKey }}
+            # Application-user password — consumed by the init script that
+            # creates the {{ .Values.postgresql.auth.username }} role.
+            - name: ZYNAX_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "zynax-postgres.secretName" . }}
+                  key: {{ .Values.postgresql.auth.secretKeys.userPasswordKey }}
+          ports:
+            - name: tcp-postgresql
+              containerPort: 5432
+              protocol: TCP
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-h", "127.0.0.1", "-p", "5432"]
+            failureThreshold: 30
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-h", "127.0.0.1", "-p", "5432"]
+            failureThreshold: 3
+            periodSeconds: 30
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-h", "127.0.0.1", "-p", "5432"]
+            failureThreshold: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.postgresql.primary.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+            # Writable paths required with readOnlyRootFilesystem: true.
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: {{ include "zynax-postgres.fullname" . }}-init
+            defaultMode: 0555
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        {{- if not .Values.postgresql.primary.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+  {{- if .Values.postgresql.primary.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.postgresql.primary.persistence.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgresql.primary.persistence.size | quote }}
+  {{- end }}

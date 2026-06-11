@@ -16,7 +16,7 @@ helm/
 ├── zynax-<service>/           ← one chart per Go service (7 total)
 ├── charts/
 │   ├── nats/                  ← NATS JetStream subchart (wraps nats/nats)
-│   ├── postgres/              ← Postgres 16 subchart (wraps bitnami/postgresql)
+│   ├── postgres/              ← Postgres 17 subchart (thin chart on the official `postgres` image, ADR-026)
 │   ├── temporal/              ← Temporal subchart (wraps temporalio/temporal v1.2.0)
 │   └── cert-manager/          ← cert-manager resources: ClusterIssuer + per-service Certificates (ADR-020)
 └── zynax-umbrella/            ← umbrella chart — deploys the full platform

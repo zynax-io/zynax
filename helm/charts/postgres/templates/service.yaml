@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Client Service — name is "<release-name>-postgresql" by default, identical
+# to the Service the previous wrapper created, so consumer DSNs (Temporal
+# datastores + the three Go services) are unchanged (ADR-026).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zynax-postgres.fullname" . }}
+  labels:
+    {{- include "zynax-postgres.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: tcp-postgresql
+      port: 5432
+      targetPort: tcp-postgresql
+      protocol: TCP
+  selector:
+    {{- include "zynax-postgres.selectorLabels" . | nindent 4 }}
+---
+# Headless Service — stable per-pod DNS for the StatefulSet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zynax-postgres.fullname" . }}-hl
+  labels:
+    {{- include "zynax-postgres.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: tcp-postgresql
+      port: 5432
+      targetPort: tcp-postgresql
+      protocol: TCP
+  selector:
+    {{- include "zynax-postgres.selectorLabels" . | nindent 4 }}

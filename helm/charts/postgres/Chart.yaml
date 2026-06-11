@@ -2,14 +2,11 @@
 apiVersion: v2
 name: zynax-postgres
 description: >
-  Postgres 16 subchart for Zynax — wraps the Bitnami postgresql chart.
-  Provisions a single cluster-level StatefulSet. task-broker, agent-registry,
-  and memory-service each use a dedicated schema (ADR-008 + ADR-021).
+  Postgres 17 subchart for Zynax — thin, project-owned chart around the
+  Docker Official Image `postgres` (ADR-026). Provisions a single
+  cluster-level StatefulSet. task-broker, agent-registry, and memory-service
+  each use a dedicated schema (ADR-008 + ADR-021).
   No cross-schema access is permitted.
 type: application
-version: 0.1.0
-appVersion: "16.4.0"
-dependencies:
-  - name: postgresql
-    version: "15.5.38"
-    repository: "https://charts.bitnami.com/bitnami"
+version: 0.2.0
+appVersion: "17.10"

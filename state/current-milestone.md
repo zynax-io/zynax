@@ -56,7 +56,7 @@ As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#
 
 ### In progress / remaining
 **e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132)**,
-Postgres off Bitnami (#1073 — O1 ADR-026 ✅, #1076→#1079 chain),
+Postgres off Bitnami (#1073 — O1 ADR-026 ✅, O2–O3 #1076 ✅, #1077→#1079 chain),
 CI-E2E gate (#771 — #1070 ✅, #1071 remaining),
 DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created; O1 #1096 ✅ ADR-028).
 
@@ -310,14 +310,14 @@ Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is B
 
 **Immediate (unblocked):**
 - **#1087** feat(infra): expose api-gateway on host port for e2e (NodePort 30080) — #1086 O1 ✅ ready
-- **#1076** refactor(infra): replace postgres subchart image source — #1073 O2 ✅ ready (ADR-026 chose official postgres:17)
+- **#1077** refactor(infra): rewire Temporal datastore + register Postgres image in images.yaml — #1073 O4–O5 ready (O2–O3 #1076 ✅ merged)
 - **#1071** ci(infra): Temporal-vs-Argo engine matrix in e2e-smoke — #771 O2 ✅ ready (#1070 merged)
 - **#867** chore(ci): GHCR retention cap — last 5 builds only
 - **#840** ci(infra): Python adapters in multi-arch release pipeline
 - **#841** ci(infra): audit and minimize image sizes
 
 **M6.E2E-Green chain (O1 #1087 / O2 #1088 / O3 #1089 all ✅):** #1090 (O4, unblocked) → #1091 (O5, needs #1088) → #1092 (O6, needs #1087 #1088 #1090 #1091 #1071).
-**M6.Postgres chain (after #1076):** #1077 → #1078 → #1079 (sequential).
+**M6.Postgres chain (#1076 ✅ merged):** #1077 → #1078 → #1079 (sequential).
 
 **M6.Argo continuation (after #795 merges):**
 - **#796** feat(engine-adapter): Argo engine adapter implementation (#766, O2)

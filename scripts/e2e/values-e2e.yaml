@@ -78,21 +78,11 @@ zynax-nats:
 # the temporal-db Secret can share a known password. The Secret must carry the
 # keys configured in the postgres subchart (postgres-password + password).
 #
-# Image override: Bitnami deleted legacy tags from docker.io/bitnami in 2025, so
-# the subchart's pinned `bitnami/postgresql:16.4.0-debian-12-r12` no longer pulls
-# (NotFound). Point at the `bitnamilegacy` mirror, which still hosts it.
-# allowInsecureImages lets the bitnami chart accept the non-default repo. NOTE:
-# the production postgres subchart references the same dead tag and needs the
-# same repoint as a separate fix — tracked outside this e2e PR.
+# The interim `bitnamilegacy` image override (#1069) was removed in #1076: the
+# subchart now ships the maintained Docker Official Image (ADR-026), which
+# pulls fine, so no e2e image override is needed.
 zynax-postgres:
   postgresql:
-    global:
-      security:
-        allowInsecureImages: true
-    image:
-      registry: docker.io
-      repository: bitnamilegacy/postgresql
-      tag: 16.4.0-debian-12-r12
     auth:
       existingSecret: zynax-postgres-creds
     # Trim the reservation for a single-workflow smoke test (default is
@@ -113,10 +103,11 @@ zynax-postgres:
 # temporal-db Secret (created by cluster-up.sh) carries this password.
 # Merges into the subchart datastore config — connectAddr/databaseName/
 # existingSecret from helm/charts/temporal/values.yaml are preserved.
-# connectAddr is also corrected here: the subchart default
-# (`zynax-postgres-postgresql`) does not match the Service the bitnami chart
-# actually creates (`zynax-postgresql`), so DNS resolution fails. The subchart
-# default is wrong for production too and needs a separate fix.
+# connectAddr is also corrected here: the temporal subchart default
+# (`zynax-postgres-postgresql`) does not match the Service the postgres
+# subchart actually creates (`zynax-postgresql` for release `zynax`), so DNS
+# resolution fails. The temporal default is wrong for production too — fixed
+# in #1073 step 3 (#1077, Temporal datastore wiring).
 zynax-temporal:
   temporal:
     # The Web UI is not needed to run or assert a workflow — drop it (#1091).

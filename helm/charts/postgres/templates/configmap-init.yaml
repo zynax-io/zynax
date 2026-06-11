@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Init script for the Docker Official Image entrypoint
+# (/docker-entrypoint-initdb.d — runs ONCE on first initdb). Re-creates the
+# credential/init wiring the previous wrapper provided (ADR-026):
+#   - application role  (auth.username, non-superuser, password from Secret)
+#   - primary database  (auth.database) owned by the application role
+# Per-service schemas (task_broker / agent_registry / memory_service) are
+# created by each service's own migrations (ADR-021) connecting as the
+# database owner — unchanged.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zynax-postgres.fullname" . }}-init
+  labels:
+    {{- include "zynax-postgres.labels" . | nindent 4 }}
+data:
+  00-zynax-init.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" \
+      --set=zynax_user="{{ .Values.postgresql.auth.username }}" \
+      --set=zynax_db="{{ .Values.postgresql.auth.database }}" \
+      --set=zynax_password="${ZYNAX_USER_PASSWORD}" <<-'EOSQL'
+    	CREATE ROLE :"zynax_user" LOGIN PASSWORD :'zynax_password';
+    	CREATE DATABASE :"zynax_db" OWNER :"zynax_user";
+    EOSQL

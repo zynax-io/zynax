@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# Zynax Postgres 16 subchart values.
-# Bitnami postgresql chart overrides are nested under the `postgresql:` key.
+# Zynax Postgres 17 subchart values.
+# Thin, project-owned chart around the Docker Official Image `postgres`
+# (ADR-026) — no external chart dependency. Value paths are kept compatible
+# with the previous wrapper (`postgresql.auth.*`, `postgresql.image.*`,
+# `postgresql.primary.*`) so existing override files keep working.
+#
 # Each Zynax service uses a dedicated schema (ADR-008; no cross-schema access).
 #
 # Schema ownership:
@@ -12,19 +16,29 @@
 # Service DSNs are wired via K8s Secrets — never in values.yaml.
 # Example:
 #   kubectl create secret generic task-broker-db \
-#     --from-literal=dsn="postgres://zynax:pass@zynax-postgres-postgresql:5432/task_broker?sslmode=require"
+#     --from-literal=dsn="postgres://zynax:pass@zynax-postgresql:5432/task_broker?sslmode=require"
 
-# Bitnami postgresql chart overrides
 postgresql:
+  # Docker Official Image (library/postgres) — maintained, CVE-patched,
+  # digest-pinnable (ADR-026). The digest pin lands in images/images.yaml
+  # (ADR-024, EPIC #1073 O-step 5). Never use a moving `latest` tag.
+  image:
+    registry: docker.io
+    repository: postgres
+    tag: "17.10"
+    pullPolicy: IfNotPresent
+
   auth:
     # Primary database — task-broker owns this schema by default.
     # Additional schemas (agent_registry, memory_service) are created by
     # service init-container migrations (EPIC J / #793 / #794).
     database: "task_broker"
     username: "zynax"
-    # Password is sourced from a K8s Secret at deploy time.
-    # Set existingSecret to the name of the Secret containing the password.
-    # The Secret must contain a key named "password".
+    # Passwords are sourced from a K8s Secret at deploy time.
+    # Set existingSecret to the name of the Secret containing BOTH keys below
+    # (admin/superuser password + application-user password). When empty, the
+    # chart generates a Secret with random passwords (dev/e2e convenience —
+    # always set existingSecret in production).
     existingSecret: ""
     secretKeys:
       adminPasswordKey: "postgres-password"
@@ -44,9 +58,6 @@ postgresql:
         cpu: 1000m
         memory: 1Gi
 
-  # PostgreSQL version is pinned to 16 via the chart version (appVersion: 16.4.0).
-  image:
-    tag: "16.4.0-debian-12-r12"
-
-  # Replica count — single node for M6 (HA is M7+ scope)
-  architecture: standalone
+# Defaults to "<release-name>-postgresql" — the Service name consumers already
+# use in their DSNs (unchanged from the previous wrapper, ADR-026).
+fullnameOverride: ""
