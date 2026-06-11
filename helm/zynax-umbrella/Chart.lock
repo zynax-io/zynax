@@ -25,12 +25,12 @@ dependencies:
   version: 0.1.0
 - name: zynax-postgres
   repository: file://../charts/postgres
-  version: 0.2.0
+  version: 0.3.0
 - name: zynax-temporal
   repository: file://../charts/temporal
-  version: 0.1.0
+  version: 0.1.1
 - name: zynax-cert-manager
   repository: file://../charts/cert-manager
   version: 0.1.0
-digest: sha256:9a7fbb08bc3fe1e9ebd4af205f4fbe3554bfd5d60744f4eb12d55e3d6c30424f
-generated: "2026-06-11T15:25:54.127581425+02:00"
+digest: sha256:ab94730cd83be1c141e209d3d68326be2d2010a53332212ab04b4feda5d2e6d9
+generated: "2026-06-11T15:51:15.775622655+02:00"

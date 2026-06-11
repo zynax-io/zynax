@@ -8,5 +8,5 @@ description: >
   each use a dedicated schema (ADR-008 + ADR-021).
   No cross-schema access is permitted.
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "17.10"

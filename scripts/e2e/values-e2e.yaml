@@ -102,12 +102,10 @@ zynax-postgres:
 # non-privileged application role (zynax) cannot do; the superuser can. The
 # temporal-db Secret (created by cluster-up.sh) carries this password.
 # Merges into the subchart datastore config — connectAddr/databaseName/
-# existingSecret from helm/charts/temporal/values.yaml are preserved.
-# connectAddr is also corrected here: the temporal subchart default
-# (`zynax-postgres-postgresql`) does not match the Service the postgres
-# subchart actually creates (`zynax-postgresql` for release `zynax`), so DNS
-# resolution fails. The temporal default is wrong for production too — fixed
-# in #1073 step 3 (#1077, Temporal datastore wiring).
+# existingSecret from helm/charts/temporal/values.yaml are preserved. The
+# subchart default connectAddr (`zynax-postgresql:5432`, fixed in #1077)
+# matches the Service the postgres subchart creates for release `zynax`,
+# so no connectAddr override is needed here anymore.
 zynax-temporal:
   temporal:
     # The Web UI is not needed to run or assert a workflow — drop it (#1091).
@@ -124,14 +122,12 @@ zynax-temporal:
             default:
               sql:
                 user: postgres
-                connectAddr: "zynax-postgresql:5432"
                 # Fewer Postgres backends for the smoke test (default 20/store).
                 maxConns: 5
                 maxIdleConns: 2
             visibility:
               sql:
                 user: postgres
-                connectAddr: "zynax-postgresql:5432"
                 maxConns: 5
                 maxIdleConns: 2
       # Cap every Temporal server role (frontend/history/matching/worker), which

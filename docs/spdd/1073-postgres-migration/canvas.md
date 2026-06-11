@@ -115,8 +115,13 @@ this epic must produce for the Postgres distribution + version decision.
    app role + database; consumer DSNs unchanged).
 4. **Update Temporal datastore wiring** if the new Service name / auth differs; verify the
    schema Job (`useHelmHooks: false`, set in #1069) still bootstraps both stores.
+   — ✅ #1077 (default `connectAddr` fixed to the actual Service `zynax-postgresql:5432`;
+   rendered schema Job creates + migrates both `temporal` and `temporal_visibility`).
 5. **Register the new image in `images/images.yaml`** (base image) and run `make sync-images`;
    verify the drift gate.
+   — ✅ #1077 (`postgres:17.10` multi-arch index digest registered; chart values are a
+   banner-stamped consumer; StatefulSet renders `postgres:17.10@sha256:…`; drift gate verified
+   both ways).
 6. **Bring up the full umbrella on kind** (reuse `scripts/e2e/cluster-up.sh`) and assert all
    services + Temporal reach a healthy rollout on the new Postgres.
 7. **Remove the e2e `bitnamilegacy` override** from `scripts/e2e/values-e2e.yaml`; confirm the
