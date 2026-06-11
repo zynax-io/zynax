@@ -133,64 +133,70 @@ jobs:
         if: steps.pr.outputs.promote == 'true'
         uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
+      # The promotion is RESTARTABLE end-to-end (P9): every phase derives its
+      # state from the registry, never from a previous attempt's scratch
+      # files. A single GHCR i/o timeout killed a 12-image promotion mid-loop
+      # (run 27339823924) and the old single-step layout could not resume —
+      # it had already deleted the staging images it had promoted, so a
+      # re-run lost their digests for the images.yaml commit. Phases:
+      #   1. promote  — re-points tags from staging (skip if staging gone)
+      #   2. collect  — digests read from the PROMOTED main-<sha> tags + sign
+      #   3. commit   — images.yaml bot commit from the collected digests
+      #   4. cleanup  — staging deletion + prune, only after the commit
       # imagetools create copies the FULL manifest list — platform manifests
-      # AND attestation manifests (ADR-025) — and is idempotent: re-running
-      # points the same tags at the same digest. One cosign signature per
-      # digest covers every tag pointing at it (main-<sha>, main, latest).
-      # After promote+sign the staging version is dead weight and is deleted
-      # HERE — pr-image-cleanup.yml only handles PRs closed without merging
-      # (deleting on merge-close would race this job and strand the merge
-      # unpromoted; observed live on PR #1137).
-      - name: Retag staging → main-<sha> + main + latest, sign
-        id: retag
+      # AND attestation manifests (ADR-025). One cosign signature per digest
+      # covers every tag pointing at it; re-signing on a re-run just appends
+      # an equivalent signature.
+      - name: Promote staging → main-<sha> + main + latest
         if: steps.pr.outputs.promote == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_SHA: ${{ steps.pr.outputs.pr_sha }}
           MERGE_SHA: ${{ steps.pr.outputs.merge_sha }}
         run: |
           set -euo pipefail
-          : > /tmp/promoted.txt
+          # 3-attempt retry for registry round-trips (transient GHCR timeouts).
+          retry() { local n; for n in 1 2 3; do "$@" && return 0; echo "⚠️  attempt ${n}/3 failed: $*" >&2; sleep 10; done; return 1; }
           read -ra SERVICES <<< "${SERVICE_IMAGES}"
           for svc in "${SERVICES[@]}"; do
             STAGING="${STAGING_PREFIX}/${svc}:pr-${PR_SHA}"
             if ! docker buildx imagetools inspect "${STAGING}" >/dev/null 2>&1; then
-              echo "ℹ️  ${svc}: no staging image pr-${PR_SHA} — skipped (PR did not build images)"
+              echo "ℹ️  ${svc}: no staging image pr-${PR_SHA} — nothing to promote (image-less PR, or already promoted+cleaned by an earlier attempt)"
               continue
             fi
-            docker buildx imagetools create \
+            retry docker buildx imagetools create \
               -t "${IMAGE_PREFIX}/${svc}:main-${MERGE_SHA}" \
               -t "${IMAGE_PREFIX}/${svc}:main" \
               -t "${IMAGE_PREFIX}/${svc}:latest" \
               "${STAGING}"
-            DIGEST=$(docker buildx imagetools inspect \
-              --format '{{json .Manifest.Digest}}' \
-              "${IMAGE_PREFIX}/${svc}:main-${MERGE_SHA}" | tr -d '"')
+            echo "✅ ${svc}: staging pr-${PR_SHA} → main-${MERGE_SHA} / main / latest"
+          done
+
+      - name: Collect promoted digests and sign
+        id: retag
+        if: steps.pr.outputs.promote == 'true'
+        env:
+          MERGE_SHA: ${{ steps.pr.outputs.merge_sha }}
+        run: |
+          set -euo pipefail
+          retry() { local n; for n in 1 2 3; do "$@" && return 0; echo "⚠️  attempt ${n}/3 failed: $*" >&2; sleep 10; done; return 1; }
+          : > /tmp/promoted.txt
+          read -ra SERVICES <<< "${SERVICE_IMAGES}"
+          for svc in "${SERVICES[@]}"; do
+            REF="${IMAGE_PREFIX}/${svc}:main-${MERGE_SHA}"
+            if ! docker buildx imagetools inspect "${REF}" >/dev/null 2>&1; then
+              continue   # not promoted for this merge in any attempt
+            fi
+            DIGEST=$(retry docker buildx imagetools inspect \
+              --format '{{json .Manifest.Digest}}' "${REF}" | tr -d '"')
             cosign sign --yes "${IMAGE_PREFIX}/${svc}@${DIGEST}"
             echo "${svc} ${DIGEST}" >> /tmp/promoted.txt
-            echo "✅ ${svc} → main-${MERGE_SHA} / main / latest (${DIGEST})"
-
-            # Promotion copied the manifest into zynax/<svc>; drop the staging
-            # version (same API pattern as pr-image-cleanup.yml — 404 and
-            # already-deleted are quiet no-ops for idempotent re-runs).
-            PKG="zynax%2Fstaging%2F${svc}"
-            IDS=$(gh api --paginate "/orgs/zynax-io/packages/container/${PKG}/versions" \
-              --jq ".[] | select(.metadata.container.tags[]? == \"pr-${PR_SHA}\") | .id" \
-              2>/dev/null) || IDS=""
-            for ID in ${IDS}; do
-              if ! [[ "${ID}" =~ ^[0-9]+$ ]]; then
-                continue
-              fi
-              gh api --method DELETE \
-                "/orgs/zynax-io/packages/container/${PKG}/versions/${ID}" \
-                && echo "🧹 ${svc}: staging version ${ID} (pr-${PR_SHA}) deleted"
-            done
+            echo "✅ ${svc}@${DIGEST} signed"
           done
           if [ -s /tmp/promoted.txt ]; then
             echo "promoted=true" >> "$GITHUB_OUTPUT"
           else
             echo "promoted=false" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  No staging images for this merge — promotion not needed."
+            echo "ℹ️  No images promoted for this merge — nothing to record."
           fi
 
       # Atomic digest sync (ADR-027): the promoted digests land on main in
@@ -226,6 +232,37 @@ jobs:
             echo "::error::pushes (ruleset bypass for the Actions app) — see PR #1120 notes."
             exit 1
           }
+
+      # Staging cleanup runs LAST — once the digests are committed, the
+      # promoted manifests live in zynax/<svc> and the staging versions are
+      # dead weight. pr-image-cleanup.yml only handles PRs closed without
+      # merging (deleting on merge-close raced this job — PR #1137/#1138).
+      # 404 / already-deleted are quiet no-ops for idempotent re-runs.
+      - name: Delete promoted staging versions
+        if: steps.retag.outputs.promoted == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_SHA: ${{ steps.pr.outputs.pr_sha }}
+        run: |
+          set -euo pipefail
+          while read -r svc _; do
+            PKG="zynax%2Fstaging%2F${svc}"
+            IDS=$(gh api --paginate "/orgs/zynax-io/packages/container/${PKG}/versions" \
+              --jq ".[] | select(.metadata.container.tags[]? == \"pr-${PR_SHA}\") | .id" \
+              2>/dev/null) || IDS=""
+            if [ -z "${IDS}" ]; then
+              echo "ℹ️  ${svc}: no staging version tagged pr-${PR_SHA} — already cleaned."
+              continue
+            fi
+            for ID in ${IDS}; do
+              if ! [[ "${ID}" =~ ^[0-9]+$ ]]; then
+                continue
+              fi
+              gh api --method DELETE \
+                "/orgs/zynax-io/packages/container/${PKG}/versions/${ID}" \
+                && echo "🧹 ${svc}: staging version ${ID} (pr-${PR_SHA}) deleted"
+            done
+          done < /tmp/promoted.txt
 
       - name: Prune old main-<sha> versions
         if: steps.retag.outputs.promoted == 'true'
