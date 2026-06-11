@@ -53,3 +53,40 @@ images:
     consumers:
       - agents/adapters/langgraph/Dockerfile
       - agents/adapters/llm/Dockerfile
+
+  # ── Zynax service images ──────────────────────────────────────────────────
+  # Digest = the manifest digest of :latest (== the newest main-<sha> tag).
+  # Maintained ATOMICALLY by the release.yml retag-on-merge bot commit
+  # (ADR-027) — do not edit these by hand. New services self-register on
+  # their first promotion. consumers stays empty until a file pins a service
+  # digest verbatim; the bot commit only touches this file while that holds.
+
+  - name: api-gateway
+    ref: ghcr.io/zynax-io/zynax/api-gateway
+    digest: sha256:81e086f4dafefbe9d6f2a2f851d5c692358c9726f90f564711418a9027d42acb
+    consumers: []
+
+  - name: engine-adapter
+    ref: ghcr.io/zynax-io/zynax/engine-adapter
+    digest: sha256:f8aad99db35b51d59119da9964f8e39b899ebcb9400e8fc0e7b60a0dde392665
+    consumers: []
+
+  - name: workflow-compiler
+    ref: ghcr.io/zynax-io/zynax/workflow-compiler
+    digest: sha256:01ef2e6262f12a78330f0a3d41b2e81903eb2a9daeed4469d59bb0494a6a7a12
+    consumers: []
+
+  - name: task-broker
+    ref: ghcr.io/zynax-io/zynax/task-broker
+    digest: sha256:e0ca940c6c874f9a6940b538f7a34352ed775733b4eb737477c73f67a9c0cb20
+    consumers: []
+
+  - name: agent-registry
+    ref: ghcr.io/zynax-io/zynax/agent-registry
+    digest: sha256:b8956d1da73516d89e1a64f578f3292ae27ee74224dfc1dde688bc59c7c4eb05
+    consumers: []
+
+  - name: http-adapter
+    ref: ghcr.io/zynax-io/zynax/http-adapter
+    digest: sha256:b12750bf90c3617078ace8b90be54c137dc50a8d4b64916ed31dd11e9f2b27df
+    consumers: []
