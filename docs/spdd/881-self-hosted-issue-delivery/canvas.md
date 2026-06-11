@@ -182,8 +182,8 @@ learning-synthesizer (kind: AgentDef).synthesize_learnings
 
 **Governing ADRs:** ADR-008 (no shared DB), ADR-015 (engine behind interface), ADR-016 (contract before
 implementation / BDD), ADR-019 (REASONS Canvas before feat code), ADR-021 (repo interfaces),
-ADR-022 (EventBus architecture), ADR-023 (no direct push to main). **New:** ADR-NNN *AgentDef-vs-Workflow
-split for self-hosted automation + context-slice injection contract* (authored in O1 — this is a one-way
+ADR-022 (EventBus architecture), ADR-023 (no direct push to main). **New:** ADR-028 *AgentDef-vs-Workflow
+split for self-hosted automation + context-slice injection contract* (authored in O1 ✅ — this is a one-way
 door: choosing `kind: Workflow` for orchestration shapes every manifest below).
 
 ---
@@ -215,7 +215,7 @@ automation/
 
 spec/schemas/agent-def.schema.json    ← validates expert AgentDefs (capabilities + runtime)
 spec/schemas/workflow.schema.json     ← validates orchestrator + issue-delivery workflows
-docs/adr/ADR-NNN-agentdef-vs-workflow-self-hosted-automation.md  ← NEW (one-way door)        [O1]
+docs/adr/ADR-028-agentdef-vs-workflow-self-hosted-automation.md  ← NEW (one-way door)        [O1 ✅]
 ```
 
 Config env prefix: `ZYNAX_AUTOMATION_` · Runtime services consumed: task-broker, agent-registry,
@@ -228,7 +228,9 @@ event-bus, (orchestrator) engine-adapter.
 > Each step is **one reviewable PR / one child issue**. Independently verifiable. `/spdd-story 881`
 > creates these as GitHub issues once this Canvas is **Aligned**.
 
-1. **O1 — Schema decision + ADR + readiness-path fix (`docs`/`fix`).** Author ADR-NNN recording the
+1. **O1 — Schema decision + ADR + readiness-path fix (`docs`/`fix`).** ✅ Delivered (#1096 — ADR-028;
+   near-term expert YAMLs now live at `docs/archive/dev-advisory/experts/`, archived by #1129).
+   Author ADR-NNN recording the
    AgentDef-vs-Workflow split and the context-slice injection contract. Fix the wrong schema path in
    `test_platform_readiness.py` (`agent-def.json` → `agent-def.schema.json`). *Verify:* ADR merged;
    `make validate-spec` still green; test still xfails (no behaviour change yet).

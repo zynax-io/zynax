@@ -11,7 +11,7 @@ try:
 except ImportError:
     HAS_JSONSCHEMA = False
 
-SCHEMA_PATH = "spec/schemas/agent-def.json"
+SCHEMA_PATH = "spec/schemas/agent-def.schema.json"
 ORCHESTRATOR_YAML = "automation/workflows/dev-advisory-orchestrator.yaml"
 EXPERT_YAMLS = list(Path("automation/workflows/experts/").glob("*.yaml"))
 
