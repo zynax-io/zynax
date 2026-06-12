@@ -20,7 +20,7 @@
 | M3 — Temporal Execution | ⚠ **Partial** | v0.2.0 | `WorkflowEngine` interface, `TemporalEngine`, `IRInterpreterWorkflow` state machine, `DispatchCapabilityActivity`, cel-go guard evaluation, 5 `EngineAdapterService` gRPC methods. **Not delivered in M3:** task-broker + agent-registry (delivered M5.C #479/#480). CloudEvents publish is a log stub. |
 | M4 — YAML System + CLI | ⚠ **Partial** | v0.3.0 | api-gateway REST layer, `zynax` CLI, Docker Compose runner, GitOps watch. **Not delivered in M4:** agent-registry routing — delivered M5.C (#480); capability dispatch was unblocked by compose wiring (#481). |
 | M5 — Adapter Library | ✅ **Complete** | v0.4.0 | task-broker MVP, agent-registry MVP, compose wiring, all five adapters (http ✅ git ✅ ci ✅ llm ✅ langgraph ✅), cel-go guard, Python SDK `Agent` base class, unified release pipeline, CI runner, distroless images, gRPC deadlines, e2e-demo wired. Released 2026-05-29. See `docs/milestones/M5-plan.md`. |
-| M6 — K8s Production | 🚧 **Active** | v0.5.0 (target) | **Delivered:** mTLS (ADR-020 #464), cosign+SBOM+multi-arch (ADR-025 #465), Postgres-backed task-broker + agent-registry (#626), Helm charts for all 7 services (#765), EventBus over NATS JetStream (#772), `images.yaml` source-of-truth + drift gate (ADR-024 #855), orchestrator self-hosting + concurrency hardening (#873, #1001), memory-service KV + vector (#773). ArgoEngine + multi-engine dispatch (#766, #798), multi-namespace (#767), policy/rate-limit (#768), Prometheus /metrics (#491), SDK PyPI (#769), e2e harness (#770), native multi-arch build (#837), gRPC health protocol (#74 #656), Postgres off Bitnami → Docker Official `postgres:17` (ADR-026 #1073). **In progress:** e2e-green gate (#1086), CI-E2E gate (#771), DevAuto Wave 4 (#881). |
+| M6 — K8s Production | 🚧 **Active** | v0.5.0 (target) | **Delivered:** mTLS (ADR-020 #464), cosign+SBOM+multi-arch (ADR-025 #465), Postgres-backed task-broker + agent-registry (#626), Helm charts for all 7 services (#765), EventBus over NATS JetStream (#772), `images.yaml` source-of-truth + drift gate (ADR-024 #855), orchestrator self-hosting + concurrency hardening (#873, #1001), memory-service KV + vector (#773). ArgoEngine + multi-engine dispatch (#766, #798), multi-namespace (#767), policy/rate-limit (#768), Prometheus /metrics (#491), SDK PyPI (#769), e2e harness (#770), native multi-arch build (#837), gRPC health protocol (#74 #656), Postgres off Bitnami → Docker Official `postgres:17` (ADR-026 #1073), DevAuto Wave 4 self-hosted issue-delivery manifests delivered to the platform-readiness boundary (#881 — O8 e2e → M7 #1103). **In progress:** e2e-green gate (#1086), CI-E2E gate (#771). |
 | M7 — Full Observability | 📅 **Planned** | v0.6.0 | Benchmarks, load tests, SLOs, Watch polling fix |
 | M8 — CNCF Sandbox | 📅 **Planned** | v1.0.0 | Community traction, second maintainer, trademark policy |
 
@@ -494,56 +494,61 @@ platform architecture — it does not live in `services/`, `agents/`, or `protos
 
 ### Two-Plane Model
 
-The automation system is explicitly split into two planes:
+The automation system is explicitly split into two planes (status 2026-06-12):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  NEAR-TERM PLANE (Waves 0–3)                                │
-│  GitHub Actions + Claude Code subagents                     │
-│  Runnable today. Zero Zynax runtime dependency.             │
+│  NEAR-TERM PLANE                                            │
+│  Generalized Claude Code delivery commands (EPIC #1108)     │
+│  /milestone-plan · /issue-deliver · /milestone-orchestrate  │
+│  /milestone-learn + .claude/commands/experts/* knowledge    │
 │                                                             │
-│  Wave 0: Advisory — expert subagents on PR events           │
-│  Wave 1: Orchestrated advisory — single aggregated comment  │
-│  Wave 2: Gated automation — non-destructive actions only    │
-│  Wave 3: Post-merge completeness mesh                       │
+│  (Waves 0–3 — GH Actions advisory CI — superseded and       │
+│   retired in #1129; archived at docs/archive/dev-advisory/) │
 └────────────────────────────┬────────────────────────────────┘
                              │
          automation/tests/test_platform_readiness.py
-         @pytest.mark.xfail(strict=True)
+         live-apply e2e still @pytest.mark.xfail(strict=True)
          ← THE HONEST LINE BETWEEN PLANES →
-         Fails today. M6.H + M6.I are complete; flip tracked in #1103.
+         Flip is O8 (#1103), deferred to M7 (platform gaps).
                              │
 ┌────────────────────────────▼────────────────────────────────┐
-│  ASPIRATIONAL PLANE (Wave 4)                                │
-│  Zynax AgentDef workflows running on Zynax itself           │
-│  BLOCKED: needs M6.H (Postgres) + M6.I (event-bus)         │
-│  GATED: failing test must flip to pass first                │
+│  PLATFORM PLANE (Wave 4 — EPIC #881, ADR-028)               │
+│  Manifests DELIVERED: 9 expert AgentDefs, orchestrator +    │
+│  issue-delivery Workflows, context-slice binding,           │
+│  learning-synthesizer (O1–O7 + O9)                          │
+│  GATED: not wired into main CI until #1103 e2e passes       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-The **near-term plane** (Waves 0–3) runs entirely on GitHub Actions with Claude Code
-subagents — no Zynax runtime required. The **aspirational plane** (Wave 4) runs the same
-orchestrator + experts as Zynax `kind: AgentDef` workflows on the Zynax platform itself,
-which requires durable state persistence (M6.H #626) and durable async fan-out (M6.I #772).
+The **near-term plane** is the generalized Claude Code delivery-command layer — it is also
+Wave 4's specification. The **platform plane** (Wave 4) re-expresses the same orchestrator +
+experts as Zynax `kind: AgentDef` / `kind: Workflow` manifests under `automation/workflows/`
+(ADR-028), riding the delivered M6.H Postgres repos (#626) and M6.I EventBus (#772).
 
 ### The Failing Test as an Honest Gate
 
-`automation/tests/test_platform_readiness.py` is marked `@pytest.mark.xfail(strict=True)`.
-It fails today for three independent reasons:
+In `automation/tests/test_platform_readiness.py` the manifest schema tests pass; the live
+`zynax apply` e2e is marked `@pytest.mark.xfail(strict=True)`. Its flip (O8, #1103) is
+deferred to M7 because of four code-verified platform gaps:
 
-1. `automation/workflows/` does not exist — AgentDef YAMLs are blocked on M6.H + M6.I
-2. task-broker and agent-registry use in-memory repositories — state lost on restart
-3. EventBusService is a log-only stub — cannot deliver messages between orchestrator and experts
+1. workflow-compiler rejects any action carrying `output:` (explicitly deferred to M7+ in
+   `services/workflow-compiler/internal/domain/manifest.go`)
+2. the orchestrator manifest's Go-template barrier guards vs the engine's CEL evaluation
+   (fail-closed — the guarded transition can never fire)
+3. no capability providers exist for review/aggregate/act/notify/record
+4. api-gateway has no workflow-outputs or decision-log read path
 
 The test uses `strict=True` so that an unexpected pass (XPASS) turns the build red —
-alerting the team that something changed and Wave 4 might be viable. Silence is not
+alerting the team that something changed and the boundary moved. Silence is not
 acceptable; neither is skipping the test.
 
-Wave 4 automation must not be wired into main CI until this test flips to a clean pass.
+Wave 4 automation must not be wired into main CI until this test flips to a clean pass (#1103).
 
 ### Not Ambient Context
 
 The `automation/` folder is **not** referenced by any `AGENTS.md` glob or auto-load
-mechanism. Expert definitions, orchestrator config, and AgentDef workflows all live there
-and are consumed explicitly. See the Knowledge Base Index row in root `AGENTS.md` and
+mechanism. The Wave 4 manifests (`workflows/`) and their tests live there and are consumed
+explicitly; the retired near-term expert/orchestrator configs are archived at
+`docs/archive/dev-advisory/`. See the Knowledge Base Index row in root `AGENTS.md` and
 `automation/README.md` for the complete folder map.

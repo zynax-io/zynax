@@ -10,7 +10,7 @@
 **Issue:** #881 (EPIC — M6.DevAuto, Wave 4)
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-10
-**Status:** Aligned
+**Status:** Implemented — delivered through O7 + O9 (2026-06-12); O8 deferred to M7 (#1103) — the EPIC closes at the platform-readiness boundary
 
 **Parent EPIC:** #873 (M6.DevAuto) · **Prerequisites (all now CLOSED):** #626 (M6.H Postgres repos), #772 (M6.I EventBus), #874–#882 (Waves 0–3 + readiness test)
 
@@ -304,10 +304,24 @@ event-bus, (orchestrator) engine-adapter.
    `learning-synthesizer.yaml` capability
    `synthesize_learnings`; human-gated apply that proposes expert-manifest updates. *Verify:* given sample
    session results, emits `proposed_manifest_updates[]`; no manifest is auto-edited (apply is human-gated).
-8. **O8 — Platform-readiness flip + e2e (`test`).** Remove `xfail`; assert `zynax apply` of the orchestrator
+8. **O8 — Platform-readiness flip + e2e (`test`).** ⏸ **DEFERRED to M7 (#1103 — operator decision
+   2026-06-12).** Implementation found four code-verified platform gaps that make the canvas assertion
+   unimplementable against the current platform: (1) workflow-compiler rejects any action carrying
+   `output:` — explicitly deferred to M7+ in `services/workflow-compiler/internal/domain/manifest.go`,
+   so `zynax apply` of the orchestrator manifest returns 11 compile errors; (2) the manifest's
+   Go-template barrier guard vs the engine's CEL evaluation (fail-closed — the `fan_out → aggregate`
+   transition could never fire); (3) no capability providers exist for
+   review/aggregate/act/notify/record; (4) the gateway has no outputs/decision-log read path. Full gap
+   analysis: issue #1103 comments. The strict `xfail` in `automation/tests/test_platform_readiness.py`
+   **remains as the honest state**; #1103 continues under M7 (milestone already reassigned), and EPICs
+   #881/#873 close at this platform-readiness boundary.
+   Original scope (now M7, #1103): remove `xfail`; assert `zynax apply` of the orchestrator
    workflow on a running platform (Postgres + EventBus) yields an aggregated verdict + decision-log entry.
    *Verify:* test passes against a live platform in the gated e2e job; still skips cleanly when no platform.
-9. **O9 — Docs + status reconciliation (`docs`).** Update `automation/README.md` + `STATUS-AND-DIRECTION.md`
+9. **O9 — Docs + status reconciliation (`docs`).** ✅ Delivered (#1104 — final Wave 4 story: all status
+   surfaces reconciled to the delivered-through-O7+O9 / O8-deferred-to-M7 boundary; canvas Status flipped
+   to Implemented with the boundary caveat; EPICs #881/#873 close at the boundary).
+   Update `automation/README.md` + `STATUS-AND-DIRECTION.md`
    (Wave 4 now unblocked; two-plane model still honest), flip `docs/milestones/M6-planning.md` +
    `state/current-milestone.md`, and the cross-cutting status surfaces. *Verify:* consistency grep across
    status surfaces agrees; EPIC #881 row flips to Implemented when O1–O8 merge.

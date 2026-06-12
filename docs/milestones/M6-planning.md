@@ -2,7 +2,7 @@
 
 # Zynax M6 — K8s Production-Ready Planning
 
-> Generated: 2026-06-02 · Last updated: 2026-06-11 (status reconciled to live issue state: M6 = 143 closed / 17 open; EPICs #626 #670 #765 #766 #767 #768 #769 #770 #772 #773 #837 #855 #873 #1001 complete; CI-overhaul EPIC #1109 in flight — #1116 #1118 #1120 merged, see `docs/contributing/ci-delivery-overhaul-prompt.md`)
+> Generated: 2026-06-02 · Last updated: 2026-06-12 (status reconciled to live issue state: M6 = 143 closed / 17 open; EPICs #626 #670 #765 #766 #767 #768 #769 #770 #772 #773 #837 #855 #873 #1001 complete; CI-overhaul EPIC #1109 in flight — #1116 #1118 #1120 merged, see `docs/contributing/ci-delivery-overhaul-prompt.md`; Wave 4 #881 delivered to the platform-readiness boundary — O8 #1103 → M7)
 > Based on live repo state at commit `994efb7` (main).  
 > GitHub Milestone: **"K8s Production-Ready (M6)"** (milestone #6).  
 > All `gh` commands, file reads, and live issue data were gathered in this session — nothing assumed from memory.
@@ -118,13 +118,18 @@ The gate brings the cluster up but fails at the happy-path assertion. O1 + O2 me
 | DevAuto.5 ci: Wave 1 — orchestrator aggregation step | [#878](https://github.com/zynax-io/zynax/issues/878) | CI | — | ✅ Done |
 | DevAuto.6 ci: Wave 2 — gated non-destructive actions | [#879](https://github.com/zynax-io/zynax/issues/879) | CI | — | ✅ Done |
 | DevAuto.7 ci: Wave 3 — post-merge completeness mesh | [#880](https://github.com/zynax-io/zynax/issues/880) | CI/Infra | — | ✅ Done |
-| DevAuto.8 feat: Wave 4 — self-hosted issue-delivery engine | [#881](https://github.com/zynax-io/zynax/issues/881) | CI/Infra | #1105 | 🔄 In progress — canvas Aligned, stories #1096–#1104 created |
+| DevAuto.8 feat: Wave 4 — self-hosted issue-delivery engine | [#881](https://github.com/zynax-io/zynax/issues/881) | CI/Infra | #1105 | ✅ Delivered to boundary — O1–O7 + O9 (#1096–#1102, #1104) merged; O8 [#1103](https://github.com/zynax-io/zynax/issues/1103) deferred to M7 (platform gaps); canvas Implemented-at-boundary |
 | DevAuto.9 test: platform-readiness xfail gate for Wave 4 | [#882](https://github.com/zynax-io/zynax/issues/882) | CI | — | ✅ Done |
 | DevAuto.10 docs: AGENTS.md pointer + automation/README + ARCHITECTURE.md | [#883](https://github.com/zynax-io/zynax/issues/883) | Docs | — | ✅ Done |
 
-**Two-plane note:** DevAuto.1–7 + DevAuto.9–10 are near-term (GitHub Actions + Claude Code, no Zynax runtime dependency).
-DevAuto.8 (Zynax AgentDef workflows) is unblocked — M6.H #626 + M6.I #772 are complete; the
-`automation/tests/test_platform_readiness.py` xfail flip is tracked in #1103.
+**Two-plane note:** DevAuto.1–7 + DevAuto.9–10 were near-term (GitHub Actions + Claude Code); Waves 0–3
+were superseded by the generalized delivery commands and retired in #1129. DevAuto.8 (Wave 4, Zynax
+manifests) is delivered to the platform-readiness boundary: O1–O7 + O9 merged; the
+`automation/tests/test_platform_readiness.py` strict xfail remains the honest gate, and its flip (O8,
+[#1103](https://github.com/zynax-io/zynax/issues/1103)) is deferred to M7 — four code-verified platform
+gaps (compiler `output:` rejection, Go-template vs CEL guards, missing orchestration-capability
+providers, no gateway outputs/decision-log read path; analysis in #1103 comments). EPICs #873/#881
+close at the boundary.
 
 **M6.OrchSafe — Concurrency-safe orchestrator** ✅ **COMPLETE** (EPIC [#1001](https://github.com/zynax-io/zynax/issues/1001); canvas `docs/spdd/1001-orchestrator-concurrency-safety/` — Status: Implemented; root-cause fix for shared-working-tree (RC1) + duplicate-PR (RC2) failures in `/m6-orchestrate`)
 
