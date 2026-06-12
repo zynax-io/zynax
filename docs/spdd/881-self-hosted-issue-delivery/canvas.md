@@ -253,7 +253,14 @@ event-bus, (orchestrator) engine-adapter.
    `kind: Workflow`: `fan_out` (parallel dispatch of 9 `review` capabilities) → `aggregate`
    (weighted_consensus from `orchestrator/config.yaml`) → `act`/`escalate`. *Verify:* validates against
    `workflow.schema.json`; a BDD `.feature` covers the fan-out→aggregate→verdict path (ADR-016).
-4. **O4 — Issue-intake + planning Workflow (`feat`).** `issue-delivery.yaml` states `intake` → `plan`
+4. **O4 — Issue-intake + planning Workflow (`feat`).** ✅ Delivered (#1099 —
+   `automation/workflows/issue-delivery.yaml`, the intake→plan→route leg: `intake` reads + mechanically
+   classifies the issue, `plan` binds the planner's `identify_next_issue` contract 1:1, and the
+   routing table lives declaratively in the `route` state as first-match-wins guarded transitions;
+   `routed`/`blocked`/`failed` terminals record the `{next_issue, expert, blocked_by}` decision until
+   O6 adds the delivery leg. BDD feature + fixture-driven decision tests in `automation/tests/`;
+   `make validate-spec` now validates `automation/workflows/` against `workflow.schema.json`.)
+   `issue-delivery.yaml` states `intake` → `plan`
    (calls planner `identify_next_issue`) → `route`. Reads a GitHub issue, classifies type/expert,
    identifies the next issue. *Verify:* given a fixture issue, the workflow emits the correct
    `{next_issue, expert, blocked_by}` decision; BDD scenario for the classify+route path.
