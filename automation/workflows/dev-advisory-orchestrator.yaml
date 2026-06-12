@@ -1,0 +1,269 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/workflows/dev-advisory-orchestrator.yaml
+#
+# Dev-advisory orchestrator — the on-platform `/m6-orchestrate`.
+#
+# kind: Workflow state machine (ADR-028): fan_out (parallel dispatch of the
+# 9 expert `review` capabilities) → aggregate (weighted consensus) → act
+# (auto_allowed actions only) | escalate (human-in-the-loop).
+#
+# Source of truth for aggregation strategy, escalation thresholds, and the
+# human-in-the-loop policy: docs/archive/dev-advisory/orchestrator/config.yaml
+# (translated 1:1, ADR-028). Aggregation weights are NOT duplicated here —
+# they live as `aggregation-weight` registry labels on the expert AgentDefs
+# (automation/workflows/experts/*.yaml).
+#
+# Context isolation (ADR-028): the orchestrator sees expert OUTPUTS only,
+# never code files (8K token budget — mirrors the Claude command). Each
+# expert's bounded context_slice is bound into the `review` input_payload at
+# dispatch time by the context-slice injection binding (O5, #1100), keyed by
+# the `expert` input field below — slices are never inlined here, so the
+# expert manifests remain the single source of truth.
+#
+# Capability providers: `review` is provided by the 9 expert AgentDefs (O2,
+# #1097). The orchestration-side capabilities (aggregate_reviews,
+# execute_auto_actions, notify_human, record_decision) get providers with the
+# runtime binding (O5, #1100) and the platform-readiness e2e (O8, #1103).
+#
+# Plane: platform (Wave 4)
+# Issue: #1098 (EPIC #881 — O3)
+
+kind: Workflow
+apiVersion: zynax.io/v1
+
+metadata:
+  name: dev-advisory-orchestrator
+  namespace: automation
+  labels:
+    plane: platform
+    epic: "881"
+    context-max-tokens: "8000"
+  annotations:
+    description: >-
+      Fan out the 9 domain-expert review capabilities in parallel with strict
+      context isolation, aggregate their outputs into a weighted-consensus
+      verdict, then act (auto_allowed actions only) or escalate to a human.
+    issue: "1098"
+
+spec:
+  initial_state: fan_out
+
+  # New instance per PR against main (the near-term dev-advisory trigger,
+  # now on-platform). Manual runs need no trigger: `zynax apply` starts one.
+  triggers:
+    - event: github.pull_request.opened
+      filter:
+        repo: "zynax-io/zynax"
+        base_branch: "main"
+    - event: github.pull_request.synchronize
+      filter:
+        repo: "zynax-io/zynax"
+        base_branch: "main"
+
+  states:
+    # ── fan_out — dispatch all 9 expert reviews in parallel ────────────────
+    # All actions start before the state machine waits for a transition
+    # (workflow.schema.json semantics) — the EventBus (ADR-022) carries the
+    # durable fan-out and collection. Per-expert timeout 5m mirrors
+    # fan_out.timeout_seconds: 300; on timeout the orchestrator continues
+    # with partial outputs.
+    fan_out:
+      actions:
+        - capability: review
+          timeout: 5m
+          input:
+            expert: api-contract
+            trigger: pull_request
+            diff_summary: "{{ .trigger.diff_summary }}"
+            changed_files: "{{ .trigger.changed_files }}"
+            pr_number: "{{ .trigger.pr_number }}"
+            pr_title: "{{ .trigger.pr_title }}"
+          output:
+            context.reviews.api_contract: "{{ .result }}"
+        - capability: review
+          timeout: 5m
+          input:
+            expert: arch-adr
+            trigger: pull_request
+            diff_summary: "{{ .trigger.diff_summary }}"
+            changed_files: "{{ .trigger.changed_files }}"
+            pr_number: "{{ .trigger.pr_number }}"
+            pr_title: "{{ .trigger.pr_title }}"
+          output:
+            context.reviews.arch_adr: "{{ .result }}"
+        - capability: review
+          timeout: 5m
+          input:
+            expert: ci-release
+            trigger: pull_request
+            diff_summary: "{{ .trigger.diff_summary }}"
+            changed_files: "{{ .trigger.changed_files }}"
+            pr_number: "{{ .trigger.pr_number }}"
+            pr_title: "{{ .trigger.pr_title }}"
+          output:
+            context.reviews.ci_release: "{{ .result }}"
+        - capability: review
+          timeout: 5m
+          input:
+            expert: docs-agents
+            trigger: pull_request
+            diff_summary: "{{ .trigger.diff_summary }}"
+            changed_files: "{{ .trigger.changed_files }}"
+            pr_number: "{{ .trigger.pr_number }}"
+            pr_title: "{{ .trigger.pr_title }}"
+          output:
+            context.reviews.docs_agents: "{{ .result }}"
+        - capability: review
+          timeout: 5m
+          input:
+            expert: persistence-state
+            trigger: pull_request
+            diff_summary: "{{ .trigger.diff_summary }}"
+            changed_files: "{{ .trigger.changed_files }}"
+            pr_number: "{{ .trigger.pr_number }}"
+            pr_title: "{{ .trigger.pr_title }}"
+          output:
+            context.reviews.persistence_state: "{{ .result }}"
+        - capability: review
+          timeout: 5m
+          input:
+            expert: planner
+            trigger: pull_request
+            diff_summary: "{{ .trigger.diff_summary }}"
+            changed_files: "{{ .trigger.changed_files }}"
+            pr_number: "{{ .trigger.pr_number }}"
+            pr_title: "{{ .trigger.pr_title }}"
+          output:
+            context.reviews.planner: "{{ .result }}"
+        - capability: review
+          timeout: 5m
+          input:
+            expert: planning-task-split
+            trigger: pull_request
+            diff_summary: "{{ .trigger.diff_summary }}"
+            changed_files: "{{ .trigger.changed_files }}"
+            pr_number: "{{ .trigger.pr_number }}"
+            pr_title: "{{ .trigger.pr_title }}"
+          output:
+            context.reviews.planning_task_split: "{{ .result }}"
+        - capability: review
+          timeout: 5m
+          input:
+            expert: qa-bdd
+            trigger: pull_request
+            diff_summary: "{{ .trigger.diff_summary }}"
+            changed_files: "{{ .trigger.changed_files }}"
+            pr_number: "{{ .trigger.pr_number }}"
+            pr_title: "{{ .trigger.pr_title }}"
+          output:
+            context.reviews.qa_bdd: "{{ .result }}"
+        - capability: review
+          timeout: 5m
+          input:
+            expert: security-supply-chain
+            trigger: pull_request
+            diff_summary: "{{ .trigger.diff_summary }}"
+            changed_files: "{{ .trigger.changed_files }}"
+            pr_number: "{{ .trigger.pr_number }}"
+            pr_title: "{{ .trigger.pr_title }}"
+          output:
+            context.reviews.security_supply_chain: "{{ .result }}"
+      "on":
+        # Barrier: the last review completion moves to aggregation.
+        - event: review.completed
+          goto: aggregate
+          guard: "{{ len .context.reviews }} == 9"
+        # Per-expert timeout: continue with whatever outputs were collected.
+        - event: review.timeout
+          goto: aggregate
+          set:
+            context.partial_results: "true"
+
+    # ── aggregate — weighted consensus over expert outputs only ────────────
+    # Strategy, thresholds, and minimum are verbatim from the archived
+    # orchestrator config (aggregation: block). Vote weight =
+    # aggregation_weight (registry label) × confidence (low=1 medium=2 high=3).
+    aggregate:
+      actions:
+        - capability: aggregate_reviews
+          timeout: 5m
+          input:
+            strategy: weighted_consensus
+            reviews: "{{ .context.reviews }}"
+            weight_label: aggregation-weight # read from expert registry labels
+            aggregate_weight_minimum: 3.0
+            conflict_resolution: highest_confidence_wins
+            escalation_threshold:
+              conflicting_high_confidence: 2 # ≥2 high-conf experts contradict
+              any_critical_flag: true # any tier-2 flag in any flags[]
+              top_action_confidence: low # top action's aggregate confidence
+          output:
+            context.aggregated_verdict: "{{ .result.aggregated_verdict }}"
+            context.escalation_required: "{{ .result.escalation_required }}"
+            context.escalation_reason: "{{ .result.escalation_reason }}"
+            context.expert_votes: "{{ .result.expert_votes }}"
+            context.decision_log_artifact: "{{ .result.decision_log_artifact }}"
+      "on":
+        - event: aggregate_reviews.completed
+          goto: escalate
+          guard: "{{ .context.escalation_required }} == true"
+        - event: aggregate_reviews.completed
+          goto: act
+
+    # ── act — execute auto_allowed actions only ────────────────────────────
+    # auto_allowed / never_auto are verbatim from the archived orchestrator
+    # config (human_in_the_loop: block). A prohibited_auto_action (never_auto)
+    # is NEVER executed automatically, at any wave, on any path.
+    act:
+      actions:
+        - capability: execute_auto_actions
+          timeout: 5m
+          input:
+            verdict: "{{ .context.aggregated_verdict }}"
+            auto_allowed:
+              - auto-label
+              - auto-assign
+              - draft-issue
+              - post-pr-comment
+            never_auto: # prohibited_auto_actions — human approval required
+              - merge
+              - push
+              - bump-dependency
+              - close-issue
+              - delete-branch
+              - force-push
+          output:
+            context.auto_actions_taken: "{{ .result.executed_actions }}"
+      "on":
+        - event: execute_auto_actions.completed
+          goto: done
+
+    # ── escalate — human-in-the-loop ───────────────────────────────────────
+    # Entered when ≥2 high-confidence experts contradict, any tier-2 flag is
+    # raised, or the top action's aggregate confidence is low.
+    escalate:
+      type: human_in_the_loop
+      actions:
+        - capability: notify_human
+          input:
+            reason: "{{ .context.escalation_reason }}"
+            verdict: "{{ .context.aggregated_verdict }}"
+            expert_votes: "{{ .context.expert_votes }}"
+      "on":
+        - event: human.approved
+          goto: act
+        - event: human.rejected
+          goto: done
+
+    # ── done — terminal; record the decision log ───────────────────────────
+    # A decision-log entry is recorded for every run, on every path
+    # (docs/archive/dev-advisory/orchestrator/decision-log-schema.yaml).
+    done:
+      type: terminal
+      actions:
+        - capability: record_decision
+          input:
+            decision_log_artifact: "{{ .context.decision_log_artifact }}"
+            verdict: "{{ .context.aggregated_verdict }}"
+            expert_votes: "{{ .context.expert_votes }}"
+            auto_actions_taken: "{{ .context.auto_actions_taken }}"
