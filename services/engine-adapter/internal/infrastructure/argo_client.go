@@ -85,11 +85,17 @@ type ArgoParameter struct {
 	Value string `json:"value"`
 }
 
-// ArgoWorkflowEventBinding is a simplified representation of the payload used
-// when delivering an external event to a running Argo Workflow via the
-// /api/v1/events/{namespace}/{discriminator} endpoint.
-type ArgoWorkflowEventBinding struct {
-	Payload json.RawMessage `json:"payload,omitempty"`
+// ArgoWorkflowCreateRequest is the envelope the Argo Workflows server API
+// requires on POST /api/v1/workflows/{namespace} (WorkflowService_CreateWorkflow,
+// definition io.argoproj.workflow.v1alpha1.WorkflowCreateRequest). Posting a
+// bare Workflow manifest is rejected with HTTP 422 (#1157).
+//
+// The upstream schema also defines createOptions, instanceID (deprecated), and
+// serverDryRun; they are intentionally omitted here because the engine never
+// sets them.
+type ArgoWorkflowCreateRequest struct {
+	Namespace string        `json:"namespace,omitempty"`
+	Workflow  *ArgoWorkflow `json:"workflow"`
 }
 
 // errArgoNotFound is a sentinel error used by httpArgoClient to signal 404 responses.
@@ -142,11 +148,15 @@ func NewHTTPArgoClient(serverURL, token string, httpClient *http.Client) ArgoCli
 	}
 }
 
-// SubmitWorkflow POSTs the Argo Workflow resource to the Argo REST API.
+// SubmitWorkflow POSTs the Argo Workflow resource to the Argo REST API,
+// wrapped in the WorkflowCreateRequest envelope the server expects.
 func (c *httpArgoClient) SubmitWorkflow(ctx context.Context, namespace string, wf *ArgoWorkflow) error {
-	body, err := json.Marshal(wf)
+	body, err := json.Marshal(ArgoWorkflowCreateRequest{
+		Namespace: namespace,
+		Workflow:  wf,
+	})
 	if err != nil {
-		return fmt.Errorf("argo_client: marshal workflow: %w", err)
+		return fmt.Errorf("argo_client: marshal workflow create request: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/api/v1/workflows/%s", c.serverURL, namespace)
@@ -234,15 +244,13 @@ func (c *httpArgoClient) DeleteWorkflow(ctx context.Context, namespace, name str
 }
 
 // SendEvent POSTs an external event payload to the Argo Workflows event endpoint.
+// Per the Argo server API (EventService_ReceiveEvent), the request body IS the
+// event payload itself (io.argoproj.workflow.v1alpha1.Item — arbitrary JSON),
+// not an envelope. An empty payload is sent as "{}" so the body stays valid JSON.
 func (c *httpArgoClient) SendEvent(ctx context.Context, namespace, discriminator string, payload []byte) error {
-	eventBody := ArgoWorkflowEventBinding{}
-	if len(payload) > 0 {
-		eventBody.Payload = json.RawMessage(payload)
-	}
-
-	body, err := json.Marshal(eventBody)
-	if err != nil {
-		return fmt.Errorf("argo_client: marshal event payload: %w", err)
+	body := payload
+	if len(body) == 0 {
+		body = []byte("{}")
 	}
 
 	url := fmt.Sprintf("%s/api/v1/events/%s/%s", c.serverURL, namespace, discriminator)
