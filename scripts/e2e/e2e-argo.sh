@@ -53,7 +53,7 @@ API_GW_URL="${API_GW_URL:-http://localhost:8080}"
 ZYNAX_API_KEY="${ZYNAX_API_KEY:-}"
 POLL_TIMEOUT="${POLL_TIMEOUT:-120}"
 POLL_INTERVAL="${POLL_INTERVAL:-5}"
-WORKFLOW_FILE="${WORKFLOW_FILE:-${REPO_ROOT}/spec/workflows/examples/code-review.yaml}"
+WORKFLOW_FILE="${WORKFLOW_FILE:-${REPO_ROOT}/spec/workflows/examples/e2e-demo.yaml}"
 
 # Port-forward pids — cleaned up on exit.
 _PF_PIDS=()
