@@ -14,23 +14,21 @@ except ImportError:
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPO_ROOT / "spec/schemas/agent-def.schema.json"
+WORKFLOW_SCHEMA_PATH = REPO_ROOT / "spec/schemas/workflow.schema.json"
 ORCHESTRATOR_YAML = REPO_ROOT / "automation/workflows/dev-advisory-orchestrator.yaml"
 EXPERT_YAMLS = list((REPO_ROOT / "automation/workflows/experts").glob("*.yaml"))
 
 
 class TestPlatformReadiness:
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Wave 4: requires automation/workflows/dev-advisory-orchestrator.yaml "
-            "(EPIC #881 O3, #1098 — kind: Workflow per ADR-028). Reworked against "
-            "workflow.schema.json when the manifest lands; flips in O8 (#1103)."
-        ),
-    )
-    def test_orchestrator_agentdef_schema_valid(self):
-        """Orchestrator manifest validates against Zynax JSON schema."""
-        assert HAS_JSONSCHEMA, "jsonschema package required"
-        with open(SCHEMA_PATH) as f:
+    @pytest.mark.skipif(not HAS_JSONSCHEMA, reason="jsonschema package required")
+    def test_orchestrator_workflow_schema_valid(self):
+        """Orchestrator manifest validates against workflow.schema.json.
+
+        Delivered by O3 (#1098): the orchestrator is kind: Workflow per
+        ADR-028, so it validates against the Workflow schema (the experts
+        keep validating against agent-def.schema.json below).
+        """
+        with open(WORKFLOW_SCHEMA_PATH) as f:
             schema = json.load(f)
         with open(ORCHESTRATOR_YAML) as f:
             doc = yaml.safe_load(f)

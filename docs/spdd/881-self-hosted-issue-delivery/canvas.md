@@ -243,7 +243,13 @@ event-bus, (orchestrator) engine-adapter.
    with a `review` capability; extend `planning-task-split` with `identify_next_issue`. *Verify:* all 9
    validate against `agent-def.schema.json` via `make validate-spec`; one unit test per manifest asserts
    the capability I/O contract matches the source YAML's `output_contract`.
-3. **O3 — Orchestrator Workflow manifest (`feat`).** Author `dev-advisory-orchestrator.yaml` as
+3. **O3 — Orchestrator Workflow manifest (`feat`).** ✅ Delivered (#1098 —
+   `automation/workflows/dev-advisory-orchestrator.yaml`: `fan_out` → `aggregate` → `act`/`escalate`
+   → `done` (terminal, records the decision log); BDD contract at
+   `automation/tests/features/dev_advisory_orchestrator.feature`; aggregation/escalation/never_auto
+   translated 1:1 from the archived orchestrator config; context slices bound at dispatch per ADR-028,
+   never inlined; orchestrator-schema readiness test flipped from xfail to a real pass).
+   Author `dev-advisory-orchestrator.yaml` as
    `kind: Workflow`: `fan_out` (parallel dispatch of 9 `review` capabilities) → `aggregate`
    (weighted_consensus from `orchestrator/config.yaml`) → `act`/`escalate`. *Verify:* validates against
    `workflow.schema.json`; a BDD `.feature` covers the fan-out→aggregate→verdict path (ADR-016).
