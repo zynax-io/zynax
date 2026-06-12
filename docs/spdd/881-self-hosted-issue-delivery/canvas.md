@@ -234,7 +234,11 @@ event-bus, (orchestrator) engine-adapter.
    AgentDef-vs-Workflow split and the context-slice injection contract. Fix the wrong schema path in
    `test_platform_readiness.py` (`agent-def.json` → `agent-def.schema.json`). *Verify:* ADR merged;
    `make validate-spec` still green; test still xfails (no behaviour change yet).
-2. **O2 — 8 domain-expert AgentDef manifests + planner AgentDef (`feat`).** Translate each
+2. **O2 — 8 domain-expert AgentDef manifests + planner AgentDef (`feat`).** ✅ Delivered (#1097 —
+   9 AgentDefs under `automation/workflows/experts/`; the planner is materialised as `planner.yaml`,
+   the `planning-task-split` extension carrying `review` + `identify_next_issue` per ADR-028, so the
+   capability has exactly one provider; source YAMLs read from `docs/archive/dev-advisory/experts/`).
+   Translate each
    `automation/experts/<name>.yaml` into `automation/workflows/experts/<name>.yaml` as `kind: AgentDef`
    with a `review` capability; extend `planning-task-split` with `identify_next_issue`. *Verify:* all 9
    validate against `agent-def.schema.json` via `make validate-spec`; one unit test per manifest asserts

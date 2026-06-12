@@ -357,8 +357,9 @@ validate-workflow-schema: ensure-tools ## Validate Workflow manifests in spec/wo
 	$(TOOLS_RUN) zynax-ci validate workflows spec/workflows/examples/ --schema-dir spec/schemas
 	@echo "✅ Workflow schemas valid"
 
-validate-agent-def-schema: ensure-tools ## Validate AgentDef manifests in spec/workflows/examples/ against agent-def.schema.json
+validate-agent-def-schema: ensure-tools ## Validate AgentDef manifests (spec examples + automation/workflows) against agent-def.schema.json
 	$(TOOLS_RUN) zynax-ci validate agent-defs spec/workflows/examples/ --schema-dir spec/schemas
+	$(TOOLS_RUN) zynax-ci validate agent-defs automation/workflows/experts/ --schema-dir spec/schemas
 	@echo "✅ AgentDef schemas valid"
 
 validate-policy-schema: ensure-tools ## Validate Policy manifests in spec/workflows/examples/ against policy.schema.json

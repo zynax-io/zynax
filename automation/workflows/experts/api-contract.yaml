@@ -1,0 +1,148 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/workflows/experts/api-contract.yaml
+#
+# API/contract expert — reviews proto changes for backward-compatibility
+# (buf breaking), AsyncAPI event schema correctness, capability registration
+# conformance, and the contract-before-implementation rule (ADR-016).
+#
+# kind: AgentDef translation (ADR-028) of the near-term expert config
+# docs/archive/dev-advisory/experts/api-contract.yaml — the source of truth
+# for context_slice, I/O contract, and aggregation_weight (translated 1:1).
+# The context slice is bound at dispatch time into the `context_slice` field
+# of the review capability's input_payload (strict isolation, ADR-028).
+# Runtime binding (spec.runtime) lands in O5 (#1100).
+#
+# Plane: platform (Wave 4)
+# Issue: #1097 (EPIC #881 — O2)
+
+apiVersion: zynax.io/v1alpha1
+kind: AgentDef
+
+metadata:
+  name: api-contract
+  namespace: automation
+  labels:
+    plane: platform
+    epic: "881"
+    aggregation-weight: "1.5"
+    context-max-tokens: "4000"
+
+spec:
+  capabilities:
+    - name: review
+      description: >
+        Review proto and spec changes for breaking changes, AsyncAPI event
+        schema correctness, capability registration conformance, proto naming
+        rules, and missing BDD contracts at new gRPC boundaries (ADR-016).
+      input_schema:
+        type: object
+        required: [trigger, diff_summary, changed_files, context_slice]
+        properties:
+          trigger:
+            type: string
+            description: Event that initiated this review.
+            enum: [pull_request, push, post_merge]
+          diff_summary:
+            type: string
+            description: git diff --stat output for the change under review.
+          changed_files:
+            type: array
+            description: List of changed file paths.
+            items:
+              type: string
+          context_slice:
+            type: object
+            description: >
+              Bounded context slice injected at dispatch time (ADR-028).
+              Only the files declared below, hard-capped at max_tokens.
+              Strict isolation - never another expert's slice or output.
+            required: [files, max_tokens]
+            properties:
+              files:
+                type: array
+                description: >
+                  Verbatim from docs/archive/dev-advisory/experts/api-contract.yaml.
+                items:
+                  type: string
+                default:
+                  - "protos/zynax/v1/**/*.proto"
+                  - "protos/buf.yaml"
+                  - "protos/buf.gen.yaml"
+                  - "spec/schemas/**/*.json"
+                  - "spec/asyncapi/zynax-events.yaml"
+                  - "spec/workflows/capability-registrations/**/*.yaml"
+                  - "protos/AGENTS.md"
+              max_tokens:
+                type: integer
+                description: Hard context budget (tokens) per invocation.
+                default: 4000
+          pr_number:
+            type: integer
+            description: Pull request number (pull_request trigger only).
+          pr_title:
+            type: string
+            description: Pull request title (pull_request trigger only).
+      output_schema:
+        type: object
+        required: [summary, recommended_actions, reasons_decisions, confidence, flags]
+        properties:
+          summary:
+            type: string
+            description: Plain text summary, max 200 words.
+          recommended_actions:
+            type: array
+            description: Ordered list of specific actions with rationale.
+            items:
+              type: object
+              required: [action, rationale, priority]
+              properties:
+                action:
+                  type: string
+                rationale:
+                  type: string
+                priority:
+                  type: string
+                  enum: [low, medium, high]
+          reasons_decisions:
+            type: array
+            description: Reasoning chain for each recommendation.
+            items:
+              type: string
+          confidence:
+            type: string
+            description: Overall confidence level for this expert's output.
+            enum: [low, medium, high]
+          flags:
+            type: array
+            description: Tier-2 security flags or blocker flags (empty if none).
+            items:
+              type: string
+          extra_fields:
+            type: object
+            description: Expert-specific additional output fields.
+            properties:
+              breaking_changes:
+                type: array
+                description: Field removals, renames, type changes.
+                items:
+                  type: string
+              missing_bdd_contract:
+                type: boolean
+                description: True if new gRPC boundary lacks a .feature file (ADR-016).
+              asyncapi_schema_errors:
+                type: array
+                description: AsyncAPI event schema validation errors.
+                items:
+                  type: string
+              capability_registration_issues:
+                type: array
+                description: Capability registration conformance issues.
+                items:
+                  type: string
+              proto_naming_violations:
+                type: array
+                description: Proto naming rule violations.
+                items:
+                  type: string
+      timeout_seconds: 300
+      max_retries: 1
