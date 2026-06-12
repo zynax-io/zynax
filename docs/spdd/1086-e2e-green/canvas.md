@@ -7,7 +7,7 @@
 **Issue:** #1086
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-10
-**Status:** Aligned
+**Status:** Implemented
 
 ---
 
