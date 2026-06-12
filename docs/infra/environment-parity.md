@@ -89,7 +89,7 @@ installed before enabling `tlsSecretName` in each service chart (ADR-020).
 | Setting | Dev | Staging | Production |
 |---------|-----|---------|------------|
 | `db.secretName` | `""` (in-memory fallback) | K8s Secret name | K8s Secret name |
-| Postgres `replicaCount` | `1` | `1` | `2` (HA via Bitnami replication) |
+| Postgres `replicaCount` | `1` | `1` | `1` (HA deferred — single instance per ADR-026; operator-based replication is a future-milestone decision) |
 
 Until EPIC M6.H (#626) ships, task-broker and agent-registry use the in-memory
 adapter when `db.secretName` is empty. Set `ZYNAX_DB_ENABLED=true` and provide

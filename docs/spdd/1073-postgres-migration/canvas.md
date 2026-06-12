@@ -7,7 +7,7 @@
 **Issue:** #1073
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-10
-**Status:** Aligned
+**Status:** Implemented
 
 ---
 
@@ -135,8 +135,17 @@ this epic must produce for the Postgres distribution + version decision.
    helm upgrade/rollback smoke PASS on every revision.)
 7. **Remove the e2e `bitnamilegacy` override** from `scripts/e2e/values-e2e.yaml`; confirm the
    `e2e smoke` gate is green end-to-end on the migrated source.
+   — ✅ #1079 (the override block itself was already dropped by #1076; #1079 removed the last
+   live references: the historical override comment in `values-e2e.yaml` and the now-unused
+   `helm repo add bitnami` lines in the `e2e smoke` + `helm lint` workflows. Gate green on the
+   migrated stack: [run 27403151713](https://github.com/zynax-io/zynax/actions/runs/27403151713)
+   on PR #1148, re-confirmed by the gate run on the #1079 PR itself.)
 8. **Document a major-version upgrade/migration note** (data considerations for stateful
    environments) in the postgres chart README / ops runbook.
+   — ✅ #1079 (`helm/charts/postgres/README.md`: digest-pin model via `images/images.yaml`,
+   minor/patch bump flow (`make sync-images`), and the safe major-version paths for the
+   PVC-backed StatefulSet — `pg_dump`/restore (preferred), logical replication, `pg_upgrade`
+   caveats — plus the Temporal schema-tool compatibility check.)
 
 ## N — Norms
 
