@@ -1,14 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # automation/tests/test_issue_delivery.py
 #
-# O4 of EPIC #881 (#1099): asserts the intake → plan → route leg of the
+# EPIC #881: asserts the intake → plan → route leg (O4, #1099) and the
+# inject → implement → verify → decide delivery leg (O6, #1101) of the
 # issue-delivery Workflow (automation/workflows/issue-delivery.yaml).
 # Binds the scenarios in automation/tests/features/issue_delivery.feature.
 #
-# The routing table lives declaratively in the manifest (route state,
-# first-match-wins guarded transitions — mirroring /m6-orchestrate STEP 5 and
-# the engine's resolveTransition semantics), so these tests evaluate the
-# manifest itself against fixture issues: no running platform is required.
+# The routing table and the delivery contracts live declaratively in the
+# manifest (first-match-wins guarded transitions — mirroring /m6-orchestrate
+# STEP 5 and the engine's resolveTransition semantics), so these tests
+# evaluate the manifest itself against fixture issues and stubbed capability
+# results: no running platform is required (the live e2e is O8, #1103).
 
 import json
 import re
@@ -30,8 +32,43 @@ SCHEMA_PATH = REPO_ROOT / "spec/schemas/workflow.schema.json"
 PLANNER_PATH = REPO_ROOT / "automation/workflows/experts/planner.yaml"
 EXPERTS_DIR = REPO_ROOT / "automation/workflows/experts"
 
-O4_STATES = {"intake", "plan", "route", "routed", "blocked", "failed"}
-TERMINAL_STATES = {"routed", "blocked", "failed"}
+DELIVERY_STATES = {
+    "intake",
+    "plan",
+    "route",
+    "inject",
+    "implement",
+    "verify",
+    "decide",
+    "blocked",
+    "failed",
+}
+TERMINAL_STATES = {"decide", "blocked", "failed"}
+
+# prohibited_auto_actions — verbatim from Wave 2
+# (docs/archive/dev-advisory/orchestrator/config.yaml, ADR-028 / canvas §S).
+NEVER_AUTO = [
+    "merge",
+    "push",
+    "bump-dependency",
+    "close-issue",
+    "delete-branch",
+    "force-push",
+]
+
+# Every capability this manifest may dispatch. None is destructive: the
+# delivery leg reads, implements in an isolated workspace, verifies, records,
+# and emits — it never merges/pushes/closes anything (AC: destructive actions
+# never auto-execute).
+ALLOWED_CAPABILITIES = {
+    "read_issue",
+    "identify_next_issue",
+    "resolve_context_slice",
+    "review",
+    "run_verification_gates",
+    "record_decision",
+    "emit_next_issue",
+}
 
 
 def load_workflow():
@@ -110,7 +147,8 @@ def first_matching_transition(state, event, ctx):
 
 def run_o4_leg(issue_title, planner_result):
     """Walk intake → plan → route against a fixture issue and a stubbed
-    planner reply. Returns (final_state, ctx)."""
+    planner reply. Returns (state, ctx): "inject" when the issue was routed
+    (the delivery leg starts there — O6), else a terminal state."""
     spec = load_workflow()["spec"]
     states = spec["states"]
     ctx = {}
@@ -139,6 +177,51 @@ def run_o4_leg(issue_title, planner_result):
         t = first_matching_transition(states[current], "", ctx)
         _apply_set(t, ctx)
         current = t["goto"]
+
+    assert current == "inject" or states[current].get("type") == "terminal"
+    return current, ctx
+
+
+def run_delivery_leg(issue_title, planner_result, gates_pass=True):
+    """Walk the full delivery leg (O6): intake → plan → route → inject →
+    implement → verify → decide, with stubbed capability results standing in
+    for the runtime providers. Returns (final_state, ctx)."""
+    spec = load_workflow()["spec"]
+    states = spec["states"]
+    current, ctx = run_o4_leg(issue_title, planner_result)
+    assert current == "inject", f"routing leg did not reach inject: {current}"
+
+    # inject: resolve_context_slice output mappings populate the context.
+    ctx["expert_agent_id"] = f"agent-{ctx['expert']}"
+    ctx["context_slice_files"] = "state/current-milestone.md"
+    ctx["context_slice_max_tokens"] = "3000"
+    t = first_matching_transition(
+        states[current], "resolve_context_slice.completed", ctx
+    )
+    _apply_set(t, ctx)
+    current = t["goto"]
+
+    # implement: the routed expert's review output populates the context.
+    assert current == "implement"
+    ctx["change_summary"] = "implemented the issue in an isolated workspace"
+    ctx["recommended_actions"] = "open draft PR"
+    ctx["implement_confidence"] = "high"
+    ctx["implement_flags"] = ""
+    t = first_matching_transition(states[current], "review.completed", ctx)
+    _apply_set(t, ctx)
+    current = t["goto"]
+
+    # verify: run_verification_gates output populates the context.
+    assert current == "verify"
+    ctx["gates_passed"] = "true" if gates_pass else "false"
+    ctx["gate_report"] = "validate-spec ok; lint ok; test ok"
+    ctx["diff_summary"] = "1 file changed"
+    ctx["changed_files"] = "automation/workflows/issue-delivery.yaml"
+    t = first_matching_transition(
+        states[current], "run_verification_gates.completed", ctx
+    )
+    _apply_set(t, ctx)
+    current = t["goto"]
 
     assert states[current].get("type") == "terminal"
     return current, ctx
@@ -170,11 +253,11 @@ def test_workflow_validates_against_schema():
     jsonschema.validate(load_workflow(), schema)
 
 
-def test_o4_state_machine_shape():
-    """initial_state intake; exactly the O4-leg states; correct terminals."""
+def test_state_machine_shape():
+    """initial_state intake; exactly the O4+O6 states; correct terminals."""
     spec = load_workflow()["spec"]
     assert spec["initial_state"] == "intake"
-    assert set(spec["states"]) == O4_STATES
+    assert set(spec["states"]) == DELIVERY_STATES
     for name, state in spec["states"].items():
         if name in TERMINAL_STATES:
             assert state.get("type") == "terminal", f"{name} must be terminal"
@@ -217,6 +300,8 @@ def test_routing_targets_are_registered_expert_agentdefs():
     assert route["on"][-1]["set"]["context.expert"] == "planning-task-split"
     # route is action-less: it must rely on the engine's sentinel-event pass.
     assert "actions" not in route
+    # Every routing edge enters the delivery leg (O6) at inject.
+    assert all(t["goto"] == "inject" for t in route["on"])
 
 
 # ── Scenario: fixture issue → correct {next_issue, expert, blocked_by} ──────
@@ -224,11 +309,12 @@ def test_routing_targets_are_registered_expert_agentdefs():
 
 def test_fixture_issue_emits_o4_decision():
     """Given a fixture issue, the workflow emits the correct
-    {next_issue, expert, blocked_by} decision (acceptance criterion 1)."""
+    {next_issue, expert, blocked_by} decision (O4 acceptance criterion 1).
+    Since O6 the routed decision enters the delivery leg at inject."""
     final, ctx = run_o4_leg(
         "feat(automation): issue-intake + planning Workflow", PLANNER_OK
     )
-    assert final == "routed"
+    assert final == "inject"
     assert ctx["next_issue"] == "1099"
     assert ctx["expert"] == "planning-task-split"
     assert ctx["blocked_by"] == ""
@@ -253,7 +339,7 @@ def test_fixture_issue_emits_o4_decision():
 def test_routing_table_selects_expert(title, expert):
     """Classify + route path picks exactly one expert per issue class."""
     final, ctx = run_o4_leg(title, PLANNER_OK)
-    assert final == "routed"
+    assert final == "inject"
     assert ctx["expert"] == expert
 
 
@@ -274,3 +360,165 @@ def test_blocked_plan_ends_in_blocked_state():
     assert final == "blocked"
     assert ctx["blocked_by"] == "1097, 1098"
     assert "expert" not in ctx
+
+
+# ═════════════════════════════ O6 — delivery leg ════════════════════════════
+
+PLANNER_O6 = {
+    "next_issue": 1101,
+    "blocked_by": [],
+    "ready_batch": [1101],
+    "rationale": "O6 is the only dependency-free Wave 4 story",
+}
+
+O6_TITLE = "feat(automation): delivery leg of issue-delivery"
+
+
+def _single_action(state_name):
+    actions = load_workflow()["spec"]["states"][state_name]["actions"]
+    assert len(actions) == 1
+    return actions[0]
+
+
+# ── Scenario: Inject resolves the routed expert's context-slice binding ─────
+
+
+def test_inject_resolves_context_slice_binding():
+    """inject resolves the routed expert's declared slice for the decision
+    log; the authoritative binding stays in task-broker at dispatch (O5)."""
+    action = _single_action("inject")
+    assert action["capability"] == "resolve_context_slice"
+    assert set(action["input"]) == {"expert", "capability"}
+    assert action["input"]["expert"] == "{{ .ctx.expert }}"
+    assert action["input"]["capability"] == "review"
+    mapped = {
+        re.search(r"\.result\.(\w+)", v).group(1) for v in action["output"].values()
+    }
+    assert mapped == {"agent_id", "files", "max_tokens"}
+
+
+# ── Scenario: Implement drives exactly the routed expert's review ───────────
+
+
+def test_implement_dispatches_routed_expert_review():
+    """implement drives one expert-keyed review dispatch matching the expert
+    AgentDef contract — context_slice deliberately absent (O5 binds it)."""
+    action = _single_action("implement")
+    assert action["capability"] == "review"
+    # Expert-keyed dispatch: task-broker narrows to exactly ctx.expert.
+    assert action["input"]["expert"] == "{{ .ctx.expert }}"
+
+    planner_caps = {c["name"]: c for c in load_planner()["spec"]["capabilities"]}
+    review = planner_caps["review"]
+    required = set(review["input_schema"]["required"])
+    # All required review inputs are supplied except context_slice, which the
+    # task-broker injection binding (O5) supplies from the registry-declared
+    # slice — strict isolation (ADR-028).
+    assert required - {"context_slice"} <= set(action["input"])
+    assert "context_slice" not in action["input"]
+    # trigger must be a member of the review contract's enum.
+    trigger_enum = review["input_schema"]["properties"]["trigger"]["enum"]
+    assert action["input"]["trigger"] in trigger_enum
+
+
+def test_context_slice_never_inlined_anywhere():
+    """No action in the manifest inlines literal context_slice content — the
+    expert manifests stay the single source of truth (ADR-028). The only
+    context_slice allowed anywhere is the decide record's *resolved* slice:
+    pure '{{ .ctx.* }}' references written by inject — durable evidence of
+    the O5 binding, never a literal slice a caller could plant."""
+    for name, state in load_workflow()["spec"]["states"].items():
+        for action in state.get("actions", []):
+            slice_input = action.get("input", {}).get("context_slice")
+            if slice_input is None:
+                continue
+            assert action["capability"] == "record_decision", name
+            assert all(
+                re.fullmatch(r"\{\{ \.ctx\.\w+ \}\}", str(v))
+                for v in slice_input.values()
+            ), f"literal slice content inlined in {name}: {slice_input}"
+
+
+# ── Scenario: A verified change reaches decide with a decision-log row ──────
+
+
+def test_happy_path_reaches_decide_with_decision_log():
+    """The full delivery leg ends in the decide terminal: durable
+    record_decision + next-issue CloudEvent (O6 acceptance criterion 1)."""
+    final, ctx = run_delivery_leg(O6_TITLE, PLANNER_O6, gates_pass=True)
+    assert final == "decide"
+    assert ctx["delivery_outcome"] == "success"
+
+    actions = {
+        a["capability"]: a
+        for a in load_workflow()["spec"]["states"]["decide"]["actions"]
+    }
+    assert set(actions) == {"record_decision", "emit_next_issue"}
+
+    record = actions["record_decision"]["input"]
+    assert record["workflow"] == "issue-delivery"
+    assert record["issue_number"] == "{{ .ctx.issue_number }}"
+    assert record["expert"] == "{{ .ctx.expert }}"
+    assert record["next_issue"] == "{{ .ctx.next_issue }}"
+    # The recorded row carries the resolved slice — durable evidence of the
+    # injection binding.
+    assert set(record["context_slice"]) == {"files", "max_tokens"}
+
+    emit = actions["emit_next_issue"]["input"]
+    assert emit["event"] == "zynax.automation.issue_delivery.next_issue"
+    assert emit["completed_issue"] == "{{ .ctx.issue_number }}"
+    assert emit["next_issue"] == "{{ .ctx.next_issue }}"
+
+
+# ── Scenario: Failing gates still record a durable decision ─────────────────
+
+
+def test_failing_gates_still_record_decision():
+    """Gates failing is still a decision: the run ends in decide with
+    delivery_outcome gates_failed — a decision-log row on every path."""
+    final, ctx = run_delivery_leg(O6_TITLE, PLANNER_O6, gates_pass=False)
+    assert final == "decide"
+    assert ctx["delivery_outcome"] == "gates_failed"
+
+
+# ── Scenario: failure events route to the failed terminal ───────────────────
+
+
+@pytest.mark.parametrize(
+    ("state", "event", "reason_fragment"),
+    [
+        ("inject", "resolve_context_slice.failed", "inject"),
+        ("implement", "review.failed", "implement"),
+        ("implement", "review.timeout", "implement"),
+        ("verify", "run_verification_gates.failed", "verify"),
+    ],
+)
+def test_capability_failures_route_to_failed(state, event, reason_fragment):
+    """Every delivery-leg capability failure routes to the failed terminal
+    with an explanatory failure_reason."""
+    ctx = {}
+    t = first_matching_transition(load_workflow()["spec"]["states"][state], event, ctx)
+    assert t["goto"] == "failed"
+    assert reason_fragment in t["set"]["context.failure_reason"]
+
+
+# ── Scenario: destructive actions are never auto-executed ───────────────────
+
+
+def test_prohibited_auto_actions_honoured():
+    """O6 acceptance criterion 2: destructive actions never auto-execute.
+    (a) every capability the manifest dispatches is non-destructive;
+    (b) the recorded decision carries never_auto verbatim from Wave 2 and
+    declares human_action_required — landing the change stays human."""
+    states = load_workflow()["spec"]["states"]
+    dispatched = {
+        a["capability"] for s in states.values() for a in s.get("actions", [])
+    }
+    assert dispatched <= ALLOWED_CAPABILITIES, dispatched - ALLOWED_CAPABILITIES
+    assert not dispatched & set(NEVER_AUTO)
+
+    record = next(
+        a for a in states["decide"]["actions"] if a["capability"] == "record_decision"
+    )["input"]
+    assert record["never_auto"] == NEVER_AUTO
+    assert record["human_action_required"] == "true"
