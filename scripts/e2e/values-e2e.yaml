@@ -11,12 +11,12 @@
 # band (ADR-021); they do NOT use these values.
 
 # ── Service images ──────────────────────────────────────────────────────────
-# Pin the 5 release-matrix services to the floating `main` tag, which release.yml
-# publishes on every merge. The chart default (Chart.AppVersion → "0.4.0") was
-# never pushed to GHCR, so the default tag fails ImagePull. event-bus and
-# memory-service are NOT in the release.yml build matrix (no image is published),
-# so they are left disabled here; the smoke test covers the 5 services that have
-# images. Re-enable them once their images ship.
+# Pin all 7 services to the floating `main` tag, which CI publishes on every
+# merge (pre-merge staging build + retag promotion, ADR-027). The chart default
+# (Chart.AppVersion → "0.4.0") was never pushed to GHCR, so the default tag
+# fails ImagePull. event-bus + memory-service images ship since #1089 (canvas
+# 1086 O3), so both are enabled below and their CloudEvent / memory-Get
+# assertions run unskipped (#1090, canvas 1086 O4).
 #
 # fullnameOverride (#1086 O2): the umbrella wires inter-service addresses as
 # "zynax-<svc>" (registryAddr/compilerAddr/engineAddr/taskBrokerAddr), but the
@@ -53,10 +53,46 @@ zynax-agent-registry:
   fullnameOverride: zynax-agent-registry
   image:
     tag: main
+# event-bus + memory-service (#1090): enabled so e2e-happy.sh can assert the
+# workflow.completed CloudEvent off NATS JetStream and a memory-service KV
+# roundtrip. Requests are kept minimal so the trimmed smoke stack still fits
+# the 2 CPU / 7 GB runner (#1091 owns the full right-sizing pass).
 zynax-event-bus:
-  enabled: false
+  enabled: true
+  fullnameOverride: zynax-event-bus
+  image:
+    tag: main
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
 zynax-memory-service:
-  enabled: false
+  enabled: true
+  fullnameOverride: zynax-memory-service
+  image:
+    tag: main
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  redis:
+    # Ephemeral smoke cluster — skip the PVC; Redis state does not need to
+    # survive a pod restart inside a single gate run.
+    persistence:
+      enabled: false
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
 
 # ── Resource right-sizing for the e2e smoke runner (#1091) ────────────────────
 # The CI runner (ubuntu-latest, 2 CPU / 7 GB) is below the harness's documented
@@ -66,11 +102,30 @@ zynax-memory-service:
 # before/after analysis. Key levers: drop unused pods (NATS, Temporal Web UI),
 # slash Temporal history shards, and cap the otherwise-unbounded Temporal pods.
 
-# NATS is only consumed by event-bus, which is disabled above. With no service
-# referencing it, the happy/failure assertions already run with SKIP_NATS=1, so
-# the NATS StatefulSet + nats-box + 5Gi PVC are pure overhead in the smoke test.
+# NATS backs event-bus (enabled above, #1090): the StatefulSet must run so the
+# CloudEvent assertions have a JetStream to land on. Keep it as small as the
+# smoke runner demands: cap the otherwise-unbounded server container, drop the
+# config reloader (the smoke config never changes), and shrink the JetStream
+# PVC. nats-box stays — e2e-happy.sh uses its `nats` CLI for the stream
+# assertion.
 zynax-nats:
-  enabled: false
+  enabled: true
+  nats:
+    config:
+      jetstream:
+        fileStore:
+          pvc:
+            size: 1Gi
+    container:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 400m
+          memory: 256Mi
+    reloader:
+      enabled: false
 
 # ── Postgres ────────────────────────────────────────────────────────────────
 # Use a deterministic, pre-created credentials Secret (created by cluster-up.sh)

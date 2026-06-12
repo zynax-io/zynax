@@ -51,7 +51,10 @@ spec:
                 configMapKeyRef:
                   name: {{ include "zynax.fullname" . }}
                   key: log-level
-            - name: ZYNAX_MEMORY_REDIS_URL
+            # The binary reads ZYNAX_MEMORY_REDIS_DSN (envconfig REDIS_DSN in
+            # cmd/memory-service/main.go) — without it the KV plane returns
+            # UNIMPLEMENTED. The values key stays `env.redisURL` (same URI format).
+            - name: ZYNAX_MEMORY_REDIS_DSN
               valueFrom:
                 configMapKeyRef:
                   name: {{ include "zynax.fullname" . }}

@@ -48,11 +48,9 @@ WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
 KIND_CONFIG="${SCRIPT_DIR}/kind-config.yaml"
 UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
 
-# The Zynax service Deployments that must reach a healthy rollout. Only the 5
-# services in the release.yml build matrix have a published image; event-bus and
-# memory-service are not built yet (no GHCR image), so they are excluded from the
-# e2e deploy (disabled in values-e2e.yaml) and from this assertion list. Re-add
-# them once their images ship.
+# The Zynax service Deployments that must reach a healthy rollout. All 7
+# services ship a GHCR image since #1089 added event-bus + memory-service to
+# the pre-merge build matrix, so the full set is deployed and asserted (#1090).
 # Deployment names are pinned via fullnameOverride in values-e2e.yaml to
 # `zynax-<svc>` (so the umbrella's inter-service addresses resolve), not the
 # release-prefixed `zynax-zynax-<svc>` default.
@@ -62,6 +60,8 @@ SERVICE_DEPLOYMENTS=(
   "zynax-engine-adapter"
   "zynax-task-broker"
   "zynax-agent-registry"
+  "zynax-event-bus"
+  "zynax-memory-service"
 )
 
 # ── helpers ──────────────────────────────────────────────────────────────────────
@@ -167,16 +167,16 @@ fi
 log "deploying zynax-umbrella as release '${RELEASE_NAME}' in namespace '${NAMESPACE}'…"
 # values-e2e.yaml carries the e2e-only overrides (shared with helm-upgrade.sh so
 # the release shape is identical across revisions): service image tags pinned to
-# `main`, event-bus/memory-service disabled (no image yet), and the Postgres /
+# `main`, event-bus/memory-service enabled (#1090), and the Postgres /
 # Temporal credential wiring.
-# E2E_IMAGE_TAG (set by e2e-smoke.yml for docker-touching PRs) repoints the 5
+# E2E_IMAGE_TAG (set by e2e-smoke.yml for docker-touching PRs) repoints the 7
 # deployed services at the pre-merge staging lane — helm-upgrade.sh applies the
 # same overrides so the release shape stays identical across revisions.
 IMAGE_OVERRIDES=()
 if [[ -n "${E2E_IMAGE_TAG:-}" ]]; then
   E2E_IMAGE_PREFIX="${E2E_IMAGE_PREFIX:-ghcr.io/zynax-io/zynax/staging}"
   log "service image lane override: ${E2E_IMAGE_PREFIX}/<svc>:${E2E_IMAGE_TAG}"
-  for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry; do
+  for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry event-bus memory-service; do
     IMAGE_OVERRIDES+=(
       --set "zynax-${svc}.image.repository=${E2E_IMAGE_PREFIX}/${svc}"
       --set "zynax-${svc}.image.tag=${E2E_IMAGE_TAG}"
@@ -219,9 +219,9 @@ done
 [[ -n "${namespace_ready}" ]] || die "Temporal 'default' namespace did not register"
 log "Temporal 'default' namespace is registered."
 
-# ── 4. wait for all 5 service deployments to become healthy ──────────────────────
+# ── 4. wait for all 7 service deployments to become healthy ──────────────────────
 
-log "waiting for all 5 service deployments to roll out…"
+log "waiting for all 7 service deployments to roll out…"
 for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
   if ! kubectl -n "${NAMESPACE}" get deployment "${dep}" >/dev/null 2>&1; then
     die "expected deployment not found: ${dep} (umbrella values out of sync?)"
@@ -231,7 +231,7 @@ for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
     --timeout "${WAIT_TIMEOUT}"
 done
 
-log "all 5 service deployments are healthy."
+log "all 7 service deployments are healthy."
 
 # ── 5. deploy the echo capability worker (#1088) ────────────────────────────────
 

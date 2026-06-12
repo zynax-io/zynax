@@ -27,6 +27,10 @@ env:
   temporalNamespace: "default"
   temporalTaskQueue: "engine-adapter"
   taskBrokerAddr: "zynax-task-broker:50053"
+  # EventBusService gRPC address for lifecycle CloudEvents (ADR-022). The gRPC
+  # client is lazy and publication is best-effort, so an unreachable address
+  # never blocks workflow execution (e.g. when zynax-event-bus is disabled).
+  eventBusAddr: "zynax-event-bus:50056"
   activeEngine: "temporal"
   grpcCallTimeoutS: 30
   maxActivityAttempts: 3

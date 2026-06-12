@@ -36,6 +36,7 @@ least 4 CPU and 8 GB RAM.
 | `kind`    | cluster bootstrap |
 | `kubectl` | cluster interaction |
 | `helm`    | chart deployment (v3.14+) |
+| `grpcurl` | memory-service KV roundtrip assertion in `e2e-happy.sh` (#1090) |
 
 `cluster-up.sh` installs upstream **cert-manager** into the cluster itself —
 the `zynax-cert-manager` subchart only creates `Certificate` / `ClusterIssuer`
@@ -99,8 +100,9 @@ full list):
    [`kind-config.yaml`](kind-config.yaml), exposing the api-gateway REST port on
    host `:8080`.
 2. Installs cert-manager (CRDs + controllers).
-3. Deploys `zynax-umbrella` with `event-bus` and `memory-service` enabled using
-   **placeholder images** (real implementations: EPIC I #772 / J #773).
+3. Deploys `zynax-umbrella` with all 7 services enabled — including `event-bus`
+   and `memory-service` (#1090) — pinned to the `:main` GHCR lane (or the
+   pre-merge staging lane when `E2E_IMAGE_TAG` is set).
 4. Waits for all **7 service Deployments** to reach a healthy rollout with their
    startup / liveness / readiness probes passing.
 
