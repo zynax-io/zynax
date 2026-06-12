@@ -1,0 +1,180 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/workflows/learning-synthesizer.yaml
+#
+# Learning synthesizer — the on-platform /m6-learn (/milestone-learn):
+# clusters accumulated session learnings into proposed expert-manifest
+# updates, feeding the O2 expert AgentDefs (ADR-028, canvas #881 §E).
+#
+# The apply is HUMAN-GATED (mirrors docs/ai-learnings/APPLY_LOG.md): the
+# capability output is a proposal only. The contract makes auto-apply
+# inexpressible — every proposal's status can only be pending-human-review,
+# and this agent exposes no apply/edit/write capability. A human reviews
+# each proposal and applies it by hand, exactly like /milestone-learn:
+# pending → applied/rejected in the apply log, then a human-driven commit.
+#
+# Synthesis rules carried from /milestone-learn:
+#   - recurrence rule: only patterns seen in >= 2 separate sessions
+#     (declared as `minimum: 2` on the recurrence field);
+#   - dedup against already-applied patterns (`applied_patterns` is a
+#     required input — the synthesizer never re-proposes them);
+#   - additions only — never deletions or rewrites of expert content.
+#
+# Context slice per canvas #881 Appendix A: docs/ai-learnings/*.md + the
+# current expert manifests, hard-capped at 4000 tokens.
+# Runtime binding (spec.runtime) follows the O5 dispatch model (#1100).
+#
+# Plane: platform (Wave 4)
+# Issue: #1102 (EPIC #881 — O7)
+
+apiVersion: zynax.io/v1alpha1
+kind: AgentDef
+
+metadata:
+  name: learning-synthesizer
+  namespace: automation
+  labels:
+    plane: platform
+    epic: "881"
+    context-max-tokens: "4000"
+    human-gated: "true"
+
+spec:
+  capabilities:
+    - name: synthesize_learnings
+      description: >
+        The /m6-learn brain: cluster accumulated session learnings
+        (recurrence rule - a pattern must be seen in at least 2 separate
+        sessions), deduplicate against patterns already applied or rejected
+        in the apply log, and emit proposed_manifest_updates[] targeting the
+        O2 expert AgentDefs. Output is a proposal only - apply is
+        human-gated (mirrors APPLY_LOG.md): this agent never edits a
+        manifest, never commits, never pushes. Additions only - never
+        deletions or rewrites of existing expert content.
+      input_schema:
+        type: object
+        required: [session_results, applied_patterns, context_slice]
+        properties:
+          session_results:
+            type: array
+            description: >
+              Session-learning blocks harvested from docs/ai-learnings/
+              <domain>.md - one entry per session block, carrying the
+              domain, the source session/issue reference, and the raw
+              learning patterns recorded by that session.
+            items:
+              type: object
+              required: [domain, session, patterns]
+              properties:
+                domain:
+                  type: string
+                  description: Learning domain (docs/ai-learnings file stem).
+                session:
+                  type: string
+                  description: Source session/issue reference (e.g. "#1101").
+                patterns:
+                  type: array
+                  description: Raw learning patterns from this session.
+                  items:
+                    type: string
+          applied_patterns:
+            type: array
+            description: >
+              Patterns already applied or rejected per the apply log
+              (docs/ai-learnings/APPLY_LOG.md). Required so deduplication
+              can never be skipped - the synthesizer never re-proposes
+              an already-applied or rejected pattern.
+            items:
+              type: string
+          context_slice:
+            type: object
+            description: >
+              Bounded context slice injected at dispatch time (ADR-028).
+              Only the files declared below, hard-capped at max_tokens.
+              Strict isolation - the learning record and the current expert
+              manifests, per canvas #881 Appendix A.
+            required: [files, max_tokens]
+            properties:
+              files:
+                type: array
+                description: >
+                  Per canvas #881 Appendix A - docs/ai-learnings/*.md plus
+                  the current expert manifests.
+                items:
+                  type: string
+                default:
+                  - "docs/ai-learnings/*.md"
+                  - "automation/workflows/experts/*.yaml"
+              max_tokens:
+                type: integer
+                description: Hard context budget (tokens) per invocation.
+                default: 4000
+      output_schema:
+        type: object
+        required: [proposed_manifest_updates, apply_log_entry, summary]
+        properties:
+          proposed_manifest_updates:
+            type: array
+            description: >
+              Proposed additions to the O2 expert AgentDef manifests -
+              additions only, never deletions. Every proposal is pending
+              human review; a human applies it by hand (APPLY_LOG.md
+              lifecycle pending -> applied/rejected). Empty when nothing
+              clears the recurrence + dedup rules.
+            items:
+              type: object
+              required:
+                - target_manifest
+                - proposed_addition
+                - category
+                - recurrence
+                - source_sessions
+                - status
+              properties:
+                target_manifest:
+                  type: string
+                  description: >
+                    Path of the target expert AgentDef under
+                    automation/workflows/experts/.
+                proposed_addition:
+                  type: string
+                  description: >
+                    The exact text to add - an addition only, never a
+                    deletion or rewrite of existing expert content.
+                category:
+                  type: string
+                  description: >
+                    Proposal classification per /milestone-learn (EPIC
+                    #1001) - structural workarounds are surfaced but
+                    default to rejected under worktree isolation.
+                  enum: [domain, structural-workaround, env-constraint]
+                recurrence:
+                  type: integer
+                  description: >
+                    Number of distinct sessions the pattern was seen in.
+                    The recurrence rule is declared here - never below 2.
+                  minimum: 2
+                source_sessions:
+                  type: array
+                  description: Sessions/issues supporting this proposal.
+                  items:
+                    type: string
+                status:
+                  type: string
+                  description: >
+                    Always pending-human-review - the only expressible
+                    value. Apply is human-gated; this agent cannot emit
+                    an applied or committed status.
+                  enum: [pending-human-review]
+          apply_log_entry:
+            type: string
+            description: >
+              Markdown run-entry block to append to
+              docs/ai-learnings/APPLY_LOG.md - every row carries Status
+              "pending"; only a human moves a row to applied/rejected.
+          summary:
+            type: string
+            description: >
+              Plain text synthesis summary (proposed/pending counts),
+              max 200 words.
+      timeout_seconds: 300
+      max_retries: 1
