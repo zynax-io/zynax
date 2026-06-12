@@ -40,7 +40,8 @@ As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#
 | EventBus over NATS JetStream | #772 | Publish/Subscribe/Unsubscribe + DLQ (ADR-022) |
 | Config convergence | #670 | libs/zynaxconfig shared package |
 | Container image source-of-truth | #855 | `images.yaml` + drift gate + ADR-024 |
-| Self-hosting dev-automation | #873 | orchestrator + 9-expert mesh, Waves 0–2 |
+| Self-hosting dev-automation | #873 | Waves 0–3 superseded (#1129); Wave 4 delivered to boundary via #881; closing |
+| DevAuto Wave 4 — self-hosted issue-delivery | #881 | O1–O7 + O9 delivered; O8 → M7 #1103; canvas Implemented-at-boundary; closing |
 | Orchestrator concurrency hardening | #1001 | worktree isolation + idempotent dispatch |
 | Health probes · mTLS · supply-chain | #463 #464 #465 | startup/readiness/liveness, cert-manager, cosign+SBOM |
 | memory-service KV + vector | #773 | Redis KV + pgvector adapters, namespace TTL isolation, all 10 RPCs + BDD |
@@ -58,7 +59,7 @@ As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#
 **e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132; O4 #1090 ✅ event-bus + memory-service enabled with required assertions; O5 #1091 ✅ runner sizing verified on full stack; bug #1149 ✅ fixed — JetStream subject overlap, completed/failed CloudEvent assertions now required — O6 #1092 ✅ temporal leg required + skip-shim; argo advisory until stable — EPIC #1086 complete)**,
 Postgres off Bitnami (#1073 — ✅ complete: O1 ADR-026, O2–O3 #1076, O4–O5 #1077, O6 #1078, O7–O8 #1079; canvas Implemented, EPIC ready to close),
 CI-E2E gate (#771 — #1070 ✅, #1071 ✅ merged via PR #1155: engine matrix temporal/argo in e2e-smoke; bug #1157 ✅ fixed — ArgoEngine submit now sends the WorkflowCreateRequest envelope, argo leg unblocked; #1092 ✅ — EPIC #771 complete),
-DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created; O1 #1096 ✅ ADR-028; O2 #1097 ✅ 9 expert AgentDefs; O3 #1098 ✅ orchestrator Workflow manifest; O4 #1099 ✅ issue-delivery intake→plan→route Workflow; O5 #1100 ✅ context-slice injection binding in task-broker; O6 #1101 ✅ delivery leg inject→implement→verify→decide; O7 #1102 ✅ learning-synthesizer AgentDef (human-gated); next: O8 #1103 platform-readiness flip + e2e).
+DevAuto Wave 4 (#881 — ✅ delivered to the platform-readiness boundary: O1 #1096 ADR-028; O2 #1097 9 expert AgentDefs; O3 #1098 orchestrator Workflow; O4 #1099 issue-delivery intake→plan→route; O5 #1100 context-slice injection binding; O6 #1101 delivery leg inject→implement→verify→decide; O7 #1102 learning-synthesizer AgentDef; O9 #1104 status reconcile. O8 #1103 deferred to M7 — operator decision 2026-06-12, four code-verified platform gaps (compiler `output:` rejection, Go-template vs CEL guards, missing orchestration-capability providers, no gateway outputs/decision-log read path; analysis in #1103 comments); the strict xfail in `automation/tests/test_platform_readiness.py` remains the honest gate. Canvas Implemented-at-boundary; EPICs #881 and #873 close at the boundary).
 
 ---
 
@@ -289,22 +290,27 @@ All 6 stories merged 2026-06-08.
 | J.6 feat(memory-service): gRPC handler wiring — all 10 RPCs, integration tests | [#818](https://github.com/zynax-io/zynax/issues/818) | ✅ Merged |
 | J.7 test: BDD step implementations for memory_service.feature | [#819](https://github.com/zynax-io/zynax/issues/819) | ✅ Merged |
 
-### M6.DevAuto — Self-hosting dev-automation (#873) — 🔄 In Progress
+### M6.DevAuto — Self-hosting dev-automation (#873) — ✅ DELIVERED TO BOUNDARY (EPIC closing)
 
-Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is BLOCKED on #626 + #772)
+Canvas (Wave 4): `docs/spdd/881-self-hosted-issue-delivery/canvas.md` — Status: **Implemented**
+(delivered through O7 + O9; O8 → M7 [#1103](https://github.com/zynax-io/zynax/issues/1103)).
+Waves 0–3 were superseded by the generalized delivery commands and retired in #1129 (configs
+archived under `docs/archive/dev-advisory/`; learnings kept in `docs/ai-learnings/`).
+EPICs #873 and #881 close at the platform-readiness boundary; the strict xfail in
+`automation/tests/test_platform_readiness.py` remains the honest gate, continued under M7 (#1103).
 
 | Story | Issue | Status |
 |-------|-------|--------|
 | DevAuto.1 docs(automation): STATUS-AND-DIRECTION.md | [#874](https://github.com/zynax-io/zynax/issues/874) | ✅ Merged (#884) |
 | DevAuto.2 chore(automation): expert mesh YAML configs | [#875](https://github.com/zynax-io/zynax/issues/875) | ✅ Merged |
 | DevAuto.3 chore(automation): orchestrator config | [#876](https://github.com/zynax-io/zynax/issues/876) | ✅ Merged |
-| DevAuto.4 ci: Wave 0 advisory workflow | [#877](https://github.com/zynax-io/zynax/issues/877) | ✅ Merged (PR #969) |
-| DevAuto.5 ci: Wave 1 orchestrator aggregation | [#878](https://github.com/zynax-io/zynax/issues/878) | ⬜ Ready |
-| DevAuto.6 ci: Wave 2 | [#879](https://github.com/zynax-io/zynax/issues/879) | ⬜ Pending |
-| DevAuto.7 ci: Wave 3 | [#880](https://github.com/zynax-io/zynax/issues/880) | ⬜ Pending |
-| DevAuto.8 feat: Wave 4 aspirational | [#881](https://github.com/zynax-io/zynax/issues/881) | 🔄 In progress — O1 [#1096](https://github.com/zynax-io/zynax/issues/1096) ✅ (ADR-028); O2 [#1097](https://github.com/zynax-io/zynax/issues/1097) ✅ (9 expert AgentDefs); O3 [#1098](https://github.com/zynax-io/zynax/issues/1098) ✅ (orchestrator Workflow); O4 [#1099](https://github.com/zynax-io/zynax/issues/1099) ✅ (issue-delivery intake→plan→route); O5 [#1100](https://github.com/zynax-io/zynax/issues/1100) ✅ (context-slice injection binding); O6 [#1101](https://github.com/zynax-io/zynax/issues/1101) ✅ (delivery leg inject→implement→verify→decide); O7 [#1102](https://github.com/zynax-io/zynax/issues/1102) ✅ (learning-synthesizer AgentDef, human-gated); O8–O9 #1103–#1104 |
-| DevAuto.9 test: xfail gate | [#882](https://github.com/zynax-io/zynax/issues/882) | ⬜ Pending |
-| DevAuto.10 docs: AGENTS.md pointer + README | [#883](https://github.com/zynax-io/zynax/issues/883) | ⬜ Pending |
+| DevAuto.4 ci: Wave 0 advisory workflow | [#877](https://github.com/zynax-io/zynax/issues/877) | ✅ Merged (PR #969) — superseded, retired in #1129 |
+| DevAuto.5 ci: Wave 1 orchestrator aggregation | [#878](https://github.com/zynax-io/zynax/issues/878) | ✅ Closed — superseded (#1129) |
+| DevAuto.6 ci: Wave 2 | [#879](https://github.com/zynax-io/zynax/issues/879) | ✅ Closed — superseded (#1129) |
+| DevAuto.7 ci: Wave 3 | [#880](https://github.com/zynax-io/zynax/issues/880) | ✅ Closed — demoted to weekly audit (#1107/#1113) |
+| DevAuto.8 feat: Wave 4 self-hosted issue-delivery | [#881](https://github.com/zynax-io/zynax/issues/881) | ✅ Delivered to boundary — O1 [#1096](https://github.com/zynax-io/zynax/issues/1096) ADR-028 · O2 [#1097](https://github.com/zynax-io/zynax/issues/1097) 9 expert AgentDefs · O3 [#1098](https://github.com/zynax-io/zynax/issues/1098) orchestrator Workflow · O4 [#1099](https://github.com/zynax-io/zynax/issues/1099) intake→plan→route · O5 [#1100](https://github.com/zynax-io/zynax/issues/1100) context-slice binding · O6 [#1101](https://github.com/zynax-io/zynax/issues/1101) delivery leg · O7 [#1102](https://github.com/zynax-io/zynax/issues/1102) learning-synthesizer · O9 [#1104](https://github.com/zynax-io/zynax/issues/1104) reconcile · O8 [#1103](https://github.com/zynax-io/zynax/issues/1103) ⏸ deferred to M7 (platform gaps — see #1103 comments) |
+| DevAuto.9 test: xfail gate | [#882](https://github.com/zynax-io/zynax/issues/882) | ✅ Closed — xfail gate in place; flip continues under M7 (#1103) |
+| DevAuto.10 docs: AGENTS.md pointer + README | [#883](https://github.com/zynax-io/zynax/issues/883) | ✅ Closed |
 
 ---
 
@@ -324,10 +330,8 @@ Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is B
 - **#796** feat(engine-adapter): Argo engine adapter implementation (#766, O2)
 - **#797** feat(api-gateway): engine config routing (#766, O3)
 
-**M6.DevAuto continuation:**
-- **#879** ci: Wave 2 (depends on #878)
-- **#880** ci: Wave 3 (depends on #879)
-- **#881** feat: Wave 4 (UNBLOCKED — #626 ✅ #772 ✅)
+**M6.DevAuto — ✅ complete (delivered to boundary):** Wave 4 (#881) delivered through O7 + O9;
+O8 #1103 deferred to M7; EPICs #881/#873 closing at the platform-readiness boundary.
 
 **SDK/docs:**
 - **#808** docs(agents): SDK docstrings step 2 (#769, O4)

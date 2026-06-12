@@ -11,6 +11,36 @@
 
 ---
 
+## Status update (2026-06-12) — read this first
+
+This document is the **original 2026-06-03 architecture direction**, kept for design
+rationale and wave history. Since it was generated:
+
+- **Waves 0–3 were superseded and retired** (#1107, #1129) — configs archived under
+  `docs/archive/dev-advisory/`; the near-term plane is now the generalized Claude Code
+  delivery commands (EPIC #1108). Wave 3's per-merge mesh was demoted to `weekly-audit.yml`.
+- **Wave 4 prerequisites landed:** M6.H #626 (Postgres repos) ✅ and M6.I #772 (EventBus
+  over NATS JetStream) ✅.
+- **Wave 4 (EPIC #881) was delivered to the platform-readiness boundary:** ADR-028 split
+  (O1 #1096), 9 expert AgentDefs (O2 #1097), orchestrator Workflow (O3 #1098),
+  issue-delivery Workflow intake→plan→route (O4 #1099) + delivery leg
+  inject→implement→verify→decide (O6 #1101), context-slice injection binding in
+  task-broker (O5 #1100), learning-synthesizer AgentDef (O7 #1102), status reconcile
+  (O9 #1104).
+- **The live `zynax apply` e2e (O8 #1103) is deferred to M7** — four code-verified
+  platform gaps: workflow-compiler rejects `output:` (deferred to M7+ in `manifest.go`),
+  Go-template guards vs CEL evaluation (fail-closed), no capability providers for
+  review/aggregate/act/notify/record, no gateway outputs/decision-log read path. The
+  strict xfail in `automation/tests/test_platform_readiness.py` remains the honest gate.
+  EPICs #873/#881 closed at this boundary; #1103 continues under M7.
+
+Sections below describing Waves 0–3 as runnable, `automation/experts/` +
+`automation/orchestrator/` as live paths, or Wave 4 as blocked on M6.H/M6.I are
+**historical**. Current entry point: [`README.md`](README.md) · canvas:
+`docs/spdd/881-self-hosted-issue-delivery/canvas.md`.
+
+---
+
 ## 1. PR + Git-History Synthesis
 
 ### Architecture direction
@@ -276,6 +306,10 @@ flags: []                 # tier-2 security flags or blocker flags (empty if non
 
 ### Wave 4 — Self-Hosted Aspirational (aspirational plane)
 
+> **Delivered to boundary (2026-06-12):** manifests + bindings shipped (O1–O7 + O9 of
+> EPIC #881, per ADR-028); the live-platform e2e (O8) is deferred to M7 — see #1103 and
+> the status update at the top of this file. The bullet list below is the original design.
+
 - **Plane:** Aspirational
 - **What would run:** Orchestrator + 9 experts as Zynax `kind: AgentDef` workflows
 - **Zynax capabilities needed:**
@@ -310,6 +344,11 @@ Labels: `type: <bug|chore>`, `area: ci`, `milestone: M6`, `status: needs-triage`
 ---
 
 ## 9. The Failing Test
+
+> **Update (2026-06-12):** the schema-validation tests in this file now pass (O2/O3 of
+> #881); only `test_orchestrator_executes_on_platform` remains `xfail(strict=True)`.
+> Its flip is O8 (#1103), deferred to M7 — the remaining blockers are the four platform
+> gaps listed in the status update at the top of this file, not M6.H/M6.I.
 
 **Location:** `automation/tests/test_platform_readiness.py`  
 **Framework:** pytest with `@pytest.mark.xfail(strict=True, ...)`  
@@ -347,6 +386,11 @@ Open a `test(automation): wave4 gate passes — remove xfail marker` PR at that 
 ---
 
 ## 10. File Layout Proof (automation/ is NOT ambient context)
+
+> **Update (2026-06-12):** `experts/` and `orchestrator/` were archived to
+> `docs/archive/dev-advisory/` in #1129; `workflows/` now holds the delivered Wave 4
+> manifests. Current layout: see [`README.md`](README.md). The non-ambient-context
+> proof below still holds.
 
 ```
 automation/             ← THIS FOLDER — not in any AGENTS.md glob
