@@ -95,13 +95,19 @@ full list):
 | `KIND_NODE_IMAGE`      | `kindest/node:v1.29.2` | kind node image (digest-pinnable in CI) |
 | `WAIT_TIMEOUT`         | `600s`             | per-resource rollout wait |
 | `ZYNAX_CAPABILITY_TIMEOUT` | `30s`          | capability dispatch timeout asserted by `e2e-failure.sh` |
+| `E2E_ENGINE`           | `temporal`         | engine for the deployed stack (`temporal` \| `argo`, #1071/ADR-015). `argo` layers `values-e2e-argo.yaml` and installs the Argo Workflows control plane |
+| `ARGO_WORKFLOWS_CHART_VERSION` | `0.47.5`   | argo-helm `argo-workflows` chart pin used when `E2E_ENGINE=argo` (Argo Workflows v3.7.11) |
 
 ## What `cluster-up.sh` does
 
 1. Creates a 3-node kind cluster (1 control-plane + 2 workers) from
    [`kind-config.yaml`](kind-config.yaml), exposing the api-gateway REST port on
    host `:8080`.
-2. Installs cert-manager (CRDs + controllers).
+2. Installs cert-manager (CRDs + controllers). When `E2E_ENGINE=argo`, also
+   installs the Argo Workflows control plane (pinned argo-helm chart: CRDs,
+   workflow-controller, tokenless argo-server, executor SA/RBAC in the release
+   namespace) plus the `zynax-ir-interpreter` WorkflowTemplate
+   ([`manifests/argo-ir-interpreter.yaml`](manifests/argo-ir-interpreter.yaml)).
 3. Deploys `zynax-umbrella` with all 7 services enabled — including `event-bus`
    and `memory-service` (#1090) — pinned to the `:main` GHCR lane (or the
    pre-merge staging lane when `E2E_IMAGE_TAG` is set).
@@ -126,8 +132,12 @@ and that rollback restores every service to a healthy state.
 ## CI
 
 Live cluster bring-up is exercised by the gated `e2e-smoke.yml` workflow added
-in #770 step 5 (#813). It runs `cluster-up.sh` then `helm-upgrade.sh`, triggers
-only on changes to `helm/**`, `services/**`, or `engine-adapter/**` (plus manual
-`workflow_dispatch`), and is **not** a required gate on every PR. All Actions are
+in #770 step 5 (#813). Since #1071 it runs a 2-leg engine matrix
+(`engine ∈ {temporal, argo}`, `fail-fast: false`): the temporal leg runs
+`cluster-up.sh` → `e2e-happy.sh` → `e2e-failure.sh` → `helm-upgrade.sh`; the
+argo leg runs `cluster-up.sh` (with `E2E_ENGINE=argo`) → `e2e-argo.sh`. It
+triggers only on changes to `helm/**`, `services/**`, `engine-adapter/**`, or
+`scripts/e2e/**` (plus manual `workflow_dispatch`), and is **not** a required
+gate on every PR. All Actions are
 SHA-pinned. The kind cluster is ephemeral per job run; kubeconfigs are never
 committed.

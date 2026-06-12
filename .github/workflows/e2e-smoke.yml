@@ -1,10 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # e2e smoke — gated/optional live-cluster end-to-end test (EPIC G #770 step 5, #813).
 #
-# Brings up an ephemeral kind cluster, deploys the zynax-umbrella chart, runs the
-# happy-path and failure-path workflow assertions (scripts/e2e/e2e-happy.sh,
-# scripts/e2e/e2e-failure.sh), then the Helm upgrade/rollback assertion
-# (scripts/e2e/helm-upgrade.sh).
+# Runs a 2-leg engine matrix (engine ∈ {temporal, argo}, fail-fast: false —
+# #1071, EPIC #771, ADR-015 pluggable engines). Each leg brings up its own
+# ephemeral kind cluster on its own runner and deploys the zynax-umbrella chart
+# with engine-selecting values (cluster-up.sh + values-e2e-argo.yaml overlay):
+#   - temporal leg: happy-path + failure-path workflow assertions
+#     (scripts/e2e/e2e-happy.sh, scripts/e2e/e2e-failure.sh), then the Helm
+#     upgrade/rollback assertion (scripts/e2e/helm-upgrade.sh). This leg is the
+#     protected baseline — behavior identical to the pre-matrix gate.
+#   - argo leg: Argo happy-path assertion (scripts/e2e/e2e-argo.sh — Workflow
+#     CR reaches phase Succeeded). cluster-up.sh additionally installs the Argo
+#     Workflows control plane (pinned argo-helm chart) for this leg.
 #
 # GATED, NOT a required PR gate: it triggers ONLY on changes to helm/**,
 # services/**, or engine-adapter/**, plus manual workflow_dispatch. It is
@@ -41,10 +48,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  helm-upgrade:
-    name: helm upgrade/rollback (kind)
+  e2e:
+    name: e2e smoke (${{ matrix.engine }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      # Engine matrix (#1071, EPIC #771): both pluggable engines (ADR-015) are
+      # validated per run. fail-fast off so a red argo leg never cancels the
+      # protected temporal baseline (and vice versa).
+      fail-fast: false
+      matrix:
+        engine: [temporal, argo]
     env:
       HELM_VERSION: v3.17.3
       KIND_VERSION: v0.23.0
@@ -122,9 +136,15 @@ jobs:
           helm repo update
 
       - name: Bring up cluster + deploy stack
+        # E2E_ENGINE selects the umbrella values per matrix leg (ADR-015): the
+        # argo leg layers values-e2e-argo.yaml and installs the Argo Workflows
+        # control plane (pinned argo-helm chart) before the umbrella deploy.
+        env:
+          E2E_ENGINE: ${{ matrix.engine }}
         run: scripts/e2e/cluster-up.sh
 
       - name: Happy-path workflow assertion
+        if: matrix.engine == 'temporal'
         # Submits code-review.yaml via api-gateway, asserts the workflow
         # reaches a terminal success state, the workflow.completed CloudEvent
         # lands on NATS JetStream, and the memory-service KV plane roundtrips.
@@ -132,12 +152,25 @@ jobs:
         run: scripts/e2e/e2e-happy.sh
 
       - name: Failure-path workflow assertion
+        if: matrix.engine == 'temporal'
         # Submits a workflow whose first state invokes an unreachable
         # capability, asserts it reaches a terminal failed state and the
         # workflow.failed CloudEvent lands on NATS JetStream.
         run: scripts/e2e/e2e-failure.sh
 
+      - name: Argo happy-path workflow assertion
+        if: matrix.engine == 'argo'
+        # Submits code-review.yaml via api-gateway against the ArgoEngine and
+        # asserts the gateway projection reaches a terminal success state AND
+        # the underlying Argo `Workflow` CR reaches phase Succeeded — the
+        # engine's own source of truth (#811).
+        run: scripts/e2e/e2e-argo.sh
+
       - name: Helm upgrade/rollback smoke
+        if: matrix.engine == 'temporal'
+        # Temporal leg only: helm-upgrade.sh re-applies values-e2e.yaml without
+        # the argo overlay, which would silently flip the release back to the
+        # Temporal engine mid-leg on the argo leg.
         run: scripts/e2e/helm-upgrade.sh
 
       - name: Tear down cluster

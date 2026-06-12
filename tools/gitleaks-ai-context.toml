@@ -67,6 +67,8 @@ paths       = [
   # Helm templates legitimately use cluster-local DNS names (svc.cluster.local)
   '''helm/.*\.yaml$''',
   '''helm/.*\.txt$''',
+  # e2e overlay values use cluster-internal DNS for Argo server (svc.cluster.local)
+  '''scripts/e2e/.*\.yaml$''',
 ]
 
 [[rules]]

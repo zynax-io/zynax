@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# values-e2e-argo.yaml — Argo-leg overlay for the e2e engine matrix (#1071,
+# EPIC #771). Applied by cluster-up.sh ON TOP of values-e2e.yaml when
+# E2E_ENGINE=argo, so the release shape is identical to the Temporal leg
+# except for the engine selection (ADR-015: the engine flows through
+# umbrella values — never hardcoded in workflow or scripts).
+#
+# The Argo Workflows control plane (CRDs + workflow-controller + argo-server)
+# is installed by cluster-up.sh via the version-pinned community argo-helm
+# chart (same bring-up pattern as cert-manager). That chart also provisions
+# the workflow executor ServiceAccount "argo-workflow" + RBAC in the release
+# namespace (workflow.serviceAccount + controller.workflowNamespaces).
+
+zynax-engine-adapter:
+  env:
+    activeEngine: "argo"
+    # argo-server Service created by the argo-workflows chart (release
+    # "argo-workflows" in namespace "argo"); runs tokenless (--auth-mode=server)
+    # over plain HTTP (server.secure=false) for the ephemeral smoke cluster.
+    argoServerURL: "http://argo-workflows-server.argo.svc.cluster.local:2746"
+    # Create Workflow CRs in the release namespace so e2e-argo.sh can assert
+    # the CR phase (`Workflow` → Succeeded) next to the rest of the stack.
+    argoNamespace: "zynax"
+    # Harness WorkflowTemplate applied by cluster-up.sh
+    # (scripts/e2e/manifests/argo-ir-interpreter.yaml).
+    argoWorkflowTemplateRef: "zynax-ir-interpreter"
+    # Executor ServiceAccount created by the argo-workflows chart in the
+    # release namespace.
+    argoServiceAccount: "argo-workflow"

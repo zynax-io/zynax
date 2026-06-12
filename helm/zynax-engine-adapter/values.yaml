@@ -32,6 +32,16 @@ env:
   # never blocks workflow execution (e.g. when zynax-event-bus is disabled).
   eventBusAddr: "zynax-event-bus:50056"
   activeEngine: "temporal"
+  # ArgoEngine connection settings — consumed only when activeEngine=argo
+  # (ADR-015 pluggable engines). The configmap/deployment templates gate these
+  # keys on activeEngine, so with the default Temporal engine the rendered
+  # manifests are byte-identical to before these values existed. Defaults
+  # mirror the binary's env defaults (cmd/engine-adapter/main.go).
+  argoServerURL: "http://localhost:2746"
+  argoNamespace: "argo"
+  argoWorkflowTemplateRef: "zynax-ir-interpreter"
+  # ServiceAccount bound to submitted Workflows; empty = cluster default.
+  argoServiceAccount: ""
   grpcCallTimeoutS: 30
   maxActivityAttempts: 3
   livenessThresholdS: 60
