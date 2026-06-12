@@ -300,7 +300,7 @@ file should fit on one screen.*
 |--------|--------|--------------------|
 | Deployment frequency | Multiple per day | Tag-triggered release, retag-not-rebuild promotion, no merge windows |
 | Lead time for changes | <1 day p50 | PR size limit, path-aware CI lanes, merge on green |
-| Change failure rate | <5% | Pre-merge image scan, BDD contract tests, e2e-smoke gate (⏳ advisory today — promotion to required tracked in #1092) |
+| Change failure rate | <5% | Pre-merge image scan, BDD contract tests, e2e-smoke gate (temporal leg required since #1092; argo leg advisory until stable) |
 | MTTR | <1 hour | Linear squash-merge history, `git bisect`, revert-as-PR |
 
 ## CNCF reference patterns

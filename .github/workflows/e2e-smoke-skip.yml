@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# Required-check satisfier for the path-conditional e2e gate (#1092).
+#
+# "e2e smoke (temporal)" is a REQUIRED status check in the main-protection
+# ruleset, but e2e-smoke.yml only triggers when e2e-relevant paths change.
+# Without this shim, a docs-only PR would wait forever on the "Expected"
+# check. This workflow uses the COMPLEMENT of e2e-smoke.yml's `paths:`
+# (same list under `paths-ignore:`) and reports an instant success under
+# the exact same job name, so every PR gets exactly one "e2e smoke
+# (temporal)" check run:
+#   - e2e-relevant change  → real gate runs (kind cluster, full assertions)
+#   - anything else        → this shim runs (no-op success)
+# A PR touching both kinds of files matches `paths:` (real gate) and does
+# NOT match `paths-ignore:` (which only fires when ALL changed files are
+# ignored) — never both, never neither.
+#
+# KEEP THE PATH LISTS IN SYNC with .github/workflows/e2e-smoke.yml.
+#
+# The argo leg is intentionally NOT shimmed: it stays advisory until it
+# accumulates a stable green history (decision recorded on #1092,
+# 2026-06-12) — promote it by adding the same shim job + ruleset entry.
+
+name: e2e-smoke-skip
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "helm/**"
+      - "services/**"
+      - "engine-adapter/**"
+      - "scripts/e2e/**"
+      - ".github/workflows/e2e-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-smoke-temporal:
+    name: "e2e smoke (temporal)"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: No e2e-relevant paths changed
+        run: echo "No e2e-relevant paths in this PR — required check satisfied by shim (#1092)."
