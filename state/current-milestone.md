@@ -55,7 +55,7 @@ As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#
 | DevAuto Wave 3 | #880 | post-merge completeness mesh |
 
 ### In progress / remaining
-**e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132; O4 #1090 ✅ event-bus + memory-service enabled with required assertions — next: #1091 verification, #1092 promotion)**,
+**e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132; O4 #1090 ✅ event-bus + memory-service enabled with required assertions; O5 #1091 ✅ runner sizing verified on full stack — next: #1092 promotion (after #1071/#1149))**,
 Postgres off Bitnami (#1073 — ✅ complete: O1 ADR-026, O2–O3 #1076, O4–O5 #1077, O6 #1078, O7–O8 #1079; canvas Implemented, EPIC ready to close),
 CI-E2E gate (#771 — #1070 ✅, #1071 remaining),
 DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created; O1 #1096 ✅ ADR-028; O2 #1097 ✅ 9 expert AgentDefs; O3 #1098 ✅ orchestrator Workflow manifest; O4 #1099 ✅ issue-delivery intake→plan→route Workflow).
@@ -74,10 +74,10 @@ up but fails at the happy-path assertion; this epic closes the execution-path ga
 | O2 | [#1088](https://github.com/zynax-io/zynax/issues/1088) minimal capability worker + reference workflow → succeeded | feat(infra) | M | ✅ merged (PR #1095) |
 | O3 | [#1089](https://github.com/zynax-io/zynax/issues/1089) event-bus + memory-service in pre-merge build-images matrix | ci(infra) | M | ✅ satisfied by PR #1132 (shift-left, ADR-027) — closed with evidence |
 | O4 | [#1090](https://github.com/zynax-io/zynax/issues/1090) enable event-bus + memory-service in e2e + assertions | test(infra) | M | ✅ merged — lifecycle CloudEvent + memory-Get required, no skip path; completed-event check gated on bug #1149 |
-| O5 | [#1091](https://github.com/zynax-io/zynax/issues/1091) right-size e2e-smoke runner / pod resources | ci(infra) | S | resources merged (PR #1094); verify on full gate run |
+| O5 | [#1091](https://github.com/zynax-io/zynax/issues/1091) right-size e2e-smoke runner / pod resources | ci(infra) | S | ✅ verified 2026-06-12 — full 7-service stack GREEN on ubuntu-latest (2 CPU/7 GB), zero Evicted/OOMKilled/Pending; 3 consecutive green runs (PRs #1148, #1150) |
 | O6 | [#1092](https://github.com/zynax-io/zynax/issues/1092) promote gate advisory → stable/required | ci | S | #1090 #1091 #1071 · flip `E2E_REQUIRE_COMPLETED_EVENT` once #1149 fixed |
 
-**Ready now for `/milestone-orchestrate`:** #1091 (O5 — verify right-sizing on the full 7-service gate). Then O6 (#1092, with #1071).
+**Ready now for `/milestone-orchestrate`:** #1092 (O6 — promote gate to required; depends #1071, flip `E2E_REQUIRE_COMPLETED_EVENT` once #1149 fixed).
 
 ## Recently Closed (last updated 2026-06-11)
 
@@ -317,7 +317,7 @@ Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is B
 - **#840** ci(infra): Python adapters in multi-arch release pipeline
 - **#841** ci(infra): audit and minimize image sizes
 
-**M6.E2E-Green chain (O1 #1087 / O2 #1088 / O3 #1089 / O4 #1090 all ✅):** #1091 (O5, verify on full 7-service gate) → #1092 (O6, needs #1087 #1088 #1090 #1091 #1071).
+**M6.E2E-Green chain (O1 #1087 / O2 #1088 / O3 #1089 / O4 #1090 / O5 #1091 all ✅):** #1092 (O6, needs #1071 + #1149 fix for `E2E_REQUIRE_COMPLETED_EVENT`).
 **M6.Postgres chain — ✅ complete:** #1076 ✅, #1077 ✅, #1078 ✅, #1079 ✅ (O1–O8 all delivered; canvas Implemented; EPIC #1073 ready to close).
 
 **M6.Argo continuation (after #795 merges):**
