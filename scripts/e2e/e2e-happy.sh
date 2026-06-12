@@ -81,23 +81,30 @@ cleanup() {
 trap cleanup EXIT
 
 # port_forward <resource> <local_port> <remote_port>
-# Starts kubectl port-forward in background and waits up to 10s for the port
-# to accept connections.
+# Starts kubectl port-forward in background and waits up to PF_TIMEOUT seconds
+# (default: 30) for the port to accept connections.
+PF_TIMEOUT="${PF_TIMEOUT:-30}"
+
 port_forward() {
   local resource="$1" local_port="$2" remote_port="$3"
+  local pf_log
+  pf_log=$(mktemp)
   kubectl -n "${NAMESPACE}" port-forward "${resource}" \
-    "${local_port}:${remote_port}" >/dev/null 2>&1 &
+    "${local_port}:${remote_port}" >"${pf_log}" 2>&1 &
   local pf_pid=$!
   _PF_PIDS+=("$pf_pid")
-  # Wait until the port is reachable (up to 10 s).
   local i=0
   while ! (echo >/dev/tcp/127.0.0.1/"${local_port}") 2>/dev/null; do
+    if ! kill -0 "${pf_pid}" 2>/dev/null; then
+      fail "port-forward ${resource}:${remote_port} exited unexpectedly: $(cat "${pf_log}")"
+    fi
     i=$((i + 1))
-    if [[ $i -ge 10 ]]; then
-      fail "port-forward ${resource}:${remote_port} → localhost:${local_port} did not become ready in 10s"
+    if [[ $i -ge ${PF_TIMEOUT} ]]; then
+      fail "port-forward ${resource}:${remote_port} → localhost:${local_port} did not become ready in ${PF_TIMEOUT}s"
     fi
     sleep 1
   done
+  rm -f "${pf_log}"
   log "port-forward ready: localhost:${local_port} → ${resource}:${remote_port}"
 }
 
