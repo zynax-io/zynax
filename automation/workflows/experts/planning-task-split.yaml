@@ -1,0 +1,160 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/workflows/experts/planning-task-split.yaml
+#
+# Planning/task-split expert — reviews changes against the active milestone
+# plan, checks issue scope conformance (one PR per issue, one commit per
+# logical change), and detects scope creep or missing prerequisite issues.
+#
+# kind: AgentDef translation (ADR-028) of the near-term expert config
+# docs/archive/dev-advisory/experts/planning-task-split.yaml — the source of
+# truth for context_slice, I/O contract, and aggregation_weight (1:1).
+# The planner extension of this expert (the /m6-plan brain with the
+# identify_next_issue capability) lives in planner.yaml in this directory.
+# The context slice is bound at dispatch time into the `context_slice` field
+# of the review capability's input_payload (strict isolation, ADR-028).
+# Runtime binding (spec.runtime) lands in O5 (#1100).
+#
+# Plane: platform (Wave 4)
+# Issue: #1097 (EPIC #881 — O2)
+
+apiVersion: zynax.io/v1alpha1
+kind: AgentDef
+
+metadata:
+  name: planning-task-split
+  namespace: automation
+  labels:
+    plane: platform
+    epic: "881"
+    aggregation-weight: "1.0"
+    context-max-tokens: "3000"
+
+spec:
+  capabilities:
+    - name: review
+      description: >
+        Review a change against the active milestone plan: issue scope
+        conformance (one PR per issue, one commit per logical change),
+        PR size gate, scope creep, and missing prerequisite issues.
+      input_schema:
+        type: object
+        required: [trigger, diff_summary, changed_files, context_slice]
+        properties:
+          trigger:
+            type: string
+            description: Event that initiated this review.
+            enum: [pull_request, push, post_merge]
+          diff_summary:
+            type: string
+            description: git diff --stat output for the change under review.
+          changed_files:
+            type: array
+            description: List of changed file paths.
+            items:
+              type: string
+          context_slice:
+            type: object
+            description: >
+              Bounded context slice injected at dispatch time (ADR-028).
+              Only the files declared below, hard-capped at max_tokens.
+              Strict isolation - never another expert's slice or output.
+            required: [files, max_tokens]
+            properties:
+              files:
+                type: array
+                description: >
+                  Verbatim from docs/archive/dev-advisory/experts/planning-task-split.yaml.
+                items:
+                  type: string
+                default:
+                  - "state/current-milestone.md"
+                  - "docs/milestones/M6-planning.md"
+                  - "docs/milestones/M5-plan.md"
+              max_tokens:
+                type: integer
+                description: Hard context budget (tokens) per invocation.
+                default: 3000
+          pr_number:
+            type: integer
+            description: Pull request number (pull_request trigger only).
+          pr_title:
+            type: string
+            description: Pull request title (pull_request trigger only).
+          pr_labels:
+            type: array
+            description: List of current PR labels.
+            items:
+              type: string
+          open_issues:
+            type: array
+            description: List of last 50 open issues (title + number + labels).
+            items:
+              type: object
+          pr_linked_issues:
+            type: array
+            description: List of issue numbers referenced in PR body.
+            items:
+              type: integer
+      output_schema:
+        type: object
+        required: [summary, recommended_actions, reasons_decisions, confidence, flags]
+        properties:
+          summary:
+            type: string
+            description: Plain text summary, max 200 words.
+          recommended_actions:
+            type: array
+            description: Ordered list of specific actions with rationale.
+            items:
+              type: object
+              required: [action, rationale, priority]
+              properties:
+                action:
+                  type: string
+                rationale:
+                  type: string
+                priority:
+                  type: string
+                  enum: [low, medium, high]
+          reasons_decisions:
+            type: array
+            description: Reasoning chain for each recommendation.
+            items:
+              type: string
+          confidence:
+            type: string
+            description: Overall confidence level for this expert's output.
+            enum: [low, medium, high]
+          flags:
+            type: array
+            description: Tier-2 security flags or blocker flags (empty if none).
+            items:
+              type: string
+          extra_fields:
+            type: object
+            description: Expert-specific additional output fields.
+            properties:
+              scope_creep_detected:
+                type: boolean
+                description: True if PR touches files outside stated issue scope.
+              missing_prerequisite_issues:
+                type: array
+                description: Issues that should be open/closed first.
+                items:
+                  type: string
+              pr_size_lines:
+                type: integer
+                description: Total changed lines (excluding generated files).
+              pr_size_status:
+                type: string
+                description: PR size verdict per the size gate bands.
+                enum: [ok, warn, justify, blocked]
+              multiple_logical_changes:
+                type: boolean
+                description: True if commits appear to bundle unrelated work.
+              milestone_alignment:
+                type: string
+                description: Milestone alignment verdict.
+                enum: [on-track, at-risk, out-of-scope]
+      timeout_seconds: 300
+      max_retries: 1

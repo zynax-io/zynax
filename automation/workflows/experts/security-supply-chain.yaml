@@ -1,0 +1,166 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/workflows/experts/security-supply-chain.yaml
+#
+# Security/supply-chain expert — reviews workflow security steps, SBOM/cosign
+# attestation, Scorecard posture, CodeQL alerts, and dependency audit results.
+# Raises tier-2 flags immediately; never auto-remediates.
+#
+# kind: AgentDef translation (ADR-028) of the near-term expert config
+# docs/archive/dev-advisory/experts/security-supply-chain.yaml — the source
+# of truth for context_slice, I/O contract, and aggregation_weight (1:1).
+# The context slice is bound at dispatch time into the `context_slice` field
+# of the review capability's input_payload (strict isolation, ADR-028).
+# Runtime binding (spec.runtime) lands in O5 (#1100).
+#
+# Plane: platform (Wave 4)
+# Issue: #1097 (EPIC #881 — O2)
+
+apiVersion: zynax.io/v1alpha1
+kind: AgentDef
+
+metadata:
+  name: security-supply-chain
+  namespace: automation
+  labels:
+    plane: platform
+    epic: "881"
+    aggregation-weight: "1.5"
+    context-max-tokens: "3000"
+
+spec:
+  capabilities:
+    - name: review
+      description: >
+        Review CI workflow security posture, SBOM and cosign attestation
+        steps, Scorecard and CodeQL findings, and dependency audit results.
+        Tier-2 flags raised here escalate immediately to a human; this
+        expert never auto-remediates.
+      input_schema:
+        type: object
+        required: [trigger, diff_summary, changed_files, context_slice]
+        properties:
+          trigger:
+            type: string
+            description: Event that initiated this review.
+            enum: [pull_request, push, post_merge]
+          diff_summary:
+            type: string
+            description: git diff --stat output for the change under review.
+          changed_files:
+            type: array
+            description: List of changed file paths.
+            items:
+              type: string
+          context_slice:
+            type: object
+            description: >
+              Bounded context slice injected at dispatch time (ADR-028).
+              Only the files declared below, hard-capped at max_tokens.
+              Strict isolation - never another expert's slice or output.
+            required: [files, max_tokens]
+            properties:
+              files:
+                type: array
+                description: >
+                  Verbatim from docs/archive/dev-advisory/experts/security-supply-chain.yaml.
+                items:
+                  type: string
+                default:
+                  - ".github/workflows/*.yml"
+                  - "SECURITY.md"
+                  - "images/images.yaml"
+                  - "tools/Dockerfile"
+                  - "services/*/Dockerfile"
+              max_tokens:
+                type: integer
+                description: Hard context budget (tokens) per invocation.
+                default: 3000
+          pr_number:
+            type: integer
+            description: Pull request number (pull_request trigger only).
+          pr_title:
+            type: string
+            description: Pull request title (pull_request trigger only).
+          scorecard_output:
+            type: string
+            description: JSON output from ossf/scorecard-action (post_merge trigger).
+          codeql_alerts:
+            type: array
+            description: List of open CodeQL alert summaries.
+            items:
+              type: string
+          govulncheck_output:
+            type: string
+            description: Text output from govulncheck (post_merge trigger).
+          bandit_output:
+            type: string
+            description: JSON output from bandit (post_merge trigger).
+          pip_audit_output:
+            type: string
+            description: JSON output from pip-audit (post_merge trigger).
+      output_schema:
+        type: object
+        required: [summary, recommended_actions, reasons_decisions, confidence, flags]
+        properties:
+          summary:
+            type: string
+            description: Plain text summary, max 200 words.
+          recommended_actions:
+            type: array
+            description: Ordered list of specific actions with rationale.
+            items:
+              type: object
+              required: [action, rationale, priority]
+              properties:
+                action:
+                  type: string
+                rationale:
+                  type: string
+                priority:
+                  type: string
+                  enum: [low, medium, high]
+          reasons_decisions:
+            type: array
+            description: Reasoning chain for each recommendation.
+            items:
+              type: string
+          confidence:
+            type: string
+            description: Overall confidence level for this expert's output.
+            enum: [low, medium, high]
+          flags:
+            type: array
+            description: >
+              Tier-2 flags raised here escalate immediately to a human
+              (empty list if none).
+            items:
+              type: string
+          extra_fields:
+            type: object
+            description: Expert-specific additional output fields.
+            properties:
+              cosign_verification_status:
+                type: string
+                description: Cosign verification status.
+                enum: [pass, fail, not_applicable]
+              sbom_present:
+                type: boolean
+                description: True if SBOM artifact exists in release.
+              scorecard_score:
+                type: number
+                description: OpenSSF Scorecard score 0.0-10.0 (null if not available).
+              new_cve_findings:
+                type: array
+                description: CVE IDs from govulncheck/pip-audit.
+                items:
+                  type: string
+              workflow_permission_issues:
+                type: array
+                description: Overly-broad GitHub Actions permissions.
+                items:
+                  type: string
+              secret_exposure_risk:
+                type: boolean
+                description: True if diff touches secrets handling paths.
+      timeout_seconds: 300
+      max_retries: 1
