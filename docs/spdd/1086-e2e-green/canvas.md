@@ -130,6 +130,12 @@ EPIC #770 (harness) and #771 (CI-E2E gate).
    Issue #1091 closed.)
 6. **[O6]** Promote the gate from advisory to a stable/required check, covering Temporal + Argo
    (#1071) + failure paths. (Gap 5; depends O1, O2, O4, O5)
+   ✅ Delivered 2026-06-12 (#1092): "e2e smoke (temporal)" added to the main-protection
+   ruleset required checks, with the complementary-paths shim workflow
+   (.github/workflows/e2e-smoke-skip.yml) satisfying the check on PRs that touch no
+   e2e-relevant paths. The argo leg stays ADVISORY by recorded decision until it
+   accumulates a stable green history (first green: run 27423543856 after #1157) —
+   promote it later by adding the same shim job name + ruleset entry.
 
 ## N — Norms
 

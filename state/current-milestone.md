@@ -55,9 +55,9 @@ As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#
 | DevAuto Wave 3 | #880 | post-merge completeness mesh |
 
 ### In progress / remaining
-**e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132; O4 #1090 ✅ event-bus + memory-service enabled with required assertions; O5 #1091 ✅ runner sizing verified on full stack; bug #1149 ✅ fixed — JetStream subject overlap, completed/failed CloudEvent assertions now required — next: #1092 promotion (after #1071))**,
+**e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132; O4 #1090 ✅ event-bus + memory-service enabled with required assertions; O5 #1091 ✅ runner sizing verified on full stack; bug #1149 ✅ fixed — JetStream subject overlap, completed/failed CloudEvent assertions now required — O6 #1092 ✅ temporal leg required + skip-shim; argo advisory until stable — EPIC #1086 complete)**,
 Postgres off Bitnami (#1073 — ✅ complete: O1 ADR-026, O2–O3 #1076, O4–O5 #1077, O6 #1078, O7–O8 #1079; canvas Implemented, EPIC ready to close),
-CI-E2E gate (#771 — #1070 ✅, #1071 ✅ merged via PR #1155: engine matrix temporal/argo in e2e-smoke; bug #1157 ✅ fixed — ArgoEngine submit now sends the WorkflowCreateRequest envelope, argo leg unblocked; next: #1092),
+CI-E2E gate (#771 — #1070 ✅, #1071 ✅ merged via PR #1155: engine matrix temporal/argo in e2e-smoke; bug #1157 ✅ fixed — ArgoEngine submit now sends the WorkflowCreateRequest envelope, argo leg unblocked; #1092 ✅ — EPIC #771 complete),
 DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created; O1 #1096 ✅ ADR-028; O2 #1097 ✅ 9 expert AgentDefs; O3 #1098 ✅ orchestrator Workflow manifest; O4 #1099 ✅ issue-delivery intake→plan→route Workflow).
 
 ---
