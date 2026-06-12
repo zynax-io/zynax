@@ -117,8 +117,17 @@ EPIC #770 (harness) and #771 (CI-E2E gate).
    `E2E_REQUIRE_COMPLETED_EVENT=1` (default off, loud TODO) until #1149 lands; flip it as part
    of O6. Chart fixes folded in: memory-service env var `ZYNAX_MEMORY_REDIS_DSN` matched to the
    binary, engine-adapter gained `env.eventBusAddr`.)
-5. **[O5]** Right-size the `e2e smoke` runner / per-pod resource requests so the full stack fits
-   without eviction. (Gap 4; depends O2)
+5. **[O5]** ✅ Right-size the `e2e smoke` runner / per-pod resource requests so the full stack fits
+   without eviction. (Gap 4; depends O2. Verified 2026-06-12: the full 7-service stack
+   (api-gateway, workflow-compiler, engine-adapter, task-broker, agent-registry, event-bus,
+   memory-service) + NATS + Temporal (4 shards, web UI disabled) + Postgres + Redis ran the
+   e2e gate GREEN on `ubuntu-latest` (2 CPU / 7 GB) with trimmed resource requests delivered
+   by #1094 and #1090 (per-pod requests as low as 25m CPU / 32Mi mem; Temporal capped at
+   50m/96Mi req; Postgres at 100m/128Mi req). Evidence: PR #1148 run
+   https://github.com/zynax-io/zynax/actions/runs/27403151713 — all 7 deployments healthy,
+   zero Evicted/OOMKilled/Pending pods, happy-path + failure-path assertions passed; 3
+   consecutive green runs on PR #1150 (runs 27408137927, 27407858978, 27405246877).
+   Issue #1091 closed.)
 6. **[O6]** Promote the gate from advisory to a stable/required check, covering Temporal + Argo
    (#1071) + failure paths. (Gap 5; depends O1, O2, O4, O5)
 
