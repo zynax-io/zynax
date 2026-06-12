@@ -124,6 +124,15 @@ this epic must produce for the Postgres distribution + version decision.
    both ways).
 6. **Bring up the full umbrella on kind** (reuse `scripts/e2e/cluster-up.sh`) and assert all
    services + Temporal reach a healthy rollout on the new Postgres.
+   — ✅ #1078 (verified 2026-06-12 against the gated `e2e smoke` CI runs that delivered O2–O5,
+   both of which invoke `scripts/e2e/cluster-up.sh`:
+   [run 27350760642](https://github.com/zynax-io/zynax/actions/runs/27350760642) on PR #1143 and
+   [run 27352081408](https://github.com/zynax-io/zynax/actions/runs/27352081408) on PR #1145
+   (digest-pinned `postgres:17.10`). Evidence: `zynax-postgresql-0 1/1 Running`,
+   `deployment "zynax-temporal-frontend" successfully rolled out`, all 5 service Deployments
+   "successfully rolled out", schema Job pod `Completed` for both `temporal` +
+   `temporal_visibility`, happy-path COMPLETED / failure-path FAILED-as-expected, and the
+   helm upgrade/rollback smoke PASS on every revision.)
 7. **Remove the e2e `bitnamilegacy` override** from `scripts/e2e/values-e2e.yaml`; confirm the
    `e2e smoke` gate is green end-to-end on the migrated source.
 8. **Document a major-version upgrade/migration note** (data considerations for stateful
