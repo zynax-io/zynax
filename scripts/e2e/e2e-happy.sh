@@ -3,11 +3,14 @@
 #
 # e2e-happy.sh — assert the Temporal happy-path end-to-end.
 #
-# EPIC G (#770) step 2 / #810. Submits code-review.yaml via api-gateway,
-# polls until the workflow reaches "succeeded" state, asserts the
-# "zynax.workflow.completed" CloudEvent arrived on NATS JetStream, and
-# verifies that the memory-service KV plane works by writing a sentinel
-# key and reading it back.
+# EPIC G (#770) step 2 / #810. Submits the reference workflow via api-gateway,
+# polls until the workflow reaches "succeeded" state, asserts the lifecycle
+# CloudEvents arrived on NATS JetStream, and verifies that the memory-service
+# KV plane works by writing a sentinel key and reading it back. The CloudEvent
+# + memory assertions are REQUIRED (#1090, canvas 1086 O4) — there is no skip
+# path. Exception: the terminal workflow.completed event is enforced only with
+# E2E_REQUIRE_COMPLETED_EVENT=1 until bug #1149 (JetStream stream subject
+# overlap makes it undeliverable) is fixed — see step 3b.
 #
 # Requires a running kind cluster created by cluster-up.sh (G.1 / #809).
 # Compatible with both ci/docker and local developer environments.
@@ -23,7 +26,10 @@
 #   ZYNAX_API_KEY      bearer token (empty = no auth)     (default: "")
 #   POLL_TIMEOUT       max seconds to wait for succeeded  (default: 120)
 #   POLL_INTERVAL      seconds between status polls       (default: 5)
-#   WORKFLOW_FILE      path to the workflow YAML          (default: spec/workflows/examples/code-review.yaml)
+#   WORKFLOW_FILE      path to the workflow YAML          (default: spec/workflows/examples/e2e-demo.yaml)
+#   NATS_ASSERT_TIMEOUT          max seconds to wait for the JetStream events (default: 60)
+#   E2E_REQUIRE_COMPLETED_EVENT  1 = hard-fail when workflow.completed is not
+#                                on JetStream (default: 0 until #1149 is fixed)
 #
 # Exit codes:
 #   0  all assertions passed
@@ -119,6 +125,9 @@ log "preflight: checking required tools and cluster state…"
 require kubectl
 require curl
 require jq
+# Required for the memory-service KV roundtrip assertion (#1090) — installed by
+# e2e-smoke.yml in CI; locally: https://github.com/fullstorydev/grpcurl/releases
+require grpcurl
 
 [[ -f "${WORKFLOW_FILE}" ]] || fail "workflow file not found: ${WORKFLOW_FILE}"
 
@@ -143,20 +152,14 @@ if [[ -z "${ZYNAX_API_KEY}" ]]; then
   [[ -n "${ZYNAX_API_KEY}" ]] && log "using api-gateway key from the zynax-gw-api-key secret."
 fi
 
-# Verify NATS and memory-service deployments exist.
-if ! kubectl -n "${NAMESPACE}" get deployment \
-    "${RELEASE_NAME}-zynax-event-bus" >/dev/null 2>&1; then
-  warn "event-bus deployment not found — NATS JetStream assertion will be skipped"
-  SKIP_NATS=1
-fi
-SKIP_NATS="${SKIP_NATS:-0}"
-
-if ! kubectl -n "${NAMESPACE}" get deployment \
-    "${RELEASE_NAME}-zynax-memory-service" >/dev/null 2>&1; then
-  warn "memory-service deployment not found — memory assertion will be skipped"
-  SKIP_MEMORY=1
-fi
-SKIP_MEMORY="${SKIP_MEMORY:-0}"
+# Verify the event-bus and memory-service deployments exist. These are REQUIRED
+# (#1090, canvas 1086 O4): the CloudEvent + memory-Get assertions below run
+# unconditionally — there is no skip path. Deployment names are pinned via
+# fullnameOverride in values-e2e.yaml (same as the other 5 services).
+kubectl -n "${NAMESPACE}" get deployment "zynax-event-bus" >/dev/null 2>&1 \
+  || fail "event-bus deployment not found — required for the NATS CloudEvent assertion (values-e2e.yaml enables it; run cluster-up.sh)"
+kubectl -n "${NAMESPACE}" get deployment "zynax-memory-service" >/dev/null 2>&1 \
+  || fail "memory-service deployment not found — required for the KV roundtrip assertion (values-e2e.yaml enables it; run cluster-up.sh)"
 
 log "preflight passed."
 
@@ -226,157 +229,166 @@ esac
 
 pass "step 2: workflow reached terminal success state '${FINAL_STATUS}' (run_id=${RUN_ID})."
 
-# ── 3. Assert CloudEvent off NATS JetStream ───────────────────────────────────────
+# ── 3. Assert CloudEvents off NATS JetStream ──────────────────────────────────────
+#
+# REQUIRED since #1090 (canvas 1086 O4) — no skip path. The engine-adapter
+# publishes lifecycle CloudEvents through EventBusService, which lands them on
+# NATS JetStream. PublishLifecycleEventActivity (services/engine-adapter/
+# internal/infrastructure/activities.go) builds the subject as
+#   "zynax.v1.engine-adapter.workflow." + <event type from interpreter.go>
+# and event-bus derives the stream by dropping the last subject segment and
+# upper-snake-casing the rest (StreamName in services/event-bus/internal/
+# infrastructure/nats.go). We assert with the `nats` CLI inside the nats-box
+# pod (deployed by the NATS subchart) so the host needs no NATS tooling.
+#
+# Two checks:
+#   3a (REQUIRED): the state-lifecycle CloudEvents (zynax.workflow.state.entered/
+#       exited) for this run are on JetStream — proves the full engine-adapter →
+#       event-bus → NATS pipeline delivers CloudEvents end-to-end.
+#   3b: the terminal zynax.workflow.completed CloudEvent. BLOCKED by #1149:
+#       the state stream's subject filter overlaps the completed stream's, so
+#       JetStream rejects the completed stream (err 10065) and the event is
+#       undeliverable today. Enforced only when E2E_REQUIRE_COMPLETED_EVENT=1.
+#       TODO(#1149): flip the default to required once the stream-derivation
+#       overlap is fixed — do NOT remove this assertion.
 
-if [[ "${SKIP_NATS}" -eq 1 ]]; then
-  warn "step 3: SKIPPED — event-bus not available."
+log "step 3: asserting lifecycle CloudEvents off NATS JetStream…"
+
+STATE_SUBJECT_PREFIX="zynax.v1.engine-adapter.workflow.zynax.workflow.state"
+STATE_STREAM="ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW_ZYNAX_WORKFLOW_STATE"
+COMPLETED_SUBJECT="zynax.v1.engine-adapter.workflow.zynax.workflow.completed"
+COMPLETED_STREAM="ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW_ZYNAX_WORKFLOW"
+NATS_ASSERT_TIMEOUT="${NATS_ASSERT_TIMEOUT:-60}"
+E2E_REQUIRE_COMPLETED_EVENT="${E2E_REQUIRE_COMPLETED_EVENT:-0}"
+
+NATS_BOX_POD=$(kubectl -n "${NAMESPACE}" get pod \
+  -l "app.kubernetes.io/component=nats-box" \
+  -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+[[ -n "${NATS_BOX_POD}" ]] \
+  || fail "step 3: nats-box pod not found (label app.kubernetes.io/component=nats-box) — the NATS subchart must be enabled with natsBox for this assertion"
+log "  nats-box pod: ${NATS_BOX_POD}"
+
+# nats_exec <args…> — run the nats CLI inside the nats-box pod.
+nats_exec() {
+  kubectl -n "${NAMESPACE}" exec "${NATS_BOX_POD}" -- nats "$@"
+}
+
+# nats_diagnostics — dump JetStream + publisher state on assertion failure so
+# the CI log carries the evidence (the cluster is torn down right after).
+nats_diagnostics() {
+  warn "── step 3 diagnostics ──"
+  warn "JetStream streams:"
+  nats_exec stream ls 2>&1 | sed 's/^/    /' >&2 || true
+  warn "event-bus log tail:"
+  kubectl -n "${NAMESPACE}" logs deployment/zynax-event-bus --tail=40 2>&1 | sed 's/^/    /' >&2 || true
+  warn "engine-adapter log tail:"
+  kubectl -n "${NAMESPACE}" logs deployment/zynax-engine-adapter --tail=40 2>&1 | sed 's/^/    /' >&2 || true
+}
+
+# 3a — REQUIRED: state-lifecycle CloudEvents delivered for this run.
+NATS_ELAPSED=0
+STATE_MSGS="0"
+while [[ ${NATS_ELAPSED} -lt ${NATS_ASSERT_TIMEOUT} ]]; do
+  STATE_MSGS=$(nats_exec stream info "${STATE_STREAM}" --json 2>/dev/null \
+    | jq -r '.state.messages // 0' 2>/dev/null || echo "0")
+  [[ "${STATE_MSGS}" =~ ^[0-9]+$ ]] || STATE_MSGS=0
+  if [[ "${STATE_MSGS}" -gt 0 ]]; then
+    break
+  fi
+  log "  [${NATS_ELAPSED}s] stream '${STATE_STREAM}' not ready yet (messages=${STATE_MSGS}) — retrying…"
+  sleep 5
+  NATS_ELAPSED=$((NATS_ELAPSED + 5))
+done
+if [[ "${STATE_MSGS}" -eq 0 ]]; then
+  nats_diagnostics
+  fail "step 3a: NATS JetStream stream '${STATE_STREAM}' has no messages after ${NATS_ASSERT_TIMEOUT}s — lifecycle CloudEvents are not reaching JetStream"
+fi
+log "  stream '${STATE_STREAM}' has ${STATE_MSGS} message(s)."
+
+LAST_STATE_EVENT=$(nats_exec stream get "${STATE_STREAM}" \
+  --last-for "${STATE_SUBJECT_PREFIX}.entered" 2>&1) || {
+    nats_diagnostics
+    fail "step 3a: no message on subject '${STATE_SUBJECT_PREFIX}.entered' in stream '${STATE_STREAM}': ${LAST_STATE_EVENT}"
+  }
+log "  last state.entered event: ${LAST_STATE_EVENT}"
+printf '%s' "${LAST_STATE_EVENT}" | grep -q "zynax.workflow.state.entered" || {
+  nats_diagnostics
+  fail "step 3a: message on '${STATE_SUBJECT_PREFIX}.entered' does not carry the zynax.workflow.state.entered CloudEvent type. Payload: ${LAST_STATE_EVENT}"
+}
+if printf '%s' "${LAST_STATE_EVENT}" | grep -q "${RUN_ID}"; then
+  pass "step 3a: lifecycle CloudEvents delivered to JetStream (stream=${STATE_STREAM}, workflow_id matches run_id=${RUN_ID})."
 else
-  log "step 3: asserting CloudEvent 'zynax.workflow.completed' off NATS JetStream…"
+  warn "  state.entered payload does not reference run_id=${RUN_ID} (workflow id mapping may differ)."
+  pass "step 3a: lifecycle CloudEvents delivered to JetStream (stream=${STATE_STREAM}, ${STATE_MSGS} message(s))."
+fi
 
-  # NATS lives inside the cluster. We use kubectl exec into the NATS pod to
-  # avoid depending on the `nats` CLI tool on the host. The NATS JetStream
-  # stream name derives from the event type by convention (see nats.go):
-  #   "zynax.workflow.completed" → drop last segment → "zynax.workflow"
-  #   stream name = "ZYNAX_WORKFLOW"
-  STREAM_NAME="ZYNAX_WORKFLOW"
-  NATS_SVC="${RELEASE_NAME}-zynax-nats"
-  NATS_POD=$(kubectl -n "${NAMESPACE}" get pod \
-    -l "app.kubernetes.io/name=nats" \
-    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-
-  if [[ -z "${NATS_POD}" ]]; then
-    # Fallback: match by release prefix
-    NATS_POD=$(kubectl -n "${NAMESPACE}" get pod \
-      -o jsonpath="{.items[?(@.metadata.name contains '${NATS_SVC}')].metadata.name}" \
-      2>/dev/null | awk '{print $1}' || true)
+# 3b — terminal completed CloudEvent (gated on #1149, see header comment).
+COMPLETED_MSGS=$(nats_exec stream info "${COMPLETED_STREAM}" --json 2>/dev/null \
+  | jq -r '.state.messages // 0' 2>/dev/null || echo "0")
+[[ "${COMPLETED_MSGS}" =~ ^[0-9]+$ ]] || COMPLETED_MSGS=0
+if [[ "${COMPLETED_MSGS}" -gt 0 ]]; then
+  LAST_EVENT=$(nats_exec stream get "${COMPLETED_STREAM}" \
+    --last-for "${COMPLETED_SUBJECT}" 2>&1) || true
+  log "  last completed event: ${LAST_EVENT}"
+  if printf '%s' "${LAST_EVENT}" | grep -q "zynax.workflow.completed"; then
+    pass "step 3b: workflow.completed CloudEvent delivered to JetStream (stream=${COMPLETED_STREAM})."
+  elif [[ "${E2E_REQUIRE_COMPLETED_EVENT}" -eq 1 ]]; then
+    nats_diagnostics
+    fail "step 3b: stream '${COMPLETED_STREAM}' has messages but none carry zynax.workflow.completed"
   fi
-
-  if [[ -z "${NATS_POD}" ]]; then
-    warn "step 3: could not locate NATS pod — attempting port-forward to service instead"
-    # Port-forward NATS client port (4222) so nats-server CLI (if present) works,
-    # or fall back to a raw TCP check to confirm NATS is up.
-    port_forward "svc/${NATS_SVC}" 4222 4222
-    # Use nats CLI if available; else just confirm port is open (connectivity check).
-    if command -v nats >/dev/null 2>&1; then
-      STREAM_INFO=$(nats stream info "${STREAM_NAME}" \
-        --server nats://127.0.0.1:4222 2>&1) || true
-      log "NATS stream info: ${STREAM_INFO}"
-      MSGS=$(printf '%s' "${STREAM_INFO}" | grep -i "messages:" | grep -oE '[0-9]+' | head -1 || echo "0")
-      [[ "${MSGS}" -gt 0 ]] || fail "step 3: NATS stream '${STREAM_NAME}' has 0 messages — CloudEvent not delivered"
-      pass "step 3: NATS stream '${STREAM_NAME}' has ${MSGS} message(s)."
-    else
-      warn "step 3: 'nats' CLI not found; connectivity confirmed but message count not verified."
-      pass "step 3: NATS connectivity verified (port-forward to 4222 succeeded)."
-    fi
-  else
-    log "  NATS pod: ${NATS_POD}"
-    # Query stream message count via nats-server CLI inside the pod.
-    # The nats-server pod includes the `nats` CLI in recent NATS chart versions.
-    STREAM_CMD="nats stream info ${STREAM_NAME} --server nats://localhost:4222 2>&1 || true"
-    STREAM_INFO=$(kubectl -n "${NAMESPACE}" exec "${NATS_POD}" -- \
-      sh -c "${STREAM_CMD}" 2>/dev/null || true)
-    log "  stream info: ${STREAM_INFO}"
-
-    if printf '%s' "${STREAM_INFO}" | grep -qi "not found\|unknown\|error\|command not found"; then
-      # Fallback: check via the NATS HTTP monitoring endpoint (port 8222).
-      MONITORING=$(kubectl -n "${NAMESPACE}" exec "${NATS_POD}" -- \
-        sh -c "wget -qO- http://localhost:8222/jsz?streams=1 2>/dev/null || curl -s http://localhost:8222/jsz?streams=1 2>/dev/null || echo '{}'" 2>/dev/null || echo "{}")
-      log "  NATS monitoring jsz: ${MONITORING}"
-      if printf '%s' "${MONITORING}" | grep -q "${STREAM_NAME}"; then
-        pass "step 3: NATS JetStream stream '${STREAM_NAME}' found via monitoring endpoint."
-      else
-        warn "step 3: could not confirm CloudEvent delivery — nats CLI not in pod and jsz stream not found."
-        warn "        The workflow reached '${FINAL_STATUS}'; event-bus publish is best-effort."
-        # Don't hard-fail here: the workflow succeeded and event-bus publish failures
-        # are logged as warnings by the engine-adapter (see interpreter.go:67).
-      fi
-    else
-      MSGS=$(printf '%s' "${STREAM_INFO}" | grep -i "messages:" | grep -oE '[0-9]+' | head -1 || echo "0")
-      if [[ -n "${MSGS}" && "${MSGS}" -gt 0 ]]; then
-        pass "step 3: NATS stream '${STREAM_NAME}' has ${MSGS} message(s) — CloudEvent delivered."
-      else
-        warn "step 3: NATS stream '${STREAM_NAME}' message count is 0 or unknown (may be placeholder image)."
-        pass "step 3: NATS JetStream stream assertion completed (placeholder image acceptable)."
-      fi
-    fi
-  fi
+elif [[ "${E2E_REQUIRE_COMPLETED_EVENT}" -eq 1 ]]; then
+  nats_diagnostics
+  fail "step 3b: workflow.completed CloudEvent not on JetStream (stream='${COMPLETED_STREAM}' empty or missing)"
+else
+  warn "step 3b: workflow.completed CloudEvent NOT on JetStream — known bug #1149 (stream subject overlap)."
+  warn "         Enforce with E2E_REQUIRE_COMPLETED_EVENT=1 once #1149 is fixed."
 fi
 
 # ── 4. Assert memory-service KV roundtrip ────────────────────────────────────────
+#
+# REQUIRED since #1090 (canvas 1086 O4) — no skip path, no connectivity-only
+# fallback. grpcurl is a preflight requirement (e2e-smoke.yml installs it; for
+# local runs: https://github.com/fullstorydev/grpcurl/releases).
 
-if [[ "${SKIP_MEMORY}" -eq 1 ]]; then
-  warn "step 4: SKIPPED — memory-service not available."
+log "step 4: asserting memory-service KV roundtrip (workflow_id=${MEMORY_WF_ID})…"
+
+MEMORY_SVC="zynax-memory-service"
+MEMORY_PORT=50057
+LOCAL_MEM_PORT=15057
+
+# Port-forward the memory-service gRPC port.
+port_forward "svc/${MEMORY_SVC}" "${LOCAL_MEM_PORT}" "${MEMORY_PORT}"
+
+log "  using grpcurl at localhost:${LOCAL_MEM_PORT}…"
+
+# Set a sentinel key in memory-service.
+SET_RESP=$(grpcurl -plaintext \
+  -d "{\"workflow_id\":\"${MEMORY_WF_ID}\",\"key\":\"${MEMORY_KEY}\",\"value\":\"$(printf '%s' "${MEMORY_VALUE}" | base64)\"}" \
+  "localhost:${LOCAL_MEM_PORT}" \
+  zynax.v1.MemoryService/Set 2>&1) || fail "step 4: memory-service Set RPC failed: ${SET_RESP}"
+log "  Set response: ${SET_RESP}"
+
+# Get the sentinel key back.
+GET_RESP=$(grpcurl -plaintext \
+  -d "{\"workflow_id\":\"${MEMORY_WF_ID}\",\"key\":\"${MEMORY_KEY}\"}" \
+  "localhost:${LOCAL_MEM_PORT}" \
+  zynax.v1.MemoryService/Get 2>&1) || fail "step 4: memory-service Get RPC failed: ${GET_RESP}"
+log "  Get response: ${GET_RESP}"
+
+# Decode the returned value and compare.
+RETURNED_RAW=$(printf '%s' "${GET_RESP}" | jq -r '.value // empty')
+RETURNED_VALUE=$(printf '%s' "${RETURNED_RAW}" | base64 -d 2>/dev/null || printf '%s' "${RETURNED_RAW}")
+if [[ "${RETURNED_VALUE}" == "${MEMORY_VALUE}" ]]; then
+  pass "step 4: memory-service KV roundtrip verified (key='${MEMORY_KEY}', value='${RETURNED_VALUE}')."
 else
-  log "step 4: asserting memory-service KV roundtrip (workflow_id=${MEMORY_WF_ID})…"
-
-  MEMORY_SVC="${RELEASE_NAME}-zynax-memory-service"
-  MEMORY_PORT=50057
-  LOCAL_MEM_PORT=15057
-
-  # Port-forward the memory-service gRPC port.
-  port_forward "svc/${MEMORY_SVC}" "${LOCAL_MEM_PORT}" "${MEMORY_PORT}"
-
-  # Use grpcurl if available; fall back to kubectl exec approach.
-  if command -v grpcurl >/dev/null 2>&1; then
-    log "  using grpcurl at localhost:${LOCAL_MEM_PORT}…"
-
-    # Set a sentinel key in memory-service.
-    SET_RESP=$(grpcurl -plaintext \
-      -d "{\"workflow_id\":\"${MEMORY_WF_ID}\",\"key\":\"${MEMORY_KEY}\",\"value\":\"$(printf '%s' "${MEMORY_VALUE}" | base64)\"}" \
-      "localhost:${LOCAL_MEM_PORT}" \
-      zynax.v1.MemoryService/Set 2>&1) || fail "step 4: memory-service Set RPC failed: ${SET_RESP}"
-    log "  Set response: ${SET_RESP}"
-
-    # Get the sentinel key back.
-    GET_RESP=$(grpcurl -plaintext \
-      -d "{\"workflow_id\":\"${MEMORY_WF_ID}\",\"key\":\"${MEMORY_KEY}\"}" \
-      "localhost:${LOCAL_MEM_PORT}" \
-      zynax.v1.MemoryService/Get 2>&1) || fail "step 4: memory-service Get RPC failed: ${GET_RESP}"
-    log "  Get response: ${GET_RESP}"
-
-    # Decode the returned value and compare.
-    RETURNED_RAW=$(printf '%s' "${GET_RESP}" | jq -r '.value // empty')
-    RETURNED_VALUE=$(printf '%s' "${RETURNED_RAW}" | base64 -d 2>/dev/null || printf '%s' "${RETURNED_RAW}")
-    if [[ "${RETURNED_VALUE}" == "${MEMORY_VALUE}" ]]; then
-      pass "step 4: memory-service KV roundtrip verified (key='${MEMORY_KEY}', value='${RETURNED_VALUE}')."
-    else
-      fail "step 4: memory-service Get returned '${RETURNED_VALUE}', expected '${MEMORY_VALUE}'"
-    fi
-  else
-    # No grpcurl on host — exec into memory-service pod if grpcurl is installed there,
-    # otherwise use the NATS-monitoring-style connectivity check.
-    warn "  'grpcurl' not found on host — attempting in-cluster exec…"
-    MEM_POD=$(kubectl -n "${NAMESPACE}" get pod \
-      -l "app.kubernetes.io/name=memory-service" \
-      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-
-    if [[ -z "${MEM_POD}" ]]; then
-      MEM_POD=$(kubectl -n "${NAMESPACE}" get pod \
-        -o jsonpath="{.items[?(@.metadata.labels.app == 'memory-service')].metadata.name}" \
-        2>/dev/null | awk '{print $1}' || true)
-    fi
-
-    if [[ -n "${MEM_POD}" ]]; then
-      POD_STATUS=$(kubectl -n "${NAMESPACE}" get pod "${MEM_POD}" \
-        -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
-      if [[ "${POD_STATUS}" == "Running" ]]; then
-        pass "step 4: memory-service pod '${MEM_POD}' is Running. Connectivity verified."
-        warn "        Install grpcurl on the host for full KV roundtrip assertion."
-      else
-        fail "step 4: memory-service pod '${MEM_POD}' is in phase '${POD_STATUS}'"
-      fi
-    else
-      # Port-forward already succeeded above, which proves TCP reachability.
-      pass "step 4: memory-service gRPC port ${MEMORY_PORT} is reachable (connectivity verified)."
-      warn "        Install grpcurl on the host for full KV roundtrip assertion."
-    fi
-  fi
+  fail "step 4: memory-service Get returned '${RETURNED_VALUE}', expected '${MEMORY_VALUE}'"
 fi
 
 # ── summary ──────────────────────────────────────────────────────────────────────
 
 printf '\n\033[1;32m[e2e-happy] ALL ASSERTIONS PASSED\033[0m\n'
 printf '  workflow:  run_id=%s  status=%s\n' "${RUN_ID}" "${FINAL_STATUS}"
-printf '  event-bus: stream=ZYNAX_WORKFLOW  skip=%s\n' "${SKIP_NATS}"
-printf '  memory:    workflow_id=%s  skip=%s\n' "${MEMORY_WF_ID}" "${SKIP_MEMORY}"
+printf '  event-bus: state-stream=%s messages=%s  completed-stream=%s messages=%s (enforced=%s, #1149)\n' \
+  "${STATE_STREAM}" "${STATE_MSGS}" "${COMPLETED_STREAM}" "${COMPLETED_MSGS}" "${E2E_REQUIRE_COMPLETED_EVENT}"
+printf '  memory:    workflow_id=%s  key=%s roundtrip=ok\n' "${MEMORY_WF_ID}" "${MEMORY_KEY}"
 printf '\n'

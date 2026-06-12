@@ -12,9 +12,9 @@
 #   2. Capture the current (pre-upgrade) revision.
 #   3. Upgrade with `helm upgrade --atomic` (a no-op-but-mutating bump that forces
 #      a fresh rollout); --atomic rolls back automatically on failure.
-#   4. Assert all 5 service deployments are healthy after the upgrade.
+#   4. Assert all 7 service deployments are healthy after the upgrade.
 #   5. Rollback to the pre-upgrade revision (`helm rollback`).
-#   6. Assert all 5 service deployments are healthy after the rollback.
+#   6. Assert all 7 service deployments are healthy after the rollback.
 #
 # Requires a running kind cluster created by cluster-up.sh (G.1 / #809).
 # Idempotent: --atomic guarantees the release is left in a healthy state.
@@ -50,15 +50,17 @@ HELM_TIMEOUT="${HELM_TIMEOUT:-600s}"
 
 UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
 
-# The 5 Zynax service Deployments that must reach a healthy rollout (mirrors
-# cluster-up.sh). event-bus + memory-service are excluded — no GHCR image is
-# published for them yet (not in the release.yml build matrix).
+# The 7 Zynax service Deployments that must reach a healthy rollout (mirrors
+# cluster-up.sh). event-bus + memory-service are included since #1089 published
+# their images and #1090 enabled them in values-e2e.yaml.
 SERVICE_DEPLOYMENTS=(
   "zynax-api-gateway"
   "zynax-workflow-compiler"
   "zynax-engine-adapter"
   "zynax-task-broker"
   "zynax-agent-registry"
+  "zynax-event-bus"
+  "zynax-memory-service"
 )
 
 # Helm value flags shared by every install/upgrade so the release shape is
@@ -73,7 +75,7 @@ HELM_SET_FLAGS=(
 # and rollback exercise the SAME images the install deployed.
 if [[ -n "${E2E_IMAGE_TAG:-}" ]]; then
   E2E_IMAGE_PREFIX="${E2E_IMAGE_PREFIX:-ghcr.io/zynax-io/zynax/staging}"
-  for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry; do
+  for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry event-bus memory-service; do
     HELM_SET_FLAGS+=(
       --set "zynax-${svc}.image.repository=${E2E_IMAGE_PREFIX}/${svc}"
       --set "zynax-${svc}.image.tag=${E2E_IMAGE_TAG}"
@@ -96,7 +98,7 @@ require() {
 # Verifies every service Deployment exists and reaches a healthy rollout.
 assert_all_healthy() {
   local phase="$1"
-  log "asserting all 5 service deployments healthy (${phase})…"
+  log "asserting all 7 service deployments healthy (${phase})…"
   for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
     if ! kubectl -n "${NAMESPACE}" get deployment "${dep}" >/dev/null 2>&1; then
       fail "${phase}: expected deployment not found: ${dep}"
@@ -106,7 +108,7 @@ assert_all_healthy() {
       --timeout "${WAIT_TIMEOUT}" \
       || fail "${phase}: deployment '${dep}' did not become healthy within ${WAIT_TIMEOUT}"
   done
-  pass "${phase}: all 5 service deployments are healthy."
+  pass "${phase}: all 7 service deployments are healthy."
 }
 
 # ── preflight ──────────────────────────────────────────────────────────────────
@@ -208,5 +210,5 @@ printf '  release:   %s (namespace %s)\n' "${RELEASE_NAME}" "${NAMESPACE}"
 printf '  revisions: base=%s → upgrade=%s → rollback=%s\n' \
   "${BASE_REVISION}" "${UPGRADE_REVISION}" "${ROLLBACK_REVISION}"
 printf '  upgrade:   helm upgrade --atomic succeeded (zero-downtime rollout)\n'
-printf '  rollback:  all 5 service deployments healthy after rollback\n'
+printf '  rollback:  all 7 service deployments healthy after rollback\n'
 printf '\n'

@@ -194,9 +194,12 @@ if [[ -z "${ZYNAX_API_KEY}" ]]; then
   [[ -n "${ZYNAX_API_KEY}" ]] && log "using api-gateway key from the zynax-gw-api-key secret."
 fi
 
-# Verify NATS exists — the workflow.failed CloudEvent assertion needs it.
+# Verify event-bus exists — the workflow.failed CloudEvent assertion needs it.
+# The deployment name is pinned via fullnameOverride in values-e2e.yaml (#1090).
+# Hardening the failed-event assertion to the strict happy-path level is part
+# of the gate-promotion step (canvas 1086 O6).
 if ! kubectl -n "${NAMESPACE}" get deployment \
-    "${RELEASE_NAME}-zynax-event-bus" >/dev/null 2>&1; then
+    "zynax-event-bus" >/dev/null 2>&1; then
   warn "event-bus deployment not found — NATS JetStream assertion will be skipped"
   SKIP_NATS=1
 fi

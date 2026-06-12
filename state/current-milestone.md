@@ -55,7 +55,7 @@ As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#
 | DevAuto Wave 3 | #880 | post-merge completeness mesh |
 
 ### In progress / remaining
-**e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132)**,
+**e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132; O4 #1090 ✅ event-bus + memory-service enabled with required assertions — next: #1091 verification, #1092 promotion)**,
 Postgres off Bitnami (#1073 — O1 ADR-026 ✅, O2–O3 #1076 ✅, O4–O5 #1077 ✅, O6 #1078 ✅ verified; #1079 remaining),
 CI-E2E gate (#771 — #1070 ✅, #1071 remaining),
 DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created; O1 #1096 ✅ ADR-028; O2 #1097 ✅ 9 expert AgentDefs).
@@ -73,11 +73,11 @@ up but fails at the happy-path assertion; this epic closes the execution-path ga
 | O1 | [#1087](https://github.com/zynax-io/zynax/issues/1087) expose api-gateway on host (NodePort 30080) | feat(infra) | S | ✅ merged (PR #1095) |
 | O2 | [#1088](https://github.com/zynax-io/zynax/issues/1088) minimal capability worker + reference workflow → succeeded | feat(infra) | M | ✅ merged (PR #1095) |
 | O3 | [#1089](https://github.com/zynax-io/zynax/issues/1089) event-bus + memory-service in pre-merge build-images matrix | ci(infra) | M | ✅ satisfied by PR #1132 (shift-left, ADR-027) — closed with evidence |
-| O4 | [#1090](https://github.com/zynax-io/zynax/issues/1090) enable event-bus + memory-service in e2e + assertions | test(infra) | M | #1089 |
+| O4 | [#1090](https://github.com/zynax-io/zynax/issues/1090) enable event-bus + memory-service in e2e + assertions | test(infra) | M | ✅ merged — lifecycle CloudEvent + memory-Get required, no skip path; completed-event check gated on bug #1149 |
 | O5 | [#1091](https://github.com/zynax-io/zynax/issues/1091) right-size e2e-smoke runner / pod resources | ci(infra) | S | resources merged (PR #1094); verify on full gate run |
-| O6 | [#1092](https://github.com/zynax-io/zynax/issues/1092) promote gate advisory → stable/required | ci | S | #1090 #1091 #1071 |
+| O6 | [#1092](https://github.com/zynax-io/zynax/issues/1092) promote gate advisory → stable/required | ci | S | #1090 #1091 #1071 · flip `E2E_REQUIRE_COMPLETED_EVENT` once #1149 fixed |
 
-**Ready now for `/milestone-orchestrate`:** #1090 (O4 — O3 #1089 closed). Then O6 (with #1091 verification ∥).
+**Ready now for `/milestone-orchestrate`:** #1091 (O5 — verify right-sizing on the full 7-service gate). Then O6 (#1092, with #1071).
 
 ## Recently Closed (last updated 2026-06-11)
 
@@ -318,8 +318,13 @@ Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is B
 - **#840** ci(infra): Python adapters in multi-arch release pipeline
 - **#841** ci(infra): audit and minimize image sizes
 
+<<<<<<< HEAD
 **M6.E2E-Green chain (O1 #1087 / O2 #1088 / O3 #1089 all ✅):** #1090 (O4, unblocked) → #1091 (O5, needs #1088) → #1092 (O6, needs #1087 #1088 #1090 #1091 #1071).
 **M6.Postgres chain (#1076 ✅, #1077 ✅, #1078 ✅ verified):** #1079 next (final step).
+=======
+**M6.E2E-Green chain (O1 #1087 / O2 #1088 / O3 #1089 / O4 #1090 all ✅):** #1091 (O5, verify on full 7-service gate) → #1092 (O6, needs #1087 #1088 #1090 #1091 #1071).
+**M6.Postgres chain (#1076 ✅, #1077 ✅ merged):** #1078 → #1079 (sequential).
+>>>>>>> 5497743 (test(infra): enable event-bus + memory-service e2e assertions (#1086 O4))
 
 **M6.Argo continuation (after #795 merges):**
 - **#796** feat(engine-adapter): Argo engine adapter implementation (#766, O2)

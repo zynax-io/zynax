@@ -107,8 +107,16 @@ EPIC #770 (harness) and #771 (CI-E2E gate).
    model — ADR-027, #1118/#1120. Satisfied by PR #1132: all 12 Build+scan legs green,
    `ghcr.io/zynax-io/zynax/{event-bus,memory-service}:main` promoted by retag, digests in
    `images/images.yaml`. Issue #1089 closed with evidence.)
-4. **[O4]** Re-enable event-bus + memory-service in the e2e deploy and turn on the CloudEvent +
-   memory-`Get` assertions. (Gap 3b; depends O1, O2, O3)
+4. **[O4]** ✅ Re-enable event-bus + memory-service in the e2e deploy and turn on the CloudEvent +
+   memory-`Get` assertions. (Gap 3b; depends O1, O2, O3. Delivered by #1090: `values-e2e.yaml`
+   enables both services + NATS with trimmed requests; the `SKIP_NATS`/`SKIP_MEMORY` escapes are
+   removed. `e2e-happy.sh` hard-asserts the lifecycle CloudEvents off JetStream via the nats-box
+   CLI and a memory-service Set/Get roundtrip via grpcurl. **Caveat:** the gate exposed bug
+   #1149 — JetStream stream-subject overlap makes the terminal `workflow.completed` event
+   undeliverable platform-wide — so that one check is enforced via
+   `E2E_REQUIRE_COMPLETED_EVENT=1` (default off, loud TODO) until #1149 lands; flip it as part
+   of O6. Chart fixes folded in: memory-service env var `ZYNAX_MEMORY_REDIS_DSN` matched to the
+   binary, engine-adapter gained `env.eventBusAddr`.)
 5. **[O5]** Right-size the `e2e smoke` runner / per-pod resource requests so the full stack fits
    without eviction. (Gap 4; depends O2)
 6. **[O6]** Promote the gate from advisory to a stable/required check, covering Temporal + Argo
