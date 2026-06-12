@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,14 +33,33 @@ type ActivityWorker struct {
 	EventBus EventBusPublisher
 }
 
+// lifecycleTopicPrefix is the engine-adapter entity prefix per the platform
+// topic taxonomy "zynax.<version>.<service>.<entity>.<event_type>" (root AGENTS.md).
+const lifecycleTopicPrefix = "zynax.v1.engine-adapter.workflow."
+
+// lifecycleTopic maps the interpreter's canonical lifecycle event type onto
+// the platform topic taxonomy by replacing the interpreter's "zynax.workflow."
+// family prefix with the engine-adapter entity prefix:
+//
+//	"zynax.workflow.state.entered" → "zynax.v1.engine-adapter.workflow.state.entered"
+//	"zynax.workflow.completed"     → "zynax.v1.engine-adapter.workflow.completed"
+//
+// Before #1149 the interpreter event type was appended verbatim, double-prefixing
+// the topic (e.g. "zynax.v1.engine-adapter.workflow.zynax.workflow.completed")
+// and deriving overlapping JetStream streams on the event-bus side, which made
+// the terminal completed/failed events undeliverable (NATS err 10065).
+func lifecycleTopic(eventType string) string {
+	return lifecycleTopicPrefix + strings.TrimPrefix(eventType, "zynax.workflow.")
+}
+
 // PublishLifecycleEventActivity is registered with the Temporal worker and called
 // by IRInterpreterWorkflow to emit workflow lifecycle events to EventBusService.
 // Publication is best-effort: errors are logged but not returned so that event-bus
 // unavailability never interrupts the workflow state machine.
 //
-// Topic format: zynax.v1.engine-adapter.workflow.<event_type>
+// Topic format: zynax.v1.engine-adapter.workflow.<event_type> (see lifecycleTopic).
 func (a *ActivityWorker) PublishLifecycleEventActivity(ctx context.Context, eventType, workflowID, stateID string) error {
-	topic := fmt.Sprintf("zynax.v1.engine-adapter.workflow.%s", eventType)
+	topic := lifecycleTopic(eventType)
 
 	req := &zynaxv1.PublishRequest{
 		Event: &zynaxv1.CloudEvent{

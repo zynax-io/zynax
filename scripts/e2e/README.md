@@ -67,8 +67,10 @@ scripts/e2e/cluster-down.sh
    test's failure condition);
 2. the failure is a capability dispatch timeout, bounded by
    `ZYNAX_CAPABILITY_TIMEOUT`;
-3. the `zynax.workflow.failed` CloudEvent is consumed off the
-   `ZYNAX_WORKFLOW` NATS JetStream stream.
+3. the workflow.failed CloudEvent (subject
+   `zynax.v1.engine-adapter.workflow.failed`) is consumed off the
+   `ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW` NATS JetStream stream (required since
+   the #1149 fix).
 
 The workflow fixture is generated at runtime (and removed on exit) rather than
 committed under `spec/workflows/examples/`, to avoid publishing an intentionally

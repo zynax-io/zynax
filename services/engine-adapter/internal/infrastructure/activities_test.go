@@ -100,6 +100,40 @@ func TestPublishLifecycleEventActivity_AllEventTypes(t *testing.T) {
 	}
 }
 
+// TestPublishLifecycleEventActivity_InterpreterEventTypes_NoDoublePrefix is
+// the regression test for #1149: the interpreter emits canonical lifecycle
+// event types ("zynax.workflow.…"), and the activity must map them onto the
+// topic taxonomy instead of appending them verbatim (which double-prefixed the
+// topic to "zynax.v1.engine-adapter.workflow.zynax.workflow.…" and derived
+// overlapping JetStream streams on the event-bus side).
+func TestPublishLifecycleEventActivity_InterpreterEventTypes_NoDoublePrefix(t *testing.T) {
+	cases := map[string]string{
+		"zynax.workflow.state.entered": "zynax.v1.engine-adapter.workflow.state.entered",
+		"zynax.workflow.state.exited":  "zynax.v1.engine-adapter.workflow.state.exited",
+		"zynax.workflow.completed":     "zynax.v1.engine-adapter.workflow.completed",
+		"zynax.workflow.failed":        "zynax.v1.engine-adapter.workflow.failed",
+	}
+	for eventType, wantTopic := range cases {
+		t.Run(eventType, func(t *testing.T) {
+			stub := &stubEventBusPublisher{}
+			w := newTestActivityWorker(stub)
+			if err := w.PublishLifecycleEventActivity(context.Background(), eventType, "wf-1149", "s1"); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(stub.reqs) != 1 {
+				t.Fatalf("expected 1 Publish call, got %d", len(stub.reqs))
+			}
+			got := stub.reqs[0].Event.GetType()
+			if got != wantTopic {
+				t.Errorf("topic = %q; want %q", got, wantTopic)
+			}
+			if strings.Contains(got, "workflow.zynax.workflow") {
+				t.Errorf("topic %q is double-prefixed (#1149 regression)", got)
+			}
+		})
+	}
+}
+
 func TestPublishLifecycleEventActivity_EventBusError_BestEffort(t *testing.T) {
 	// Event bus errors must not be propagated — activity is best-effort.
 	stub := &stubEventBusPublisher{publishErr: errors.New("connection refused")}

@@ -4,24 +4,26 @@
 # Overrides for the community nats/nats chart are nested under the `nats:` key.
 
 # JetStream stream configuration — applied via ConfigMap to document the
-# required streams for Zynax event-bus (EventBusService, ADR-022).
-# Actual stream creation is performed by event-bus on startup (EPIC I).
+# streams Zynax event-bus derives (EventBusService, ADR-022).
+# Actual stream creation is performed on demand by event-bus at publish/
+# subscribe time: one stream per entity prefix — the first 4 segments of the
+# topic taxonomy "zynax.v1.<service>.<entity>.<event_type>", upper-snake-cased
+# (StreamName in services/event-bus/internal/infrastructure/nats.go, #1149).
 jetstream:
-  # Stream definitions are documented here for operator awareness.
-  # event-bus creates these streams on startup using the NATS Go SDK.
+  # Stream definitions are documented here for operator awareness only.
   streams:
-    - name: ZYNAX_WORKFLOW_EVENTS
-      subjects: ["zynax.workflow.>"]
+    - name: ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW
+      subjects: ["zynax.v1.engine-adapter.workflow.>"]
       retention: limits
       maxAge: 7d
       storage: file
-    - name: ZYNAX_TASK_EVENTS
-      subjects: ["zynax.task.>"]
+    - name: ZYNAX_V1_TASK_BROKER_TASK
+      subjects: ["zynax.v1.task-broker.task.>"]
       retention: limits
       maxAge: 7d
       storage: file
-    - name: ZYNAX_AGENT_EVENTS
-      subjects: ["zynax.agent.>"]
+    - name: ZYNAX_V1_AGENT_REGISTRY_AGENT
+      subjects: ["zynax.v1.agent-registry.agent.>"]
       retention: limits
       maxAge: 7d
       storage: file
