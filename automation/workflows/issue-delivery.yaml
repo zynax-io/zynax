@@ -1,0 +1,188 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/workflows/issue-delivery.yaml
+#
+# Issue-delivery engine — the self-hosting headline of EPIC #881 (Wave 4).
+# This manifest delivers the intake → plan → route leg (O4, #1099): read a
+# GitHub issue, classify its commit type + scope, call the planner's
+# identify_next_issue capability (the /m6-plan brain), and select the single
+# expert AgentDef that will implement the issue.
+#
+# Per ADR-028 all orchestration is kind: Workflow (state machine validated by
+# spec/schemas/workflow.schema.json); capability providers are kind: AgentDef.
+# The identify_next_issue action below matches the contract declared by
+# automation/workflows/experts/planner.yaml exactly. The read_issue capability
+# is declared contract-first (ADR-016); its runtime provider lands with the
+# context-slice binding in O5 (#1100) / the delivery leg in O6 (#1101).
+#
+# O6 (#1101) extends this workflow with the delivery leg:
+#   routed → inject → implement → verify → decide (durable decision-log +
+#   next-issue CloudEvent). Until then `routed` is the terminus that records
+#   the O4 decision {next_issue, expert, blocked_by} in the workflow context.
+#
+# Template/guard syntax (engine-adapter semantics):
+#   - action input/output values use '{{ .ctx.key }}' / '{{ .trigger.field }}'
+#     and output keys write workflow context paths ('context.key').
+#   - transition guards are CEL over the string-valued workflow context map
+#     ('ctx'); the engine evaluates transitions in order and fires the first
+#     match (interpreter.go resolveTransition) — first-match-wins, exactly the
+#     /m6-orchestrate routing-table semantics.
+#   - a state with no actions (route) yields the empty sentinel event, so its
+#     transitions are evaluated immediately; the declared event name is the
+#     contract label for the decision edge.
+#
+# Plane: platform (Wave 4)
+# Issue: #1099 (EPIC #881 — O4)
+
+kind: Workflow
+apiVersion: zynax.io/v1
+
+metadata:
+  name: issue-delivery
+  namespace: automation
+  labels:
+    plane: platform
+    epic: "881"
+  annotations:
+    description: "Self-hosted issue delivery: intake -> plan -> route (O4 leg); inject -> implement -> verify -> decide lands in O6 (#1101)"
+    issue: "1099"
+    adr: "ADR-028"
+
+spec:
+  initial_state: intake
+
+  # Manually triggered (the /m6-issue-generate analogue): the requester emits
+  # one CloudEvent carrying the issue number plus the planning snapshot
+  # (milestone, open_issues, in_progress, dependency_table). O6 replaces the
+  # snapshot fields with live reads on the delivery leg.
+  triggers:
+    - event: zynax.automation.issue_delivery.requested
+      filter:
+        repo: zynax-io/zynax
+
+  states:
+    # ── intake — read the GitHub issue and classify it ──────────────────────
+    # read_issue fetches the issue and mechanically extracts the conventional
+    # commit type and scope from its title (e.g. "feat(automation): …" →
+    # commit_type=feat, scope=automation). The routing *decision* stays in
+    # this manifest (route state) — the capability never picks an expert.
+    intake:
+      actions:
+        - capability: read_issue
+          timeout: 5m
+          input:
+            repo: "{{ .trigger.repo }}"
+            issue_number: "{{ .trigger.issue_number }}"
+          output:
+            context.issue_number: "{{ .result.number }}"
+            context.issue_title: "{{ .result.title }}"
+            context.issue_labels: "{{ .result.labels }}"
+            context.commit_type: "{{ .result.commit_type }}"
+            context.issue_scope: "{{ .result.scope }}"
+      on:
+        - event: read_issue.completed
+          goto: plan
+        - event: read_issue.failed
+          goto: failed
+          set:
+            context.failure_reason: "intake: read_issue failed"
+
+    # ── plan — call the planner (the /m6-plan brain) ────────────────────────
+    # Capability contract: automation/workflows/experts/planner.yaml
+    # identify_next_issue — input {milestone, open_issues, in_progress,
+    # dependency_table} → output {next_issue, blocked_by, ready_batch,
+    # rationale}. next_issue == 0 means nothing is ready (dependency-blocked).
+    plan:
+      actions:
+        - capability: identify_next_issue
+          timeout: 5m
+          input:
+            milestone: "{{ .trigger.milestone }}"
+            open_issues: "{{ .trigger.open_issues }}"
+            in_progress: "{{ .trigger.in_progress }}"
+            dependency_table: "{{ .trigger.dependency_table }}"
+          output:
+            context.next_issue: "{{ .result.next_issue }}"
+            context.blocked_by: "{{ .result.blocked_by }}"
+            context.ready_batch: "{{ .result.ready_batch }}"
+            context.plan_rationale: "{{ .result.rationale }}"
+      on:
+        - event: identify_next_issue.completed
+          goto: route
+          guard: "ctx.next_issue != '0'"
+        - event: identify_next_issue.completed
+          goto: blocked
+          guard: "ctx.next_issue == '0'"
+        - event: identify_next_issue.failed
+          goto: failed
+          set:
+            context.failure_reason: "plan: identify_next_issue failed"
+
+    # ── route — select the single expert AgentDef (first match wins) ────────
+    # The /m6-orchestrate STEP 5 routing table translated to the 9 platform
+    # expert AgentDefs under automation/workflows/experts/ (O2, #1097).
+    # Action-less state: transitions are evaluated immediately, in order.
+    route:
+      on:
+        # Proto / spec / AsyncAPI contracts → api-contract
+        - event: expert.selected
+          goto: routed
+          guard: "ctx.issue_scope in ['protos', 'proto', 'spec', 'asyncapi']"
+          set:
+            context.expert: "api-contract"
+        # Go platform services (Layer 1) → persistence-state
+        - event: expert.selected
+          goto: routed
+          guard: "ctx.issue_scope in ['api-gateway', 'workflow-compiler', 'engine-adapter', 'task-broker', 'agent-registry', 'event-bus', 'memory-service', 'services']"
+          set:
+            context.expert: "persistence-state"
+        # CI / Actions / images.yaml / release plumbing → ci-release
+        - event: expert.selected
+          goto: routed
+          guard: "ctx.commit_type == 'ci' || ctx.issue_scope in ['ci', 'actions', 'images', 'release']"
+          set:
+            context.expert: "ci-release"
+        # Security / supply-chain / dependency hygiene → security-supply-chain
+        - event: expert.selected
+          goto: routed
+          guard: "ctx.issue_scope in ['security', 'deps', 'supply-chain']"
+          set:
+            context.expert: "security-supply-chain"
+        # test: type or BDD/coverage scopes → qa-bdd
+        - event: expert.selected
+          goto: routed
+          guard: "ctx.commit_type == 'test' || ctx.issue_scope in ['tests', 'bdd', 'coverage']"
+          set:
+            context.expert: "qa-bdd"
+        # Architecture / ADR work → arch-adr
+        - event: expert.selected
+          goto: routed
+          guard: "ctx.issue_scope in ['adr', 'arch', 'architecture']"
+          set:
+            context.expert: "arch-adr"
+        # docs: type or documentation scopes → docs-agents
+        - event: expert.selected
+          goto: routed
+          guard: "ctx.commit_type == 'docs' || ctx.issue_scope in ['docs', 'agents-md', 'readme']"
+          set:
+            context.expert: "docs-agents"
+        # Fallback — planning / milestone / automation work → planning-task-split
+        - event: expert.selected
+          goto: routed
+          set:
+            context.expert: "planning-task-split"
+
+    # ── terminal states (O4 leg) ────────────────────────────────────────────
+    # routed: the O4 decision {next_issue, expert, blocked_by} is recorded in
+    # the workflow context. O6 (#1101) replaces this terminus with the
+    # inject → implement → verify → decide delivery leg.
+    routed:
+      type: terminal
+
+    # blocked: the planner found no dependency-free issue (next_issue == 0);
+    # context.blocked_by lists the blocking issues.
+    blocked:
+      type: terminal
+
+    # failed: intake or planning capability reported a failure.
+    failed:
+      type: terminal
