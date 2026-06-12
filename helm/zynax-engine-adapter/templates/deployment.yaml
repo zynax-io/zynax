@@ -88,6 +88,28 @@ spec:
                 configMapKeyRef:
                   name: {{ include "zynax.fullname" . }}
                   key: active-engine
+            {{- if eq .Values.env.activeEngine "argo" }}
+            - name: ZYNAX_ENGINE_ADAPTER_ARGO_SERVER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: argo-server-url
+            - name: ZYNAX_ENGINE_ADAPTER_ARGO_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: argo-namespace
+            - name: ZYNAX_ENGINE_ADAPTER_ARGO_WORKFLOW_TEMPLATE_REF
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: argo-workflow-template-ref
+            - name: ZYNAX_ENGINE_ADAPTER_ARGO_SERVICE_ACCOUNT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: argo-service-account
+            {{- end }}
             - name: ZYNAX_ENGINE_ADAPTER_GRPC_CALL_TIMEOUT_S
               valueFrom:
                 configMapKeyRef:

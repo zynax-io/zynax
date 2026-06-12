@@ -6,9 +6,13 @@ metadata:
   labels:
     {{- include "zynax.labels" . | nindent 4 }}
 spec:
+  # Scoped to the gRPC server pods. The previous unscoped selector also matched
+  # the Redis pod, whose only allowed ingress would then be the gRPC port —
+  # blocking memory-service → Redis :6379 on a NetworkPolicy-enforcing CNI.
   podSelector:
     matchLabels:
       {{- include "zynax.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
   policyTypes:
     - Ingress
     - Egress

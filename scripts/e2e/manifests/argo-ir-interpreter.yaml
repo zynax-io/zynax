@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# argo-ir-interpreter — minimal WorkflowTemplate for the Argo engine leg of the
+# e2e smoke matrix (#1071, EPIC #771).
+#
+# ArgoEngine (services/engine-adapter/internal/infrastructure/argo_engine.go)
+# instantiates this template by name (ZYNAX_ENGINE_ADAPTER_ARGO_WORKFLOW_TEMPLATE_REF,
+# default "zynax-ir-interpreter") and passes the serialised WorkflowIR JSON via
+# the "workflow-ir" parameter — the template contract documented in argo_engine.go.
+# This smoke-level interpreter asserts a non-empty IR payload arrived and exits 0,
+# driving the Workflow CR to phase Succeeded — the assertion target of
+# scripts/e2e/e2e-argo.sh. Full Argo-side IR interpretation (capability-dispatch
+# parity with the Temporal IRInterpreterWorkflow) is deliberately out of scope
+# for the smoke gate.
+#
+# Applied by cluster-up.sh into the release namespace when E2E_ENGINE=argo.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: zynax-ir-interpreter
+  labels:
+    app.kubernetes.io/name: zynax-ir-interpreter
+    app.kubernetes.io/component: ir-interpreter
+    app.kubernetes.io/part-of: zynax-e2e
+spec:
+  entrypoint: interpret
+  # Executor ServiceAccount + RBAC are created in this namespace by the
+  # argo-workflows chart (workflow.serviceAccount + controller.workflowNamespaces,
+  # installed by cluster-up.sh). ArgoEngine also sets spec.serviceAccountName on
+  # each submitted Workflow via ZYNAX_ENGINE_ADAPTER_ARGO_SERVICE_ACCOUNT.
+  serviceAccountName: argo-workflow
+  arguments:
+    parameters:
+      - name: workflow-ir
+        value: "{}"
+  templates:
+    - name: interpret
+      inputs:
+        parameters:
+          - name: workflow-ir
+      container:
+        # alpine 3.22.4 — digest-pinned (multi-arch OCI index) for reproducibility.
+        image: docker.io/library/alpine:3.22@sha256:310c62b5e7ca5b08167e4384c68db0fd2905dd9c7493756d356e893909057601
+        # The IR reaches the script via env — never shell interpolation — so
+        # arbitrary JSON content cannot be interpreted by the shell.
+        env:
+          - name: WORKFLOW_IR
+            value: "{{inputs.parameters.workflow-ir}}"
+        command: ["/bin/sh", "-ec"]
+        args:
+          - |
+            echo "zynax-ir-interpreter: received WorkflowIR payload (first 2KiB):"
+            printf '%s' "${WORKFLOW_IR}" | head -c 2048
+            echo ""
+            if [ -z "${WORKFLOW_IR}" ] || [ "${WORKFLOW_IR}" = "{}" ]; then
+              echo "zynax-ir-interpreter: empty WorkflowIR payload" >&2
+              exit 1
+            fi
+            echo "zynax-ir-interpreter: payload OK — succeeding."
+        resources:
+          requests:
+            cpu: 25m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 64Mi

@@ -82,8 +82,8 @@ No service, proto, or gRPC-contract changes. CI-only blast radius.
 
 > Each step = one reviewable PR. Order: H.1 → H.2.
 
-1. **H.1 (#1070)** — In `e2e-smoke.yml`, run `scripts/e2e/e2e-happy.sh` and `scripts/e2e/e2e-failure.sh` after `cluster-up.sh`; keep `helm-upgrade.sh` and `cluster-down.sh` (`if: always()`); job stays advisory. Verify a forced assertion failure fails the job with readable logs.
-2. **H.2 (#1071)** — Add `strategy.matrix.engine: [temporal, argo]` (`fail-fast: false`); deploy the umbrella with engine-selecting values per leg; Temporal leg runs `e2e-happy.sh`, Argo leg runs `e2e-argo.sh`; ensure the Argo Workflows controller/CRDs are present for the Argo leg. Verify both legs run independently and tear down per leg.
+1. **H.1 (#1070)** — ✅ merged. In `e2e-smoke.yml`, run `scripts/e2e/e2e-happy.sh` and `scripts/e2e/e2e-failure.sh` after `cluster-up.sh`; keep `helm-upgrade.sh` and `cluster-down.sh` (`if: always()`); job stays advisory. Verify a forced assertion failure fails the job with readable logs.
+2. **H.2 (#1071)** — ✅ delivered-pending-merge (branch `ci/1071-engine-matrix-e2e`). Add `strategy.matrix.engine: [temporal, argo]` (`fail-fast: false`); deploy the umbrella with engine-selecting values per leg; Temporal leg runs `e2e-happy.sh`, Argo leg runs `e2e-argo.sh`; ensure the Argo Workflows controller/CRDs are present for the Argo leg. Verify both legs run independently and tear down per leg. *Delivered as:* `E2E_ENGINE` axis in `cluster-up.sh` (installs the pinned argo-helm `argo-workflows` chart 0.47.5 + the `zynax-ir-interpreter` WorkflowTemplate for the argo leg), `scripts/e2e/values-e2e-argo.yaml` engine-selecting overlay, and additive Argo env plumbing in `helm/zynax-engine-adapter` (gated on `activeEngine=argo` — Temporal renders byte-identical). Per-leg verification = the PR's own gate runs (`e2e smoke (temporal)` / `e2e smoke (argo)`).
 
 ---
 

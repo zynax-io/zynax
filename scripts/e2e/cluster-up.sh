@@ -26,6 +26,13 @@
 #                         values-e2e.yaml default (:main lane).
 #   E2E_IMAGE_PREFIX      registry prefix for E2E_IMAGE_TAG
 #                         (default: ghcr.io/zynax-io/zynax/staging)
+#   E2E_ENGINE            workflow engine for the deployed stack: temporal|argo
+#                         (default: temporal). argo additionally installs the
+#                         Argo Workflows control plane and deploys the umbrella
+#                         with values-e2e-argo.yaml (#1071, ADR-015).
+#   ARGO_WORKFLOWS_CHART_VERSION
+#                         argo-helm argo-workflows chart version pin
+#                         (default: 0.47.5 → Argo Workflows v3.7.11)
 #
 # Minimum host resources: 4 CPU, 8 GB RAM (see scripts/e2e/README.md).
 
@@ -44,6 +51,10 @@ CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.14.5}"
 # tracks the kind release that the harness is validated against.
 KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.29.2}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
+# Engine matrix axis (#1071, EPIC #771): which engine the deployed stack runs.
+# Selection flows through umbrella values only — never hardcoded (ADR-015).
+E2E_ENGINE="${E2E_ENGINE:-temporal}"
+ARGO_WORKFLOWS_CHART_VERSION="${ARGO_WORKFLOWS_CHART_VERSION:-0.47.5}"
 
 KIND_CONFIG="${SCRIPT_DIR}/kind-config.yaml"
 UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
@@ -80,6 +91,11 @@ require kind
 require kubectl
 require helm
 require openssl
+
+case "${E2E_ENGINE}" in
+  temporal|argo) ;;
+  *) die "E2E_ENGINE must be 'temporal' or 'argo' (got: '${E2E_ENGINE}')" ;;
+esac
 
 [[ -f "${KIND_CONFIG}" ]]   || die "kind config not found: ${KIND_CONFIG}"
 [[ -d "${UMBRELLA_CHART}" ]] || die "umbrella chart not found: ${UMBRELLA_CHART}"
@@ -154,6 +170,48 @@ if ! kubectl -n "${NAMESPACE}" get secret zynax-gw-api-key >/dev/null 2>&1; then
     --from-literal=api-key="$(openssl rand -hex 16)"
 fi
 
+# ── 2.6 [argo only] install Argo Workflows + the IR-interpreter template ────────
+
+# Engine matrix (#1071, EPIC #771): when E2E_ENGINE=argo, engine-adapter runs
+# with activeEngine=argo (values-e2e-argo.yaml) and needs the Argo Workflows
+# control plane (CRDs + workflow-controller + argo-server) in-cluster. Install
+# it via the version-pinned community argo-helm chart — the same bring-up
+# pattern as cert-manager above; idempotent via upgrade --install.
+#
+#   server.authModes={server}            → tokenless API for the smoke cluster
+#                                          (the chart's server.secure default is
+#                                          false, so the API is plain HTTP and
+#                                          probes match)
+#   workflow.serviceAccount.create=true  → executor SA "argo-workflow" + RBAC
+#   controller.workflowNamespaces        → SA/RBAC land in the release namespace,
+#                                          where ArgoEngine creates Workflow CRs
+if [[ "${E2E_ENGINE}" == "argo" ]]; then
+  log "installing Argo Workflows (argo-helm chart ${ARGO_WORKFLOWS_CHART_VERSION})…"
+  helm upgrade --install argo-workflows argo-workflows \
+    --repo https://argoproj.github.io/argo-helm \
+    --namespace argo \
+    --create-namespace \
+    --version "${ARGO_WORKFLOWS_CHART_VERSION}" \
+    --set "server.authModes={server}" \
+    --set workflow.serviceAccount.create=true \
+    --set "controller.workflowNamespaces={${NAMESPACE}}" \
+    --set controller.resources.requests.cpu=50m \
+    --set controller.resources.requests.memory=64Mi \
+    --set controller.resources.limits.cpu=400m \
+    --set controller.resources.limits.memory=256Mi \
+    --set server.resources.requests.cpu=25m \
+    --set server.resources.requests.memory=64Mi \
+    --set server.resources.limits.cpu=400m \
+    --set server.resources.limits.memory=256Mi \
+    --wait \
+    --timeout "${WAIT_TIMEOUT}"
+
+  # The WorkflowTemplate that ArgoEngine instantiates per submitted workflow
+  # (ZYNAX_ENGINE_ADAPTER_ARGO_WORKFLOW_TEMPLATE_REF → zynax-ir-interpreter).
+  log "applying the zynax-ir-interpreter WorkflowTemplate…"
+  kubectl -n "${NAMESPACE}" apply -f "${SCRIPT_DIR}/manifests/argo-ir-interpreter.yaml"
+fi
+
 # ── 3. deploy the full Zynax stack via the umbrella chart ────────────────────────
 
 # Build chart dependencies if the packaged subcharts are missing (e.g. a fresh
@@ -164,7 +222,7 @@ if [[ ! -d "${UMBRELLA_CHART}/charts" ]] || \
   helm dependency build "${UMBRELLA_CHART}"
 fi
 
-log "deploying zynax-umbrella as release '${RELEASE_NAME}' in namespace '${NAMESPACE}'…"
+log "deploying zynax-umbrella as release '${RELEASE_NAME}' in namespace '${NAMESPACE}' (engine: ${E2E_ENGINE})…"
 # values-e2e.yaml carries the e2e-only overrides (shared with helm-upgrade.sh so
 # the release shape is identical across revisions): service image tags pinned to
 # `main`, event-bus/memory-service enabled (#1090), and the Postgres /
@@ -172,6 +230,13 @@ log "deploying zynax-umbrella as release '${RELEASE_NAME}' in namespace '${NAMES
 # E2E_IMAGE_TAG (set by e2e-smoke.yml for docker-touching PRs) repoints the 7
 # deployed services at the pre-merge staging lane — helm-upgrade.sh applies the
 # same overrides so the release shape stays identical across revisions.
+# Engine-selecting values overlay (#1071): the argo leg layers
+# values-e2e-argo.yaml on top of values-e2e.yaml so the release shape is
+# identical except for the engine selection (ADR-015).
+ENGINE_VALUES=()
+if [[ "${E2E_ENGINE}" == "argo" ]]; then
+  ENGINE_VALUES+=(-f "${SCRIPT_DIR}/values-e2e-argo.yaml")
+fi
 IMAGE_OVERRIDES=()
 if [[ -n "${E2E_IMAGE_TAG:-}" ]]; then
   E2E_IMAGE_PREFIX="${E2E_IMAGE_PREFIX:-ghcr.io/zynax-io/zynax/staging}"
@@ -190,6 +255,7 @@ helm upgrade --install "${RELEASE_NAME}" "${UMBRELLA_CHART}" \
   --namespace "${NAMESPACE}" \
   --create-namespace \
   -f "${SCRIPT_DIR}/values-e2e.yaml" \
+  "${ENGINE_VALUES[@]}" \
   --set zynax-cert-manager.enabled=true \
   "${IMAGE_OVERRIDES[@]}"
 

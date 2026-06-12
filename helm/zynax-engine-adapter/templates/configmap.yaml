@@ -15,6 +15,12 @@ data:
   task-broker-addr: {{ .Values.env.taskBrokerAddr | quote }}
   event-bus-addr: {{ .Values.env.eventBusAddr | quote }}
   active-engine: {{ .Values.env.activeEngine | quote }}
+  {{- if eq .Values.env.activeEngine "argo" }}
+  argo-server-url: {{ .Values.env.argoServerURL | quote }}
+  argo-namespace: {{ .Values.env.argoNamespace | quote }}
+  argo-workflow-template-ref: {{ .Values.env.argoWorkflowTemplateRef | quote }}
+  argo-service-account: {{ .Values.env.argoServiceAccount | quote }}
+  {{- end }}
   grpc-call-timeout-s: {{ .Values.env.grpcCallTimeoutS | quote }}
   max-activity-attempts: {{ .Values.env.maxActivityAttempts | quote }}
   liveness-threshold-s: {{ .Values.env.livenessThresholdS | quote }}

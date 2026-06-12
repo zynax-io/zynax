@@ -7,7 +7,7 @@ description: >
   Redis StatefulSet is dedicated to this chart (ADR-008).
   Do not set image.tag away from "placeholder" until EPIC J merges.
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "placeholder"
 dependencies:
   - name: zynax-lib

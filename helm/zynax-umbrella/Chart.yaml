@@ -42,7 +42,7 @@ dependencies:
     condition: zynax-event-bus.enabled
   # Placeholder — disabled until EPIC J (#773) ships.
   - name: zynax-memory-service
-    version: "0.1.0"
+    version: "0.1.1"
     repository: "file://../zynax-memory-service"
     condition: zynax-memory-service.enabled
   # ── Cluster dependency subcharts ──────────────────────────────────────────
