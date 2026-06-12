@@ -20,6 +20,7 @@ type TaskService struct {
 	repo      TaskRepository
 	finder    AgentFinder
 	executor  CapabilityExecutor
+	publisher TaskEventPublisher
 	bg        sync.WaitGroup
 	nextAgent atomic.Uint64
 }
@@ -27,6 +28,14 @@ type TaskService struct {
 // NewTaskService constructs a TaskService with the given port implementations.
 func NewTaskService(repo TaskRepository, finder AgentFinder, executor CapabilityExecutor) *TaskService {
 	return &TaskService{repo: repo, finder: finder, executor: executor}
+}
+
+// WithEventPublisher attaches a best-effort lifecycle event publisher so the
+// capability fan-out is observable over the event bus (EPIC #881 O5). A nil
+// publisher disables publication. Returns s for chaining.
+func (s *TaskService) WithEventPublisher(p TaskEventPublisher) *TaskService {
+	s.publisher = p
+	return s
 }
 
 // DispatchTask validates the request, records the task as PENDING, and launches
@@ -49,6 +58,17 @@ func (s *TaskService) DispatchTask(ctx context.Context, task *Task) (taskID stri
 	if len(agents) == 0 {
 		return "", time.Time{}, fmt.Errorf("%w: no agent registered for capability %q", ErrNoEligibleAgent, task.CapabilityName)
 	}
+
+	// Context-slice injection binding (ADR-028, EPIC #881 O5): an
+	// expert-targeted payload is narrowed to exactly that expert and rewritten
+	// to carry only its declared slice. Binding happens before Save so the
+	// persisted payload — and therefore any restart recovery — carries the
+	// bound slice durably.
+	agents, boundPayload, err := prepareExpertDispatch(task.InputPayload, agents)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	task.InputPayload = boundPayload
 
 	task.TaskID = newTaskID()
 	task.Status = TaskStatusPending
@@ -96,6 +116,7 @@ func (s *TaskService) AcknowledgeTask(ctx context.Context, taskID string, newSta
 	if err := s.repo.Update(ctx, task); err != nil {
 		return 0, fmt.Errorf("task-broker: update: %w", err)
 	}
+	s.publishEvent(ctx, task)
 	return resulting, nil
 }
 
@@ -137,7 +158,83 @@ func (s *TaskService) CancelTask(ctx context.Context, taskID string) (time.Time,
 	if err := s.repo.Update(ctx, task); err != nil {
 		return time.Time{}, fmt.Errorf("task-broker: update: %w", err)
 	}
+	s.publishEvent(ctx, task)
 	return task.CompletedAt, nil
+}
+
+// recoveryPageSize is the repository page size used by startup recovery.
+const recoveryPageSize = 100
+
+// RecoverInFlight re-launches execution for every non-terminal task in the
+// repository, called once at startup so a broker restart never loses an
+// in-flight fan-out (EPIC #881 O5): task state — including the context slice
+// bound into input_payload at original dispatch time — is durable in the
+// repository (#626 Postgres-backed). Returns the number of tasks re-launched.
+func (s *TaskService) RecoverInFlight(ctx context.Context) (int, error) {
+	recovered := 0
+	for _, status := range []TaskStatus{TaskStatusPending, TaskStatusDispatched, TaskStatusRetrying} {
+		n, err := s.recoverByStatus(ctx, status)
+		recovered += n
+		if err != nil {
+			return recovered, err
+		}
+	}
+	return recovered, nil
+}
+
+func (s *TaskService) recoverByStatus(ctx context.Context, status TaskStatus) (int, error) {
+	recovered := 0
+	token := ""
+	for {
+		page, err := s.repo.List(ctx, ListFilter{Status: status, PageToken: token, PageSize: recoveryPageSize})
+		if err != nil {
+			return recovered, fmt.Errorf("task-broker: recover list %s tasks: %w", status, err)
+		}
+		for _, task := range page.Tasks {
+			if s.relaunch(ctx, task) {
+				recovered++
+			}
+		}
+		if page.NextPageToken == "" {
+			return recovered, nil
+		}
+		token = page.NextPageToken
+	}
+}
+
+// relaunch resolves the eligible agents for a recovered task and restarts its
+// async execution. The persisted payload already carries the slice bound at
+// original dispatch time — no re-binding; expert targeting is re-applied for
+// routing, and a task targeted at a now-missing expert is left untouched
+// (never re-routed) for a later recovery pass.
+func (s *TaskService) relaunch(ctx context.Context, task *Task) bool {
+	agents, err := s.finder.FindByCapability(ctx, task.CapabilityName)
+	if err != nil || len(agents) == 0 {
+		return false
+	}
+	if expert, ok := expertTarget(task.InputPayload); ok {
+		agent, found := selectExpert(agents, expert)
+		if !found {
+			return false
+		}
+		agents = []AgentInfo{agent}
+	}
+	s.bg.Add(1)
+	go func() {
+		defer s.bg.Done()
+		s.executeAsync(detach(ctx), task.TaskID, agents)
+	}()
+	return true
+}
+
+// publishEvent forwards a task snapshot to the lifecycle event publisher.
+// No-op when unset; best-effort by port contract, never affects task state.
+func (s *TaskService) publishEvent(ctx context.Context, task *Task) {
+	if s.publisher == nil {
+		return
+	}
+	snapshot := *task
+	s.publisher.PublishTaskEvent(ctx, &snapshot)
 }
 
 // WaitBackground blocks until all goroutines launched by DispatchTask have finished.
@@ -158,6 +255,7 @@ func (s *TaskService) executeAsync(ctx context.Context, taskID string, agents []
 	if err := s.repo.Update(ctx, task); err != nil {
 		return
 	}
+	s.publishEvent(ctx, task)
 
 	resultPayload, taskErr, execErr := s.executor.Execute(ctx, agent, task)
 
@@ -174,7 +272,9 @@ func (s *TaskService) executeAsync(ctx context.Context, taskID string, agents []
 	} else {
 		s.applyAcknowledgement(task, TaskStatusCompleted, resultPayload, nil)
 	}
-	_ = s.repo.Update(ctx, task)
+	if err := s.repo.Update(ctx, task); err == nil {
+		s.publishEvent(ctx, task)
+	}
 }
 
 func (s *TaskService) applyAcknowledgement(task *Task, newStatus TaskStatus, resultPayload []byte, taskErr *TaskError) TaskStatus {

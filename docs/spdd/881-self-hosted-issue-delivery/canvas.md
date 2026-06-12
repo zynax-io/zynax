@@ -264,7 +264,16 @@ event-bus, (orchestrator) engine-adapter.
    (calls planner `identify_next_issue`) → `route`. Reads a GitHub issue, classifies type/expert,
    identifies the next issue. *Verify:* given a fixture issue, the workflow emits the correct
    `{next_issue, expert, blocked_by}` decision; BDD scenario for the classify+route path.
-5. **O5 — Context-slice injection binding (`feat`).** The runtime binding that feeds one expert AgentDef
+5. **O5 — Context-slice injection binding (`feat`).** ✅ Delivered (#1100 — the binding lives in
+   task-broker's domain layer: an `expert`-keyed `review` dispatch is narrowed to exactly that expert
+   AgentDef and its registry-declared `{files[], max_tokens}` slice is bound into the capability
+   `input_payload` **before** the task row is persisted, replacing anything the caller supplied — so a
+   caller can never plant a foreign slice (strict isolation) and the bound payload is durable. Startup
+   recovery (`RecoverInFlight`) re-launches non-terminal tasks from the Postgres-backed repo (#626), so
+   a parallel fan-out survives a broker restart; task lifecycle CloudEvents
+   (`zynax.v1.task-broker.task.*`) are published best-effort to EventBus (#772) for durable fan-out
+   observation. Isolation + simulated-restart tests in `internal/domain/contextslice_test.go`.)
+   The runtime binding that feeds one expert AgentDef
    only its declared `context_slice` (bounded `max_tokens`, strict isolation) via capability dispatch
    (task-broker) over EventBus. *Verify:* an expert invocation receives only its slice files; isolation
    test proves no cross-expert context leakage.

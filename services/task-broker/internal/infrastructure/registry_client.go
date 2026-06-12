@@ -47,10 +47,21 @@ func (r *registryClient) FindByCapability(ctx context.Context, capabilityName st
 	}
 	agents := make([]domain.AgentInfo, len(resp.GetAgents()))
 	for i, a := range resp.GetAgents() {
-		agents[i] = domain.AgentInfo{
+		info := domain.AgentInfo{
 			AgentID:  a.GetAgentId(),
+			Name:     a.GetName(),
 			Endpoint: a.GetEndpoint(),
 		}
+		// Carry the registered input_schema of the requested capability so the
+		// domain layer can bind the declared context slice at dispatch time
+		// (ADR-028, EPIC #881 O5).
+		for _, c := range a.GetCapabilities() {
+			if c.GetName() == capabilityName {
+				info.InputSchema = c.GetInputSchema()
+				break
+			}
+		}
+		agents[i] = info
 	}
 	return agents, nil
 }

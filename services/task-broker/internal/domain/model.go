@@ -71,7 +71,12 @@ type TaskError struct {
 // AgentInfo carries the routing information needed to invoke an agent.
 type AgentInfo struct {
 	AgentID  string
+	Name     string
 	Endpoint string
+	// InputSchema is the registered JSON Schema (draft-07) of the requested
+	// capability. The dispatch-time context-slice injection binding (ADR-028,
+	// EPIC #881 O5) reads the declared {files[], max_tokens} defaults from it.
+	InputSchema []byte
 }
 
 // ListFilter specifies the criteria for a ListTasks call.
