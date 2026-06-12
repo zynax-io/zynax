@@ -8,9 +8,9 @@
 # CloudEvents arrived on NATS JetStream, and verifies that the memory-service
 # KV plane works by writing a sentinel key and reading it back. The CloudEvent
 # + memory assertions are REQUIRED (#1090, canvas 1086 O4) — there is no skip
-# path. Exception: the terminal workflow.completed event is enforced only with
-# E2E_REQUIRE_COMPLETED_EVENT=1 until bug #1149 (JetStream stream subject
-# overlap makes it undeliverable) is fixed — see step 3b.
+# path. This includes the terminal workflow.completed CloudEvent (step 3b),
+# required since the #1149 fix (JetStream stream subject overlap previously
+# made it undeliverable).
 #
 # Requires a running kind cluster created by cluster-up.sh (G.1 / #809).
 # Compatible with both ci/docker and local developer environments.
@@ -28,8 +28,6 @@
 #   POLL_INTERVAL      seconds between status polls       (default: 5)
 #   WORKFLOW_FILE      path to the workflow YAML          (default: spec/workflows/examples/e2e-demo.yaml)
 #   NATS_ASSERT_TIMEOUT          max seconds to wait for the JetStream events (default: 60)
-#   E2E_REQUIRE_COMPLETED_EVENT  1 = hard-fail when workflow.completed is not
-#                                on JetStream (default: 0 until #1149 is fixed)
 #
 # Exit codes:
 #   0  all assertions passed
@@ -234,32 +232,28 @@ pass "step 2: workflow reached terminal success state '${FINAL_STATUS}' (run_id=
 # REQUIRED since #1090 (canvas 1086 O4) — no skip path. The engine-adapter
 # publishes lifecycle CloudEvents through EventBusService, which lands them on
 # NATS JetStream. PublishLifecycleEventActivity (services/engine-adapter/
-# internal/infrastructure/activities.go) builds the subject as
-#   "zynax.v1.engine-adapter.workflow." + <event type from interpreter.go>
-# and event-bus derives the stream by dropping the last subject segment and
-# upper-snake-casing the rest (StreamName in services/event-bus/internal/
-# infrastructure/nats.go). We assert with the `nats` CLI inside the nats-box
-# pod (deployed by the NATS subchart) so the host needs no NATS tooling.
+# internal/infrastructure/activities.go) maps the interpreter event type onto
+# the topic taxonomy "zynax.v1.engine-adapter.workflow.<verb>" (#1149), and
+# event-bus derives one stream per entity prefix (first 4 subject segments,
+# upper-snake-cased — StreamName in services/event-bus/internal/infrastructure/
+# nats.go), so the whole lifecycle family shares the single stream
+# ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW. We assert with the `nats` CLI inside the
+# nats-box pod (deployed by the NATS subchart) so the host needs no NATS tooling.
 #
-# Two checks:
-#   3a (REQUIRED): the state-lifecycle CloudEvents (zynax.workflow.state.entered/
-#       exited) for this run are on JetStream — proves the full engine-adapter →
-#       event-bus → NATS pipeline delivers CloudEvents end-to-end.
-#   3b: the terminal zynax.workflow.completed CloudEvent. BLOCKED by #1149:
-#       the state stream's subject filter overlaps the completed stream's, so
-#       JetStream rejects the completed stream (err 10065) and the event is
-#       undeliverable today. Enforced only when E2E_REQUIRE_COMPLETED_EVENT=1.
-#       TODO(#1149): flip the default to required once the stream-derivation
-#       overlap is fixed — do NOT remove this assertion.
+# Two checks, both REQUIRED:
+#   3a: the state-lifecycle CloudEvents (….workflow.state.entered/exited) for
+#       this run are on JetStream — proves the full engine-adapter → event-bus
+#       → NATS pipeline delivers CloudEvents end-to-end.
+#   3b: the terminal ….workflow.completed CloudEvent is on JetStream — the
+#       #1149 regression guard (the old per-depth stream derivation made the
+#       completed/failed family undeliverable: NATS err 10065).
 
 log "step 3: asserting lifecycle CloudEvents off NATS JetStream…"
 
-STATE_SUBJECT_PREFIX="zynax.v1.engine-adapter.workflow.zynax.workflow.state"
-STATE_STREAM="ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW_ZYNAX_WORKFLOW_STATE"
-COMPLETED_SUBJECT="zynax.v1.engine-adapter.workflow.zynax.workflow.completed"
-COMPLETED_STREAM="ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW_ZYNAX_WORKFLOW"
+EVENTS_STREAM="ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW"
+STATE_SUBJECT_PREFIX="zynax.v1.engine-adapter.workflow.state"
+COMPLETED_SUBJECT="zynax.v1.engine-adapter.workflow.completed"
 NATS_ASSERT_TIMEOUT="${NATS_ASSERT_TIMEOUT:-60}"
-E2E_REQUIRE_COMPLETED_EVENT="${E2E_REQUIRE_COMPLETED_EVENT:-0}"
 
 NATS_BOX_POD=$(kubectl -n "${NAMESPACE}" get pod \
   -l "app.kubernetes.io/component=nats-box" \
@@ -289,60 +283,60 @@ nats_diagnostics() {
 NATS_ELAPSED=0
 STATE_MSGS="0"
 while [[ ${NATS_ELAPSED} -lt ${NATS_ASSERT_TIMEOUT} ]]; do
-  STATE_MSGS=$(nats_exec stream info "${STATE_STREAM}" --json 2>/dev/null \
+  STATE_MSGS=$(nats_exec stream info "${EVENTS_STREAM}" --json 2>/dev/null \
     | jq -r '.state.messages // 0' 2>/dev/null || echo "0")
   [[ "${STATE_MSGS}" =~ ^[0-9]+$ ]] || STATE_MSGS=0
   if [[ "${STATE_MSGS}" -gt 0 ]]; then
     break
   fi
-  log "  [${NATS_ELAPSED}s] stream '${STATE_STREAM}' not ready yet (messages=${STATE_MSGS}) — retrying…"
+  log "  [${NATS_ELAPSED}s] stream '${EVENTS_STREAM}' not ready yet (messages=${STATE_MSGS}) — retrying…"
   sleep 5
   NATS_ELAPSED=$((NATS_ELAPSED + 5))
 done
 if [[ "${STATE_MSGS}" -eq 0 ]]; then
   nats_diagnostics
-  fail "step 3a: NATS JetStream stream '${STATE_STREAM}' has no messages after ${NATS_ASSERT_TIMEOUT}s — lifecycle CloudEvents are not reaching JetStream"
+  fail "step 3a: NATS JetStream stream '${EVENTS_STREAM}' has no messages after ${NATS_ASSERT_TIMEOUT}s — lifecycle CloudEvents are not reaching JetStream"
 fi
-log "  stream '${STATE_STREAM}' has ${STATE_MSGS} message(s)."
+log "  stream '${EVENTS_STREAM}' has ${STATE_MSGS} message(s)."
 
-LAST_STATE_EVENT=$(nats_exec stream get "${STATE_STREAM}" \
+LAST_STATE_EVENT=$(nats_exec stream get "${EVENTS_STREAM}" \
   --last-for "${STATE_SUBJECT_PREFIX}.entered" 2>&1) || {
     nats_diagnostics
-    fail "step 3a: no message on subject '${STATE_SUBJECT_PREFIX}.entered' in stream '${STATE_STREAM}': ${LAST_STATE_EVENT}"
+    fail "step 3a: no message on subject '${STATE_SUBJECT_PREFIX}.entered' in stream '${EVENTS_STREAM}': ${LAST_STATE_EVENT}"
   }
 log "  last state.entered event: ${LAST_STATE_EVENT}"
-printf '%s' "${LAST_STATE_EVENT}" | grep -q "zynax.workflow.state.entered" || {
+printf '%s' "${LAST_STATE_EVENT}" | grep -q "workflow.state.entered" || {
   nats_diagnostics
-  fail "step 3a: message on '${STATE_SUBJECT_PREFIX}.entered' does not carry the zynax.workflow.state.entered CloudEvent type. Payload: ${LAST_STATE_EVENT}"
+  fail "step 3a: message on '${STATE_SUBJECT_PREFIX}.entered' does not carry the workflow.state.entered CloudEvent type. Payload: ${LAST_STATE_EVENT}"
 }
 if printf '%s' "${LAST_STATE_EVENT}" | grep -q "${RUN_ID}"; then
-  pass "step 3a: lifecycle CloudEvents delivered to JetStream (stream=${STATE_STREAM}, workflow_id matches run_id=${RUN_ID})."
+  pass "step 3a: lifecycle CloudEvents delivered to JetStream (stream=${EVENTS_STREAM}, workflow_id matches run_id=${RUN_ID})."
 else
   warn "  state.entered payload does not reference run_id=${RUN_ID} (workflow id mapping may differ)."
-  pass "step 3a: lifecycle CloudEvents delivered to JetStream (stream=${STATE_STREAM}, ${STATE_MSGS} message(s))."
+  pass "step 3a: lifecycle CloudEvents delivered to JetStream (stream=${EVENTS_STREAM}, ${STATE_MSGS} message(s))."
 fi
 
-# 3b — terminal completed CloudEvent (gated on #1149, see header comment).
-COMPLETED_MSGS=$(nats_exec stream info "${COMPLETED_STREAM}" --json 2>/dev/null \
-  | jq -r '.state.messages // 0' 2>/dev/null || echo "0")
-[[ "${COMPLETED_MSGS}" =~ ^[0-9]+$ ]] || COMPLETED_MSGS=0
-if [[ "${COMPLETED_MSGS}" -gt 0 ]]; then
-  LAST_EVENT=$(nats_exec stream get "${COMPLETED_STREAM}" \
-    --last-for "${COMPLETED_SUBJECT}" 2>&1) || true
-  log "  last completed event: ${LAST_EVENT}"
-  if printf '%s' "${LAST_EVENT}" | grep -q "zynax.workflow.completed"; then
-    pass "step 3b: workflow.completed CloudEvent delivered to JetStream (stream=${COMPLETED_STREAM})."
-  elif [[ "${E2E_REQUIRE_COMPLETED_EVENT}" -eq 1 ]]; then
-    nats_diagnostics
-    fail "step 3b: stream '${COMPLETED_STREAM}' has messages but none carry zynax.workflow.completed"
+# 3b — REQUIRED: terminal completed CloudEvent (#1149 regression guard).
+# The workflow already reached terminal success in step 2, so the completed
+# event must land within the assertion timeout — no skip path.
+NATS_ELAPSED=0
+LAST_EVENT=""
+while [[ ${NATS_ELAPSED} -lt ${NATS_ASSERT_TIMEOUT} ]]; do
+  LAST_EVENT=$(nats_exec stream get "${EVENTS_STREAM}" \
+    --last-for "${COMPLETED_SUBJECT}" 2>/dev/null) || LAST_EVENT=""
+  if printf '%s' "${LAST_EVENT}" | grep -q "workflow.completed"; then
+    break
   fi
-elif [[ "${E2E_REQUIRE_COMPLETED_EVENT}" -eq 1 ]]; then
+  log "  [${NATS_ELAPSED}s] no message on subject '${COMPLETED_SUBJECT}' yet — retrying…"
+  sleep 5
+  NATS_ELAPSED=$((NATS_ELAPSED + 5))
+done
+printf '%s' "${LAST_EVENT}" | grep -q "workflow.completed" || {
   nats_diagnostics
-  fail "step 3b: workflow.completed CloudEvent not on JetStream (stream='${COMPLETED_STREAM}' empty or missing)"
-else
-  warn "step 3b: workflow.completed CloudEvent NOT on JetStream — known bug #1149 (stream subject overlap)."
-  warn "         Enforce with E2E_REQUIRE_COMPLETED_EVENT=1 once #1149 is fixed."
-fi
+  fail "step 3b: workflow.completed CloudEvent not on JetStream after ${NATS_ASSERT_TIMEOUT}s (subject='${COMPLETED_SUBJECT}', stream='${EVENTS_STREAM}') — #1149 regression"
+}
+log "  last completed event: ${LAST_EVENT}"
+pass "step 3b: workflow.completed CloudEvent delivered to JetStream (stream=${EVENTS_STREAM}, subject=${COMPLETED_SUBJECT})."
 
 # ── 4. Assert memory-service KV roundtrip ────────────────────────────────────────
 #
@@ -388,7 +382,7 @@ fi
 
 printf '\n\033[1;32m[e2e-happy] ALL ASSERTIONS PASSED\033[0m\n'
 printf '  workflow:  run_id=%s  status=%s\n' "${RUN_ID}" "${FINAL_STATUS}"
-printf '  event-bus: state-stream=%s messages=%s  completed-stream=%s messages=%s (enforced=%s, #1149)\n' \
-  "${STATE_STREAM}" "${STATE_MSGS}" "${COMPLETED_STREAM}" "${COMPLETED_MSGS}" "${E2E_REQUIRE_COMPLETED_EVENT}"
+printf '  event-bus: stream=%s messages=%s  completed-event=delivered (required, #1149)\n' \
+  "${EVENTS_STREAM}" "${STATE_MSGS}"
 printf '  memory:    workflow_id=%s  key=%s roundtrip=ok\n' "${MEMORY_WF_ID}" "${MEMORY_KEY}"
 printf '\n'

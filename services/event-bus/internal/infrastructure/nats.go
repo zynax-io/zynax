@@ -58,49 +58,80 @@ type cloudEventEnvelope struct {
 	Data            []byte `json:"data,omitempty"`
 }
 
+// streamSubjectDepth is the number of leading subject segments that identify
+// the entity owning a JetStream stream, per the platform topic taxonomy
+// "zynax.<version>.<service>.<entity>.<event_type>" (root AGENTS.md): the
+// entity prefix is always the first four segments, while the event_type verb
+// may itself contain dots (e.g. "state.entered").
+//
+// Deriving every stream at the same fixed depth makes subject filters either
+// identical (same stream) or pairwise disjoint by construction. The previous
+// "drop the last segment" rule derived overlapping filters for event types of
+// different depth within the same prefix tree (e.g. "….workflow.state.entered"
+// vs "….workflow.completed"), and NATS rejected the second stream with
+// "subjects overlap with an existing stream" (err 10065), silently making
+// whole event families undeliverable — see #1149.
+const streamSubjectDepth = 4
+
+// streamPrefix returns the leading subject segments (at most
+// streamSubjectDepth) that identify the stream owning eventType. Event types
+// shorter than the taxonomy depth are used verbatim.
+func streamPrefix(eventType string) string {
+	parts := strings.Split(eventType, ".")
+	if len(parts) > streamSubjectDepth {
+		return strings.Join(parts[:streamSubjectDepth], ".")
+	}
+	return eventType
+}
+
 // StreamName derives a JetStream stream name from a dot-separated event type.
-// The stream covers the full event type as subject filter using ">" wildcard.
 // Examples:
 //
-//	"zynax.v1.engine-adapter.workflow.completed" → "ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW"
-//	"zynax.v1.agent-registry.agent.registered"  → "ZYNAX_V1_AGENT_REGISTRY_AGENT"
+//	"zynax.v1.engine-adapter.workflow.completed"     → "ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW"
+//	"zynax.v1.engine-adapter.workflow.state.entered" → "ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW"
+//	"zynax.v1.agent-registry.agent.registered"       → "ZYNAX_V1_AGENT_REGISTRY_AGENT"
 //
 // Dashes are replaced with underscores; dots become underscores; all uppercase.
-// The last segment (the verb) is dropped so all events of the same entity
-// share a single stream.
+// All events under the same entity prefix (first streamSubjectDepth segments)
+// share a single stream regardless of how many segments the verb has.
 func StreamName(eventType string) string {
-	parts := strings.Split(eventType, ".")
-	// Use all but the last segment (verb) for the stream name.
-	prefix := parts
-	if len(parts) > 1 {
-		prefix = parts[:len(parts)-1]
-	}
-	name := strings.Join(prefix, "_")
+	name := strings.ReplaceAll(streamPrefix(eventType), ".", "_")
 	name = strings.ReplaceAll(name, "-", "_")
 	return strings.ToUpper(name)
 }
 
-// SubjectFilter returns the NATS subject filter for a stream created from eventType.
-// All events whose type starts with the entity prefix are captured.
+// SubjectFilter returns the widest NATS subject filter for the stream that
+// owns eventType: "<entity-prefix>.>" for taxonomy-depth event types, or the
+// literal event type when it has fewer segments than the taxonomy depth
+// (literal subjects can never overlap a fixed-depth wildcard filter).
 func SubjectFilter(eventType string) string {
-	parts := strings.Split(eventType, ".")
-	// Drop the last segment (verb) and replace with ">" wildcard.
-	if len(parts) > 1 {
-		prefix := strings.Join(parts[:len(parts)-1], ".")
+	prefix := streamPrefix(eventType)
+	if prefix != eventType {
 		return prefix + ".>"
 	}
-	return eventType + ".>"
+	return eventType
+}
+
+// streamSubjects returns the full subject set for the stream owning eventType.
+// Taxonomy-depth streams carry both the literal entity prefix and its ".>"
+// wildcard so a (degenerate) event type that IS the entity prefix still lands
+// on the same stream instead of requiring an overlapping second stream.
+func streamSubjects(eventType string) []string {
+	prefix := streamPrefix(eventType)
+	if prefix != eventType {
+		return []string{prefix, prefix + ".>"}
+	}
+	return []string{eventType}
 }
 
 // ensureStream creates the JetStream stream if it does not already exist.
 // If the stream already exists with the same config, this is a no-op (idempotent).
 func (b *NATSEventBus) ensureStream(eventType string) error {
 	name := StreamName(eventType)
-	filter := SubjectFilter(eventType)
 
 	cfg := &nats.StreamConfig{
 		Name:      name,
-		Subjects:  []string{filter},
+		Subjects:  streamSubjects(eventType),
 		Retention: nats.LimitsPolicy,
 		Storage:   nats.FileStorage,
 		Replicas:  1,
@@ -265,23 +296,25 @@ func dlqStreamName(sourceStreamName string) string {
 	return "DLQ_" + sourceStreamName
 }
 
-// dlqSubjectFilter returns the NATS subject filter for the dead-letter queue stream.
-// Example: "zynax.v1.engine-adapter.workflow.completed" → "zynax.dlq.zynax.v1.engine-adapter.workflow.>"
-func dlqSubjectFilter(eventType string) string {
-	parts := strings.Split(eventType, ".")
-	if len(parts) > 1 {
-		prefix := strings.Join(parts[:len(parts)-1], ".")
-		return "zynax.dlq." + prefix + ".>"
-	}
-	return "zynax.dlq." + eventType + ".>"
+// dlqDeliverSubject returns the concrete NATS subject that carries messages
+// which exhausted their delivery retries for the stream owning eventType.
+// It is an exact subject (no wildcard) so DLQ stream filters are pairwise
+// disjoint by construction — the same #1149 overlap class applied to the
+// "zynax.dlq." namespace. The "zynax.dlq." prefix is reserved: event types
+// must not be published under it.
+// Example: "zynax.v1.engine-adapter.workflow.completed" →
+// "zynax.dlq.zynax.v1.engine-adapter.workflow.dead"
+func dlqDeliverSubject(eventType string) string {
+	return "zynax.dlq." + streamPrefix(eventType) + ".dead"
 }
 
 // ensureDLQStream creates the dead-letter queue JetStream stream for a source
 // stream if it does not already exist. The DLQ stream uses WorkQueuePolicy
-// (each message consumed once) and captures subjects under "zynax.dlq.<topic>".
+// (each message consumed once) and captures the exact "zynax.dlq.<prefix>.dead"
+// deliver subject for the source stream.
 func (b *NATSEventBus) ensureDLQStream(sourceStreamName, eventType string) error {
 	dlqName := dlqStreamName(sourceStreamName)
-	dlqSubj := dlqSubjectFilter(eventType)
+	dlqSubj := dlqDeliverSubject(eventType)
 
 	cfg := &nats.StreamConfig{
 		Name:         dlqName,
@@ -402,7 +435,7 @@ func (b *NATSEventBus) Subscribe(ctx context.Context, req domain.SubscribeReques
 	}
 
 	// Build the DLQ deliver subject for exhausted messages.
-	dlqSubj := strings.TrimSuffix(dlqSubjectFilter(streamSubject), ".>") + ".dead"
+	dlqSubj := dlqDeliverSubject(streamSubject)
 
 	sub, err := b.openSubscription(
 		streamName,

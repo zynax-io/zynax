@@ -7,12 +7,14 @@
 # UNREACHABLE capability, then:
 #   1. polls the workflow status and asserts it reaches a terminal "failed" state,
 #   2. asserts the capability dispatch timed out within ZYNAX_CAPABILITY_TIMEOUT,
-#   3. asserts the "zynax.workflow.failed" CloudEvent arrived on NATS JetStream.
+#   3. asserts the workflow.failed CloudEvent (subject
+#      "zynax.v1.engine-adapter.workflow.failed") arrived on NATS JetStream —
+#      REQUIRED since the #1149 fix, no skip path.
 #
 # This is the failure-path sibling of e2e-happy.sh (#810): same cluster, same
 # api-gateway submission flow, same JetStream assertion approach — only the
 # expected terminal outcome is inverted (failed, not succeeded) and the asserted
-# CloudEvent is "zynax.workflow.failed".
+# CloudEvent is the terminal workflow.failed event.
 #
 # The workflow fixture is generated at runtime (see make_failure_workflow below)
 # rather than committed under spec/workflows/examples/, because it intentionally
@@ -196,14 +198,10 @@ fi
 
 # Verify event-bus exists — the workflow.failed CloudEvent assertion needs it.
 # The deployment name is pinned via fullnameOverride in values-e2e.yaml (#1090).
-# Hardening the failed-event assertion to the strict happy-path level is part
-# of the gate-promotion step (canvas 1086 O6).
-if ! kubectl -n "${NAMESPACE}" get deployment \
-    "zynax-event-bus" >/dev/null 2>&1; then
-  warn "event-bus deployment not found — NATS JetStream assertion will be skipped"
-  SKIP_NATS=1
-fi
-SKIP_NATS="${SKIP_NATS:-0}"
+# REQUIRED since the #1149 fix made the terminal failed event reliably
+# deliverable — the assertion has no skip path (same strictness as e2e-happy.sh).
+kubectl -n "${NAMESPACE}" get deployment "zynax-event-bus" >/dev/null 2>&1 \
+  || fail "event-bus deployment not found — required for the workflow.failed CloudEvent assertion (values-e2e.yaml enables it; run cluster-up.sh)"
 
 log "preflight passed (capability timeout = ${ZYNAX_CAPABILITY_TIMEOUT})."
 
@@ -311,73 +309,72 @@ fi
 log "step 3: capability timeout budget = ${ZYNAX_CAPABILITY_TIMEOUT}; observed failure after ~${FAIL_ELAPSED}s."
 
 # ── 4. Assert the workflow.failed CloudEvent off NATS JetStream ────────────────────
+#
+# REQUIRED since the #1149 fix — no skip path (same strictness as e2e-happy.sh
+# step 3b). PublishLifecycleEventActivity maps the interpreter event type onto
+# the topic taxonomy "zynax.v1.engine-adapter.workflow.failed", and event-bus
+# derives one stream per entity prefix (first 4 subject segments, upper-snake-
+# cased — StreamName in services/event-bus/internal/infrastructure/nats.go),
+# so the failed event shares the ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW stream with
+# the rest of the lifecycle family. We assert with the `nats` CLI inside the
+# nats-box pod (deployed by the NATS subchart) so the host needs no NATS tooling.
 
-if [[ "${SKIP_NATS}" -eq 1 ]]; then
-  warn "step 4: SKIPPED — event-bus not available."
-else
-  log "step 4: asserting CloudEvent 'zynax.workflow.failed' off NATS JetStream…"
+log "step 4: asserting CloudEvent off NATS JetStream (subject 'zynax.v1.engine-adapter.workflow.failed')…"
 
-  # NATS lives inside the cluster. We use kubectl exec into the NATS pod to
-  # avoid depending on the `nats` CLI tool on the host. The JetStream stream
-  # name derives from the event type by convention (see nats.go):
-  #   "zynax.workflow.failed" → drop last segment → "zynax.workflow"
-  #   stream name = "ZYNAX_WORKFLOW"
-  # The happy-path "completed" and failure-path "failed" events share the same
-  # stream; we assert the stream carries at least one message.
-  STREAM_NAME="ZYNAX_WORKFLOW"
-  NATS_SVC="${RELEASE_NAME}-zynax-nats"
-  NATS_POD=$(kubectl -n "${NAMESPACE}" get pod \
-    -l "app.kubernetes.io/name=nats" \
-    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+EVENTS_STREAM="ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW"
+FAILED_SUBJECT="zynax.v1.engine-adapter.workflow.failed"
+NATS_ASSERT_TIMEOUT="${NATS_ASSERT_TIMEOUT:-60}"
 
-  if [[ -z "${NATS_POD}" ]]; then
-    warn "step 4: could not locate NATS pod — attempting port-forward to service instead"
-    port_forward "svc/${NATS_SVC}" 4222 4222
-    if command -v nats >/dev/null 2>&1; then
-      STREAM_INFO=$(nats stream info "${STREAM_NAME}" \
-        --server nats://127.0.0.1:4222 2>&1) || true
-      log "NATS stream info: ${STREAM_INFO}"
-      MSGS=$(printf '%s' "${STREAM_INFO}" | grep -i "messages:" | grep -oE '[0-9]+' | head -1 || echo "0")
-      [[ "${MSGS}" -gt 0 ]] || fail "step 4: NATS stream '${STREAM_NAME}' has 0 messages — workflow.failed CloudEvent not delivered"
-      pass "step 4: NATS stream '${STREAM_NAME}' has ${MSGS} message(s)."
-    else
-      warn "step 4: 'nats' CLI not found; connectivity confirmed but message count not verified."
-      pass "step 4: NATS connectivity verified (port-forward to 4222 succeeded)."
-    fi
-  else
-    log "  NATS pod: ${NATS_POD}"
-    STREAM_CMD="nats stream info ${STREAM_NAME} --server nats://localhost:4222 2>&1 || true"
-    STREAM_INFO=$(kubectl -n "${NAMESPACE}" exec "${NATS_POD}" -- \
-      sh -c "${STREAM_CMD}" 2>/dev/null || true)
-    log "  stream info: ${STREAM_INFO}"
+NATS_BOX_POD=$(kubectl -n "${NAMESPACE}" get pod \
+  -l "app.kubernetes.io/component=nats-box" \
+  -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+[[ -n "${NATS_BOX_POD}" ]] \
+  || fail "step 4: nats-box pod not found (label app.kubernetes.io/component=nats-box) — the NATS subchart must be enabled with natsBox for this assertion"
+log "  nats-box pod: ${NATS_BOX_POD}"
 
-    if printf '%s' "${STREAM_INFO}" | grep -qi "not found\|unknown\|error\|command not found"; then
-      # Fallback: check via the NATS HTTP monitoring endpoint (port 8222).
-      MONITORING=$(kubectl -n "${NAMESPACE}" exec "${NATS_POD}" -- \
-        sh -c "wget -qO- http://localhost:8222/jsz?streams=1 2>/dev/null || curl -s http://localhost:8222/jsz?streams=1 2>/dev/null || echo '{}'" 2>/dev/null || echo "{}")
-      log "  NATS monitoring jsz: ${MONITORING}"
-      if printf '%s' "${MONITORING}" | grep -q "${STREAM_NAME}"; then
-        pass "step 4: NATS JetStream stream '${STREAM_NAME}' found via monitoring endpoint."
-      else
-        warn "step 4: could not confirm CloudEvent delivery — nats CLI not in pod and jsz stream not found."
-        warn "        The workflow reached '${FINAL_STATUS}'; event-bus publish is best-effort."
-      fi
-    else
-      MSGS=$(printf '%s' "${STREAM_INFO}" | grep -i "messages:" | grep -oE '[0-9]+' | head -1 || echo "0")
-      if [[ -n "${MSGS}" && "${MSGS}" -gt 0 ]]; then
-        pass "step 4: NATS stream '${STREAM_NAME}' has ${MSGS} message(s) — workflow.failed CloudEvent delivered."
-      else
-        warn "step 4: NATS stream '${STREAM_NAME}' message count is 0 or unknown (may be placeholder image)."
-        pass "step 4: NATS JetStream stream assertion completed (placeholder image acceptable)."
-      fi
-    fi
+# nats_exec <args…> — run the nats CLI inside the nats-box pod.
+nats_exec() {
+  kubectl -n "${NAMESPACE}" exec "${NATS_BOX_POD}" -- nats "$@"
+}
+
+# nats_diagnostics — dump JetStream + publisher state on assertion failure so
+# the CI log carries the evidence (the cluster is torn down right after).
+nats_diagnostics() {
+  warn "── step 4 diagnostics ──"
+  warn "JetStream streams:"
+  nats_exec stream ls 2>&1 | sed 's/^/    /' >&2 || true
+  warn "event-bus log tail:"
+  kubectl -n "${NAMESPACE}" logs deployment/zynax-event-bus --tail=40 2>&1 | sed 's/^/    /' >&2 || true
+  warn "engine-adapter log tail:"
+  kubectl -n "${NAMESPACE}" logs deployment/zynax-engine-adapter --tail=40 2>&1 | sed 's/^/    /' >&2 || true
+}
+
+# The workflow already reached terminal failure in step 2, so the failed event
+# must land within the assertion timeout — no skip path.
+NATS_ELAPSED=0
+LAST_FAILED_EVENT=""
+while [[ ${NATS_ELAPSED} -lt ${NATS_ASSERT_TIMEOUT} ]]; do
+  LAST_FAILED_EVENT=$(nats_exec stream get "${EVENTS_STREAM}" \
+    --last-for "${FAILED_SUBJECT}" 2>/dev/null) || LAST_FAILED_EVENT=""
+  if printf '%s' "${LAST_FAILED_EVENT}" | grep -q "workflow.failed"; then
+    break
   fi
-fi
+  log "  [${NATS_ELAPSED}s] no message on subject '${FAILED_SUBJECT}' yet — retrying…"
+  sleep 5
+  NATS_ELAPSED=$((NATS_ELAPSED + 5))
+done
+printf '%s' "${LAST_FAILED_EVENT}" | grep -q "workflow.failed" || {
+  nats_diagnostics
+  fail "step 4: workflow.failed CloudEvent not on JetStream after ${NATS_ASSERT_TIMEOUT}s (subject='${FAILED_SUBJECT}', stream='${EVENTS_STREAM}') — #1149 regression"
+}
+log "  last failed event: ${LAST_FAILED_EVENT}"
+pass "step 4: workflow.failed CloudEvent delivered to JetStream (stream=${EVENTS_STREAM}, subject=${FAILED_SUBJECT})."
 
 # ── summary ──────────────────────────────────────────────────────────────────────
 
 printf '\n\033[1;32m[e2e-failure] ALL ASSERTIONS PASSED\033[0m\n'
 printf '  workflow:  run_id=%s  status=%s  (expected failure)\n' "${RUN_ID}" "${FINAL_STATUS}"
 printf '  timeout:   budget=%s  observed=~%ss\n' "${ZYNAX_CAPABILITY_TIMEOUT}" "${FAIL_ELAPSED}"
-printf '  event-bus: stream=ZYNAX_WORKFLOW  event=zynax.workflow.failed  skip=%s\n' "${SKIP_NATS}"
+printf '  event-bus: stream=%s  subject=%s  failed-event=delivered (required, #1149)\n' \
+  "${EVENTS_STREAM}" "${FAILED_SUBJECT}"
 printf '\n'
