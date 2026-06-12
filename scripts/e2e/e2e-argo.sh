@@ -208,10 +208,10 @@ while [[ $ELAPSED -lt $POLL_TIMEOUT ]]; do
   log "  [${ELAPSED}s] status=${FINAL_STATUS}"
 
   case "${FINAL_STATUS}" in
-    succeeded|completed)
+    succeeded|completed|*COMPLETED|*SUCCEEDED)
       break
       ;;
-    failed|error)
+    failed|error|*FAILED|*ERROR)
       fail "workflow reached terminal failure state '${FINAL_STATUS}'. Response: ${STATUS_RESPONSE}"
       ;;
   esac
@@ -219,9 +219,13 @@ while [[ $ELAPSED -lt $POLL_TIMEOUT ]]; do
   ELAPSED=$((ELAPSED + POLL_INTERVAL))
 done
 
-if [[ "${FINAL_STATUS}" != "succeeded" && "${FINAL_STATUS}" != "completed" ]]; then
-  fail "workflow did not reach succeeded within ${POLL_TIMEOUT}s. Last status: '${FINAL_STATUS}'"
-fi
+# Accept both plain and proto-enum status strings (mirrors e2e-happy.sh).
+case "${FINAL_STATUS}" in
+  succeeded|completed|*COMPLETED|*SUCCEEDED) ;;
+  *)
+    fail "workflow did not reach succeeded within ${POLL_TIMEOUT}s. Last status: '${FINAL_STATUS}'"
+    ;;
+esac
 
 pass "step 2: workflow reached terminal success state '${FINAL_STATUS}' (run_id=${RUN_ID})."
 
