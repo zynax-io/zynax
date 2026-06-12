@@ -58,7 +58,7 @@ As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#
 **e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132; O4 #1090 ✅ event-bus + memory-service enabled with required assertions; O5 #1091 ✅ runner sizing verified on full stack; bug #1149 ✅ fixed — JetStream subject overlap, completed/failed CloudEvent assertions now required — O6 #1092 ✅ temporal leg required + skip-shim; argo advisory until stable — EPIC #1086 complete)**,
 Postgres off Bitnami (#1073 — ✅ complete: O1 ADR-026, O2–O3 #1076, O4–O5 #1077, O6 #1078, O7–O8 #1079; canvas Implemented, EPIC ready to close),
 CI-E2E gate (#771 — #1070 ✅, #1071 ✅ merged via PR #1155: engine matrix temporal/argo in e2e-smoke; bug #1157 ✅ fixed — ArgoEngine submit now sends the WorkflowCreateRequest envelope, argo leg unblocked; #1092 ✅ — EPIC #771 complete),
-DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created; O1 #1096 ✅ ADR-028; O2 #1097 ✅ 9 expert AgentDefs; O3 #1098 ✅ orchestrator Workflow manifest; O4 #1099 ✅ issue-delivery intake→plan→route Workflow).
+DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created; O1 #1096 ✅ ADR-028; O2 #1097 ✅ 9 expert AgentDefs; O3 #1098 ✅ orchestrator Workflow manifest; O4 #1099 ✅ issue-delivery intake→plan→route Workflow; O5 #1100 ✅ context-slice injection binding in task-broker; next: O6 #1101 delivery leg).
 
 ---
 
@@ -302,7 +302,7 @@ Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is B
 | DevAuto.5 ci: Wave 1 orchestrator aggregation | [#878](https://github.com/zynax-io/zynax/issues/878) | ⬜ Ready |
 | DevAuto.6 ci: Wave 2 | [#879](https://github.com/zynax-io/zynax/issues/879) | ⬜ Pending |
 | DevAuto.7 ci: Wave 3 | [#880](https://github.com/zynax-io/zynax/issues/880) | ⬜ Pending |
-| DevAuto.8 feat: Wave 4 aspirational | [#881](https://github.com/zynax-io/zynax/issues/881) | 🔄 In progress — O1 [#1096](https://github.com/zynax-io/zynax/issues/1096) ✅ (ADR-028); O2 [#1097](https://github.com/zynax-io/zynax/issues/1097) ✅ (9 expert AgentDefs); O3 [#1098](https://github.com/zynax-io/zynax/issues/1098) ✅ (orchestrator Workflow); O4 [#1099](https://github.com/zynax-io/zynax/issues/1099) ✅ (issue-delivery intake→plan→route); O5–O9 #1100–#1104 |
+| DevAuto.8 feat: Wave 4 aspirational | [#881](https://github.com/zynax-io/zynax/issues/881) | 🔄 In progress — O1 [#1096](https://github.com/zynax-io/zynax/issues/1096) ✅ (ADR-028); O2 [#1097](https://github.com/zynax-io/zynax/issues/1097) ✅ (9 expert AgentDefs); O3 [#1098](https://github.com/zynax-io/zynax/issues/1098) ✅ (orchestrator Workflow); O4 [#1099](https://github.com/zynax-io/zynax/issues/1099) ✅ (issue-delivery intake→plan→route); O5 [#1100](https://github.com/zynax-io/zynax/issues/1100) ✅ (context-slice injection binding); O6–O9 #1101–#1104 |
 | DevAuto.9 test: xfail gate | [#882](https://github.com/zynax-io/zynax/issues/882) | ⬜ Pending |
 | DevAuto.10 docs: AGENTS.md pointer + README | [#883](https://github.com/zynax-io/zynax/issues/883) | ⬜ Pending |
 

@@ -12,8 +12,11 @@ The Task Broker is the **work scheduler** of the mesh.
 - Accepts `DispatchTask` calls from `engine-adapter`; returns a broker-assigned `task_id` immediately (async execution).
 - Discovers eligible agents from `agent-registry` via gRPC (`AgentFinder` port).
 - Assigns tasks to agents using atomic round-robin selection.
+- **Context-slice injection binding (ADR-028, EPIC #881 O5):** a dispatch whose `input_payload` carries a top-level `"expert"` string is routed to exactly that agent (matched on `Name`/`AgentID`, never falls back), and the expert's registry-declared `context_slice` `{files[], max_tokens}` (the defaults in its capability `input_schema`) is bound into the payload before persistence — any caller-supplied `context_slice` is discarded (strict isolation).
 - Drives the task lifecycle state machine: `PENDING → DISPATCHED → COMPLETED | FAILED | CANCELLED`. Failed tasks with remaining retries transition to `RETRYING` before re-dispatching.
 - Executes capability invocations via `CapabilityExecutor` (HTTP-based agent call).
+- **Startup recovery:** `RecoverInFlight` re-launches all non-terminal tasks from the repository at boot, so an in-flight fan-out survives a broker restart (durable with the Postgres repo, #626).
+- **Lifecycle events (optional):** when `ZYNAX_BROKER_EVENTBUS_ADDR` is set, task transitions are published best-effort as CloudEvents on topics `zynax.v1.task-broker.task.<status>` (ADR-022).
 - Exposes `AcknowledgeTask` for agents to report outcomes; applies retry logic in the domain layer.
 - Exposes `ListTasks` for filtered, paginated queries (by workflow, status, or agent).
 
@@ -61,13 +64,16 @@ services/task-broker/
 │   │   └── handler.go               ← gRPC handler: DispatchTask, AcknowledgeTask, GetTask, ListTasks, CancelTask
 │   ├── domain/
 │   │   ├── model.go                 ← TaskStatus, Task, TaskError, AgentInfo, ListFilter, ListResult
-│   │   ├── ports.go                 ← TaskRepository, AgentFinder, CapabilityExecutor interfaces
-│   │   ├── service.go               ← TaskService: core dispatch, acknowledge, cancel, list logic
+│   │   ├── ports.go                 ← TaskRepository, AgentFinder, CapabilityExecutor, TaskEventPublisher interfaces
+│   │   ├── service.go               ← TaskService: core dispatch, acknowledge, cancel, list, startup recovery
+│   │   ├── contextslice.go          ← context-slice injection binding (ADR-028, EPIC #881 O5)
 │   │   ├── errors.go                ← ErrTaskNotFound, ErrNoEligibleAgent, ErrTaskTerminal, ErrInvalidArgument
-│   │   └── service_test.go
+│   │   ├── service_test.go
+│   │   └── contextslice_test.go     ← isolation + simulated-restart acceptance tests
 │   └── infrastructure/
 │       ├── memory_repo.go           ← in-memory TaskRepository (M5; Postgres in M6)
 │       ├── agent_executor.go        ← CapabilityExecutor: HTTP invocation of agent endpoints
+│       ├── event_publisher.go       ← TaskEventPublisher: best-effort CloudEvents to event-bus
 │       └── registry_client.go       ← AgentFinder: gRPC client for agent-registry
 ├── tests/
 │   └── features/task_broker.feature ← BDD contract scenarios
@@ -89,6 +95,7 @@ services/task-broker/
 |---------|---------|-------------|
 | `ZYNAX_BROKER_GRPC_PORT` | `50053` | gRPC listen port |
 | `ZYNAX_BROKER_REGISTRY_ADDR` | `localhost:50052` | agent-registry gRPC address |
+| `ZYNAX_BROKER_EVENTBUS_ADDR` | _(empty)_ | event-bus gRPC address; empty disables task lifecycle CloudEvents |
 | `ZYNAX_BROKER_LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 
 ---

@@ -33,6 +33,7 @@ import (
 type config struct {
 	zynaxconfig.Base
 	RegistryAddr     string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
+	EventBusAddr     string `envconfig:"EVENTBUS_ADDR"`
 	GRPCCallTimeoutS int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
 	TLSCert          string `envconfig:"TLS_CERT"`
 	TLSKey           string `envconfig:"TLS_KEY"`
@@ -80,21 +81,19 @@ func run(cfg config) error {
 	}
 	defer finderCleanup()
 
-	var repo domain.TaskRepository
-	if cfg.DBEnabled {
-		pgRepo, err := postgres.New(ctx, cfg.DBDSN)
-		if err != nil {
-			return fmt.Errorf("task-broker: postgres repository: %w", err)
-		}
-		defer pgRepo.Close()
-		repo = pgRepo
-		slog.Info("task-broker: using postgres repository")
-	} else {
-		repo = infrastructure.NewMemoryRepo()
-		slog.Info("task-broker: using in-memory repository")
+	repo, repoCleanup, err := newRepository(ctx, cfg)
+	if err != nil {
+		return err
 	}
+	defer repoCleanup()
 	executor := infrastructure.NewAgentExecutor(creds)
 	svc := domain.NewTaskService(repo, finder, executor)
+
+	publisherCleanup, err := attachEventPublisher(svc, cfg, callTimeout, creds)
+	if err != nil {
+		return err
+	}
+	defer publisherCleanup()
 
 	srv, healthSvc := newGRPCServer(creds, svc)
 
@@ -110,9 +109,55 @@ func run(cfg config) error {
 		}
 	}()
 
+	go recoverInFlight(ctx, svc)
+
 	<-ctx.Done()
 	gracefulShutdown(srv, healthSvc)
 	return nil
+}
+
+// newRepository selects the Postgres or in-memory TaskRepository per config.
+// The returned cleanup function must be deferred by the caller.
+func newRepository(ctx context.Context, cfg config) (domain.TaskRepository, func(), error) {
+	if !cfg.DBEnabled {
+		slog.Info("task-broker: using in-memory repository")
+		return infrastructure.NewMemoryRepo(), func() {}, nil
+	}
+	pgRepo, err := postgres.New(ctx, cfg.DBDSN)
+	if err != nil {
+		return nil, nil, fmt.Errorf("task-broker: postgres repository: %w", err)
+	}
+	slog.Info("task-broker: using postgres repository")
+	return pgRepo, func() { pgRepo.Close() }, nil
+}
+
+// attachEventPublisher wires the optional EventBus lifecycle publisher so
+// capability fan-outs are observable over the bus (EPIC #881 O5). An empty
+// address disables publication. The returned cleanup must be deferred.
+func attachEventPublisher(svc *domain.TaskService, cfg config, callTimeout time.Duration, creds credentials.TransportCredentials) (func(), error) {
+	if cfg.EventBusAddr == "" {
+		return func() {}, nil
+	}
+	publisher, cleanup, err := infrastructure.NewEventPublisher(cfg.EventBusAddr, callTimeout, creds)
+	if err != nil {
+		return nil, fmt.Errorf("task-broker: event publisher: %w", err)
+	}
+	svc.WithEventPublisher(publisher)
+	slog.Info("task-broker: publishing task events", "eventbus_addr", cfg.EventBusAddr)
+	return cleanup, nil
+}
+
+// recoverInFlight re-launches every non-terminal task left by a previous run
+// (EPIC #881 O5: a broker restart never loses an in-flight fan-out).
+func recoverInFlight(ctx context.Context, svc *domain.TaskService) {
+	n, err := svc.RecoverInFlight(ctx)
+	if err != nil {
+		slog.Warn("task recovery incomplete", "recovered", n, "err", err)
+		return
+	}
+	if n > 0 {
+		slog.Info("recovered in-flight tasks", "count", n)
+	}
 }
 
 // gracefulShutdown drains health (NOT_SERVING) before GracefulStop() so load

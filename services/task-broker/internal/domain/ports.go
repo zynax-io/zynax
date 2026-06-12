@@ -22,3 +22,12 @@ type AgentFinder interface {
 type CapabilityExecutor interface {
 	Execute(ctx context.Context, agent AgentInfo, task *Task) (resultPayload []byte, taskErr *TaskError, err error)
 }
+
+// TaskEventPublisher publishes task lifecycle events to the event bus so a
+// parallel capability fan-out is observable and collectable over the bus
+// (ADR-022, EPIC #881 O5). Publication is best-effort: implementations must
+// not block task progress and must swallow (log) delivery errors — event-bus
+// unavailability never fails a task.
+type TaskEventPublisher interface {
+	PublishTaskEvent(ctx context.Context, task *Task)
+}
