@@ -360,6 +360,7 @@ validate-workflow-schema: ensure-tools ## Validate Workflow manifests (spec exam
 
 validate-agent-def-schema: ensure-tools ## Validate AgentDef manifests (spec examples + automation/workflows) against agent-def.schema.json
 	$(TOOLS_RUN) zynax-ci validate agent-defs spec/workflows/examples/ --schema-dir spec/schemas
+	$(TOOLS_RUN) zynax-ci validate agent-defs automation/workflows/ --schema-dir spec/schemas
 	$(TOOLS_RUN) zynax-ci validate agent-defs automation/workflows/experts/ --schema-dir spec/schemas
 	@echo "✅ AgentDef schemas valid"
 

@@ -291,7 +291,17 @@ event-bus, (orchestrator) engine-adapter.
    `decide`: drive one expert capability to produce a change for one issue and write a durable decision-log
    entry. *Verify:* e2e on a running platform produces a decision-log row for one real issue; destructive
    actions never auto-execute (assert `prohibited_auto_actions` honoured).
-7. **O7 — Learning-synthesizer AgentDef (`feat`).** `learning-synthesizer.yaml` capability
+7. **O7 — Learning-synthesizer AgentDef (`feat`).** ✅ Delivered (#1102 —
+   `automation/workflows/learning-synthesizer.yaml`, `kind: AgentDef` exposing the single
+   `synthesize_learnings` capability: `session_results[]` + required `applied_patterns[]` (dedup can
+   never be skipped) → `proposed_manifest_updates[]` + an APPLY_LOG.md-shaped `apply_log_entry`. The
+   /m6-learn rules live in the contract itself: recurrence ≥2 is a schema `minimum`, and apply is
+   human-gated — the only expressible proposal `status` is `pending-human-review` and the agent
+   declares no apply/edit/write capability, so no manifest can be auto-edited. Context slice per
+   Appendix A (`docs/ai-learnings/*.md` + current expert manifests, 4000 tokens);
+   `make validate-spec` now validates AgentDefs at the `automation/workflows/` root; BDD feature +
+   contract-driven sample-synthesis tests in `automation/tests/`.)
+   `learning-synthesizer.yaml` capability
    `synthesize_learnings`; human-gated apply that proposes expert-manifest updates. *Verify:* given sample
    session results, emits `proposed_manifest_updates[]`; no manifest is auto-edited (apply is human-gated).
 8. **O8 — Platform-readiness flip + e2e (`test`).** Remove `xfail`; assert `zynax apply` of the orchestrator
