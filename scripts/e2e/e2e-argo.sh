@@ -55,6 +55,9 @@ POLL_TIMEOUT="${POLL_TIMEOUT:-120}"
 POLL_INTERVAL="${POLL_INTERVAL:-5}"
 WORKFLOW_FILE="${WORKFLOW_FILE:-${REPO_ROOT}/spec/workflows/examples/code-review.yaml}"
 
+# Port-forward pids — cleaned up on exit.
+_PF_PIDS=()
+
 # ── helpers ──────────────────────────────────────────────────────────────────────
 
 log()  { printf '\033[1;34m[e2e-argo]\033[0m %s\n' "$*"; }
@@ -64,6 +67,42 @@ warn() { printf '\033[1;33m[e2e-argo][WARN]\033[0m %s\n' "$*" >&2; }
 
 require() {
   command -v "$1" >/dev/null 2>&1 || fail "required tool not found on PATH: $1"
+}
+
+# cleanup kills any background port-forwards started by this script.
+cleanup() {
+  for pid in "${_PF_PIDS[@]+"${_PF_PIDS[@]}"}"; do
+    kill "$pid" 2>/dev/null || true
+  done
+}
+trap cleanup EXIT
+
+# port_forward <resource> <local_port> <remote_port>
+# Starts kubectl port-forward in background and waits up to PF_TIMEOUT seconds
+# (default: 30) for the port to accept connections. Mirrors e2e-happy.sh.
+PF_TIMEOUT="${PF_TIMEOUT:-30}"
+
+port_forward() {
+  local resource="$1" local_port="$2" remote_port="$3"
+  local pf_log
+  pf_log=$(mktemp)
+  kubectl -n "${NAMESPACE}" port-forward "${resource}" \
+    "${local_port}:${remote_port}" >"${pf_log}" 2>&1 &
+  local pf_pid=$!
+  _PF_PIDS+=("$pf_pid")
+  local i=0
+  while ! (echo >/dev/tcp/127.0.0.1/"${local_port}") 2>/dev/null; do
+    if ! kill -0 "${pf_pid}" 2>/dev/null; then
+      fail "port-forward ${resource}:${remote_port} exited unexpectedly: $(cat "${pf_log}")"
+    fi
+    i=$((i + 1))
+    if [[ $i -ge ${PF_TIMEOUT} ]]; then
+      fail "port-forward ${resource}:${remote_port} → localhost:${local_port} did not become ready in ${PF_TIMEOUT}s"
+    fi
+    sleep 1
+  done
+  rm -f "${pf_log}"
+  log "port-forward ready: localhost:${local_port} → ${resource}:${remote_port}"
 }
 
 # api_curl <method> <path> [extra curl args...]
@@ -122,6 +161,19 @@ if ! kubectl get crd workflows.argoproj.io >/dev/null 2>&1; then
 fi
 
 log "preflight passed."
+
+# Reach api-gateway via a port-forward by default. The NodePort host mapping
+# (host 8080 -> nodePort 30080) works locally but kube-proxy can reset it on the
+# GitHub runner when the control-plane node forwards to a pod on a worker node.
+# A port-forward tunnels through the kube-apiserver and is environment-independent.
+# Honors a caller-provided API_GW_URL (skip the forward if it was overridden).
+# Local port 18081 — distinct from e2e-happy.sh's 18080 so the scripts never
+# collide when run on the same host.
+if [[ "${API_GW_URL}" == "http://localhost:8080" ]]; then
+  GW_LOCAL_PORT="${GW_LOCAL_PORT:-18081}"
+  port_forward "svc/zynax-api-gateway" "${GW_LOCAL_PORT}" 8080
+  API_GW_URL="http://localhost:${GW_LOCAL_PORT}"
+fi
 
 # ── 1. Submit workflow via api-gateway with engine=argo ──────────────────────────
 

@@ -5,6 +5,7 @@ metadata:
   name: {{ include "zynax.fullname" . }}
   labels:
     {{- include "zynax.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -12,5 +13,9 @@ spec:
       targetPort: grpc
       protocol: TCP
       name: grpc
+  # component: server scopes the selector to the gRPC Deployment pods only.
+  # Without it the selector is a subset of the Redis StatefulSet pod labels
+  # (name+instance), so ClusterIP traffic / port-forward can route to Redis.
   selector:
     {{- include "zynax.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server

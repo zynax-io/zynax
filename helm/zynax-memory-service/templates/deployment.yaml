@@ -6,13 +6,17 @@ metadata:
   name: {{ include "zynax.fullname" . }}
   labels:
     {{- include "zynax.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  # component: server disambiguates the gRPC pods from the Redis StatefulSet
+  # pods (component: redis) — both share zynax.selectorLabels otherwise.
   selector:
     matchLabels:
       {{- include "zynax.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -26,6 +30,7 @@ spec:
         prometheus.io/port: "9090"
       labels:
         {{- include "zynax.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: server
     spec:
       serviceAccountName: {{ include "zynax.serviceAccountName" . }}
       securityContext:
