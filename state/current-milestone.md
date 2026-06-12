@@ -56,7 +56,7 @@ As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#
 
 ### In progress / remaining
 **e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132; O4 #1090 ✅ event-bus + memory-service enabled with required assertions — next: #1091 verification, #1092 promotion)**,
-Postgres off Bitnami (#1073 — O1 ADR-026 ✅, O2–O3 #1076 ✅, O4–O5 #1077 ✅, O6 #1078 ✅ verified; #1079 remaining),
+Postgres off Bitnami (#1073 — ✅ complete: O1 ADR-026, O2–O3 #1076, O4–O5 #1077, O6 #1078, O7–O8 #1079; canvas Implemented, EPIC ready to close),
 CI-E2E gate (#771 — #1070 ✅, #1071 remaining),
 DevAuto Wave 4 (#881 — canvas Aligned, stories #1096–#1104 created; O1 #1096 ✅ ADR-028; O2 #1097 ✅ 9 expert AgentDefs; O3 #1098 ✅ orchestrator Workflow manifest; O4 #1099 ✅ issue-delivery intake→plan→route Workflow).
 
@@ -312,19 +312,13 @@ Canvas: SPDD-exempt (docs:/chore:/ci: stories only, until Wave 4 #881 which is B
 
 **Immediate (unblocked):**
 - **#1087** feat(infra): expose api-gateway on host port for e2e (NodePort 30080) — #1086 O1 ✅ ready
-- **#1079** chore(infra): drop e2e bitnamilegacy override + migration note — #1073 O7–O8 ready (O6 #1078 ✅ verified)
 - **#1071** ci(infra): Temporal-vs-Argo engine matrix in e2e-smoke — #771 O2 ✅ ready (#1070 merged)
 - **#867** chore(ci): GHCR retention cap — last 5 builds only
 - **#840** ci(infra): Python adapters in multi-arch release pipeline
 - **#841** ci(infra): audit and minimize image sizes
 
-<<<<<<< HEAD
-**M6.E2E-Green chain (O1 #1087 / O2 #1088 / O3 #1089 all ✅):** #1090 (O4, unblocked) → #1091 (O5, needs #1088) → #1092 (O6, needs #1087 #1088 #1090 #1091 #1071).
-**M6.Postgres chain (#1076 ✅, #1077 ✅, #1078 ✅ verified):** #1079 next (final step).
-=======
 **M6.E2E-Green chain (O1 #1087 / O2 #1088 / O3 #1089 / O4 #1090 all ✅):** #1091 (O5, verify on full 7-service gate) → #1092 (O6, needs #1087 #1088 #1090 #1091 #1071).
-**M6.Postgres chain (#1076 ✅, #1077 ✅ merged):** #1078 → #1079 (sequential).
->>>>>>> 5497743 (test(infra): enable event-bus + memory-service e2e assertions (#1086 O4))
+**M6.Postgres chain — ✅ complete:** #1076 ✅, #1077 ✅, #1078 ✅, #1079 ✅ (O1–O8 all delivered; canvas Implemented; EPIC #1073 ready to close).
 
 **M6.Argo continuation (after #795 merges):**
 - **#796** feat(engine-adapter): Argo engine adapter implementation (#766, O2)

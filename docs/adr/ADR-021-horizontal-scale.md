@@ -86,7 +86,9 @@ if cfg.DBEnabled {
 ### Postgres provisioning
 
 **Docker Compose:** Add `postgres:16-alpine` container alongside Temporal/NATS.
-**Kubernetes:** Bitnami Postgres Helm chart (M6); migrate to Postgres Operator (M7+).
+**Kubernetes:** project-owned Postgres subchart on the Docker Official `postgres:17` image
+(M6 — distribution decided in ADR-026, which supersedes the original community-chart plan);
+migrate to Postgres Operator (M7+).
 
 Environment variables:
 - `ZYNAX_DB_DSN` — Postgres connection string (e.g. `postgres://zynax:pwd@localhost:5432/zynax`)

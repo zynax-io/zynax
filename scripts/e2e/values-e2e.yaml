@@ -133,9 +133,9 @@ zynax-nats:
 # the temporal-db Secret can share a known password. The Secret must carry the
 # keys configured in the postgres subchart (postgres-password + password).
 #
-# The interim `bitnamilegacy` image override (#1069) was removed in #1076: the
-# subchart now ships the maintained Docker Official Image (ADR-026), which
-# pulls fine, so no e2e image override is needed.
+# No e2e image override is needed (#1079, EPIC #1073 O7): the subchart ships
+# the maintained Docker Official Image, digest-pinned via images/images.yaml
+# (ADR-026). The interim deprecated-image override from #1069 was removed in #1076.
 zynax-postgres:
   postgresql:
     auth:
