@@ -374,7 +374,7 @@ make test        # full suite (unit + BDD + coverage gate)
 
 ## Milestone Status
 
-Active milestone: **M6 — K8s Production-Ready** 🚧 — live status in
+Latest release: **v0.5.0 — K8s Production-Ready (M6 ✅)** · next milestone not yet open — live status in
 [state/current-milestone.md](state/current-milestone.md) · milestone goals and sequence in
 [ROADMAP.md](ROADMAP.md).
 

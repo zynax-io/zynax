@@ -17,7 +17,7 @@
 | M3 — Temporal Execution | ⚠ Partial | v0.2.0 |
 | M4 — YAML System + CLI | ⚠ Partial | v0.3.0 |
 | **M5 — Adapter Library** | ✅ **Complete** | **v0.4.0** |
-| **M6 — K8s Production-Ready** | 🚧 **Active** | — |
+| **M6 — K8s Production-Ready** | ✅ **Complete** | **v0.5.0** |
 
 M3/M4 are partial because task-broker and agent-registry were not delivered in those milestones.
 Both completed under M5.C (#460). CloudEvents publishing is log-only (not wired to NATS).
@@ -27,7 +27,10 @@ See [docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md).
 
 ---
 
-## M6 — Progress (🚧 Active)
+## M6 — Complete (✅ released v0.5.0, 2026-06-12)
+
+GitHub milestone #6 closed; all 8 EPICs and every story delivered (one deferral: Wave 4 O8 → M7 #1103).
+Release: https://github.com/zynax-io/zynax/releases/tag/v0.5.0 · Next milestone: not yet open — run /milestone-new (M7 — Full Observability).
 
 Full plan + per-EPIC status: **[docs/milestones/M6-planning.md](../docs/milestones/M6-planning.md)**.
 As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#1122 added 2026-06-10).
@@ -116,7 +119,7 @@ up but fails at the happy-path assertion; this epic closes the execution-path ga
 
 ---
 
-## M6 — Active Work
+## M6 — Final Work Log (historical)
 
 ### M6.A Health Probe Semantics (#463) — ✅ COMPLETE
 
