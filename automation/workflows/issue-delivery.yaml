@@ -2,22 +2,38 @@
 # automation/workflows/issue-delivery.yaml
 #
 # Issue-delivery engine — the self-hosting headline of EPIC #881 (Wave 4).
-# This manifest delivers the intake → plan → route leg (O4, #1099): read a
-# GitHub issue, classify its commit type + scope, call the planner's
-# identify_next_issue capability (the /m6-plan brain), and select the single
-# expert AgentDef that will implement the issue.
+# This manifest is the on-platform /m6-issue-generate: read a GitHub issue,
+# classify its commit type + scope, call the planner's identify_next_issue
+# capability (the /m6-plan brain), select the single expert AgentDef that will
+# implement the issue (intake → plan → route, O4 #1099), then drive that one
+# expert to an implemented change, run the local verification gates, record a
+# durable decision-log row, and emit a next-issue CloudEvent
+# (inject → implement → verify → decide, O6 #1101).
 #
 # Per ADR-028 all orchestration is kind: Workflow (state machine validated by
 # spec/schemas/workflow.schema.json); capability providers are kind: AgentDef.
 # The identify_next_issue action below matches the contract declared by
-# automation/workflows/experts/planner.yaml exactly. The read_issue capability
-# is declared contract-first (ADR-016); its runtime provider lands with the
-# context-slice binding in O5 (#1100) / the delivery leg in O6 (#1101).
+# automation/workflows/experts/planner.yaml exactly; `review` is provided by
+# the 9 expert AgentDefs (O2, #1097). The remaining capabilities (read_issue,
+# resolve_context_slice, run_verification_gates, record_decision,
+# emit_next_issue) are declared contract-first (ADR-016); their runtime
+# providers land with the platform-readiness e2e (O8, #1103).
 #
-# O6 (#1101) extends this workflow with the delivery leg:
-#   routed → inject → implement → verify → decide (durable decision-log +
-#   next-issue CloudEvent). Until then `routed` is the terminus that records
-#   the O4 decision {next_issue, expert, blocked_by} in the workflow context.
+# Context-slice injection (ADR-028 / O5, #1100): the `implement` dispatch is
+# expert-keyed — task-broker narrows the dispatch to exactly the routed expert
+# AgentDef and binds its registry-declared {files[], max_tokens} slice into
+# the input_payload before the task row is persisted. Slices are therefore
+# NEVER inlined in this manifest; the expert manifests remain the single
+# source of truth (strict isolation — a caller can never plant a foreign
+# slice).
+#
+# Destructive actions are NEVER auto-executed on any path (Wave 2
+# prohibited_auto_actions, carried verbatim: merge, push, bump-dependency,
+# close-issue, delete-branch, force-push). The delivery leg only reads,
+# implements in an isolated workspace, verifies, records, and emits — landing
+# the change (push/merge) always remains a human action, recorded as
+# human_action_required in the decision log
+# (docs/archive/dev-advisory/orchestrator/decision-log-schema.yaml).
 #
 # Template/guard syntax (engine-adapter semantics):
 #   - action input/output values use '{{ .ctx.key }}' / '{{ .trigger.field }}'
@@ -31,7 +47,7 @@
 #     contract label for the decision edge.
 #
 # Plane: platform (Wave 4)
-# Issue: #1099 (EPIC #881 — O4)
+# Issue: #1099 (EPIC #881 — O4) · #1101 (EPIC #881 — O6)
 
 kind: Workflow
 apiVersion: zynax.io/v1
@@ -43,8 +59,8 @@ metadata:
     plane: platform
     epic: "881"
   annotations:
-    description: "Self-hosted issue delivery: intake -> plan -> route (O4 leg); inject -> implement -> verify -> decide lands in O6 (#1101)"
-    issue: "1099"
+    description: "Self-hosted issue delivery: intake -> plan -> route (O4) -> inject -> implement -> verify -> decide (O6) - the on-platform /m6-issue-generate"
+    issue: "1099, 1101"
     adr: "ADR-028"
 
 spec:
@@ -52,8 +68,11 @@ spec:
 
   # Manually triggered (the /m6-issue-generate analogue): the requester emits
   # one CloudEvent carrying the issue number plus the planning snapshot
-  # (milestone, open_issues, in_progress, dependency_table). O6 replaces the
-  # snapshot fields with live reads on the delivery leg.
+  # (milestone, open_issues, in_progress, dependency_table). The snapshot is
+  # the trigger contract; live planning reads land with the platform e2e
+  # (O8, #1103). The decide state closes the loop by emitting
+  # zynax.automation.issue_delivery.next_issue — a human (or scheduler)
+  # re-emits .requested for the next issue, so the loop stays human-gated.
   triggers:
     - event: zynax.automation.issue_delivery.requested
       filter:
@@ -125,64 +144,204 @@ spec:
       on:
         # Proto / spec / AsyncAPI contracts → api-contract
         - event: expert.selected
-          goto: routed
+          goto: inject
           guard: "ctx.issue_scope in ['protos', 'proto', 'spec', 'asyncapi']"
           set:
             context.expert: "api-contract"
         # Go platform services (Layer 1) → persistence-state
         - event: expert.selected
-          goto: routed
+          goto: inject
           guard: "ctx.issue_scope in ['api-gateway', 'workflow-compiler', 'engine-adapter', 'task-broker', 'agent-registry', 'event-bus', 'memory-service', 'services']"
           set:
             context.expert: "persistence-state"
         # CI / Actions / images.yaml / release plumbing → ci-release
         - event: expert.selected
-          goto: routed
+          goto: inject
           guard: "ctx.commit_type == 'ci' || ctx.issue_scope in ['ci', 'actions', 'images', 'release']"
           set:
             context.expert: "ci-release"
         # Security / supply-chain / dependency hygiene → security-supply-chain
         - event: expert.selected
-          goto: routed
+          goto: inject
           guard: "ctx.issue_scope in ['security', 'deps', 'supply-chain']"
           set:
             context.expert: "security-supply-chain"
         # test: type or BDD/coverage scopes → qa-bdd
         - event: expert.selected
-          goto: routed
+          goto: inject
           guard: "ctx.commit_type == 'test' || ctx.issue_scope in ['tests', 'bdd', 'coverage']"
           set:
             context.expert: "qa-bdd"
         # Architecture / ADR work → arch-adr
         - event: expert.selected
-          goto: routed
+          goto: inject
           guard: "ctx.issue_scope in ['adr', 'arch', 'architecture']"
           set:
             context.expert: "arch-adr"
         # docs: type or documentation scopes → docs-agents
         - event: expert.selected
-          goto: routed
+          goto: inject
           guard: "ctx.commit_type == 'docs' || ctx.issue_scope in ['docs', 'agents-md', 'readme']"
           set:
             context.expert: "docs-agents"
         # Fallback — planning / milestone / automation work → planning-task-split
         - event: expert.selected
-          goto: routed
+          goto: inject
           set:
             context.expert: "planning-task-split"
 
-    # ── terminal states (O4 leg) ────────────────────────────────────────────
-    # routed: the O4 decision {next_issue, expert, blocked_by} is recorded in
-    # the workflow context. O6 (#1101) replaces this terminus with the
-    # inject → implement → verify → decide delivery leg.
-    routed:
+    # ── inject — resolve + record the routed expert's context-slice binding ─
+    # The authoritative slice binding happens inside task-broker at dispatch
+    # time (O5, #1100), keyed by the `expert` input field. This state resolves
+    # the routed expert against the agent registry and records WHICH declared
+    # slice will be injected, so the decision-log row carries durable evidence
+    # of the binding. resolve_context_slice is contract-first (ADR-016);
+    # provider lands with O8 (#1103). It only reads the registry — it never
+    # rewrites a slice (the expert manifests stay the single source of truth).
+    inject:
+      actions:
+        - capability: resolve_context_slice
+          timeout: 5m
+          input:
+            expert: "{{ .ctx.expert }}"
+            capability: review
+          output:
+            context.expert_agent_id: "{{ .result.agent_id }}"
+            context.context_slice_files: "{{ .result.files }}"
+            context.context_slice_max_tokens: "{{ .result.max_tokens }}"
+      on:
+        - event: resolve_context_slice.completed
+          goto: implement
+        - event: resolve_context_slice.failed
+          goto: failed
+          set:
+            context.failure_reason: "inject: resolve_context_slice failed"
+
+    # ── implement — drive the routed expert to produce a change ─────────────
+    # One expert-keyed `review` dispatch (the canvas implement→AgentDef.review
+    # edge): task-broker narrows the dispatch to exactly ctx.expert and binds
+    # its declared context_slice into the payload before persisting the task
+    # (O5 strict isolation) — which is why context_slice is deliberately
+    # ABSENT from the input below. diff_summary/changed_files start empty:
+    # the change does not exist yet; the expert produces it in an isolated
+    # workspace and `verify` reports the resulting diff. trigger uses the
+    # `push` member of the review contract's enum (repo-state-driven, no PR).
+    implement:
+      actions:
+        - capability: review
+          timeout: 5m
+          input:
+            expert: "{{ .ctx.expert }}"
+            trigger: push
+            diff_summary: ""
+            changed_files: []
+            issue_number: "{{ .ctx.issue_number }}"
+            issue_title: "{{ .ctx.issue_title }}"
+          output:
+            context.change_summary: "{{ .result.summary }}"
+            context.recommended_actions: "{{ .result.recommended_actions }}"
+            context.implement_confidence: "{{ .result.confidence }}"
+            context.implement_flags: "{{ .result.flags }}"
+      on:
+        - event: review.completed
+          goto: verify
+        - event: review.timeout
+          goto: failed
+          set:
+            context.failure_reason: "implement: expert review timed out"
+        - event: review.failed
+          goto: failed
+          set:
+            context.failure_reason: "implement: expert review failed"
+
+    # ── verify — run the local gates on the produced change ─────────────────
+    # The /m6-issue-generate verify step: validate-spec + lint + test against
+    # the expert's workspace. Gates failing is still a DECISION — the run
+    # proceeds to decide so every delivery attempt leaves a durable
+    # decision-log row (mirrors the orchestrator: a decision is recorded on
+    # every path). Only a gate-runner malfunction routes to failed.
+    verify:
+      actions:
+        - capability: run_verification_gates
+          timeout: 30m
+          input:
+            repo: "{{ .trigger.repo }}"
+            issue_number: "{{ .ctx.issue_number }}"
+            gates:
+              - validate-spec
+              - lint
+              - test
+          output:
+            context.gates_passed: "{{ .result.passed }}"
+            context.gate_report: "{{ .result.report }}"
+            context.diff_summary: "{{ .result.diff_summary }}"
+            context.changed_files: "{{ .result.changed_files }}"
+      on:
+        - event: run_verification_gates.completed
+          goto: decide
+          guard: "ctx.gates_passed == 'true'"
+          set:
+            context.delivery_outcome: "success"
+        - event: run_verification_gates.completed
+          goto: decide
+          set:
+            context.delivery_outcome: "gates_failed"
+        - event: run_verification_gates.failed
+          goto: failed
+          set:
+            context.failure_reason: "verify: gate runner failed"
+
+    # ── decide — terminal; durable decision-log row + next-issue event ──────
+    # Records one decision-log row for the delivered issue
+    # (docs/archive/dev-advisory/orchestrator/decision-log-schema.yaml) and
+    # emits the next-issue CloudEvent that closes the /m6-plan loop.
+    # prohibited_auto_actions (never_auto) are carried verbatim from Wave 2
+    # and recorded in the row: landing the change (push/merge) is ALWAYS a
+    # human action — this workflow never executes a destructive action.
+    decide:
       type: terminal
+      actions:
+        - capability: record_decision
+          input:
+            workflow: issue-delivery
+            issue_number: "{{ .ctx.issue_number }}"
+            expert: "{{ .ctx.expert }}"
+            expert_output:
+              summary: "{{ .ctx.change_summary }}"
+              recommended_actions: "{{ .ctx.recommended_actions }}"
+              confidence: "{{ .ctx.implement_confidence }}"
+              flags: "{{ .ctx.implement_flags }}"
+            context_slice:
+              files: "{{ .ctx.context_slice_files }}"
+              max_tokens: "{{ .ctx.context_slice_max_tokens }}"
+            diff_summary: "{{ .ctx.diff_summary }}"
+            changed_files: "{{ .ctx.changed_files }}"
+            gates_passed: "{{ .ctx.gates_passed }}"
+            gate_report: "{{ .ctx.gate_report }}"
+            delivery_outcome: "{{ .ctx.delivery_outcome }}"
+            next_issue: "{{ .ctx.next_issue }}"
+            human_action_required: "true"
+            never_auto: # prohibited_auto_actions — human approval required
+              - merge
+              - push
+              - bump-dependency
+              - close-issue
+              - delete-branch
+              - force-push
+        - capability: emit_next_issue
+          input:
+            event: zynax.automation.issue_delivery.next_issue
+            completed_issue: "{{ .ctx.issue_number }}"
+            next_issue: "{{ .ctx.next_issue }}"
+            ready_batch: "{{ .ctx.ready_batch }}"
+            outcome: "{{ .ctx.delivery_outcome }}"
 
     # blocked: the planner found no dependency-free issue (next_issue == 0);
     # context.blocked_by lists the blocking issues.
     blocked:
       type: terminal
 
-    # failed: intake or planning capability reported a failure.
+    # failed: an intake, planning, or delivery capability reported a failure
+    # (context.failure_reason says which).
     failed:
       type: terminal

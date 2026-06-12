@@ -277,7 +277,17 @@ event-bus, (orchestrator) engine-adapter.
    only its declared `context_slice` (bounded `max_tokens`, strict isolation) via capability dispatch
    (task-broker) over EventBus. *Verify:* an expert invocation receives only its slice files; isolation
    test proves no cross-expert context leakage.
-6. **O6 — Delivery/implement leg of `issue-delivery.yaml` (`feat`).** `inject` → `implement` → `verify` →
+6. **O6 — Delivery/implement leg of `issue-delivery.yaml` (`feat`).** ✅ Delivered (#1101 — the
+   `inject` → `implement` → `verify` → `decide` leg of `automation/workflows/issue-delivery.yaml`:
+   `inject` resolves the routed expert's registry-declared slice for the decision log (the authoritative
+   binding stays in task-broker per O5); `implement` is one expert-keyed `review` dispatch with
+   `context_slice` deliberately absent (O5 binds it — never inlined, strict isolation); `verify` runs
+   validate-spec + lint + test, and gates failing is still a decision (`delivery_outcome: gates_failed`);
+   the `decide` terminal records a durable decision-log row carrying `never_auto` verbatim from Wave 2
+   plus `human_action_required`, and emits the `zynax.automation.issue_delivery.next_issue` CloudEvent.
+   BDD scenarios + fixture-driven manifest tests in `automation/tests/`; the live-platform e2e lands
+   with O8, #1103.)
+   `inject` → `implement` → `verify` →
    `decide`: drive one expert capability to produce a change for one issue and write a durable decision-log
    entry. *Verify:* e2e on a running platform produces a decision-log row for one real issue; destructive
    actions never auto-execute (assert `prohibited_auto_actions` honoured).
