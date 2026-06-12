@@ -8,19 +8,20 @@
 # Validated against state/milestone.schema.json by `make validate-milestone-state`
 # (containerized) and by the advisory milestone-state-check job in pr-checks.yml.
 
+# M6 closed 2026-06-12 — released as v0.5.0. status: complete means no work may
+# be claimed against it; run /milestone-new to scaffold the next milestone
+# (M7 — Full Observability, GitHub milestone #7 already exists) — it rotates
+# this block into history.
 active:
   name: M6
   title: "K8s Production-Ready"
   github_milestone_number: 6
   version: v0.5.0
-  status: active # active | closing | complete
+  status: complete # active | closing | complete — released 2026-06-12 as v0.5.0
   planning_doc: docs/milestones/M6-planning.md
   labels:
     milestone: "milestone: M6"
-  # Static hint only — commands re-query the live list at runtime when GH_TOKEN
-  # is available (gh issue list --milestone <title> --label "type: epic"
-  # --state open) and fall back to this list offline.
-  open_epics: [771, 873, 881, 1073, 1086, 1107, 1108, 1109]
+  open_epics: []
 
 history:
   - name: M5

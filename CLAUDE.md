@@ -114,7 +114,7 @@ Full guide: `docs/patterns/spdd-guide.md` · Template: `docs/spdd/CANVAS_TEMPLAT
 | **M3** (Partial) | Temporal-backed `EngineAdapterService` — `WorkflowEngine` interface, `IRInterpreterWorkflow`, `DispatchCapabilityActivity`, `TemporalEngine`, gRPC wiring | Other engine adapters, K8s deployment · task-broker delivered later in M5.C |
 | **M4** (Partial) | api-gateway REST layer, `zynax` CLI, `kind: AgentDef` routing, Docker Compose runner, GitOps watch | Observability, production hardening · agent-registry delivered later in M5.C |
 | **M5** (Complete, v0.4.0) | M5.A docs alignment, M5.B engine fixes, M5.C capability dispatch (task-broker, agent-registry), M5.D security baseline, M5.E DX polish, all 5 adapters, e2e-demo | Persistence, K8s deployment, event-bus (all delivered in M6) |
-| **M6** (Active) | K8s production-readiness: mTLS, supply-chain hardening, Postgres-backed repos, Helm charts, EventBus over NATS, images.yaml SoT, memory-service, ArgoEngine, multi-namespace, policy/rate-limit, SDK on PyPI, e2e harness, multi-arch builds, gRPC health, Prometheus /metrics | M7 observability (OTel), M8 CNCF submission |
+| **M6** (Complete, v0.5.0) | K8s production-readiness: mTLS, supply-chain hardening, Postgres-backed repos, Helm charts, EventBus over NATS, images.yaml SoT, memory-service, ArgoEngine, multi-namespace, policy/rate-limit, SDK on PyPI, e2e harness, multi-arch builds, gRPC health, Prometheus /metrics | M7 observability (OTel), M8 CNCF submission |
 
 ## AI Anti-Patterns
 
