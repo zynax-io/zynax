@@ -482,21 +482,47 @@ where applicable; docs updated; one logical commit; PR ≤400 lines or justified
 API token is stored. The GitHub Actions workflow `sdk-publish.yml` requests a short-lived OIDC
 token that PyPI exchanges for an upload scope.
 
+**Required PyPI Trusted Publisher entry.** These are the exact values to register under the
+`zynax-sdk` project's *Publishing* settings on pypi.org. They are sourced directly from
+`.github/workflows/sdk-publish.yml` (the canonical SoT) — do not transcribe by hand.
+
 | Field | Value |
 |-------|-------|
-| Distribution | `zynax-sdk` |
-| Publisher | GitHub Actions — `zynax-io/zynax` |
-| Workflow | `.github/workflows/sdk-publish.yml` |
-| Environment | release (protected) |
-| Trust model | OIDC Trusted Publisher (no stored token) |
-| TestPyPI dry-run | `tools-publish.yml` |
-| First milestone | M6 (v0.5.0) — SDK first published to PyPI |
+| Distribution (PyPI project) | `zynax-sdk` |
+| SDK version (`agents/sdk/pyproject.toml`) | `0.1.0` |
+| Publisher | GitHub Actions — owner/repo `zynax-io/zynax` |
+| Workflow filename | `sdk-publish.yml` (path `.github/workflows/sdk-publish.yml`) |
+| GitHub Environment | `pypi` (set on the `publish` job — `environment: pypi`) |
+| Trigger | push of a version tag matching `v*.*.*` |
+| OIDC claims | `id-token: write` permission; PyPI exchanges the GitHub OIDC token for an upload scope |
+| Trust model | OIDC Trusted Publisher (no long-lived API token stored in secrets) |
+| TestPyPI dry-run | `tools-publish.yml` (PRs touching `agents/sdk/` — #805, F.1) |
+| Supply-chain artifacts per publish | SPDX SBOM (`syft`) + cosign keyless signature bundles, uploaded to the GitHub Release |
 
-**Action items in Q.3:** (a) confirm the Trusted Publisher entry is registered on PyPI for the
-above workflow/environment; (b) record the first-publish version + provenance attestation
-reference; (c) link this section from `docs/milestones/M1-release-notes.md` successor and the
-v0.6.0 release notes. *(If the Trusted Publisher entry does not yet exist on PyPI, Q.3 creates it
-before the next SDK publish and updates the "First milestone" row above.)*
+**First-publish provenance.** As of this record the SDK has **not yet been published to PyPI** — no
+`v*.*.*` tag has triggered `sdk-publish.yml`, so there is no published version, release URL, or
+provenance attestation to cite. The first publish is expected at the **v0.6.0** SDK release tag.
+When that tag is pushed, update the table below with the observed values:
+
+| First-publish field | Value |
+|---------------------|-------|
+| First published version | _pending — fill at first `v*.*.*` publish_ |
+| Trigger tag | _pending_ |
+| GitHub Release URL | _pending_ |
+| Provenance attestation reference | _pending — PyPI attaches a publish attestation via the Trusted Publisher flow_ |
+
+**PyPI-side registration is a manual account action and cannot be verified or performed from this
+repository.** Whether the Trusted Publisher entry already exists on pypi.org cannot be determined
+from the repo. **Before the next SDK publish**, a maintainer with access to the `zynax-sdk` PyPI
+project must confirm — or create — a Trusted Publisher entry using the *exact* values in the table
+above (owner `zynax-io`, repo `zynax`, workflow `sdk-publish.yml`, environment `pypi`). If the
+entry is missing the `v*.*.*` publish job will fail at the OIDC token exchange.
+
+**Action items in Q.3:** (a) maintainer confirms/creates the PyPI Trusted Publisher entry with the
+values above before the next publish; (b) at first publish, fill the "First-publish provenance"
+table with the observed version + Release URL + attestation reference; (c) link this section from
+the v0.6.0 release notes — recorded as a forward pointer in `CHANGELOG.md` under `[Unreleased]`
+until v0.6.0 ships, at which point the v0.6.0 entry links here.
 
 ---
 
