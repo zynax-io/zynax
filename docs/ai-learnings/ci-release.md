@@ -500,3 +500,28 @@ Post-merge verification of an engine-adapter change. Outcome: SKIP — image pub
 - Rule: To merge a PR whose ONLY red check is a non-required gate (e.g. `e2e smoke`) while all required checks pass, use `gh pr merge --squash --admin` (—`--auto` waits forever on the failed non-required check). Reserve this for explicitly non-required gates with a known environment cause.
   Category: structural-workaround
   Reason: The non-required e2e gate fails on the hosted runner env gap on every services/helm PR; without --admin those PRs cannot land despite green required checks.
+
+## Session — 2026-06-15 (M7 Wave 0 — Q EPIC #1172: issues #1212 #1213 #1214 + post-merge #1224)
+
+### Effective patterns
+- **Zero-statement coverage detection (honest gate):** the canonical test for a package with no coverable statements is `go tool cover -func=<profile> | grep -vc '^total:'` == 0 (no function rows). Prefer this over inspecting coverprofile body length or the `[no statements]` string. The gate logic is duplicated across the Makefile `test-coverage` target AND `.github/workflows/_test-go.yml` (both gate and measurement steps) — fix ALL sites; `SERVICE_LIST` in the workflow currently omits event-bus, so the Makefile path was the live failure (#1213).
+- **Trusted Publisher provenance is sourced from the workflow, not the doc:** extract the GitHub Environment from the publish workflow's job-level `environment:` key (here `sdk-publish.yml` → `environment: pypi`), not from any pre-existing doc table — tables drift; PyPI Trusted Publisher registration must match the workflow value exactly or the OIDC exchange fails. The §14 table had drifted to "release" (#1214).
+- **`make sync-images`/`check-images` ran cleanly in-sandbox** and gave fast local confidence before pushing a Dockerfile/image change (#1212).
+
+### Edge cases discovered
+- **The `tools` image is NOT digest-tracked in `images/images.yaml`** (no consumer pins a tools digest) — `make sync-images` is a no-op for a tools-image change; its published digest updates post-merge via `tools-image.yml`. Do not fabricate a digest (#1212).
+- **pip in the tools image is unpinned, bundled with `python:3.14-alpine`.** PYSEC-2026-196 is closed by an explicit `RUN python -m pip install --no-cache-dir --upgrade "pip==26.1.2"` in the final stage of `infra/docker/Dockerfile.tools` (#1212).
+- **`make security-agents` cannot be verified pre-merge for a tools-image bump** — it runs pip-audit inside the tools image, which still carries the OLD pip until the post-merge `tools-image.yml` rebuild. Verification belongs to the post-merge gate (#1212).
+- **For `[Unreleased]`-target provenance:** CHANGELOG `[Unreleased]` is the correct home for a forward release-notes pointer when the target version (v0.6.0) is unreleased; record "_pending_" placeholder rows for first-publish fields rather than inventing a version/URL (#1214).
+- **Multi-arch tools-image build leaves a stranded partial tag on a single-arch leg failure:** the build splits into per-arch matrix jobs; when the arm64 leg failed, GHCR was left with a stranded `amd64-<sha>` SHA tag and an un-updated `latest`. Always confirm the `latest` tag specifically — a fresh version row alone is insufficient (it may be a partial single-arch push). `apk add` exit 255 under arm64 QEMU emulation is the common transient mode here; amd64 succeeding on the identical Dockerfile is strong signal it is environmental — a `gh run rerun <id> --failed` is the right remediation, not a code change (post-merge #1224).
+
+### Failed approaches
+- **`gh api .../pulls/<N>/update-branch` to satisfy strict up-to-date branch protection breaks DCO:** its server-side merge commit has no `Signed-off-by` and fails the `dco` check. With required_signatures + DCO + strict-up-to-date all enabled, the only clean path is `git rebase origin/main` + `git push --force-with-lease` (re-signs, stays signed-off), then `gh pr merge --squash --auto` to win concurrent-merge races on busy main (#1212, #1213).
+
+### Proposed expert prompt update
+- Rule: To satisfy a "branch is behind base" / strict-up-to-date merge requirement on this repo, do NOT use `gh api .../pulls/<N>/update-branch` — its merge commit lacks `Signed-off-by` and fails `dco`. Instead `git rebase origin/main` + `git push --force-with-lease`, then `gh pr merge --squash --auto`.
+  Category: structural-workaround
+  Reason: This repo enforces DCO + required_signatures + strict-up-to-date simultaneously; the API update-branch path silently violates DCO and manual squash-merge loses races on high-traffic main.
+- Rule: After a post-merge multi-arch tools/ci-runner image build, verify the `latest` tag moved (not just that a new version row exists) — a single-arch matrix leg failure strands an `<arch>-<sha>` tag while `latest` stays on the old image. For an `apk add` exit-255 arm64-QEMU failure, remediate with `gh run rerun <id> --failed` (transient), not a Dockerfile change.
+  Category: domain
+  Reason: Prevents declaring a CVE-bump "live" when the consumed `:latest` image still carries the vulnerable toolchain.
