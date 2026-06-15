@@ -274,27 +274,8 @@ services:
       workflow-compiler:
         condition: service_healthy
       event-bus:
-    image: ghcr.io/zynax-io/zynax/event-bus:main
-    build:
-      context: ../..
-      dockerfile: infra/docker/Dockerfile.service
-      args:
-        SVC: event-bus
-    environment:
-      ZYNAX_EVENTBUS_GRPC_PORT: "50056"
-      ZYNAX_EVENTBUS_LOG_LEVEL: info
-      ZYNAX_EVENTBUS_NATS_URL: "nats://nats:4222"
-    depends_on:
-      nats:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "/healthcheck", "tcp://localhost:50056"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 15s
-
-  engine-adapter:
+      engine-adapter:
         condition: service_healthy
       agent-registry:
         condition: service_healthy
