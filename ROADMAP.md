@@ -152,7 +152,7 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 6 — Kubernetes Production-Ready (v0.5.0 target)
+## Milestone 6 — Kubernetes Production-Ready (v0.5.0 — ✅ released 2026-06-12)
 
 **Goal:** Production deployment on Kubernetes. Argo engine support.
 
@@ -190,18 +190,25 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 7 — Full Observability
+## Milestone 7 — Usable Workflows + Observability 🚧 Active
 
-**Goal:** End-to-end observability across all workflow execution layers.
+**Goal:** A developer authors a real multi-step workflow, runs it locally (`docker compose up`
+incl. Uptrace), and watches it execute state→state with data-flow, streamed logs, and a connected
+distributed trace in the Uptrace UI — with green `make ci`. First of the M7 → M-dx → M8 program.
 
-> Label: `milestone: M7`
+> Label: `milestone: M7` · Target: v0.6.0 · Plan: [docs/milestones/M7-planning.md](docs/milestones/M7-planning.md)
+> Live per-EPIC status: [state/current-milestone.md](state/current-milestone.md)
 
-- [ ] Distributed traces: workflow execution → capability dispatch → adapter → LLM call
-- [ ] Grafana dashboards: pre-built for all services
-- [ ] Workflow execution timeline view (Gantt-style)
-- [ ] Alert rules: workflow stuck, capability error rate, task queue depth
-- [ ] Structured audit log: all `apply` operations, all capability invocations
-- [ ] OpenCost integration: cost per workflow execution
+- [ ] Workflow data-flow — output/input bindings across steps (keystone, #1167)
+- [ ] Execution log/event streaming — `/logs` + `zynax logs --follow` (#468)
+- [ ] Observability — OTEL + Uptrace traces/metrics/logs/APM, compose & Helm (#467)
+- [ ] Context propagation — trace, data, and correlation across all hops (#1168)
+- [ ] Git MCP shim over git-adapter capabilities (#1169)
+- [ ] Expert-agent substrate + `agents/examples` reference agents (#1170)
+- [ ] Reusable templates + first real runnable workflows (#1171)
+- [ ] Quality & supply-chain fixes — audit closeout (#1172)
+- [ ] Test rigor — benchmarks, fuzz tests, request correlation (#469)
+- [ ] Quick-start, authoring, and observability docs (#1173)
 
 ---
 
