@@ -69,6 +69,8 @@ Config env prefix: `ZYNAX_OTEL_` · Uptrace UI host port: 70xx (local).
 
 ## O — Operations (stories — `spdd-story` form)
 
+**GitHub issues:** O.1 #1184 · O.2 #1185 · O.3 #1186 · O.4 #1187 · O.5 #1188 · O.6 #1189 · O.7 #1190 · O.8 #1191 · O.9 #1192 (epic #467)
+
 **O.1 — ADR: OTEL + Uptrace (traces+metrics+logs+APM)** · S · `adr-proposal`
 - As a `maintainer`, I want the backend + transport + sampling decision recorded so the stack is stable.
 - AC: [ ] ADR-030 committed (Uptrace default, OTLP/gRPC, head sampling, logs-via-OTLP); [ ] non-goals listed. Deps: none.

@@ -38,6 +38,8 @@ cmd/zynax/                                    ← `zynax logs --follow`
 Config env prefix: `ZYNAX_ENGINE_ADAPTER_` / `ZYNAX_GW_`.
 
 ## O — Operations (stories — `spdd-story` form)
+
+**GitHub issues:** L.1 #1180 · L.2 #1181 · L.3 #1182 · L.4 #1183 (epic #468)
 **L.1 — Engine-adapter history streaming (closes #468)** · M · `refactor`
 - As an `operator`, I want history long-poll instead of polling so events stream with low latency.
 - AC: [ ] `GetWorkflowHistory` long-poll replaces `DescribeWorkflowExecution` polling; [ ] ordered event stream; [ ] domain cov ≥90%. Deps: none.

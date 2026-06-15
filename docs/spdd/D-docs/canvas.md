@@ -39,6 +39,8 @@ docs/examples/index.md · docs/best-practices.md · docs/faq.md · docs/migratio
 ```
 
 ## O — Operations (stories — `spdd-story` form)
+
+**GitHub issues:** D.1 #1217 · D.2 #1218 · D.3 #1219 · D.4 #1220 · D.5 #1221 (epic #1173)
 **D.1 — Quick Start + Developer Guide** · M · `docs`
 - As a `new developer`, I want a clone→traced-run quick-start so I'm productive in minutes.
 - AC: [ ] quick-start: compose up (incl. Uptrace) → apply real workflow → see trace+logs in UI; [ ] developer guide covering make targets. Deps: T.3, O.7.

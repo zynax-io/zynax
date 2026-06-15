@@ -43,6 +43,8 @@ docs/experts/                                               ← authoring guide 
 Config: Python 3.12 + uv (ADR-002/003).
 
 ## O — Operations (stories — `spdd-story` form)
+
+**GitHub issues:** X.1 #1201 · X.2 #1202 · X.3 #1203 · X.4 #1204 · X.5 #1205 (epic #1170)
 **X.1 — ADR: expert substrate + mapping** · S · `adr-proposal`
 - As a `maintainer`, I want the dual-substrate model + mapping recorded so runtime/authoring don't drift.
 - AC: [ ] ADR-033 committed (runtime AgentDef + authoring expert, mapping table, drift guard). Deps: none.
