@@ -138,7 +138,15 @@ jobs:
               if [ -f domain-coverage.out ]; then
                 pct=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
                       | grep "^total:" | awk '{print $3}' | tr -d '%') || true
-                [ -n "$pct" ] && echo "service|${svc}|internal/domain|${pct}" >> /tmp/coverage-results.txt
+                funcs=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
+                        | grep -vc "^total:") || true
+                # Skip recording zero-statement (interface-only) packages so the PR
+                # coverage report does not show a misleading 0.0%.
+                if [ "$funcs" = "0" ]; then
+                  echo "── coverage: services/${svc} [no coverable statements — exempt]"
+                elif [ -n "$pct" ]; then
+                  echo "service|${svc}|internal/domain|${pct}" >> /tmp/coverage-results.txt
+                fi
               fi
               cd ../..
             fi
@@ -153,8 +161,15 @@ jobs:
               cd "services/${svc}"
               total=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
                       | grep "^total:" | awk '{print $3}' | tr -d '%')
+              funcs=$(GOWORK=off go tool cover -func=domain-coverage.out 2>/dev/null \
+                      | grep -vc "^total:")
               cd ../..
               [ -z "$total" ] && echo "  ⚠ no coverage for services/${svc} — skipping" && continue
+              # Zero-statement packages (interface-only domains) report a false 0.0%.
+              # Detect via go tool cover func-row count, not a hardcoded skip list.
+              if [ "$funcs" = "0" ]; then
+                echo "  ➖ services/${svc}: no coverable statements — exempt from gate"; continue
+              fi
               echo "── domain coverage: services/${svc}  ${total}%"
               if awk "BEGIN{exit !(${total} < ${COVERAGE_DOMAIN_GATE:-90})}"; then
                 echo "  ❌ ${total}% < ${COVERAGE_DOMAIN_GATE:-90}% for services/${svc}"; failed=true

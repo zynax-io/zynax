@@ -184,6 +184,8 @@ test-coverage: ensure-tools ## Domain coverage gate — ≥90% on internal/domai
 			$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test -tags=\"\" ./internal/domain/... -coverprofile=domain-coverage.out -covermode=atomic -count=1 2>/dev/null"; \
 			total=$$($(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go tool cover -func=domain-coverage.out | grep '^total:' | awk '{print \$$3}' | tr -d '%'" 2>/dev/null); \
 			if [ -z "$$total" ]; then echo "  ⚠  services/$$svc: no domain coverage data"; continue; fi; \
+			funcs=$$($(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go tool cover -func=domain-coverage.out | grep -vc '^total:'" 2>/dev/null); \
+			if [ "$$funcs" = "0" ]; then printf "  %-35s %s\n" "services/$$svc" "no coverable statements — exempt"; continue; fi; \
 			printf "  %-35s %s%%\n" "services/$$svc" "$$total"; \
 			if awk "BEGIN{exit !($$total < 90)}"; then \
 				echo "  ❌ $$total%% < 90%% — coverage gate failed for services/$$svc"; \
