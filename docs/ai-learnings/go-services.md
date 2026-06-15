@@ -419,3 +419,17 @@ but the `gh issue list --state open` query may lag due to GitHub API eventual co
 - Rule: When adding gRPC health wiring, source the named serving key from the generated `<Svc>Service_ServiceDesc.ServiceName`, never a hardcoded string; and factor the SERVING/NOT_SERVING + GracefulStop sequence into a small `cmd/` helper — inline calls frequently trip golangci-lint `funlen` (40-stmt limit) on `run`/`main`.
   Category: domain
   Reason: Permanent project constraints (generated ServiceName is the SoT; funlen=40 enforced in CI); recurred across all 6 services.
+
+## Session — 2026-06-16 (issue #1175)
+ADR-proposal docs story (ADR-029 workflow data-flow). Routed to go-svc because the
+decision is workflow-compiler/protos domain knowledge.
+
+### Effective patterns
+- For an ADR story, mirror a recent *Accepted* ADR's house format (SPDX header + metadata
+  table) rather than the lighter stub style — keeps the register consistent.
+- Multiline commit/PR bodies via a file + `-F`/`--body-file` (sandbox denies `-m` newlines).
+
+### Edge cases discovered
+- ADR stub + INDEX row may already exist at Proposed → "flesh out + flip status" in place,
+  never duplicate. Docs-only PRs correctly skip Go/proto build+lint+test; only the universal
+  gates (DCO, gitleaks, conventional-commit, layer-boundary, proto-compat, security) run.

@@ -91,3 +91,15 @@
 - Rule: Before running `git commit` in a project with Docker-based lint tooling, check if `.ruff_cache` (or equivalent cache dirs) are owned by root. If so, prepend `RUFF_CACHE_DIR=/tmp/ruff-cache-<issue>` to the commit command to avoid pre-commit hook permission failures.
   Category: structural-workaround
   Reason: The tools Docker image creates root-owned cache dirs that block host pre-commit hooks — affects all Python-touching PRs in this repo.
+
+## Session — 2026-06-16 (issue #1197)
+ADR-proposal docs story with a security dimension (ADR-032 Git MCP shim + auth model).
+
+### Effective patterns
+- Deterministic-key claim first (bare `docs/<N>`, no slug) before writing — a lost race costs
+  nothing; confirm the empty-branch push has no non-fast-forward rejection before investing.
+- Describe the auth/token model abstractly (no literal secrets/emails) to clear the gitleaks gate.
+
+### Edge cases discovered
+- Docs-only diff makes the whole Go/Python build matrix report `skipping` — correct behaviour,
+  not a failure; only universal gates (DCO, gitleaks, CodeQL, dep-review, layer-boundary) run.
