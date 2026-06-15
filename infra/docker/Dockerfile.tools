@@ -124,6 +124,13 @@ FROM python:${PYTHON_VERSION}-alpine@${PYTHON_ALPINE_DIGEST} AS tools
 # Minimal Alpine system deps only — no build toolchain in the final image
 RUN apk add --no-cache git curl ca-certificates libstdc++ libgcc
 
+# ── pip — upgraded to close PYSEC-2026-196 ────────────────────────────────────
+# The python:3.14-alpine base ships an older pip that pip-audit flags as
+# PYSEC-2026-196. Pin the interpreter's bundled pip to the patched release so
+# `make security-agents` runs clean. Update this version when a newer CVE lands.
+# renovate: datasource=pypi depName=pip
+RUN python -m pip install --no-cache-dir --upgrade "pip==26.1.2"
+
 # ── Copy all Go binaries from go-tools stage ──────────────────────────────
 COPY --from=go-tools /usr/local/go              /usr/local/go
 COPY --from=go-tools /go/bin/golangci-lint            /usr/local/bin/
