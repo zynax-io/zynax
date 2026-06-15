@@ -42,7 +42,11 @@ ARG GO_ALPINE_DIGEST=sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5
 # END zynax-ci:images:golang-alpine
 # renovate: datasource=docker depName=alpine versioning=docker
 ARG ALPINE_VERSION=3.21
-ARG ALPINE_DIGEST=sha256:f27cad9117495d32d067133afff942cb2dc745dfe9163e949f6bfe8a6a245339
+# Managed by images/images.yaml (alpine). MUST be the multi-arch INDEX digest —
+# a single-platform pin breaks the native arm64 ci-runner build (#1232).
+# BEGIN zynax-ci:images:alpine
+ARG ALPINE_DIGEST=sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
+# END zynax-ci:images:alpine
 
 # ── Stage 1: builder — has curl; downloads / builds all binaries ─────────────
 FROM golang:${GO_VERSION}-alpine@${GO_ALPINE_DIGEST} AS builder
