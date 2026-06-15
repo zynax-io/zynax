@@ -36,6 +36,19 @@ images:
       - infra/docker/Dockerfile.service
       - infra/docker/Dockerfile.tools
 
+  # Alpine base for the ci-runner final stage. digest MUST be the multi-arch
+  # INDEX digest of the tag (not a single-platform manifest) — the tools-image
+  # builds compile natively on ubuntu-24.04-arm with no QEMU (#839), so a
+  # single-arch pin makes the arm64 `apk add` fail with exit 255. Managing it
+  # here means `make check-images` governs the pin and the drift gate catches
+  # a future single-arch mispin.
+  - name: alpine
+    ref: alpine
+    tag: "3.21"
+    digest: sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
+    consumers:
+      - infra/docker/Dockerfile.ci-runner
+
   - name: distroless-static
     ref: gcr.io/distroless/static
     tag: nonroot
@@ -57,6 +70,17 @@ images:
     consumers:
       - agents/adapters/langgraph/Dockerfile
       - agents/adapters/llm/Dockerfile
+
+  # Python base for the developer tools image (distinct from python-alpine,
+  # which is 3.12 for the adapters). digest MUST be the multi-arch INDEX digest
+  # of the tag — a single-platform pin breaks the native arm64 tools-image
+  # build (see the `alpine` entry above for the failure mode).
+  - name: python-tools-alpine
+    ref: python
+    tag: "3.14-alpine"
+    digest: sha256:003970a263347645cd23d4f90929ad16ba7ce7d808ee4674ffcc93cb21cc289f
+    consumers:
+      - infra/docker/Dockerfile.tools
 
   # Postgres base image for the thin project-owned chart (ADR-026). The chart
   # renders `<ref>:<tag>@<digest>`; the digest is the multi-arch index digest
