@@ -110,3 +110,13 @@ Completed EPIC G (#770) e2e harness: G.4 `e2e-failure.sh` (#812) and G.5 `helm-u
 - Rule: "When committing with `-s` and the message also carries an `Assisted-by` trailer, place `Assisted-by` BEFORE a single `Signed-off-by` (or omit the manual sign-off entirely and let `-s` add it). A non-adjacent existing sign-off makes `-s` append a duplicate."
   Category: structural-workaround
   Reason: DCO passes either way, but duplicate trailers are reviewer noise and avoidable with deterministic ordering.
+
+## Session — 2026-06-16 (issue #1184)
+ADR-proposal docs story (ADR-030 OTEL + Uptrace). Docs-only — no helm lint/validate gates.
+
+### Effective patterns
+- Pre-existing Proposed stub already held the correct decision content; task reduced to
+  reformat to house format (mirror ADR-027) + flip both file status and INDEX row to Accepted.
+
+### Edge cases discovered
+- Keep ADR file status and the INDEX register row in sync — both must move Proposed→Accepted.
