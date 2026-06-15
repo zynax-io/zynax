@@ -40,6 +40,8 @@ docs/context/                     ← context model + handoff contract guide
 ```
 
 ## O — Operations (stories — `spdd-story` form)
+
+**GitHub issues:** C.1 #1193 · C.2 #1194 · C.3 #1195 · C.4 #1196 (epic #1168)
 **C.1 — ADR: context model** · S · `adr-proposal`
 - As a `maintainer`, I want trace vs data vs correlation contexts defined so propagation is deterministic.
 - AC: [ ] ADR-031 committed (carriers, inheritance, handoff rules, non-goals). Deps: none.

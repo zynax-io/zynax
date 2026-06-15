@@ -36,6 +36,8 @@ protos/tests/ · spec/automation/                  ← e2e + observability-valid
 ```
 
 ## O — Operations (stories — `spdd-story` form)
+
+**GitHub issues:** R.1 #493 · R.2 #1210 · R.3 #553 · R.4 #1103 · R.5 #1211 (epic #469)
 **R.1 — Benchmarks + regression gate (#493)** · M · `test`
 - As a `maintainer`, I want compiler/interpreter benchmarks gated so perf regressions are caught.
 - AC: [ ] benchmarks committed; [ ] regression threshold gate in CI. Deps: W.4.

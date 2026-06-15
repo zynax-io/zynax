@@ -38,6 +38,8 @@ docs/ (module consumption) · docs/adr/ADR-034     ← #582 / #583
 ```
 
 ## O — Operations (stories — `spdd-story` form)
+
+**GitHub issues:** Q.1 #1212 · Q.2 #1213 · Q.3 #1214 · Q.4 #1215 · Q.5 #1216 (epic #1172)
 **Q.1 — Bump tools-image pip → 26.1.2** · XS · `ci`
 - As a `maintainer`, I want the pip CVE closed so `make security-agents`/`lint-go` run clean.
 - AC: [ ] tools image rebuilt with pip 26.1.2; [ ] `make security-agents` passes; [ ] images.yaml updated via `make sync-images`. Deps: none. **(Wave 0 — unblocks green CI for all EPICs.)**

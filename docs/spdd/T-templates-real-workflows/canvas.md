@@ -38,6 +38,8 @@ docs/authoring/                             ← template + authoring guide
 ```
 
 ## O — Operations (stories — `spdd-story` form)
+
+**GitHub issues:** T.1 #1206 · T.2 #1207 · T.3 #1208 · T.4 #1209 (epic #1171)
 **T.1 — Template mechanism (workflow/task/expert) + versioning** · M · `feat`
 - As a `workflow author`, I want reusable, versioned templates so I don't author from scratch.
 - AC: [ ] template format + `version:` field; [ ] schema validation; [ ] `.feature`/contract test. Deps: W.3.

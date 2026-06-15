@@ -41,6 +41,8 @@ docs/git-mcp/ + .mcp.json.example    ← authoring-loop wiring + least-privilege
 Config env prefix: `GIT_ADAPTER_` / token via `GITHUB_TOKEN` (injected, never logged).
 
 ## O — Operations (stories — `spdd-story` form)
+
+**GitHub issues:** G.1 #1197 · G.2 #1198 · G.3 #1199 · G.4 #1200 (epic #1169)
 **G.1 — ADR: MCP-shim-over-adapter + auth model** · S · `adr-proposal`
 - As a `maintainer`, I want the shim + least-privilege token model recorded so security is settled first.
 - AC: [ ] ADR-032 committed (shim rationale, injection-at-start, no-secrets-in-prompts, redaction). Deps: none.

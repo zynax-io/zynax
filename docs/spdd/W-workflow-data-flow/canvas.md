@@ -74,6 +74,8 @@ Config env prefix: `ZYNAX_WC_` / `ZYNAX_ENGINE_ADAPTER_` · No new ports.
 
 ## O — Operations (stories — `spdd-story` form)
 
+**GitHub issues:** W.1 #1175 · W.2 #1176 · W.3 #1177 · W.4 #1178 · W.5 #1179 (epic #1167)
+
 **W.1 — ADR: data-flow semantics & scoping model**
 - As a `maintainer`, I want a recorded decision on the binding model so that the contract is stable before code.
 - Size: S · Type: `docs`/`adr-proposal`
