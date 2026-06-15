@@ -18,6 +18,7 @@
 | M4 — YAML System + CLI | ⚠ Partial | v0.3.0 |
 | **M5 — Adapter Library** | ✅ **Complete** | **v0.4.0** |
 | **M6 — K8s Production-Ready** | ✅ **Complete** | **v0.5.0** |
+| **M7 — Usable Workflows + Observability** | 🚧 **Active** | **v0.6.0 (target)** |
 
 M3/M4 are partial because task-broker and agent-registry were not delivered in those milestones.
 Both completed under M5.C (#460). CloudEvents publishing is log-only (not wired to NATS).
@@ -27,10 +28,38 @@ See [docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md).
 
 ---
 
+## M7 — Active (🚧 target v0.6.0, opened 2026-06-15)
+
+GitHub milestone #7 ("Full Observability"); scope broadened to **Usable Workflows + Observability**
+— first of the M7 → M-dx → M8 program. Full plan: **[docs/milestones/M7-planning.md](../docs/milestones/M7-planning.md)**.
+
+Goal: a developer authors a real multi-step workflow, runs it locally (`docker compose up` incl.
+**Uptrace**), watches it execute state→state with **data-flow**, **streamed logs**, and a connected
+**distributed trace** in the Uptrace login UI — with green `make ci`.
+
+### EPICs (10) — one REASONS Canvas each under `docs/spdd/<letter>-<slug>/`
+| EPIC | Title | Type | Canvas |
+|------|-------|------|--------|
+| W | Workflow data-flow (output/input bindings) — **keystone** | feat | [W](../docs/spdd/W-workflow-data-flow/canvas.md) |
+| L | Execution log/event streaming (`/logs`) | feat | [L](../docs/spdd/L-log-streaming/canvas.md) |
+| O | Observability — OTEL + **Uptrace** (traces/metrics/logs/APM + login UI; compose **and** Helm) | feat | [O](../docs/spdd/O-observability-otel-uptrace/canvas.md) |
+| C | Context propagation (trace · data · correlation) | feat | [C](../docs/spdd/C-context-propagation/canvas.md) |
+| G | Git MCP shim over git-adapter | feat | [G](../docs/spdd/G-git-mcp-shim/canvas.md) |
+| X | Expert-agent substrate + `agents/examples/` | feat | [X](../docs/spdd/X-expert-substrate/canvas.md) |
+| T | Reusable templates + first real workflows | feat | [T](../docs/spdd/T-templates-real-workflows/canvas.md) |
+| R | Test rigor (absorbs #469; #493 #553 #1103) | test | [R](../docs/spdd/R-test-rigor/canvas.md) |
+| Q | Quality & supply-chain fixes (pip CVE · coverage gate · PyPI Trusted Publisher) | chore/ci | [Q](../docs/spdd/Q-quality-supply-chain/canvas.md) |
+| D | Docs — quick-start · authoring · observability | docs | [D](../docs/spdd/D-docs/canvas.md) |
+
+Pre-existing M7 EPICs #467 (OTel) / #468 (history streaming) / #469 (test rigor) are **absorbed** into
+O / L / R respectively. New ADRs: ADR-029…034 (Proposed).
+
+---
+
 ## M6 — Complete (✅ released v0.5.0, 2026-06-12)
 
 GitHub milestone #6 closed; all 8 EPICs and every story delivered (one deferral: Wave 4 O8 → M7 #1103).
-Release: https://github.com/zynax-io/zynax/releases/tag/v0.5.0 · Next milestone: not yet open — run /milestone-new (M7 — Full Observability).
+Release: https://github.com/zynax-io/zynax/releases/tag/v0.5.0 · **Next milestone: M7 — open (active) as of 2026-06-15.**
 
 Full plan + per-EPIC status: **[docs/milestones/M6-planning.md](../docs/milestones/M6-planning.md)**.
 As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#1122 added 2026-06-10).

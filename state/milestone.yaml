@@ -8,22 +8,28 @@
 # Validated against state/milestone.schema.json by `make validate-milestone-state`
 # (containerized) and by the advisory milestone-state-check job in pr-checks.yml.
 
-# M6 closed 2026-06-12 — released as v0.5.0. status: complete means no work may
-# be claimed against it; run /milestone-new to scaffold the next milestone
-# (M7 — Full Observability, GitHub milestone #7 already exists) — it rotates
-# this block into history.
+# M7 opened 2026-06-15 — target v0.6.0 (GitHub milestone #7, "Full Observability").
+# Scope is broadened to "Usable Workflows + Observability" per docs/milestones/M7-planning.md
+# (first of the M7 → M-dx → M8 program). open_epics is filled as EPIC issues are created.
 active:
-  name: M6
-  title: "K8s Production-Ready"
-  github_milestone_number: 6
-  version: v0.5.0
-  status: complete # active | closing | complete — released 2026-06-12 as v0.5.0
-  planning_doc: docs/milestones/M6-planning.md
+  name: M7
+  title: "Full Observability"
+  github_milestone_number: 7
+  version: v0.6.0
+  status: active # active | closing | complete
+  planning_doc: docs/milestones/M7-planning.md
   labels:
-    milestone: "milestone: M6"
-  open_epics: []
+    milestone: "milestone: M7"
+  # EPIC W,C,G,X,T,Q,D = #1167-#1173 (new). O,L,R absorb pre-existing #467,#468,#469.
+  open_epics: [467, 468, 469, 1167, 1168, 1169, 1170, 1171, 1172, 1173]
 
 history:
+  - name: M6
+    title: "K8s Production-Ready"
+    github_milestone_number: 6
+    version: v0.5.0
+    released: "2026-06-12"
+    planning_doc: docs/milestones/M6-planning.md
   - name: M5
     title: "Adapter Library"
     github_milestone_number: 5
