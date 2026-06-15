@@ -95,9 +95,9 @@ DevAuto Wave 4 (#881 — ✅ delivered to the platform-readiness boundary: O1 #1
 
 ---
 
-### M6.E2E-Green — make the e2e-smoke gate execute a workflow end-to-end (#1086) — 🔄 Active
+### M6.E2E-Green — make the e2e-smoke gate execute a workflow end-to-end (#1086) — ✅ Complete
 
-Canvas: `docs/spdd/1086-e2e-green/canvas.md` — Status: **Aligned**. The gate brings the cluster
+Canvas: `docs/spdd/1086-e2e-green/canvas.md` — Status: **Implemented**. The gate brings the cluster
 up but fails at the happy-path assertion; this epic closes the execution-path gaps discovered
 2026-06-10. Delivery order (parallelizable where noted):
 

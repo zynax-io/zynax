@@ -409,7 +409,7 @@ Canvas: `docs/spdd/314-yaml-system-cli/canvas.md`.
 
 ## Service Status
 
-Current implementation status per service and adapter (as of M6 active development):
+Current implementation status per service and adapter (as of M7 active development; M6 shipped as v0.5.0):
 
 ### Platform Services
 
