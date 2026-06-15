@@ -40,7 +40,7 @@ a PR against `docs/adr/`.
 | [ADR-027](ADR-027-shift-left-pipeline.md) | Shift-left pipeline model — build once pre-merge, promote by retag | Accepted | 2026-06-11 | `ci.yml` build-images, `release.yml` retag jobs, GHCR staging lane — EPIC #1109 |
 | [ADR-028](ADR-028-agentdef-vs-workflow-self-hosted-automation.md) | AgentDef-vs-Workflow split for self-hosted automation + context-slice injection contract | Accepted | 2026-06-11 | `automation/workflows/**`, `spec/schemas/agent-def.schema.json`, `spec/schemas/workflow.schema.json` — EPIC #881 |
 | [ADR-029](ADR-029-workflow-data-flow.md) | Workflow data-flow semantics (output/input bindings) | Accepted | 2026-06-16 | `WorkflowIR` proto, workflow-compiler, engine-adapter — M7 EPIC W |
-| [ADR-030](ADR-030-observability-uptrace.md) | Observability — OpenTelemetry + Uptrace backend | Proposed | 2026-06-15 | all services + adapters, `libs/zynaxotel`, observability compose + Helm — M7 EPIC O |
+| [ADR-030](ADR-030-observability-uptrace.md) | Observability — OpenTelemetry + Uptrace backend | Accepted | 2026-06-16 | all services + adapters, `libs/zynaxotel`, observability compose + Helm — M7 EPIC O |
 | [ADR-031](ADR-031-context-propagation.md) | Context propagation model (trace · data · correlation) | Proposed | 2026-06-15 | all services, engine-adapter, agents/sdk — M7 EPIC C |
 | [ADR-032](ADR-032-git-mcp-shim.md) | Git MCP as a thin shim over the git-adapter | Proposed | 2026-06-15 | `agents/adapters/git/`, cli — M7 EPIC G |
 | [ADR-033](ADR-033-expert-agent-substrate.md) | Expert-agent substrate (runtime AgentDef + authoring experts) | Proposed | 2026-06-15 | `agents/examples/`, `automation/workflows/experts/`, agent-registry — M7 EPIC X |
