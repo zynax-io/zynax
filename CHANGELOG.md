@@ -14,6 +14,11 @@ Versioning follows [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Supply chain
+- **SDK provenance:** PyPI Trusted Publisher (OIDC) configuration for `zynax-sdk` is recorded in
+  [M7-planning §14 — PyPI Trusted Publisher History](docs/milestones/M7-planning.md#14--pypi-trusted-publisher-history).
+  The v0.6.0 release notes (first SDK publish) must link this section. (#1214)
+
 ---
 
 ## [0.4.0] — M5 (Adapter Library) — 2026-05-20
