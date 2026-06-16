@@ -4,24 +4,54 @@ Before opening this PR, confirm:
   2. You have read CONTRIBUTING.md and docs/git-workflow.md.
   3. The .feature file was committed BEFORE any implementation.
   4. All CI checks pass locally: make lint test-unit test-integration
+Body structure (skeleton + per-type variants + filled example): docs/contributing/pr-templates.md
 -->
 
-## Why
+## Why  (problem & intent)
 
-> Explain the problem this change solves. What breaks or is missing without it?
-> Link to the issue. Do NOT describe what the code does — the diff shows that.
+> What is missing or broken, and why is this change needed? Link the issue.
+> Do NOT restate what the code does — the diff shows that. For `feat:`, link the canvas O-step.
 
 Closes #
 
 ---
 
-## What Changed
+## What you'll get  (deliverables ↔ what changed)
 
-> One sentence per logical change. Focus on intent, not implementation.
-> If this is a stacked PR, reference the parent: `Stacked on #NNN`
+> Pair each deliverable with the concrete change that provides it — "expect X because Y changed."
+> One line per logical change; focus on what a reviewer/operator will observe.
 
+- <deliverable> ← `path/to/change`
 -
--
+
+---
+
+## Scope & boundaries
+
+- **In scope:**
+- **Out of scope (deferred):**  → #_ / M-dx / N/A
+
+---
+
+## Test plan & acceptance
+
+> One row per Acceptance Criterion from the issue/canvas. Show the exact command and the result —
+> not "tested manually".
+
+| Acceptance criterion | How verified (command) | Result |
+|----------------------|------------------------|--------|
+|                      |                        |        |
+
+**Local gates:** `make lint` ☐ · `make test-unit` ☐ · `make test-integration` ☐ · `make security` ☐ · `make validate-spec` ☐
+
+---
+
+## Evidence
+
+- **CI:** _(required checks green / link to the run)_
+- **Local output:** _(coverage %, benchmark `ns/op`, `helm lint`, render preview — paste the decisive line)_
+- **Artifacts / images:** _(`service:tag@sha256:…` if images were built, or "none — no service source changed")_
+- **Post-merge digest sync → main:** _(`chore(images): sync digests after main-<sha>` commit SHA, or "N/A — no image rebuild"; left as a placeholder and filled by the post-merge verifier)_
 
 ---
 

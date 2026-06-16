@@ -487,42 +487,53 @@ echo -n "${COMMIT_TYPE}(<scope>): <subject>" | wc -c   # replace before committi
 
 git add -p   # stage intentionally (never git add -A)
 
-# PR body file (used in STEP 9)
+# PR body file (used in STEP 9). Build it from the canonical template — see
+# docs/contributing/pr-templates.md (skeleton + per-type variants + filled example).
 cat > /tmp/pr-body-${ISSUE_N}.md << 'EOF'
-## Summary
-<1-3 sentences — what changes and why, referencing the canvas O-step>
+## ${COMMIT_TYPE}(<scope>): <subject>
 
-## EPIC canvas
-`docs/spdd/<EPIC_N>-<slug>/canvas.md` — O-step <N>  (N/A for SPDD-exempt issues)
+Closes #${ISSUE_N}
+<!-- canvas-step: also add "Part of #${EPIC_N}" -->
 
-## Acceptance criteria
-- [x] <criterion 1>  [evidence: test output / file:line / log]
-- [x] <criterion 2>  [evidence]
-- [x] <criterion 3>  [evidence]
+### Why  (problem & intent)
+<1-3 sentences — what is missing/broken and why this is needed; for feat: link the canvas O-step>
 
-## Test plan
+### What you'll get  (deliverables ↔ what changed)
+- <deliverable a reviewer/operator will observe> ← `path/to/change`
 
-### Build & unit
-- [x] `GOWORK=off go build ./...` — exit 0  [evidence]
-- [x] `GOWORK=off go test ./... -race -timeout 60s` — all pass  [evidence]
-- [x] Domain coverage ≥90%  [evidence / N/A]
+### Scope & boundaries
+- **In scope:** <…>
+- **Out of scope (deferred):** <… → #<issue> / M-dx / N/A>
 
-### Lint & security
-- [x] `make lint` — exit 0  [evidence]
-- [x] `make security` — no new findings  [evidence]
+### Test plan & acceptance
+| Acceptance criterion (from issue/canvas) | How verified (command) | Result |
+|------------------------------------------|------------------------|--------|
+| <AC 1 verbatim>                          | `<exact command>`      | ✅ <number / output> |
+**Local gates:** `GOWORK=off go test ./... -race` ✅ · `make lint` ✅ · `make security` ✅ · `make test-bdd` ✅/N/A
 
-### Contract
-- [x] `.feature` file committed before implementation  [evidence / N/A]
-- [x] `make test-bdd` — all scenarios pass  [evidence / N/A]
+### Evidence
+- **CI:** <required checks green / link to run>
+- **Local output:** <coverage %, benchmark ns/op, the decisive line>
+- **Artifacts / images:** <`service:tag@sha256:…` or "none — no service source changed">
+- **Post-merge digest sync → main:** <placeholder — filled by the post-merge verifier with the
+  `chore(images): sync digests after main-<sha>` commit, or "N/A — no image rebuild">
+
+### Risk & rollback
+<blast radius · revert path. "Low — additive only, no behaviour change to existing paths" is fine>
+
+### Review aids
+<suggested reading order · the ONE key file · anything subtle>
 
 ### Engineering hygiene
 - [x] Planning-doc row ⬜→✅ in this diff
 - [x] `current-milestone.md` updated in this diff
-- [x] Canvas O-step ✅; `/spdd-sync` run if impl diverged
-- [x] Branched off fresh `origin/main` · PR ≤900 lines · trailers on every commit
+- [x] Canvas O-step ✅ (feat:); `/spdd-sync` run if impl diverged · Status Aligned
+- [x] Branched off fresh `origin/main` · PR ≤900 lines · DCO + `Assisted-by` on every commit
+
+<!-- feat: only --> **SPDD:** Canvas `docs/spdd/<EPIC_N>-<slug>/canvas.md` — Status: Aligned · `/spdd-security-review` PASS
 EOF
 
-# Fill in evidence from STEP 7 output before committing PR body
+# Fill in every <placeholder> with real evidence from STEP 7 output before committing the PR body.
 
 git commit -s -m "$(cat <<EOF
 ${COMMIT_TYPE}(<scope>): <subject>
