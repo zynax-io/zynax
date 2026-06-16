@@ -433,3 +433,22 @@ decision is workflow-compiler/protos domain knowledge.
 - ADR stub + INDEX row may already exist at Proposed → "flesh out + flip status" in place,
   never duplicate. Docs-only PRs correctly skip Go/proto build+lint+test; only the universal
   gates (DCO, gitleaks, conventional-commit, layer-boundary, proto-compat, security) run.
+
+## Session — 2026-06-16 (issue #1180)
+domain: go-services · refactor(engine-adapter): replace polling with Temporal history long-poll · PR #1237
+
+### Effective patterns
+- Mirror SDK enum ordinals into a pure domain type (`HistoryEventType int32`): keeps the domain import-free (ADR-001) while letting the long-poll mapping be unit-tested to 100% without the Temporal SDK.
+- Empty-branch atomic claim then `git branch -m` to add the slug after the claim push wins: deterministic key avoids slug races; rename is local and free.
+- `client.HistoryEventIterator` stubs cleanly via a slice-backed `HasNext()/Next()` fake; modeling the trailing-error case (HasNext true once after drain) covers the NotFound/cancel paths.
+
+### Edge cases discovered
+- Removing the poll-interval field left `time` unused in the test file only (build caught it); gofmt also needed a manual run on the new const block or pre-commit would fail.
+- PR landed behind main; resolved with `git rebase --signoff origin/main` + `--force-with-lease` (never update-branch — DCO/signature safe), which re-triggered CI before a CLEAN merge.
+
+### Failed approaches
+- `gh pr checks --watch --fail-fast`: `--fail-fast` is not a valid flag in this gh version; drop it and just `--watch`.
+
+### Proposed expert prompt update
+- Rule: After deleting a struct field that a test configured (e.g. a poll interval), grep the `_test.go` for now-unused imports (`time`) and run `gofmt -w` on any new file with an aligned const block before committing — pre-commit gofmt will otherwise reject the commit.
+  Category: domain
