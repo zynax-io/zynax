@@ -301,7 +301,12 @@ Agent({
        result), **Evidence**, **Risk & rollback**, **Review aids**. For `feat:` add the SPDD line
        (canvas Aligned + security-review PASS). Leave the "Post-merge digest sync → main" evidence
        line as a placeholder — STEP 7.5's verifier fills it after the release pipeline runs.
-    4. Wait for CI. Report result.
+    4. Wait for CI (`gh pr checks <PR> --watch --interval 30`). When green and required checks
+       pass, squash-merge (`gh pr merge <PR> --squash`; never `--rebase`). If the PR is `BEHIND`
+       (sequential batch merges advance main; required up-to-date + `required_signatures` block
+       GitHub's unsigned "Update branch"), rebase your single commit onto `origin/main` and
+       `git push --force-with-lease` (SSH signing is preserved via `rebase.gpgSign`), re-validate,
+       then merge. Report the result.
     5. Cleanup — your LAST action, always, success or failure (a SINGLE Bash call, literal path):
        ```bash
        git -C <REPO> worktree remove /tmp/zynax-orch-<RUN_ID>-<N> --force
@@ -352,6 +357,9 @@ Agent({
     - Never read files outside the issue scope.
     - Use GOWORK=off for all go commands inside service dirs (a worktree is a normal checkout).
     - Commit format: <type>(<scope>): <subject> ≤72 chars, -s flag, Assisted-by trailer.
+    - Never put a literal `[skip ci]` / `[ci skip]` / `[no ci]` token in a commit message or PR
+      body — it silently skips the PR CI **and** the post-merge squash CI on main. Write
+      "skip-ci marker" when you need to refer to it.
   """
 })
 ```
@@ -429,6 +437,39 @@ agent's output (fall back to `?` if the agent didn't emit ctx stats).
 For any agent that reported CI failure: report to user with the failing check name.
 For any agent with `compress >= 1` in its result: flag it — that expert may need splitting next time.
 Do not retry automatically — human intervention required for CI failures.
+
+### Crashed-agent delivery recovery (finalize BEFORE sweeping)
+
+An agent that crashes mid-delivery (transient API 5xx/529, OOM, classifier outage) leaves its work
+in its worktree and may already have pushed the claim branch — **do not sweep it blindly or the
+work is lost.** For every agent whose result is missing or an API-error (no `## Result` block) AND
+whose claim branch `<type>/<N>` exists on origin, **recover the delivery from the coordinator**
+before the sweep below:
+
+```bash
+# For each crashed/stalled agent N (literal worktree path):
+WT="/tmp/zynax-orch-${ORCH_RUN_ID}-${N}"
+git ls-remote origin "refs/heads/<type>/${N}" | grep -q . || continue   # no claim → nothing to recover
+PR=$(gh pr list --head "<type>/${N}" --state open --json number --jq '.[0].number // empty')
+if [ -n "$PR" ]; then
+  # PR already open — just finish it: gh pr checks "$PR" --watch --interval 30, then squash-merge.
+  echo "RECOVER: #$N has open PR #$PR — finishing"; continue
+fi
+# No PR yet → inspect the worktree and finish the delivery:
+git -C "$WT" log origin/main..HEAD --oneline    # committed-but-unpushed work?
+git -C "$WT" status --short                      # uncommitted work?
+#   uncommitted → review the diff, run the local gates, then `git -C "$WT" commit -s -F <msgfile>`
+#   committed   → already done; just push
+git -C "$WT" push -u origin "<type>/${N}"        # fast-forward (the empty claim is already there);
+#   if rejected because origin advanced → rebase onto origin/main + push --force-with-lease (see
+#   STEP 6 delivery contract step 4 — the BEHIND rule).
+# Then open the PR (canonical template body), wait for CI, squash-merge. NOW the tree is safe to sweep.
+```
+
+Recovery is the orchestrator's job, not the dead agent's: validate the recovered diff against the
+issue's acceptance criteria yourself — CI is the safety net (a broken/incomplete diff red-walls and
+you fix it or re-dispatch). Only worktrees with **no** recoverable work (no claim branch, empty tree)
+fall through to the sweep below.
 
 ### Leftover worktree sweep (crashed-agent cleanup)
 

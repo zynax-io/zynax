@@ -534,6 +534,8 @@ Closes #${ISSUE_N}
 EOF
 
 # Fill in every <placeholder> with real evidence from STEP 7 output before committing the PR body.
+# NEVER put a literal `[skip ci]` / `[ci skip]` / `[no ci]` token in the commit message or PR body —
+# it silently skips this PR's CI AND the post-merge squash CI on main. Write "skip-ci marker" to refer to it.
 
 git commit -s -m "$(cat <<EOF
 ${COMMIT_TYPE}(<scope>): <subject>
