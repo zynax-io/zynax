@@ -120,3 +120,27 @@ ADR-proposal docs story (ADR-030 OTEL + Uptrace). Docs-only — no helm lint/val
 
 ### Edge cases discovered
 - Keep ADR file status and the INDEX register row in sync — both must move Proposed→Accepted.
+
+## Session — 2026-06-16 (issue #1190)
+Story: O.7 — local Uptrace docker-compose observability stack (Uptrace + ClickHouse + Postgres + OTel Collector), UI on 127.0.0.1:7020. PR #1259.
+
+### Effective patterns
+- `docker compose config --quiet` with a throwaway gitignored `.env` (deleted after): validates the full overlay including `${VAR:?}` required-var guards without standing up containers — fast local gate for substitution/YAML errors.
+- Loopback-pinned port mappings (`127.0.0.1:HOST:CONTAINER`) verified via `config --format json` `host_ip`: reviewable proof the "OTLP not publicly exposed" safeguard is met.
+- `:?` required-var guards on every credential env: enforces "no committed defaults" — `make obs-up` fails loud if `.env.observability` is missing.
+- Mirrored existing compose conventions (plain pinned third-party tags like `postgres:16-alpine`, healthchecks, `depends_on: service_healthy`) instead of registering digests in images.yaml — the dev compose is not an images.yaml consumer, so the overlay stays out of the digest-alignment gate while still passing it.
+
+### Edge cases discovered
+- The shared OTEL lib is `libs/zynaxobs` (NOT `zynaxotel`); the OTLP endpoint env var is `ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT` (`libs/zynaxobs/providers.go`). Matching that exact name is what lets services point at the collector.
+- gitleaks CI (`tools/gitleaks-ai-context.toml`) scans the FULL PR commit range with `--source .`; its `email-address` rule allowlist is path-scoped to AI-context files only. A literal `admin`-at-`example.com` style address in a non-AI infra `.env.example` WOULD be flagged. Use `you-at-example-dot-com`.
+- Issue carried both `status: ready` and `status: in-progress` labels but no `feat/1190` remote branch — the deterministic empty-branch claim push is the true mutex, so labels were not a blocker.
+
+### Failed approaches
+- `gh pr view --json merged`/`closingIssuesReferences`: rejected by this gh version; use `mergedAt`/`state`/`mergeCommit`.
+
+### Proposed expert prompt update
+- Rule: Compose credential files — commit only a `.env.<name>.example` with non-email placeholders (e.g. `you-at-example-dot-com`, never a real `x`-at-`y.com` address), gitignore the real `.env.<name>`, and put `${VAR:?msg}` required-var guards on every credential. gitleaks scans the full PR range and flags literal emails outside the AI-context allowlist.
+  Category: domain
+- Rule: The shared OTEL package is `libs/zynaxobs`; the OTLP exporter endpoint env var is `ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT`. Any collector/OTLP wiring must match this name.
+  Category: domain
+  Reason: Permanent naming fact other observability stories (O.8 Helm chart, O.9 logs) will need.

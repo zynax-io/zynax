@@ -601,3 +601,23 @@ domain: ci-release / post-mrg · M7 batch post-merge verification (3 verifiers; 
   Category: structural-workaround
   Reason: Background subagents reliably trip the ~600s stream watchdog during the long
   CI-wait phase; the implementation work is already done and must not be thrown away.
+
+## Session — 2026-06-16 (issue #1215)
+Story: Q.4 — verify + document Go module consumption path (pkg.go.dev). PR #1258, `docs/contributing/go-module-consumption.md`.
+
+### Effective patterns
+- proxy.golang.org `@latest` as import-availability proof: `curl -s https://proxy.golang.org/<module>/@latest` returns JSON with the correct `Subdir` + pseudo-version, definitively proving a monorepo submodule is `go get`-able without a tagged release. Empty `@v/list` (200, no body) distinguishes "no semver tags" from "not resolvable."
+- Empty-branch atomic claim then push commit: pushing `docs/<N>` empty first won the mutex; ls-remote check before push confirmed no contention.
+- DCO `-s` flag + an explicit Signed-off-by in the `-F` message file does NOT duplicate the trailer — git dedupes identical trailers.
+
+### Edge cases discovered
+- pkg.go.dev returns 404 for a module page until it has been requested via the proxy at least once (lazy indexing). A 404 on the HTML page is NOT evidence of non-consumability — the proxy `@latest` JSON is the authoritative signal.
+- This gh version rejects `merged`/`closingIssuesReferences` JSON fields; use `state`/`mergeCommit`/`mergedAt` and verify closure via `gh issue view`.
+
+### Failed approaches
+- None.
+
+### Proposed expert prompt update
+- Rule: For docs/release issues asking to verify Go module consumption / pkg.go.dev import path in a monorepo, the authoritative verification is `curl -s https://proxy.golang.org/<module-path>/@latest` (non-empty JSON with Version+Subdir = consumable). Empty `@v/list` means no module-path-prefixed semver tags exist (proxy serves a `v0.0.0-<ts>-<commit>` pseudo-version); a 404 on the pkg.go.dev HTML page is lazy-indexing, not non-consumability. Document both the proxy evidence and the monorepo caveats (repo-level vs `<subdir>/vX.Y.Z` tags; in-repo `replace`/`go.work` per ADR-017 are internal-only, ignored by downstream consumers).
+  Category: domain
+  Reason: Module-consumption verification recurs for any monorepo release/docs task; the proxy-vs-pkg.go.dev distinction is non-obvious and easy to misreport as a failure.

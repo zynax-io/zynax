@@ -519,3 +519,22 @@ domain: go-services · M7 batch — O.2 OTEL providers (#1185 PR #1248), L.2 eve
   Category: structural-workaround
   Reason: Sequential batch merges advance main, leaving later PRs behind; rebasing the
   single commit keeps a clean linear history and satisfies the up-to-date requirement.
+
+## Session — 2026-06-16 (issue #1216)
+Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicalization. PR #1257.
+
+### Effective patterns
+- Read the actual source before trusting a stub ADR: `grep ManifestWorkflowID` returned nothing in service code because the symbol is the proto envelope field `workflow_id`, derived by `generateWorkflowID()` in `services/workflow-compiler/internal/api/server.go`. Tracing the real function revealed the stub's premise (hash of canonicalized manifest) was fictional — the actual scheme draws 8 bytes from `crypto/rand` and renders `wf-` + 16 lowercase hex (random 64-bit, not a hash). The ADR was rewritten to document the real scheme (64-bit collision domain w/ birthday bound, canonical `wf-`+16-hex form, stability guarantee) without changing the algorithm.
+- For docs-only PRs the repo `changes` path filter skips all Go/Python/build jobs; only image/CI checks register. The first `gh pr checks --watch` can exit immediately ("no checks reported") before checks register — confirm via `gh pr view --json statusCheckRollup`, then re-watch.
+
+### Edge cases discovered
+- ADR-034 file + INDEX row were pre-staged on main (placeholder stub). The task was to finalize the stub, not create from scratch — INDEX needed no change, only the ADR body (53 ins / 16 del).
+- This gh version rejects `--json merged`; use `mergedAt`/`mergeCommit`/`state`.
+
+### Failed approaches
+- Initial `grep "ManifestWorkflowID"` (exact symbol) returned nothing — the id is a proto envelope field `workflow_id`/`WorkflowId`, not a literal `ManifestWorkflowID` identifier. Broadening to `workflowid|hash|rand|hex` located `generateWorkflowID`.
+
+### Proposed expert prompt update
+- Rule: When an issue says "document the existing X scheme", trace X to its actual implementation (the proto envelope field name often differs from the prose name — e.g. `ManifestWorkflowID` is the `workflow_id` field set by `generateWorkflowID`) and verify any pre-existing stub against the real code before finalizing; stubs may describe a scheme that was never built.
+  Category: domain
+  Reason: ADR/docs tasks that "record existing behaviour" are only correct if grounded in the real implementation; pre-staged stubs can carry an aspirational/wrong description that would otherwise merge verbatim.
