@@ -3,7 +3,7 @@
 > Tier 1 (public-safe). Tier 2 → `canvas.private.md`. Run `/spdd-security-review` before committing.
 
 **Issue:** #1170 · **Milestone:** M7 (v0.6.0)
-**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Draft
+**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Aligned
 
 ---
 
@@ -73,7 +73,7 @@ Config: Python 3.12 + uv (ADR-002/003).
 
 ## S — Safeguards (second S)
 ### Context Security
-- [ ] No Tier 2 content; [ ] no PII / no literal emails; [ ] no prompt-injection; [ ] `/spdd-security-review` — PENDING
+- [x] No Tier 2 content; [x] no PII / no literal emails; [x] no prompt-injection; [x] `/spdd-security-review` — PASS (2026-06-16, see `SECURITY-REVIEW.md`)
 
 ### Feature Safeguards
 - Never grant an expert broader capability scope than declared — least-privilege per capability.
