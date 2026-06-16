@@ -5,7 +5,7 @@
 // counters/histograms, an OTel tracer initialized from OTEL_EXPORTER_OTLP_ENDPOINT,
 // and pprof registration. Centralizing these keeps instrumentation identical and
 // label cardinality bounded (only service/method/status — never workflow or request
-// IDs). See docs/spdd/467-prometheus-otel/canvas.md (issue #491).
+// IDs). See docs/spdd/467-observability-otel-uptrace/canvas.md (issue #491).
 package zynaxobs
 
 import (

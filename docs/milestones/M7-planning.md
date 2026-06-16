@@ -93,7 +93,7 @@ any implementation. This plan front-loads the SPDD artifacts:
 
 - **One canvas per EPIC** is committed with this plan under `docs/spdd/<letter>-<slug>/canvas.md`
   (all 10: [W](../spdd/W-workflow-data-flow/canvas.md), [L](../spdd/L-log-streaming/canvas.md),
-  [O](../spdd/O-observability-otel-uptrace/canvas.md), [C](../spdd/C-context-propagation/canvas.md),
+  [O](../spdd/467-observability-otel-uptrace/canvas.md), [C](../spdd/C-context-propagation/canvas.md),
   [G](../spdd/G-git-mcp-shim/canvas.md), [X](../spdd/X-expert-substrate/canvas.md),
   [T](../spdd/T-templates-real-workflows/canvas.md), [R](../spdd/R-test-rigor/canvas.md),
   [Q](../spdd/Q-quality-supply-chain/canvas.md), [D](../spdd/D-docs/canvas.md)). Each canvas's

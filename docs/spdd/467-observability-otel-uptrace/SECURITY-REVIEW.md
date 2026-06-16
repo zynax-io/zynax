@@ -1,6 +1,6 @@
 # Security Review — EPIC O: Observability (OTEL + Uptrace)
 
-**Canvas:** `docs/spdd/O-observability-otel-uptrace/canvas.md` (Status: Draft)
+**Canvas:** `docs/spdd/467-observability-otel-uptrace/canvas.md` (Status: Draft)
 **Issue:** #467 · **Date:** 2026-06-16 · **Reviewer:** SPDD Canvas expert (pre-alignment gate)
 **Authority:** `docs/knowledge-base-policy.md` (Tier 1/2/3), ADR-019 (SPDD governance)
 

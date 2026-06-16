@@ -9,7 +9,7 @@
 | **Deciders** | Oscar Gómez Manresa |
 | **Scope** | all services + adapters, `libs/zynaxotel`, observability compose + Helm — M7 EPIC O (#467) |
 | **Related** | ADR-022 (event-bus/NATS — trace propagation over message headers), ADR-020 (mTLS — secure OTLP in-cluster), ADR-026 (Postgres distribution — backend storage option) |
-| **Canvas** | `docs/spdd/O-observability-otel-uptrace/canvas.md` step O.1 |
+| **Canvas** | `docs/spdd/467-observability-otel-uptrace/canvas.md` step O.1 |
 
 ---
 
