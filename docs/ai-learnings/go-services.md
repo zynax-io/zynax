@@ -452,3 +452,31 @@ domain: go-services · refactor(engine-adapter): replace polling with Temporal h
 ### Proposed expert prompt update
 - Rule: After deleting a struct field that a test configured (e.g. a poll interval), grep the `_test.go` for now-unused imports (`time`) and run `gofmt -w` on any new file with an aligned const block before committing — pre-commit gofmt will otherwise reject the commit.
   Category: domain
+
+## Session — 2026-06-16 (issues #1185 #1181 #1176 + post-#1248 deps-realign)
+domain: go-services · M7 batch — O.2 OTEL providers (#1185 PR #1248), L.2 event stream (#1181 PR #1247), W.2 keystone proto fields (#1176 PR #1249), plus the `chore(deps)` recovery PR #1250.
+
+### Effective patterns
+- verify-before-create (O.2 #1185): the planned `libs/zynaxotel` already existed as `libs/zynaxobs`; reading the live tree and extending it (new `providers.go`) beat green-fielding a duplicate — live tree wins over canvas naming.
+- Official OTEL noop packages (`trace/noop`, `metric/noop`, `log/noop`) for the unset-endpoint path: callers need no telemetry on/off branching and tests can assert the exact no-op types.
+- `.feature`-before-impl with godog non-strict (W.2 #1176): append data-flow scenarios to the existing feature file; godog reports their unimplemented steps as `undefined` (not failed), so the suite stays green while the spec lands first per ADR-016. Step impls follow with the compiler logic (W.3).
+- ActionIR bindings modeled as `map<string,string>` (proto fields 5/6): matched ADR-029's stringly-typed literal/JSON-path model, purely additive, kept `buf breaking` green with zero new imports.
+- Find shared-lib consumers via `grep -rl "libs/<x>" --include=go.mod` before assuming the blast radius (deps-realign): a lib's go.mod change invalidates EVERY module with a local `replace` directive — here all 7 consumers, not just the one CI named.
+
+### Edge cases discovered
+- A libs-only PR's CI does NOT rebuild consuming services, so new transitive deps added to a shared lib (OTEL OTLP exporters in #1248) reach `main` with stale consumer `go.sum` and break `main` post-merge (agent-registry/event-bus/memory-service + 4 more failed `test-integration`/`lint-go`/`security`). Recovered with `go mod tidy` across all 7 `libs/zynaxobs` consumers in one `chore(deps)` PR.
+- Touching `protos/generated/go/` flips every Go service to `*_CHANGED=true` in the CI `changes` filter, so lint-go/security/test-go/Build+scan run against ALL consumers even for a pure proto-additive change — this is how the latent repo-wide go.sum drift was surfaced by the keystone proto PR.
+- `go mod tidy` did NOT auto-bump OTEL core in this repo: every consumer pins via `replace`→`libs/zynaxobs`, whose go.mod fixes otel core v1.43.0 / log v0.19.0, so tidy resolved to the pinned versions. The auto-bump fear (O.2) did not materialize at the consumer level — but verify across all go.mod files; the `check deps` alignment gate validates go/envconfig/grpc/protobuf/yaml.v3, not OTEL directly (OTEL only matters because a bump can cascade into grpc/protobuf).
+- pre-commit ruff reformats committed `_pb2.py`; re-stage the hook-modified file and re-commit. `make generate-protos` also bumped protoc-gen-python 7.35.0→7.35.1 touching ~17 unrelated stubs — `git checkout --` all but the genuinely-changed package to keep the PR minimal.
+- A behind-base branch makes lint-go report "no go files to analyze" and security report "go mod tidy needed" — a stale-base artifact; fix with `git rebase --signoff origin/main`.
+
+### Failed approaches
+- Running `go mod tidy` on individual gated services inside the proto-only PR (W.2) to fix lint-go/security: it cascaded into NEW failures because the drift was repo-wide and the shared-lib go.sum was equally stale. Correct move: do NOT tidy inside the feature PR; route the reconciliation to a dedicated `chore(deps)` PR.
+- golangci-lint with an absolute module path / `...` pattern errors ("does not contain main module"); in a no-cd sandbox write a 2-line helper script that `cd`s into the module then lints, and `bash` it.
+
+### Proposed expert prompt update
+- Rule: When a shared `libs/*` module gains a dependency, EVERY module with `replace .../libs/<x> => ../../libs/<x>` must be re-tidied. Find them all with `grep -rl "libs/<x>" --include=go.mod`. A libs-only PR's CI never rebuilds consumers, so this drift reaches main silently; CI may name only one failing module but the fix is repo-wide.
+  Category: domain
+- Rule: A PR that touches `protos/generated/go/` flips every Go service to changed in the CI `changes` filter. If lint-go/security/test-go fail with "go mod tidy needed", FIRST check whether main itself is drifted (build a service the PR does NOT touch); if so the drift is pre-existing/out-of-scope for the proto PR — document it and route to a `chore(deps)` PR rather than tidying inside the feature PR (which cascades into shared-lib go.sum/Docker-build failures).
+  Category: structural-workaround
+  Reason: Recurs for any additive-proto or shared-lib PR; tidying inside the feature PR makes it worse and violates scope, while the correct diagnosis (build an untouched module) is non-obvious.
