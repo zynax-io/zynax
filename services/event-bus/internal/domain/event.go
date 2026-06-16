@@ -4,7 +4,10 @@
 // This package has zero imports from api or infrastructure — it is the innermost layer.
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // CloudEvent is the domain representation of a CNCF CloudEvents v1.0 envelope.
 // Field names mirror the CloudEvents specification attribute names exactly.
@@ -50,4 +53,32 @@ type SubscribeRequest struct {
 	TypePattern string
 	// WorkflowID is an optional scope filter; empty means "all workflows".
 	WorkflowID string
+}
+
+// terminalWorkflowVerbs are the workflow lifecycle event-type verbs that mark a
+// run as finished. They mirror the engine-adapter lifecycle events
+// ("zynax.workflow.completed"/"failed", see engine-adapter interpreter) plus the
+// other Temporal terminal outcomes a run may end in. A workflow-scoped
+// subscriber receives the terminal event and then the stream closes.
+var terminalWorkflowVerbs = []string{
+	"workflow.completed",
+	"workflow.failed",
+	"workflow.terminated",
+	"workflow.canceled",
+	"workflow.timed_out",
+}
+
+// IsTerminalEventType reports whether eventType denotes a terminal workflow
+// lifecycle event — i.e. a run reaching a finished state. Matching is by
+// dot-segment suffix so it is independent of the taxonomy prefix
+// ("zynax.v1.engine-adapter.workflow.completed" and a bare
+// "zynax.workflow.completed" both match). It backs the "stream closes on
+// terminal state" guarantee for workflow-scoped subscriptions.
+func IsTerminalEventType(eventType string) bool {
+	for _, verb := range terminalWorkflowVerbs {
+		if eventType == verb || strings.HasSuffix(eventType, "."+verb) {
+			return true
+		}
+	}
+	return false
 }

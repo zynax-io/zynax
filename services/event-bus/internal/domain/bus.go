@@ -13,7 +13,9 @@ type EventBus interface {
 
 	// Subscribe opens a channel that delivers CloudEvents matching req.TypePattern
 	// and optional req.WorkflowID scope. The channel is closed when Unsubscribe
-	// is called for req.SubscriberID or when ctx is cancelled.
+	// is called for req.SubscriberID, when ctx is cancelled, or — for a
+	// workflow-scoped subscription (req.WorkflowID set) — after delivering a
+	// terminal workflow lifecycle event (see IsTerminalEventType).
 	Subscribe(ctx context.Context, req SubscribeRequest) (<-chan CloudEvent, error)
 
 	// Unsubscribe closes the active subscription for subscriberID.
