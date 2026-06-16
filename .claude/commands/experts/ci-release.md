@@ -153,6 +153,13 @@ image reference in a workflow file diverges from `images.yaml`.
   itself won't trigger if the workflow file isn't in its own `paths:`, leaving the change inert.
   Seen in: #839 + post-merge (2 sessions).
 
+- **The release pipeline auto-syncs `images/images.yaml` ONLY — never `docker-compose.services.yml`.**
+  Compose digest pins drift silently because the github-actions bot does not touch them; reconciling
+  them (e.g. http-adapter `b12750bf`→`d2d6e87a`) is the post-merge verifier's real job once
+  `images.yaml` is current. Only adapter services (http-adapter) are digest-pinned in compose; core
+  platform services use a floating `:main` tag there, so the digest-sed loop is a no-op for them.
+  Seen in: #1237, #1249 (2 sessions).
+
 ---
 
 ## Docker build patterns
@@ -264,6 +271,17 @@ Use `%2F` for the slash in nested package names (URL encoding required).
   ```
   Unsigned images require a manual cosign pass before they should be used in production.
   Seen in: #839, #977 (2 sessions).
+
+- **ADR-027 retag-only: post-merge images are PROMOTED, never freshly built.** `ci.yml build-images`
+  runs only on `pull_request`/`workflow_dispatch`; on merge, `release.yml` fires via `workflow_run`
+  AFTER the CI run on main completes (not on the push) and only retags `staging/pr-<head>` → `main`.
+  Verify promotion via `gh run view <release_run_id> --json jobs` and confirm the "Retag staging →
+  main" job is `success`, NOT `skipped` — a Release run merely existing/succeeding is not proof (a
+  proto-only or libs-only merge retags 0 images; a FAILED CI on main skips the ENTIRE Release run).
+  The github-actions bot auto-commits the digest sync to `images/images.yaml`
+  (`chore(images): sync digests …`, skip-ci marker, DCO-signed), so service-image digests legitimately
+  live in `images.yaml` and the pins are already current — no manual digest PR needed.
+  Seen in: #1237, #1249, #1198 (3 sessions).
 
 ---
 

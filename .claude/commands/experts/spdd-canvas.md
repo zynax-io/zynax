@@ -214,6 +214,14 @@ Create an ADR (not just a canvas safeguard) when:
 
 Do NOT create an ADR for reversible implementation choices within a single service.
 
+- **For ADR-proposal / docs issues, verify-before-write.** Before claiming a branch or authoring,
+  glob `docs/adr/ADR-<N>*` AND grep the number in `docs/adr/INDEX.md`. Milestone-open commits often
+  pre-seed ADR files/stubs. Diff the existing content against EACH acceptance-criterion clause: if
+  every AC is met, close the issue with a file+commit reference and open NO PR; if a clause is missing
+  (a concrete mapping table, the real algorithm), enhance only that gap and leave the INDEX row
+  untouched if already present. Never create a second numbered ADR or a no-op PR; never document a
+  scheme without grounding it in the real implementation. (#1193, #1201, #1075)
+
 ---
 
 ## Story issue format
