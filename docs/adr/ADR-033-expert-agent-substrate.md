@@ -35,6 +35,47 @@ would cause silent drift.
 | Runtime AgentDefs only | ✗ Rejected — loses the existing authoring-loop experts |
 | Claude Code experts only | ✗ Rejected — experts couldn't run inside Zynax workflows |
 
+## Mapping table (single source of truth)
+
+Each authoring expert (`.claude/commands/experts/*.md`, surfaced as an
+`automation/workflows/experts/*.yaml` entry) declares a `runtime_mapping:` to its runtime
+counterpart (`kind: AgentDef` in agent-registry), or the literal `authoring-only`. The table below is
+the canonical seed; the machine-readable source remains the `runtime_mapping:` field on each authoring
+expert (the CI drift guard reconciles the two — see below).
+
+| Authoring expert (`.claude/commands/experts/`) | Runtime counterpart (`kind: AgentDef`) | Capability | Status |
+|-----------------------------------------------|----------------------------------------|------------|--------|
+| `go-services`   | `go-review-expert`   | `code.review.go`        | runtime (M7, `agents/examples/go-review-expert`) |
+| `bdd-contract`  | `authoring-only`     | —                       | authoring-only (deferred to M-dx) |
+| `ci-release`    | `authoring-only`     | —                       | authoring-only (deferred to M-dx) |
+| `git-ops`       | `authoring-only`     | —                       | authoring-only (deferred to M-dx) |
+| `infra-helm`    | `authoring-only`     | —                       | authoring-only (deferred to M-dx) |
+| `post-merge`    | `authoring-only`     | —                       | authoring-only (deferred to M-dx) |
+| `python-adapters` | `authoring-only`   | —                       | authoring-only (deferred to M-dx) |
+| `spdd-canvas`   | `authoring-only`     | —                       | authoring-only (deferred to M-dx) |
+
+Only `go-services → go-review-expert` is dual-substrate in M7 (the reference runtime expert); the
+remaining authoring experts are explicitly `authoring-only` until the full expert library lands in M-dx.
+Marking a row `authoring-only` is a deliberate, reviewable declaration — not an omission.
+
+## Drift guard
+
+Authoring and runtime experts must never diverge silently. The guard has three parts:
+
+1. **Declared mapping is mandatory.** Every authoring expert MUST carry a `runtime_mapping:` field
+   whose value is either a runtime AgentDef name or the literal `authoring-only`. A missing or empty
+   field is a hard CI failure.
+2. **Runtime reference must resolve.** When `runtime_mapping:` names an AgentDef, that AgentDef MUST
+   exist as a registerable expert under `agents/examples/` (and, once running, in agent-registry). A
+   dangling reference fails CI.
+3. **Table reconciliation.** A CI check (added in EPIC X step X.5) compares the `runtime_mapping:`
+   fields against this ADR's mapping table; any disagreement — an unlisted expert, a stale row, or a
+   changed counterpart — fails the build. The `runtime_mapping:` fields are the machine source of truth;
+   this table is the human-readable mirror, and CI keeps them identical.
+
+This keeps the two substrates coherent: a new authoring expert cannot merge without declaring (and a
+reviewer cannot miss) whether it has a runtime counterpart.
+
 ## Consequences
 
 - **Positive:** a unified, coherent expert system; reference agents unblock `agents/examples/`; experts
