@@ -525,3 +525,21 @@ Post-merge verification of an engine-adapter change. Outcome: SKIP — image pub
 - Rule: After a post-merge multi-arch tools/ci-runner image build, verify the `latest` tag moved (not just that a new version row exists) — a single-arch matrix leg failure strands an `<arch>-<sha>` tag while `latest` stays on the old image. For an `apk add` exit-255 arm64-QEMU failure, remediate with `gh run rerun <id> --failed` (transient), not a Dockerfile change.
   Category: domain
   Reason: Prevents declaring a CVE-bump "live" when the consumed `:latest` image still carries the vulnerable toolchain.
+
+## Session — 2026-06-16 (post-merge PR #1237, issue #1180)
+domain: ci-release · post-merge verification of refactor(engine-adapter)
+
+### Effective patterns
+- Reading release.yml header comments first revealed the ADR-027 retag-only model: images build once pre-merge in ci.yml `build-images` staging lane, release.yml promotes via `workflow_run` after CI completes. Prevents a false ERROR when no "Release" run is tied directly to the merge-SHA push.
+- Query GHCR versions filtered by `tags | test("^main")` to skip the `.sig` cosign artifact that occupies `.[0]` and would be mistaken for the image digest.
+
+### Edge cases discovered
+- The release workflow's github-actions bot commits the digest sync to `images/images.yaml` (`chore(images): sync digests … [skip ci]`, DCO-signed) as a recorded ADR-027 exception — by the time the verifier inspects main, pins are already current; no manual digest PR is warranted. Contrary to the generic guide note, service-image digests (engine-adapter etc.) DO live in images.yaml in this repo via that bot.
+- engine-adapter is not digest-pinned in docker-compose.services.yml (only http-adapter is); the primary docker-compose.yml uses a floating `:main` tag. The Phase-4a sed loop is a no-op for it.
+
+### Failed approaches
+- Looked for a workflow literally named "Release" tied to the merge-SHA push; it only materializes after CI completes via `workflow_run`. Wait for CI green first, then re-query `event=workflow_run`.
+
+### Proposed expert prompt update
+- Rule: This repo follows ADR-027 retag-only: release.yml fires via `workflow_run` AFTER the CI run on main completes (not on the push). Wait for CI green, then query `actions/runs?event=workflow_run` for the Release run. Its github-actions bot auto-commits digest sync to images/images.yaml as `chore(images): sync digests … [skip ci]` — verify pins are current there before assuming a manual digest PR is needed; service-image digests legitimately live in images.yaml via that bot.
+  Category: domain

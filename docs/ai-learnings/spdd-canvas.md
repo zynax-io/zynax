@@ -97,3 +97,21 @@
 - Rule: When `gh pr merge` returns BLOCKED but all REQUIRED checks pass and state is UNSTABLE (slow non-required gates pending), use `--auto`; if the gate has already FAILED and is non-required, use `--admin`. If BEHIND and `gh pr update-branch` is unavailable, rebase + `push --force-with-lease`.
   Category: structural-workaround
   Reason: Permanent for this gh build + branch-protection config.
+
+## Session — 2026-06-16 (issues #1193, #1201)
+domain: spdd-canvas · two ADR-proposal stories (ADR-031 context propagation; ADR-033 expert substrate)
+
+### Effective patterns
+- Verify-before-write for ADR stories: glob `docs/adr/ADR-<N>*` and grep the number in INDEX.md before authoring. #1193's ADR-031 already existed complete on main (PR #1174) → closed as already-satisfied, no duplicate. #1201's ADR-033 existed as a stub → audited against ACs and filled the missing mapping table + drift-guard (PR #1236).
+- Tracing the introducing commit (`git log -1 -- <file>`) gives a traceable close reason when a deliverable is pre-seeded by the milestone-open commit.
+- Deterministic branch-ref claim (`docs/<N>`, no slug) pushed empty first = clean atomic claim; the GitHub `status: in-progress` label is NOT the lock, the branch ref is.
+
+### Edge cases discovered
+- Milestone-open commits pre-seed ADR files/stubs. Two outcomes: (a) file already meets every AC → close issue, no PR (#1193); (b) file exists but misses an AC clause (concrete mapping table) → enhance the body only, leave INDEX row untouched if already present (#1201).
+
+### Failed approaches
+- none.
+
+### Proposed expert prompt update
+- Rule: For ADR-proposal / docs issues, before claiming a branch or writing, glob `docs/adr/ADR-<N>*` AND grep the number in INDEX.md. If the file exists, diff its content against each acceptance-criterion clause: close as completed (with file+commit reference) if every AC is met; otherwise enhance only the gaps. Never create a second numbered ADR or a no-op PR.
+  Category: domain
