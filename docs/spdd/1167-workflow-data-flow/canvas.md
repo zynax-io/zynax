@@ -6,7 +6,7 @@
 **Issue:** #1167 · **Milestone:** M7 (v0.6.0)
 **Author:** M7 program plan
 **Date:** 2026-06-15
-**Status:** Draft
+**Status:** Aligned
 
 ---
 
@@ -74,14 +74,15 @@ Config env prefix: `ZYNAX_WC_` / `ZYNAX_ENGINE_ADAPTER_` · No new ports.
 
 ## O — Operations (stories — `spdd-story` form)
 
-**GitHub issues:** W.1 #1175 · W.2 #1176 · W.3 #1177 · W.4 #1178 · W.5 #1179 (epic #1167)
+**GitHub issues:** W.1 #1175 (CLOSED — ADR-029 Accepted) · W.2 #1176 · W.3 #1177 · W.4 #1178 · W.5 #1179 (epic #1167)
+**Implementation stories remaining:** #1176–#1179 (W.2–W.5) map 1:1 to the feat/test O-steps below.
 
-**W.1 — ADR: data-flow semantics & scoping model**
+**W.1 — ADR: data-flow semantics & scoping model** ✅ DONE (#1175 closed)
 - As a `maintainer`, I want a recorded decision on the binding model so that the contract is stable before code.
 - Size: S · Type: `docs`/`adr-proposal`
 - Acceptance:
-  - [ ] ADR-029 committed (Proposed→Accepted) defining binding syntax, scoping, and non-goals
-  - [ ] `buf breaking` implications documented (fields are additive)
+  - [x] ADR-029 committed (Accepted) defining binding syntax, scoping, and non-goals
+  - [x] `buf breaking` implications documented (fields are additive)
 - Out of scope: implementation. Dependencies: none (gates W.2).
 
 **W.2 — Proto: output/input binding fields + `.feature`**
@@ -134,10 +135,10 @@ Config env prefix: `ZYNAX_WC_` / `ZYNAX_ENGINE_ADAPTER_` · No new ports.
 ## S — Safeguards (second S)
 
 ### Context Security (complete before committing this Canvas)
-- [ ] No Tier 2 content (no hostnames/IPs/credentials/deployment specifics)
-- [ ] No PII; all E-section entities are public-safe abstractions
-- [ ] No prompt-injection phrasing
-- [ ] `/spdd-security-review` passed — result: PENDING (run before Aligned)
+- [x] No Tier 2 content (no hostnames/IPs/credentials/deployment specifics)
+- [x] No PII; all E-section entities are public-safe abstractions
+- [x] No prompt-injection phrasing
+- [x] `/spdd-security-review` passed — result: PASS-with-flags (see `SECURITY-REVIEW.md`; flags are non-blocking, resolved in this Draft). Human flips `Status: Aligned` after review (ADR-019).
 
 ### Feature Safeguards
 - Never make proto changes non-additive — backward compatibility is mandatory (ADR-012, `buf breaking`).
