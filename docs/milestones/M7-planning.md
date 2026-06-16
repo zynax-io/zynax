@@ -92,10 +92,10 @@ Per ADR-019, every `feat:` issue is preceded by a **REASONS Canvas** (status `Al
 any implementation. This plan front-loads the SPDD artifacts:
 
 - **One canvas per EPIC** is committed with this plan under `docs/spdd/<letter>-<slug>/canvas.md`
-  (all 10: [W](../spdd/W-workflow-data-flow/canvas.md), [L](../spdd/L-log-streaming/canvas.md),
-  [O](../spdd/O-observability-otel-uptrace/canvas.md), [C](../spdd/1168-context-propagation/canvas.md),
-  [G](../spdd/G-git-mcp-shim/canvas.md), [X](../spdd/1170-expert-substrate/canvas.md),
-  [T](../spdd/1171-templates-real-workflows/canvas.md), [R](../spdd/R-test-rigor/canvas.md),
+  (all 10: [W](../spdd/1167-workflow-data-flow/canvas.md), [L](../spdd/468-log-streaming/canvas.md),
+  [O](../spdd/467-observability-otel-uptrace/canvas.md), [C](../spdd/1168-context-propagation/canvas.md),
+  [G](../spdd/1169-git-mcp-shim/canvas.md), [X](../spdd/1170-expert-substrate/canvas.md),
+  [T](../spdd/1171-templates-real-workflows/canvas.md), [R](../spdd/469-test-rigor/canvas.md),
   [Q](../spdd/1172-quality-supply-chain/canvas.md), [D](../spdd/1173-docs/canvas.md)). Each canvas's
   **O — Operations** section lists the EPIC's stories in `spdd-story` form (As-a / I-want / so-that,
   size, acceptance criteria, out-of-scope, dependencies) — ready to become one GitHub issue each.
