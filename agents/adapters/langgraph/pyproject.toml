@@ -20,6 +20,8 @@ dependencies = [
     "pydantic-settings>=2.3.0",
     "structlog>=24.2.0",
     "langgraph>=0.2.0",
+    "aiohttp>=3.14.1",  # security floor for the transitive dep (via langgraph→langchain);
+                        # 3.14.1 fixes the GHSA set flagged by Dependabot
 ]
 
 [tool.mypy]

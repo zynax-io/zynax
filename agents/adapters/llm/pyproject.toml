@@ -21,7 +21,8 @@ dependencies = [
     "structlog>=24.2.0",
     "openai>=1.30.0",
     "aiobotocore>=2.13.0",
-    "aiohttp>=3.14.0",  # CVE-2026-34993, CVE-2026-47265 — floor the transitive dep explicitly
+    "aiohttp>=3.14.1",  # security floor for the transitive dep; 3.14.1 fixes the GHSA set
+                        # (websocket-frame bypass, DigestAuth cross-origin, C-parser max_line_size, et al.)
     "httpx>=0.27.0",
 ]
 
