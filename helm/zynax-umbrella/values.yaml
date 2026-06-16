@@ -80,3 +80,18 @@ zynax-temporal:
 # See helm/charts/cert-manager/templates/NOTES.txt for prerequisites.
 zynax-cert-manager:
   enabled: false
+
+# ── Observability (EPIC O #467, step O.8) ─────────────────────────────────────
+# Master toggle for the in-cluster Uptrace backend (traces · metrics · logs ·
+# APM · login UI). Off by default — telemetry is env-gated and adds zero
+# overhead until services set ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT.
+observability:
+  enabled: false
+
+# Uptrace subchart passthrough (only rendered when observability.enabled=true).
+# Login credentials must come from a pre-created Secret — never set here.
+# Point services at the in-cluster OTLP collector via:
+#   ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT=http://<release>-zynax-uptrace-otel-collector:4317
+# The chart's NOTES.txt prints the exact endpoint for your release/namespace.
+zynax-uptrace:
+  enabled: true

@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "properties": {
+    "enabled": { "type": "boolean" },
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "uptrace": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" },
+            "pullPolicy": { "type": "string" }
+          }
+        },
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "existingSecret": { "type": "string", "minLength": 1 },
+        "secretKeys": {
+          "type": "object",
+          "properties": {
+            "adminEmail": { "type": "string" },
+            "adminPassword": { "type": "string" },
+            "projectToken": { "type": "string" },
+            "pgPassword": { "type": "string" }
+          }
+        },
+        "ports": {
+          "type": "object",
+          "properties": {
+            "http": { "type": "integer", "minimum": 1 },
+            "grpc": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "resources": { "type": "object" }
+      },
+      "required": ["existingSecret"]
+    },
+    "clickhouse": {
+      "type": "object",
+      "properties": {
+        "image": { "type": "object" },
+        "database": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1 },
+        "httpPort": { "type": "integer", "minimum": 1 },
+        "persistence": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "size": { "type": "string" },
+            "storageClass": { "type": "string" }
+          }
+        },
+        "resources": { "type": "object" }
+      }
+    },
+    "postgres": {
+      "type": "object",
+      "properties": {
+        "image": { "type": "object" },
+        "database": { "type": "string" },
+        "user": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1 },
+        "persistence": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "size": { "type": "string" },
+            "storageClass": { "type": "string" }
+          }
+        },
+        "resources": { "type": "object" }
+      }
+    },
+    "collector": {
+      "type": "object",
+      "properties": {
+        "image": { "type": "object" },
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "ports": {
+          "type": "object",
+          "properties": {
+            "grpc": { "type": "integer", "minimum": 1 },
+            "http": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "resources": { "type": "object" }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "host": { "type": "string" },
+        "annotations": { "type": "object" },
+        "tls": { "type": "array" }
+      }
+    },
+    "podSecurityContext": { "type": "object" }
+  },
+  "required": ["enabled", "uptrace", "clickhouse", "postgres", "collector"]
+}

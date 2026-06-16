@@ -32,5 +32,8 @@ dependencies:
 - name: zynax-cert-manager
   repository: file://../charts/cert-manager
   version: 0.1.0
-digest: sha256:8fe21e7888f00ad478194cf33f1983cbca6522af5274fcb9e8d9015c7031fe27
-generated: "2026-06-12T16:02:50.252783149+02:00"
+- name: zynax-uptrace
+  repository: file://../charts/uptrace
+  version: 0.1.0
+digest: sha256:da841680ffecba6c09c1914ba88a5ca41694164d667cc408a023c6cbebd7fa5e
+generated: "2026-06-16T19:59:17.509222074+02:00"

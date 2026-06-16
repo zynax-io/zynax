@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# Login UI Ingress — auth-gated, routes ONLY to the Uptrace UI (HTTP port).
+# The OTLP collector Service is never exposed here (canvas Safeguards: OTLP
+# must not be publicly reachable; in-cluster OTLP is mTLS-secured per ADR-020).
+{{- if and .Values.enabled .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "uptrace.fullname" . }}
+  labels:
+    {{- include "uptrace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: uptrace
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "uptrace.fullname" . }}
+                port:
+                  number: {{ .Values.uptrace.ports.http }}
+{{- end }}

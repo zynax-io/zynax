@@ -1,0 +1,127 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# In-cluster Uptrace observability backend (EPIC O #467, step O.8).
+# Mirrors the local compose stack (infra/docker-compose/docker-compose.observability.yml):
+# single-binary Uptrace + ClickHouse + Postgres + OTel Collector.
+#
+# Telemetry is OFF by default — this whole chart is gated by the umbrella
+# `observability.enabled` condition (canvas Safeguards: zero overhead when
+# disabled, no second tracing backend).
+
+# Master toggle. When false, no Uptrace resources are rendered.
+# The umbrella chart maps `observability.enabled` onto this value.
+enabled: true
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ── Uptrace backend (single-binary: traces · metrics · logs · APM · login UI) ──
+uptrace:
+  image:
+    repository: uptrace/uptrace
+    tag: "1.7.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  # Login credentials + project token come ONLY from a pre-created Secret —
+  # never committed defaults (canvas Safeguards). Create it with:
+  #   kubectl create secret generic zynax-uptrace-credentials \
+  #     --from-literal=admin-email=<you AT example DOT com> \
+  #     --from-literal=admin-password=<password> \
+  #     --from-literal=project-token=<token> \
+  #     --from-literal=pg-password=<pg-password>
+  existingSecret: zynax-uptrace-credentials
+  secretKeys:
+    adminEmail: admin-email
+    adminPassword: admin-password
+    projectToken: project-token
+    pgPassword: pg-password
+  ports:
+    # Login UI + OTLP/HTTP ingest (Uptrace single-binary serves both on 14318).
+    http: 14318
+    # OTLP/gRPC ingest.
+    grpc: 14317
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# ── ClickHouse — trace/metric/log columnar storage (container-internal) ──
+clickhouse:
+  image:
+    repository: clickhouse/clickhouse-server
+    tag: "24.8-alpine"
+    pullPolicy: IfNotPresent
+  database: uptrace
+  port: 9000
+  httpPort: 8123
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+# ── Postgres — Uptrace metadata store (container-internal) ──
+postgres:
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  database: uptrace
+  user: uptrace
+  port: 5432
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ── OpenTelemetry Collector — fronts OTLP ingest for all services + adapters ──
+# Services set ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT to this Service's gRPC endpoint:
+#   http://zynax-uptrace-otel-collector.<namespace>.svc.cluster.local:4317
+collector:
+  image:
+    repository: otel/opentelemetry-collector-contrib
+    tag: "0.110.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  ports:
+    grpc: 4317   # OTLP/gRPC — the canonical in-cluster ingest endpoint
+    http: 4318   # OTLP/HTTP
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ── Login UI Ingress (auth-gated — canvas Safeguards: OTLP must not be public) ──
+# Disabled by default; the OTLP collector Service is NEVER exposed via Ingress.
+ingress:
+  enabled: false
+  className: ""
+  # The login UI host. cert-manager / external auth annotations go in `annotations`.
+  host: uptrace.local
+  annotations: {}
+  tls: []
+
+# Pod-level security context applied to every workload in this chart.
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault

@@ -1,0 +1,27 @@
+{{- if .Values.enabled }}
+Uptrace observability backend installed (EPIC O #467, step O.8).
+
+Point every Zynax service at the in-cluster OTLP collector by setting:
+
+  ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT=http://{{ include "uptrace.fullname" . }}-otel-collector.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.collector.ports.grpc }}
+
+Telemetry is off until that variable is set (env-gated; zero overhead when unset).
+
+Login UI:
+{{- if .Values.ingress.enabled }}
+  https://{{ .Values.ingress.host }}/   (auth-gated Ingress)
+{{- else }}
+  kubectl port-forward svc/{{ include "uptrace.fullname" . }} {{ .Values.uptrace.ports.http }}:{{ .Values.uptrace.ports.http }}
+  then open http://localhost:{{ .Values.uptrace.ports.http }}
+{{- end }}
+
+PREREQUISITE — credentials Secret (no committed defaults; canvas Safeguards):
+  kubectl create secret generic {{ .Values.uptrace.existingSecret }} \
+    --namespace {{ .Release.Namespace }} \
+    --from-literal={{ .Values.uptrace.secretKeys.adminEmail }}=<you AT example DOT com> \
+    --from-literal={{ .Values.uptrace.secretKeys.adminPassword }}=<password> \
+    --from-literal={{ .Values.uptrace.secretKeys.projectToken }}=<token> \
+    --from-literal={{ .Values.uptrace.secretKeys.pgPassword }}=<pg-password>
+{{- else }}
+Observability is disabled (observability.enabled=false). No Uptrace resources were created.
+{{- end }}
