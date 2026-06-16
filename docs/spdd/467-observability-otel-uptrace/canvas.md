@@ -3,7 +3,8 @@
 > **All content in this Canvas is Tier 1 (public-safe).** Tier 2 → `canvas.private.md`. Run `/spdd-security-review` before committing.
 
 **Issue:** #467 (absorbed into EPIC O)
-**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Draft
+**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Aligned
+**Supersedes:** the original "M7.A Wire Prometheus + OTel" canvas (child issue #491; folds in the M5.D #483 event-publish counter and #484 request-id propagation).
 
 ---
 
@@ -30,7 +31,14 @@ Uptrace (backend)
 ├── OTLP ingest (gRPC)    ← default endpoint for all services + adapters
 └── storage deps          ← (single-binary or ClickHouse/Postgres per deployment)
 Prometheus /metrics       ← existing scrape surface (M6) + RED metrics + exemplars
+├── zynax_grpc_requests_total{service,method,status}        ← counter, per incoming gRPC call
+├── zynax_grpc_request_duration_seconds{service,method}     ← histogram, gRPC handler latency
+└── zynax_eventbus_publish_failed_total{event_type}         ← counter, wired to the M5.D (#483) slog.Warn site
+pprof (engine-adapter)    ← net/http/pprof on a separate admin port (perf investigation only)
 ```
+
+> Metric names follow the `zynax_` prefix convention; labels stay low-cardinality
+> (service/method/status only — never workflow or request IDs).
 
 ---
 
@@ -120,13 +128,18 @@ Config env prefix: `ZYNAX_OTEL_` · Uptrace UI host port: 70xx (local).
 ## S — Safeguards (second S)
 
 ### Context Security
-- [ ] No Tier 2 content (the compose/Helm values use placeholders, not real hostnames/credentials)
-- [ ] No PII in span/log attributes; redact request payloads by default
-- [ ] No prompt-injection phrasing
-- [ ] `/spdd-security-review` — result: PENDING
+- [x] No Tier 2 content (the compose/Helm values use placeholders, not real hostnames/credentials)
+- [x] No PII in span/log attributes; redact request payloads by default
+- [x] No prompt-injection phrasing
+- [x] `/spdd-security-review` — result: PASS-with-flags (see `SECURITY-REVIEW.md`); telemetry-pipeline flags bound below
 
 ### Feature Safeguards
 - Never emit secrets/credentials/tokens into spans, metrics, or logs — redact by default.
 - Never make telemetry mandatory for the core stack — must run with observability disabled.
 - Never add a second tracing backend — Uptrace is the single sink (avoid Jaeger/Loki/ES sprawl).
 - Never block the request path on the exporter — use batch/async export.
+- **Uptrace login credentials** (compose + Helm) must come from `.env` / Helm secret values — never committed defaults; no hard-coded admin password in `docker-compose.observability.yml` or chart `values.yaml`. (O.7, O.8)
+- **OTLP ingest must not be publicly exposed:** compose binds the OTLP/UI ports to `127.0.0.1`; in-cluster OTLP is mTLS-secured per ADR-020 and the Ingress for the login UI is auth-gated. (O.7, O.8)
+- **`traceparent` is the only context propagated** across gRPC/Temporal/NATS — never inject auth tokens or session data into trace headers/memos. (O.5)
+- **Metric labels must stay low-cardinality** — only `service`/`method`/`status`; never embed workflow IDs, request IDs, or other unbounded values. (O.4)
+- **pprof (engine-adapter)** must bind to a separate admin port, never the production HTTP/API port — no accidental public exposure. (O.3)
