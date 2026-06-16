@@ -569,3 +569,35 @@ domain: ci-release / post-mrg · M7 batch post-merge verification (3 verifiers; 
 - Rule: NEVER put the literal `[skip ci]`/`[ci skip]` token in a digest PR's commit message OR body, even when quoting the bot's skip-ci digest-sync commit — write "skip-ci marker". The token in a PR body silently skips the PR's CI and leaves auto-merge BLOCKED with "no required checks reported".
   Category: structural-workaround
   Reason: Recurring, hard-to-diagnose, and unique to this verifier role which routinely references the bot's skip-ci digest-sync commits.
+
+## Session — 2026-06-16 (orchestrator finalization — issues #1177 #1186 #1198)
+
+### Effective patterns
+- Orchestrator finalizes PRs from the coordinator worktree: when domain subagents
+  produce the commit + branch + PR but then stall, the coordinator drives push →
+  `gh pr checks --watch` → squash-merge directly. Foreground coordinator work is not
+  subject to the background-agent watchdog, so the long CI wait completes reliably.
+- Transient SBOM flake recovery: the pre-merge build-images "Generate SBOM
+  (CycloneDX JSON)" step intermittently fails with `No files were found ... sbom-<svc>.json`
+  while Build/Trivy pass. It is infra-transient and unrelated to the PR's code —
+  `gh run rerun <run-id> --failed` clears it. Confirmed: it did not recur on rerun.
+
+### Edge cases discovered
+- Post-merge digest maintenance is fully automated here (ADR-027): release.yml commits
+  `chore(images): sync digests after main-<sha>` with a skip-ci marker after each merge.
+  A post-merge verifier is a SKIP when no `bump digest` issues are open — the digest pins
+  are kept current by the pipeline, not by hand.
+
+### Failed approaches
+- Relying on background subagents to complete the merge: all three stalled at ~600s
+  ("stream watchdog") during the terminal push/CI-wait phase. They are fine for
+  implement+commit+push+open-PR, but the orchestrator must own the CI-wait/merge tail.
+
+### Proposed expert prompt update
+- Rule: When a dispatched expert subagent reports a stall/timeout but its `## Result`
+  shows a pushed branch and/or open PR, do NOT discard the work — reconcile live state
+  (`git ls-remote` + `gh pr list --head <branch>`) and finalize the PR from the
+  coordinator worktree (push if unpushed, `gh pr checks --watch`, squash-merge).
+  Category: structural-workaround
+  Reason: Background subagents reliably trip the ~600s stream watchdog during the long
+  CI-wait phase; the implementation work is already done and must not be thrown away.

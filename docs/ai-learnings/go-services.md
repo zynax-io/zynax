@@ -480,3 +480,42 @@ domain: go-services · M7 batch — O.2 OTEL providers (#1185 PR #1248), L.2 eve
 - Rule: A PR that touches `protos/generated/go/` flips every Go service to changed in the CI `changes` filter. If lint-go/security/test-go fail with "go mod tidy needed", FIRST check whether main itself is drifted (build a service the PR does NOT touch); if so the drift is pre-existing/out-of-scope for the proto PR — document it and route to a `chore(deps)` PR rather than tidying inside the feature PR (which cascades into shared-lib go.sum/Docker-build failures).
   Category: structural-workaround
   Reason: Recurs for any additive-proto or shared-lib PR; tidying inside the feature PR makes it worse and violates scope, while the correct diagnosis (build an untouched module) is non-obvious.
+
+## Session — 2026-06-16 (issues #1177 W.3 · #1186 O.3 · #1198 G.2)
+
+### Effective patterns
+- W.3 data-flow compile: lift the `output:` rejection (manifest compile path) and
+  populate the IR `OutputBindings`/`InputBindings` fields already shipped by W.2 — do
+  not add new proto fields. Unresolved input refs must raise a `COMPILATION_ERROR`
+  carrying the manifest line number.
+- O.3 interceptors: `libs/zynaxobs` already wires `TracingStatsHandler()` in every
+  service `main.go`; O.3 is verify + gap-fill (add api-gateway HTTP middleware, span
+  names `<service>.<rpc>`), not green-field — and never a parallel `zynaxotel` package.
+
+### Edge cases discovered
+- The git-adapter is a GO adapter (`agents/adapters/git/` with its own go.mod), NOT
+  Python. Route git-adapter / Git-MCP work to go-services, not python-adapters. Its MCP
+  shim is Go.
+- Go-adapter coverage gate (`_test-go.yml`): per-adapter MODULE-aggregate ≥85%
+  (`go test ./... -coverprofile` → `total:`), not per-package. A new low-coverage
+  package (e.g. `internal/mcp` at 76%) can drag the whole adapter under the gate even
+  when its own tests pass. Cover the gRPC `ServerStream` sink stubs (Context/SetHeader/
+  SendMsg/etc.) via a fake `Capabilities` whose handler calls every stream method, and
+  cover any new `cmd/<adapter>/main.go` helper (e.g. an `mcp` stdio launch func) with a
+  whitebox `package main` test feeding an empty reader (EOF → nil).
+- `goconst`: a literal repeated ≥3× (e.g. JSON-RPC `"2.0"`) fails lint — extract a
+  named `const`. golangci-lint is available on the host for a fast local check:
+  `cd agents/adapters/<a> && GOWORK=off golangci-lint run ./... --config ../../../tools/golangci-lint.yml`.
+
+### Failed approaches
+- Trusting pre-commit hooks alone for the adapter lint/coverage gates: the goconst and
+  the ≥85% coverage gate are CI-only and were both missed locally by the subagent.
+
+### Proposed expert prompt update
+- Rule: For a feat PR's last-in-batch merge, mergeState may be BEHIND and block the
+  squash-merge (up-to-date branch protection). Rebase the single feature commit onto
+  origin/main and force-push (`--force-with-lease`); SSH signing is preserved across the
+  rebase (rebase.gpgSign), so re-validate CI once and merge.
+  Category: structural-workaround
+  Reason: Sequential batch merges advance main, leaving later PRs behind; rebasing the
+  single commit keeps a clean linear history and satisfies the up-to-date requirement.
