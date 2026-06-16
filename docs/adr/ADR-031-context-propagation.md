@@ -38,5 +38,5 @@ trace baggage — would be a hard-to-reverse mistake.
 - **Positive:** a request-id set at the gateway is observable in every downstream span+log; handoffs are
   deterministic and documented; data stays run-scoped.
 - **Negative / trade-off:** every boundary (gRPC, Temporal, NATS) needs an explicit carrier
-  inject/extract — more wiring, covered by `libs/zynaxotel` propagators.
+  inject/extract — more wiring, covered by `libs/zynaxobs` propagators.
 - **Neutral / follow-up:** long-term memory, RAG, and context compression are deferred to M-dx.

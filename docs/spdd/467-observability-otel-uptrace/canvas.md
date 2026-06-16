@@ -23,7 +23,7 @@
 ## E — Entities
 
 ```
-zynaxotel (shared lib)
+zynaxobs (shared lib)
 ├── TracerProvider / MeterProvider / LoggerProvider  ← OTLP/gRPC exporters
 └── ResourceAttributes                                ← semconv (service.name, service.version, …)
 Uptrace (backend)
@@ -47,7 +47,7 @@ pprof (engine-adapter)    ← net/http/pprof on a separate admin port (perf inve
 **We will:**
 - Standardise on **OpenTelemetry**; default backend **Uptrace** (traces+metrics+logs+APM, login UI).
 - Default transport **OTLP/gRPC**; OTLP/HTTP optional. Off unless `ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT` set.
-- Provide a shared `libs/zynaxotel` Go package and OTEL in the Python SDK.
+- Provide a shared `libs/zynaxobs` Go package and OTEL in the Python SDK.
 - Propagate W3C `traceparent` across gRPC, Temporal activities, and NATS headers.
 - Ship Uptrace in **both** a compose overlay **and** a Helm chart (`observability.enabled`), with the **login UI** exposed.
 - Ship structured logs to Uptrace via **OTLP logs**; keep `/metrics` for Prometheus scrape.
@@ -63,7 +63,7 @@ pprof (engine-adapter)    ← net/http/pprof on a separate admin port (perf inve
 ## S — Structure (first S)
 
 ```
-libs/zynaxotel/                                  ← providers, exporters, interceptors
+libs/zynaxobs/                                  ← providers, exporters, interceptors
 services/*/cmd/*/main.go                          ← init providers; gRPC/HTTP interceptors
 agents/sdk/src/zynax_sdk/                          ← OTEL traces+logs for capability handlers
 infra/docker-compose/docker-compose.observability.yml  ← Uptrace + deps + collector + login UI (70xx)
@@ -83,7 +83,7 @@ Config env prefix: `ZYNAX_OTEL_` · Uptrace UI host port: 70xx (local).
 - As a `maintainer`, I want the backend + transport + sampling decision recorded so the stack is stable.
 - AC: [ ] ADR-030 committed (Uptrace default, OTLP/gRPC, head sampling, logs-via-OTLP); [ ] non-goals listed. Deps: none.
 
-**O.2 — Shared `libs/zynaxotel` package** · M · `feat`
+**O.2 — Shared `libs/zynaxobs` package** · M · `feat`
 - As a `service author`, I want one package for tracer/meter/logger providers so instrumentation is consistent.
 - AC: [ ] providers + OTLP exporter + semconv resource attrs; [ ] no-op when endpoint unset; [ ] unit tests. Deps: O.1.
 
