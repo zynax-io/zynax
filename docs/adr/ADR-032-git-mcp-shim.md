@@ -138,4 +138,4 @@ no-secrets-in-prompts guarantee auditable.
 | MCP server over git-adapter capabilities (1:1 tool mapping, contract test) | EPIC G — G.2 (#1198) |
 | Credential injection at start + redaction in logs/traces (redaction test) | EPIC G — G.3 (#1199) |
 | `zynax mcp git` CLI + `.mcp.json.example` with least-privilege scope guide | EPIC G — G.4 (#1200) |
-| Tier-2 `/spdd-security-review` PASS for the EPIC G canvas | Canvas `docs/spdd/G-git-mcp-shim/canvas.md` |
+| Tier-2 `/spdd-security-review` PASS for the EPIC G canvas | Canvas `docs/spdd/1169-git-mcp-shim/canvas.md` |
