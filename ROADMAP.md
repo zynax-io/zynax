@@ -53,7 +53,7 @@ Each roadmap milestone maps to a GitHub Milestone:
 | YAML System + CLI | M4 | v0.3.0 |
 | Adapter Library | M5 | v0.4.0 |
 | K8s Production | M6 | v0.5.0 |
-| Full Observability | M7 | v0.6.0 |
+| Usable Workflows + Observability | M7 | v0.6.0 |
 | CNCF Sandbox | M8 | v1.0.0 |
 
 ---
@@ -235,7 +235,7 @@ distributed trace in the Uptrace UI â€” with green `make ci`. First of the M7 â†
 | v0.3.0 | M4 | `zynax apply` + CLI |
 | v0.4.0 | M5 | Adapter library |
 | v0.5.0 | M6 | K8s production-ready |
-| v0.6.0 | M7 | Full observability |
+| v0.6.0 | M7 | Usable workflows + observability |
 | v1.0.0 | M8 | CNCF Sandbox submission |
 
 ---
