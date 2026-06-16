@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "capability": "go_review",
+  "description": "Rule-based Go code review; returns structured findings and an approval flag.",
+  "input_schema": {
+    "type": "object",
+    "required": ["diff"],
+    "properties": {
+      "diff": {
+        "type": "string",
+        "description": "Go source or unified-diff text to review."
+      }
+    },
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "type": "object",
+    "required": ["findings", "finding_count", "approved"],
+    "properties": {
+      "findings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["line", "severity", "message"],
+          "properties": {
+            "line": { "type": "integer", "minimum": 1 },
+            "severity": { "type": "string", "enum": ["info", "warning", "error"] },
+            "message": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "finding_count": { "type": "integer", "minimum": 0 },
+      "approved": {
+        "type": "boolean",
+        "description": "False when any finding has severity 'error'."
+      }
+    },
+    "additionalProperties": false
+  }
+}
