@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
@@ -42,13 +43,67 @@ var (
 		Name: "zynax_eventbus_publish_failed_total",
 		Help: "Total number of failed event-bus publishes, labeled by event type.",
 	}, []string{"event_type"})
+
+	httpRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "zynax_http_requests_total",
+		Help: "Total number of HTTP requests handled, labeled by service, method and status code.",
+	}, []string{"service", "method", "status"})
+
+	httpRequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "zynax_http_request_duration_seconds",
+		Help:    "HTTP handler latency in seconds, labeled by service and method.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"service", "method"})
 )
+
+// traceExemplar returns a single-label exemplar carrying the active span's
+// trace_id, or nil when no sampled span is in flight (telemetry off by default,
+// canvas Norms). trace_id lives only in the exemplar — never as a metric label —
+// so series cardinality stays bounded to service/method/status (canvas Safeguards,
+// O.4). The returned labels link a metric sample to its trace so a dashboard can
+// jump straight to the exemplar's trace in Uptrace.
+func traceExemplar(ctx context.Context) prometheus.Labels {
+	sc := trace.SpanContextFromContext(ctx)
+	if !sc.IsSampled() {
+		return nil
+	}
+	return prometheus.Labels{"trace_id": sc.TraceID().String()}
+}
+
+// addCountWithExemplar increments the counter by one, attaching the trace_id
+// exemplar when present. Prometheus stores one exemplar per series, so this never
+// grows cardinality.
+func addCountWithExemplar(c prometheus.Counter, ex prometheus.Labels) {
+	if ex != nil {
+		if a, ok := c.(prometheus.ExemplarAdder); ok {
+			a.AddWithExemplar(1, ex)
+			return
+		}
+	}
+	c.Inc()
+}
+
+// observeWithExemplar records a duration sample, attaching the trace_id exemplar
+// when present so the histogram bucket links back to a representative trace.
+func observeWithExemplar(o prometheus.Observer, v float64, ex prometheus.Labels) {
+	if ex != nil {
+		if e, ok := o.(prometheus.ExemplarObserver); ok {
+			e.ObserveWithExemplar(v, ex)
+			return
+		}
+	}
+	o.Observe(v)
+}
 
 // RegisterMetrics mounts the Prometheus exposition handler at /metrics on the given
 // mux. Every service calls this on its HTTP mux so that
 // `curl http://localhost:<port>/metrics` returns the standard text exposition.
+// EnableOpenMetrics serializes trace_id exemplars (O.4) when a scraper sends the
+// OpenMetrics Accept header; plain Prometheus scrapers still get the text format.
 func RegisterMetrics(mux *http.ServeMux) {
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{
+		EnableOpenMetrics: true,
+	}))
 }
 
 // StartMetricsServer starts a dedicated HTTP server exposing /metrics on the given
@@ -105,8 +160,50 @@ func MetricsUnaryInterceptor(serviceName string) grpc.UnaryServerInterceptor {
 		start := time.Now()
 		resp, err := handler(ctx, req)
 		code := status.Code(err)
-		grpcRequestsTotal.WithLabelValues(serviceName, info.FullMethod, code.String()).Inc()
-		grpcRequestDuration.WithLabelValues(serviceName, info.FullMethod).Observe(time.Since(start).Seconds())
+		ex := traceExemplar(ctx)
+		addCountWithExemplar(grpcRequestsTotal.WithLabelValues(serviceName, info.FullMethod, code.String()), ex)
+		observeWithExemplar(grpcRequestDuration.WithLabelValues(serviceName, info.FullMethod), time.Since(start).Seconds(), ex)
 		return resp, err
 	}
+}
+
+// MetricsHTTPMiddleware returns an HTTP middleware that records the RED metrics
+// zynax_http_requests_total and zynax_http_request_duration_seconds for every
+// request, attaching the active span's trace_id as an exemplar (O.4). serviceName
+// labels the series; method is the URL path template is intentionally NOT used —
+// labels stay service/method(HTTP verb)/status to keep cardinality bounded (canvas
+// Safeguards). Wire it inside HTTPMiddleware so the otelhttp span is already in the
+// request context when the exemplar is read.
+func MetricsHTTPMiddleware(serviceName string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		sw := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(sw, r)
+		ex := traceExemplar(r.Context())
+		statusLabel := fmt.Sprintf("%d", sw.status)
+		addCountWithExemplar(httpRequestsTotal.WithLabelValues(serviceName, r.Method, statusLabel), ex)
+		observeWithExemplar(httpRequestDuration.WithLabelValues(serviceName, r.Method), time.Since(start).Seconds(), ex)
+	})
+}
+
+// statusRecorder captures the HTTP status code written by downstream handlers so
+// the RED metrics can label by status without buffering the response body.
+type statusRecorder struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+}
+
+func (s *statusRecorder) WriteHeader(code int) {
+	if !s.wroteHeader {
+		s.status = code
+		s.wroteHeader = true
+	}
+	s.ResponseWriter.WriteHeader(code)
+}
+
+func (s *statusRecorder) Write(b []byte) (int, error) {
+	s.wroteHeader = true
+	//nolint:wrapcheck // transparent ResponseWriter passthrough; the error must reach the caller unwrapped
+	return s.ResponseWriter.Write(b)
 }

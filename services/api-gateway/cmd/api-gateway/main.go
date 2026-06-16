@@ -99,7 +99,7 @@ func run(cfg config) error {
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
-		Handler:           zynaxobs.HTTPMiddleware("api-gateway", maxBodyMiddleware(api.RequestIDMiddleware(workRecordMiddleware(probes, mux)))),
+		Handler:           zynaxobs.HTTPMiddleware("api-gateway", zynaxobs.MetricsHTTPMiddleware("api-gateway", maxBodyMiddleware(api.RequestIDMiddleware(workRecordMiddleware(probes, mux))))),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
