@@ -47,7 +47,7 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 | G | Git MCP shim over git-adapter | feat | [G](../docs/spdd/1169-git-mcp-shim/canvas.md) |
 | X | Expert-agent substrate + `agents/examples/` | feat | [X](../docs/spdd/1170-expert-substrate/canvas.md) |
 | T | Reusable templates + first real workflows | feat | [T](../docs/spdd/1171-templates-real-workflows/canvas.md) |
-| R | Test rigor (absorbs #469; #493 #553 #1103) | test | [R](../docs/spdd/R-test-rigor/canvas.md) |
+| R | Test rigor (absorbs #469; #493 #553 #1103) | test | [R](../docs/spdd/469-test-rigor/canvas.md) |
 | Q | Quality & supply-chain fixes (pip CVE · coverage gate · PyPI Trusted Publisher) | chore/ci | [Q](../docs/spdd/1172-quality-supply-chain/canvas.md) |
 | D | Docs — quick-start · authoring · observability | docs | [D](../docs/spdd/1173-docs/canvas.md) |
 
