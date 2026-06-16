@@ -172,10 +172,12 @@ func gracefulShutdown(srv *grpc.Server, healthSvc *health.Server) {
 // reflection, the TaskBroker handler, and the gRPC health service registered.
 // It returns the health server so the caller can mark NOT_SERVING on shutdown.
 func newGRPCServer(creds credentials.TransportCredentials, svc *domain.TaskService) (*grpc.Server, *health.Server) {
+	tracingUnary, tracingStream := zynaxobs.TracingServerInterceptors()
 	srv := grpc.NewServer(
 		grpc.Creds(creds),
 		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
-		grpc.ChainUnaryInterceptor(zynaxobs.MetricsUnaryInterceptor("task-broker")),
+		grpc.ChainUnaryInterceptor(tracingUnary, zynaxobs.MetricsUnaryInterceptor("task-broker")),
+		grpc.ChainStreamInterceptor(tracingStream),
 	)
 	reflection.Register(srv)
 	zynaxv1.RegisterTaskBrokerServiceServer(srv, api.NewHandler(svc))

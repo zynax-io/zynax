@@ -83,10 +83,12 @@ func run(cfg config) error {
 	}
 	handler := api.NewHandler(kv, nil)
 
+	tracingUnary, tracingStream := zynaxobs.TracingServerInterceptors()
 	srv := grpc.NewServer(
 		grpc.Creds(creds),
 		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
-		grpc.ChainUnaryInterceptor(zynaxobs.MetricsUnaryInterceptor("memory-service")),
+		grpc.ChainUnaryInterceptor(tracingUnary, zynaxobs.MetricsUnaryInterceptor("memory-service")),
+		grpc.ChainStreamInterceptor(tracingStream),
 	)
 	reflection.Register(srv)
 	zynaxv1.RegisterMemoryServiceServer(srv, handler)

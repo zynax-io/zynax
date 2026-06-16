@@ -82,10 +82,12 @@ func run(cfg config) error {
 
 	handler := api.NewHandler(bus)
 
+	tracingUnary, tracingStream := zynaxobs.TracingServerInterceptors()
 	srv := grpc.NewServer(
 		grpc.Creds(creds),
 		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
-		grpc.ChainUnaryInterceptor(zynaxobs.MetricsUnaryInterceptor("event-bus")),
+		grpc.ChainUnaryInterceptor(tracingUnary, zynaxobs.MetricsUnaryInterceptor("event-bus")),
+		grpc.ChainStreamInterceptor(tracingStream),
 	)
 	reflection.Register(srv)
 	zynaxv1.RegisterEventBusServiceServer(srv, handler)
