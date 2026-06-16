@@ -25,6 +25,8 @@ coverage-html/
 # Secrets
 .env.local
 .env.*.local
+# Local observability stack credentials — keep the .example template tracked.
+.env.observability
 *secrets*
 *credentials*
 
