@@ -9,9 +9,9 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	enumspb "go.temporal.io/api/enums/v1"
+	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/api/serviceerror"
 	workflowpb "go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
@@ -30,6 +30,40 @@ type stubTemporalClient struct {
 	descResps   []*workflowservice.DescribeWorkflowExecutionResponse
 	descErr     error
 	descCallIdx int
+	historyEvts []*historypb.HistoryEvent
+	historyErr  error
+}
+
+// stubHistoryIterator implements client.HistoryEventIterator over a fixed slice,
+// optionally returning historyErr once all events are drained.
+type stubHistoryIterator struct {
+	evts []*historypb.HistoryEvent
+	idx  int
+	err  error
+}
+
+func (it *stubHistoryIterator) HasNext() bool {
+	return it.idx < len(it.evts) || (it.err != nil && it.idx == len(it.evts))
+}
+
+func (it *stubHistoryIterator) Next() (*historypb.HistoryEvent, error) {
+	if it.idx < len(it.evts) {
+		ev := it.evts[it.idx]
+		it.idx++
+		return ev, nil
+	}
+	it.idx++
+	return nil, it.err
+}
+
+func (s *stubTemporalClient) GetWorkflowHistory(
+	_ context.Context, _, _ string, _ bool, _ enumspb.HistoryEventFilterType,
+) client.HistoryEventIterator {
+	return &stubHistoryIterator{evts: s.historyEvts, err: s.historyErr}
+}
+
+func historyEvent(id int64, t enumspb.EventType) *historypb.HistoryEvent {
+	return &historypb.HistoryEvent{EventId: id, EventType: t}
 }
 
 func (s *stubTemporalClient) ExecuteWorkflow(
@@ -85,9 +119,7 @@ func descResp(status enumspb.WorkflowExecutionStatus) *workflowservice.DescribeW
 }
 
 func newTestEngine(c *stubTemporalClient) *TemporalEngine {
-	e := newTemporalEngine(c, "default", "default")
-	e.pollInterval = time.Millisecond
-	return e
+	return newTemporalEngine(c, "default", "default")
 }
 
 func TestTemporalEngine_Submit_Success(t *testing.T) {
@@ -189,37 +221,69 @@ func TestTemporalEngine_GetStatus_AllMappings(t *testing.T) {
 	}
 }
 
-func TestTemporalEngine_Watch_TerminatesOnCompleted(t *testing.T) {
+func TestTemporalEngine_Watch_StreamsOrderedHistory(t *testing.T) {
 	stub := &stubTemporalClient{
-		descResps: []*workflowservice.DescribeWorkflowExecutionResponse{
-			descResp(enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING),
-			descResp(enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED),
+		historyEvts: []*historypb.HistoryEvent{
+			historyEvent(1, enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED),
+			historyEvent(2, enumspb.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED),
+			historyEvent(3, enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED),
+			// This trailing event must never be delivered: Watch returns after
+			// the terminal COMPLETED event above.
+			historyEvent(4, enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED),
 		},
 	}
+	var ids []int64
 	var received []domain.WorkflowStatus
 	err := newTestEngine(stub).Watch(context.Background(), "wf-1", func(ev *domain.WorkflowEvent) error {
+		ids = append(ids, ev.EventID)
 		received = append(received, ev.Status)
 		return nil
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(received) < 2 {
-		t.Fatalf("expected ≥2 events, got %d", len(received))
+	if len(received) != 3 {
+		t.Fatalf("expected 3 events (stop on terminal), got %d", len(received))
+	}
+	wantIDs := []int64{1, 2, 3}
+	for i, want := range wantIDs {
+		if ids[i] != want {
+			t.Errorf("event %d EventID = %d; want %d (order not preserved)", i, ids[i], want)
+		}
 	}
 	if received[len(received)-1] != domain.WorkflowStatusCompleted {
 		t.Errorf("last status = %v; want Completed", received[len(received)-1])
 	}
 }
 
-func TestTemporalEngine_Watch_ContextCancelled(t *testing.T) {
+func TestTemporalEngine_Watch_SendError(t *testing.T) {
 	stub := &stubTemporalClient{
-		descResps: []*workflowservice.DescribeWorkflowExecutionResponse{
-			descResp(enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING),
+		historyEvts: []*historypb.HistoryEvent{
+			historyEvent(1, enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED),
 		},
 	}
+	sendErr := errors.New("client gone")
+	err := newTestEngine(stub).Watch(context.Background(), "wf-1", func(_ *domain.WorkflowEvent) error {
+		return sendErr
+	})
+	if err == nil || !containsStr(err.Error(), "client gone") {
+		t.Errorf("expected wrapped send error, got: %v", err)
+	}
+}
+
+func TestTemporalEngine_Watch_NotFound(t *testing.T) {
+	stub := &stubTemporalClient{historyErr: &serviceerror.NotFound{Message: "workflow not found"}}
+	err := newTestEngine(stub).Watch(context.Background(), "wf-missing", func(_ *domain.WorkflowEvent) error {
+		return nil
+	})
+	if !errors.Is(err, domain.ErrExecutionNotFound) {
+		t.Errorf("expected ErrExecutionNotFound, got: %v", err)
+	}
+}
+
+func TestTemporalEngine_Watch_ContextCancelled(t *testing.T) {
+	stub := &stubTemporalClient{historyErr: errors.New("long-poll interrupted")}
 	engine := newTestEngine(stub)
-	engine.pollInterval = time.Hour // long interval so ctx cancellation fires first
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

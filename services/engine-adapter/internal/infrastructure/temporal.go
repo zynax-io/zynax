@@ -12,6 +12,7 @@ import (
 	"time"
 
 	enumspb "go.temporal.io/api/enums/v1"
+	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
@@ -23,7 +24,6 @@ import (
 const (
 	irInterpreterWorkflowName = "IRInterpreterWorkflow"
 	temporalEngineName        = "temporal"
-	defaultWatchPollInterval  = 2 * time.Second
 )
 
 // temporalClient is a narrow interface over client.Client covering only the
@@ -33,15 +33,15 @@ type temporalClient interface {
 	SignalWorkflow(ctx context.Context, workflowID, runID, signalName string, arg interface{}) error
 	CancelWorkflow(ctx context.Context, workflowID, runID string) error
 	DescribeWorkflowExecution(ctx context.Context, workflowID, runID string) (*workflowservice.DescribeWorkflowExecutionResponse, error)
+	GetWorkflowHistory(ctx context.Context, workflowID, runID string, isLongPoll bool, filterType enumspb.HistoryEventFilterType) client.HistoryEventIterator
 }
 
 // TemporalEngine implements domain.WorkflowEngine backed by the Temporal Go SDK.
 // Selected when ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE=temporal (ADR-015).
 type TemporalEngine struct {
-	client       temporalClient
-	taskQueue    string
-	namespace    string
-	pollInterval time.Duration
+	client    temporalClient
+	taskQueue string
+	namespace string
 }
 
 // NewTemporalEngine constructs a TemporalEngine wrapping the given Temporal client.
@@ -53,10 +53,9 @@ func NewTemporalEngine(c client.Client, taskQueue, namespace string) *TemporalEn
 // can inject a stub without implementing the full client.Client.
 func newTemporalEngine(c temporalClient, taskQueue, namespace string) *TemporalEngine {
 	return &TemporalEngine{
-		client:       c,
-		taskQueue:    taskQueue,
-		namespace:    namespace,
-		pollInterval: defaultWatchPollInterval,
+		client:    c,
+		taskQueue: taskQueue,
+		namespace: namespace,
 	}
 }
 
@@ -118,26 +117,54 @@ func (e *TemporalEngine) GetStatus(ctx context.Context, runID string) (*domain.W
 	return describeToWorkflowRun(resp, runID, e.namespace), nil
 }
 
-// Watch polls DescribeWorkflowExecution and calls send for each status update
-// until the workflow reaches a terminal state or ctx is cancelled.
+// Watch long-polls the Temporal execution history and calls send for each
+// history event in order until the workflow reaches a terminal state or ctx is
+// cancelled. Long-poll replaces the previous DescribeWorkflowExecution polling
+// loop: the iterator blocks server-side until new events are available, so
+// transitions and capability events stream with low latency rather than at a
+// fixed poll cadence (#468, EPIC L step L.1).
 func (e *TemporalEngine) Watch(ctx context.Context, runID string, send func(*domain.WorkflowEvent) error) error {
-	for {
-		run, err := e.GetStatus(ctx, runID)
+	iter := e.client.GetWorkflowHistory(
+		ctx, runID, "", true, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	)
+	for iter.HasNext() {
+		hev, err := iter.Next()
 		if err != nil {
-			return err
+			var nf *serviceerror.NotFound
+			if errors.As(err, &nf) {
+				return domain.ErrExecutionNotFound
+			}
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return fmt.Errorf("engine-adapter: %w", ctxErr)
+			}
+			return fmt.Errorf("engine-adapter: workflow history %q: %w", runID, err)
 		}
-		ev := &domain.WorkflowEvent{RunID: runID, Status: run.Status, Timestamp: time.Now()}
+		ev := historyEventToWorkflowEvent(hev, runID)
 		if err := send(ev); err != nil {
 			return fmt.Errorf("engine-adapter: send event: %w", err)
 		}
-		if run.Status.IsTerminal() {
+		if domain.IsTerminalHistoryEvent(domain.HistoryEventType(hev.GetEventType())) {
 			return nil
 		}
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("engine-adapter: %w", ctx.Err())
-		case <-time.After(e.pollInterval):
-		}
+	}
+	return nil
+}
+
+// historyEventToWorkflowEvent maps a Temporal history event onto the ordered
+// domain WorkflowEvent. EventID preserves the engine's total order and the
+// event type drives the status the run holds after the event is applied.
+func historyEventToWorkflowEvent(hev *historypb.HistoryEvent, runID string) *domain.WorkflowEvent {
+	hetype := domain.HistoryEventType(hev.GetEventType())
+	ts := time.Time{}
+	if t := hev.GetEventTime(); t != nil {
+		ts = t.AsTime()
+	}
+	return &domain.WorkflowEvent{
+		RunID:     runID,
+		EventID:   hev.GetEventId(),
+		EventType: hev.GetEventType().String(),
+		Status:    domain.HistoryEventStatus(hetype),
+		Timestamp: ts,
 	}
 }
 
