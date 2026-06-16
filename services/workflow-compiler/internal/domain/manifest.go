@@ -27,13 +27,20 @@ const (
 // Action is a single capability invocation within a state. It holds no proto
 // types — the api layer maps Action to ActionIR when building WorkflowIR.
 //
-// Note: output mapping is not yet implemented (tracked for M7+). The parser
-// rejects any action that sets output: with ErrorCodeInvalidFieldValue.
+// OutputBindings declares the named outputs this action publishes into the
+// workflow-scoped data context (ADR-029): context key → source path within the
+// action's result payload. InputBindings declares the inputs this action
+// consumes: context key → a JSON-path reference rooted at
+// "$.states.<state>.output.<key>". Literal (non-reference) inputs remain in
+// Input. Both binding maps are nil when the action declares none — additive and
+// backward-compatible (M7 EPIC W, issue #1177).
 type Action struct {
-	Capability string
-	Timeout    time.Duration // zero means no timeout
-	Input      map[string]interface{}
-	Async      bool
+	Capability     string
+	Timeout        time.Duration // zero means no timeout
+	Input          map[string]interface{}
+	OutputBindings map[string]string
+	InputBindings  map[string]string
+	Async          bool
 }
 
 // Transition is an outbound edge in the workflow state machine.
@@ -252,20 +259,16 @@ func convertState( //nolint:funlen // validates type + actions + transitions in 
 				})
 			}
 		}
-		if len(ya.Output) > 0 {
-			errs = append(errs, ParseError{
-				Code:      ErrorCodeInvalidFieldValue,
-				Message:   fmt.Sprintf("state %q: action %q uses output: which is not yet implemented; remove it or upgrade to M7+", name, ya.Capability),
-				Line:      line,
-				StateName: name,
-			})
-			continue
-		}
+		outputs, outErrs := convertOutputBindings(name, i, ya.Output, line)
+		errs = append(errs, outErrs...)
+		literals, inputs := splitInputBindings(ya.Input)
 		st.Actions = append(st.Actions, Action{
-			Capability: ya.Capability,
-			Timeout:    d,
-			Input:      ya.Input,
-			Async:      ya.Async,
+			Capability:     ya.Capability,
+			Timeout:        d,
+			Input:          literals,
+			OutputBindings: outputs,
+			InputBindings:  inputs,
+			Async:          ya.Async,
 		})
 	}
 
@@ -300,6 +303,71 @@ func convertState( //nolint:funlen // validates type + actions + transitions in 
 		return nil, errs
 	}
 	return st, nil
+}
+
+// inputBindingPrefix is the JSON-path root that marks a string input value as a
+// reference into the workflow data context rather than a literal. The full form
+// is "$.states.<state>.output.<key>" (ADR-029, M7 EPIC W). There is no
+// expression/transform language in M7 — a value resolves verbatim or is a
+// compile-time error.
+const inputBindingPrefix = "$.states."
+
+// convertOutputBindings flattens a YAML output: mapping into a string→string
+// map of context key → source path. Non-string source paths are a compile-time
+// error: M7 has no transform language, so each binding value must be a literal
+// path string (ADR-029).
+func convertOutputBindings(
+	state string,
+	actionIdx int,
+	raw map[string]interface{},
+	line int,
+) (map[string]string, ParseErrors) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var errs ParseErrors
+	out := make(map[string]string, len(raw))
+	for key, val := range raw {
+		s, ok := val.(string)
+		if !ok {
+			errs = append(errs, ParseError{
+				Code:      ErrorCodeInvalidFieldValue,
+				Message:   fmt.Sprintf("state %q: actions[%d].output[%q] must be a string source path, got %T", state, actionIdx, key, val),
+				Line:      line,
+				StateName: state,
+			})
+			continue
+		}
+		out[key] = s
+	}
+	if len(out) == 0 {
+		return nil, errs
+	}
+	return out, errs
+}
+
+// splitInputBindings partitions a YAML input: mapping into literal inputs (which
+// stay in the input template, preserving their original types) and binding
+// references (string values rooted at inputBindingPrefix). Either returned map
+// is nil when it would be empty.
+func splitInputBindings(raw map[string]interface{}) (literals map[string]interface{}, bindings map[string]string) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	for key, val := range raw {
+		if s, ok := val.(string); ok && strings.HasPrefix(s, inputBindingPrefix) {
+			if bindings == nil {
+				bindings = make(map[string]string)
+			}
+			bindings[key] = s
+			continue
+		}
+		if literals == nil {
+			literals = make(map[string]interface{})
+		}
+		literals[key] = val
+	}
+	return literals, bindings
 }
 
 // extractStateLines walks the yaml.Node tree to find the source line of each

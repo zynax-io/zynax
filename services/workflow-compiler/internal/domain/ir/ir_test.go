@@ -259,6 +259,38 @@ func TestToIR_ActionFields(t *testing.T) {
 	}
 }
 
+func TestToIR_ActionBindings(t *testing.T) {
+	g := &domain.WorkflowGraph{
+		Name:         "t",
+		Namespace:    "default",
+		InitialState: "s",
+		States: map[string]*domain.State{
+			"s": {
+				ID:   "s",
+				Type: domain.StateTypeNormal,
+				Actions: []domain.Action{
+					{
+						Capability:     "summarize",
+						OutputBindings: map[string]string{"summary": "results"},
+						InputBindings:  map[string]string{"doc": "$.states.search.output.results"},
+					},
+				},
+			},
+		},
+	}
+	wfIR, err := ir.ToIR(context.Background(), g, "id", "v1", time.Time{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	a := wfIR.States[0].Actions[0]
+	if a.OutputBindings["summary"] != "results" {
+		t.Errorf("OutputBindings[summary] = %q, want %q", a.OutputBindings["summary"], "results")
+	}
+	if a.InputBindings["doc"] != "$.states.search.output.results" {
+		t.Errorf("InputBindings[doc] = %q, want reference", a.InputBindings["doc"])
+	}
+}
+
 // Terminal state has no transitions ────────────────────────────────────────────
 
 func TestToIR_TerminalStateHasNoTransitions(t *testing.T) {

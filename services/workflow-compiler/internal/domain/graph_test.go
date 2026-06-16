@@ -273,3 +273,81 @@ spec:
 		t.Errorf("unexpected transitions: %v", ts)
 	}
 }
+
+// dataFlowManifest returns a two-state manifest where "summarize" consumes the
+// declared "results" output of "search". The badRef override, when non-empty,
+// replaces the consuming input reference to exercise validation failures.
+func dataFlowManifest(badRef string) []byte {
+	ref := "$.states.search.output.results"
+	if badRef != "" {
+		ref = badRef
+	}
+	return []byte(`
+kind: Workflow
+apiVersion: zynax.io/v1
+metadata:
+  name: data-flow-wf
+spec:
+  initial_state: search
+  states:
+    search:
+      actions:
+        - capability: web_search
+          output:
+            results: results
+      on:
+        - event: search.done
+          goto: summarize
+    summarize:
+      type: terminal
+      actions:
+        - capability: summarize
+          input:
+            doc: "` + ref + `"
+`)
+}
+
+func TestBuild_InputBindingResolves(t *testing.T) {
+	m, parseErrs := ParseManifest(context.Background(), dataFlowManifest(""))
+	if len(parseErrs) != 0 {
+		t.Fatalf("parse failed: %v", parseErrs)
+	}
+	if _, errs := Build(context.Background(), m); len(errs) != 0 {
+		t.Fatalf("expected resolvable binding to compile, got: %v", errs)
+	}
+}
+
+func TestBuild_InputBindingValidationFailures(t *testing.T) {
+	tests := []struct {
+		name string
+		ref  string
+	}{
+		{"undeclared output key", "$.states.search.output.missing"},
+		{"unknown source state", "$.states.nope.output.results"},
+		{"malformed reference", "$.states.search.results"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, parseErrs := ParseManifest(context.Background(), dataFlowManifest(tt.ref))
+			if len(parseErrs) != 0 {
+				t.Fatalf("parse failed: %v", parseErrs)
+			}
+			_, errs := Build(context.Background(), m)
+			if len(errs) == 0 {
+				t.Fatalf("expected a COMPILATION_ERROR for %q", tt.ref)
+			}
+			found := false
+			for _, e := range errs {
+				if e.Code == ErrorCodeInvalidFieldValue && e.StateName == "summarize" {
+					found = true
+					if e.Line <= 0 {
+						t.Errorf("expected a line number on the error, got %d", e.Line)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("expected ErrorCodeInvalidFieldValue on 'summarize', got: %v", errs)
+			}
+		})
+	}
+}

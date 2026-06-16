@@ -102,9 +102,24 @@ func convertActions(stateID string, actions []domain.Action) ([]*zynaxv1.ActionI
 			Timeout:           pbDur,
 			InputTemplateJson: inputJSON,
 			Async:             a.Async,
+			OutputBindings:    copyBindings(a.OutputBindings),
+			InputBindings:     copyBindings(a.InputBindings),
 		})
 	}
 	return out, nil
+}
+
+// copyBindings returns a defensive copy of a binding map, or nil when empty, so
+// that the IR does not alias the domain Action's maps.
+func copyBindings(m map[string]string) map[string]string {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
 
 func marshalInputTemplate(input map[string]interface{}) (string, error) {

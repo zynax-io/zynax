@@ -319,7 +319,7 @@ spec:
 	}
 }
 
-func TestParseManifest_ActionOutputRejected(t *testing.T) {
+func TestParseManifest_ActionOutputAccepted(t *testing.T) {
 	data := []byte(`
 kind: Workflow
 apiVersion: zynax.io/v1
@@ -333,27 +333,76 @@ spec:
       actions:
         - capability: summarize
           output:
-            ctx.result: "{{ .result.text }}"
+            result: results
+`)
+	m, errs := ParseManifest(context.Background(), data)
+	if len(errs) != 0 {
+		t.Fatalf("expected output: to be accepted, got errors: %v", errs)
+	}
+	got := m.States["s"].Actions[0].OutputBindings
+	if got["result"] != "results" {
+		t.Errorf("OutputBindings[result] = %q, want %q", got["result"], "results")
+	}
+}
+
+func TestParseManifest_InputBindingSplit(t *testing.T) {
+	data := []byte(`
+kind: Workflow
+apiVersion: zynax.io/v1
+metadata:
+  name: wf
+spec:
+  initial_state: s
+  states:
+    s:
+      type: terminal
+      actions:
+        - capability: summarize
+          input:
+            doc: "$.states.search.output.results"
+            limit: 5
+`)
+	m, errs := ParseManifest(context.Background(), data)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	a := m.States["s"].Actions[0]
+	if a.InputBindings["doc"] != "$.states.search.output.results" {
+		t.Errorf("InputBindings[doc] = %q, want reference", a.InputBindings["doc"])
+	}
+	if _, ok := a.InputBindings["limit"]; ok {
+		t.Error("literal input 'limit' must not be treated as a binding")
+	}
+	if a.Input["limit"] != 5 {
+		t.Errorf("literal input 'limit' = %v, want 5", a.Input["limit"])
+	}
+	if _, ok := a.Input["doc"]; ok {
+		t.Error("binding reference 'doc' must be removed from the input template")
+	}
+}
+
+func TestParseManifest_OutputNonStringRejected(t *testing.T) {
+	data := []byte(`
+kind: Workflow
+apiVersion: zynax.io/v1
+metadata:
+  name: wf
+spec:
+  initial_state: s
+  states:
+    s:
+      type: terminal
+      actions:
+        - capability: summarize
+          output:
+            result: 42
 `)
 	_, errs := ParseManifest(context.Background(), data)
 	if len(errs) == 0 {
-		t.Fatal("expected error when output: is used on an action")
+		t.Fatal("expected error for non-string output source path")
 	}
-	found := false
-	for _, e := range errs {
-		if e.Code == ErrorCodeInvalidFieldValue {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected ErrorCodeInvalidFieldValue for output: usage, got %v", errs)
-	}
-	// Verify the error message is descriptive enough to guide the user.
-	if len(errs) > 0 {
-		msg := errs[0].Message
-		if msg == "" {
-			t.Error("expected non-empty error message for output: usage")
-		}
+	if errs[0].Code != ErrorCodeInvalidFieldValue {
+		t.Errorf("code = %v, want ErrorCodeInvalidFieldValue", errs[0].Code)
 	}
 }
 
