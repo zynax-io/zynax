@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // WorkflowGraph is the directed state machine built from a parsed Manifest.
@@ -83,6 +84,9 @@ func Build(_ context.Context, m *Manifest) (*WorkflowGraph, ParseErrors) {
 		}
 	}
 
+	// Every input binding reference must resolve to a declared upstream output.
+	errs = append(errs, validateInputBindings(m.States)...)
+
 	if len(errs) > 0 {
 		return nil, errs
 	}
@@ -93,6 +97,99 @@ func Build(_ context.Context, m *Manifest) (*WorkflowGraph, ParseErrors) {
 		InitialState: m.InitialState,
 		States:       m.States,
 	}, nil
+}
+
+// validateInputBindings checks that every action input binding reference of the
+// form "$.states.<state>.output.<key>" resolves to a state that exists and that
+// declares <key> in its output_bindings. Unresolved references yield a
+// COMPILATION_ERROR (ErrorCodeInvalidFieldValue) carrying the manifest line of
+// the consuming state. Returns all errors found — not just the first.
+func validateInputBindings(states map[string]*State) ParseErrors {
+	// Index declared outputs: stateID → set of output keys.
+	declared := make(map[string]map[string]struct{}, len(states))
+	for id, st := range states {
+		for _, a := range st.Actions {
+			for key := range a.OutputBindings {
+				if declared[id] == nil {
+					declared[id] = make(map[string]struct{})
+				}
+				declared[id][key] = struct{}{}
+			}
+		}
+	}
+
+	var errs ParseErrors
+	for id, st := range states {
+		for ai, a := range st.Actions {
+			for key, ref := range a.InputBindings {
+				if perr := resolveBinding(id, ai, key, ref, st.Line, declared); perr != nil {
+					errs = append(errs, *perr)
+				}
+			}
+		}
+	}
+	return errs
+}
+
+// resolveBinding parses a single "$.states.<state>.output.<key>" reference and
+// verifies the target state and output key are declared. Returns nil when the
+// reference resolves, or a ParseError describing why it does not.
+func resolveBinding(
+	consumer string,
+	actionIdx int,
+	inputKey, ref string,
+	line int,
+	declared map[string]map[string]struct{},
+) *ParseError {
+	srcState, srcKey, ok := parseBindingRef(ref)
+	if !ok {
+		return &ParseError{
+			Code:      ErrorCodeInvalidFieldValue,
+			Message:   fmt.Sprintf("state %q: actions[%d].input[%q] reference %q is malformed; expected \"$.states.<state>.output.<key>\"", consumer, actionIdx, inputKey, ref),
+			Line:      line,
+			StateName: consumer,
+		}
+	}
+	outputs, stateOK := declared[srcState]
+	if !stateOK {
+		return &ParseError{
+			Code:      ErrorCodeInvalidFieldValue,
+			Message:   fmt.Sprintf("state %q: actions[%d].input[%q] references output of unknown or output-less state %q", consumer, actionIdx, inputKey, srcState),
+			Line:      line,
+			StateName: consumer,
+		}
+	}
+	if _, keyOK := outputs[srcKey]; !keyOK {
+		return &ParseError{
+			Code:      ErrorCodeInvalidFieldValue,
+			Message:   fmt.Sprintf("state %q: actions[%d].input[%q] references undeclared output %q of state %q", consumer, actionIdx, inputKey, srcKey, srcState),
+			Line:      line,
+			StateName: consumer,
+		}
+	}
+	return nil
+}
+
+// parseBindingRef splits "$.states.<state>.output.<key>" into its state and
+// output key. <key> may itself contain dots (a nested path). Returns ok=false
+// for any other shape.
+func parseBindingRef(ref string) (state, key string, ok bool) {
+	const root = "$.states."
+	if !strings.HasPrefix(ref, root) {
+		return "", "", false
+	}
+	rest := ref[len(root):]
+	const mid = ".output."
+	idx := strings.Index(rest, mid)
+	if idx <= 0 {
+		return "", "", false
+	}
+	state = rest[:idx]
+	key = rest[idx+len(mid):]
+	if state == "" || key == "" {
+		return "", "", false
+	}
+	return state, key, true
 }
 
 // TransitionsFor returns all transitions from a state that match the given
