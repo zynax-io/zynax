@@ -78,8 +78,13 @@
 | 6 | spdd-canvas | Verify-before-write ADR stories: glob+grep INDEX, close-if-met else gap-fill only | domain | #1193, #1201, #1075 | committed | spdd-canvas.md +ADR-checklist |
 | 7 | infra-helm | Shared OTEL pkg is libs/zynaxobs; env var ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT | domain | #1190, #1184, #1185 | committed | infra-helm.md +Mandatory-reads |
 | 8 | infra-helm | Compose .env.example non-email placeholders + ${VAR:?} guards (gitleaks full-range) | domain | #1190, #807 | committed | infra-helm.md +Local-validation |
-| 9 | go-services | last-in-batch BEHIND → rebase single commit + force-with-lease | structural-workaround | #1177, #1186, #1198 | rejected | — |
-| 10 | ci-release | Finalize stalled-subagent PR from coordinator worktree | structural-workaround | #1177, #1186, #1198 | rejected | — |
-| 11 | ci-release | [skip ci] token silently skips CI; write "skip-ci marker" | env-constraint | #1248, #1247, #1249 | pending | dispatch-preamble edit (outside expert-file scope) |
+| 9 | go-services | last-in-batch BEHIND → rebase single commit + force-with-lease | env-constraint | #1177, #1186, #1198 | committed | milestone-orchestrate.md dispatch step 4 (PR #1293) |
+| 10 | ci-release | Finalize stalled-subagent PR from coordinator worktree | orchestrator-recovery | #1177, #1186, #1198 | committed | milestone-orchestrate.md STEP 7 (PR #1293) |
+| 11 | ci-release | [skip ci] token silently skips CI; write "skip-ci marker" | env-constraint | #1248, #1247, #1249 | committed | both dispatch preambles (PR #1293) |
 
-**Summary:** 8 proposed | 8 committed | 2 rejected (structural) | 1 pending (env-constraint, dispatch-preamble)
+> Rows 9–11 are cross-cutting (not domain knowledge), so they were NOT applied to the expert
+> guides by `--apply`. They were re-classified (9: env-constraint, was structural-workaround; 10:
+> orchestrator-recovery, was structural-workaround) and routed to the orchestrator command layer
+> in PR #1293 (dispatch preamble + STEP 7 crash-recovery), where they belong.
+
+**Summary:** 11 entries — 8 → expert guides (committed, #1275) · 3 cross-cutting → orchestrator commands (committed, #1293) · 0 rejected · 0 pending
