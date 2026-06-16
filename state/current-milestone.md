@@ -54,6 +54,14 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 Pre-existing M7 EPICs #467 (OTel) / #468 (history streaming) / #469 (test rigor) are **absorbed** into
 O / L / R respectively. New ADRs: ADR-029…034 (Proposed).
 
+**Delivery (as of 2026-06-16):** GitHub milestone #7 — **27 closed / 42 open**. EPIC canvases
+**X #1170 and T #1171 aligned** this pass (security-reviewed PASS); O/L/R/W/G/470/471 already
+Aligned; C/Q/D still Draft. Shipped this pass: O.4 #1187 + O.7 #1190 + O.8 #1191 (Observability —
+exemplars, compose & Helm Uptrace), X.2 #1202 (`agents/examples`), R.1 #493 (benchmarks + benchstat
+gate), Q.4 #1215 / Q.5 #1216 (Go-module consumption doc + ADR-034). **Security tab clean** — all 8
+Dependabot (aiohttp → 3.14.1) and ~200 Trivy code-scanning alerts fixed (adapters rebuilt on fresh
+`python:3.12-alpine`; stale pre-alpine Debian CVEs superseded, not dismissed).
+
 ---
 
 ## M6 — Complete (✅ released v0.5.0, 2026-06-12)

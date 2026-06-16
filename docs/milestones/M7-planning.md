@@ -4,7 +4,8 @@
 
 > **Target version:** v0.6.0 · **GitHub milestone:** #7 (`Full Observability (M7)`)
 > **Status:** Active (opened 2026-06-15) · **Last updated:** 2026-06-16 (reconciled to live GitHub
-> issue state + live tree at HEAD `main`; see [§4a Delivery Progress](#4a--delivery-progress-live-issue-state)) · **Planning author:** SPDD program plan
+> issue state + live tree at HEAD `main`; see [§4a Delivery Progress](#4a--delivery-progress-live-issue-state);
+> truth-pass 2026-06-16 marked O.4/O.7/O.8/X.2/R.1/Q.4/Q.5 ✅ and aligned EPIC X #1170 + EPIC T #1171 canvases) · **Planning author:** SPDD program plan
 > **Program context:** first of a three-milestone program M7 → M-dx → M8 (see [§1 Program Roadmap](#1--program-roadmap)).
 
 This document is the **single planning source of truth** for M7. It is generated from
@@ -174,11 +175,11 @@ The remaining open rows are tracked explicitly in the acceptance matrix ([§13](
 | O.1 ADR-030 OTEL + Uptrace | [#1184](https://github.com/zynax-io/zynax/issues/1184) | O #467 | ✅ | ADR-030 Accepted |
 | O.2 shared OTEL providers package | [#1185](https://github.com/zynax-io/zynax/issues/1185) | O #467 | 🟡 | **exists as `libs/zynaxobs`** (planned name `zynaxotel` is wrong) — extend, don't recreate |
 | O.3 instrument all 7 services | [#1186](https://github.com/zynax-io/zynax/issues/1186) | O #467 | 🟡 | `TracingStatsHandler()` already wired in every `main.go` — verify+gap-fill |
-| O.4 RED metrics + exemplars | [#1187](https://github.com/zynax-io/zynax/issues/1187) | O #467 | 🟡 | RED metrics exist; exemplars missing |
+| O.4 RED metrics + exemplars | [#1187](https://github.com/zynax-io/zynax/issues/1187) | O #467 | ✅ | trace_id exemplars on RED metrics (PR #1268) |
 | O.5 trace propagation Temporal + NATS | [#1188](https://github.com/zynax-io/zynax/issues/1188) | O #467 | ⬜ | W3C propagator installed; verify Temporal/NATS hops |
 | O.6 Python adapter OTEL (traces+logs) | [#1189](https://github.com/zynax-io/zynax/issues/1189) | O #467 | ⬜ | |
-| O.7 local Uptrace docker-compose stack | [#1190](https://github.com/zynax-io/zynax/issues/1190) | O #467 | ⬜ | `infra/docker-compose/docker-compose.observability.yml` |
-| O.8 Uptrace Helm chart | [#1191](https://github.com/zynax-io/zynax/issues/1191) | O #467 | ⬜ | **`helm/charts/uptrace/`** (not `infra/helm/`) |
+| O.7 local Uptrace docker-compose stack | [#1190](https://github.com/zynax-io/zynax/issues/1190) | O #467 | ✅ | `infra/docker-compose/docker-compose.observability.yml` (PR #1259) |
+| O.8 Uptrace Helm chart | [#1191](https://github.com/zynax-io/zynax/issues/1191) | O #467 | ✅ | **`helm/charts/uptrace/`** (not `infra/helm/`) (PR #1267) |
 | O.9 ship logs to Uptrace via OTLP + naming | [#1192](https://github.com/zynax-io/zynax/issues/1192) | O #467 | ⬜ | |
 | C.1 ADR-031 context model | [#1193](https://github.com/zynax-io/zynax/issues/1193) | C #1168 | ✅ | issue closed; **ADR-031 still `Proposed` → accept on canvas-C alignment** |
 | C.2 propagate correlation across hops | [#1194](https://github.com/zynax-io/zynax/issues/1194) | C #1168 | 🟡 | request-id+traceparent partially flow (`requestid.go`, `clients.go:276-302`) |
@@ -192,7 +193,7 @@ The remaining open rows are tracked explicitly in the acceptance matrix ([§13](
 | G.6 docs: fine-grained PAT + no-refresh note | [#1261](https://github.com/zynax-io/zynax/issues/1261) | G #1169 | ⬜ | SPDD-exempt docs; READY now |
 | G.7 refreshable credentials (App tokens) | [#1262](https://github.com/zynax-io/zynax/issues/1262) | G #1169 | ⬜ | git-adapter hardening; Tier-2 review |
 | X.1 ADR-033 expert substrate | [#1201](https://github.com/zynax-io/zynax/issues/1201) | X #1170 | ✅ | issue closed; **ADR-033 still `Proposed` → accept on canvas-X alignment** |
-| X.2 `agents/examples/` reference agents | [#1202](https://github.com/zynax-io/zynax/issues/1202) | X #1170 | ⬜ | echo, summarizer, go-review-expert |
+| X.2 `agents/examples/` reference agents | [#1202](https://github.com/zynax-io/zynax/issues/1202) | X #1170 | ✅ | echo, summarizer, go-review-expert (PR #1270) |
 | X.3 runtime expert (`kind: AgentDef`) | [#1203](https://github.com/zynax-io/zynax/issues/1203) | X #1170 | ⬜ | |
 | X.4 discover + test `agents/examples/*` | [#1204](https://github.com/zynax-io/zynax/issues/1204) | X #1170 | ⬜ | |
 | X.5 authoring↔runtime mapping + CI check | [#1205](https://github.com/zynax-io/zynax/issues/1205) | X #1170 | ⬜ | |
@@ -200,7 +201,7 @@ The remaining open rows are tracked explicitly in the acceptance matrix ([§13](
 | T.2 `zynax validate` + version surfacing | [#1207](https://github.com/zynax-io/zynax/issues/1207) | T #1171 | ⬜ | |
 | T.3 three real runnable workflows | [#1208](https://github.com/zynax-io/zynax/issues/1208) | T #1171 | ⬜ | dep W,X |
 | T.4 `zynax init workflow\|expert` | [#1209](https://github.com/zynax-io/zynax/issues/1209) | T #1171 | ⬜ | |
-| R.1 benchmarks + regression gate | [#493](https://github.com/zynax-io/zynax/issues/493) | R #469 | ⬜ | |
+| R.1 benchmarks + regression gate | [#493](https://github.com/zynax-io/zynax/issues/493) | R #469 | ✅ | IRInterpreter+ParseManifest benches + benchstat gate (PR #1269) |
 | R.2 fuzz YAML→IR compiler | [#1210](https://github.com/zynax-io/zynax/issues/1210) | R #469 | ⬜ | |
 | R.3 integration suite as required gate | [#553](https://github.com/zynax-io/zynax/issues/553) | R #469 | ⬜ | |
 | R.4 flip platform-readiness xfail to real e2e | [#1103](https://github.com/zynax-io/zynax/issues/1103) | R #469 | ⬜ | carried from M6 |
@@ -208,8 +209,8 @@ The remaining open rows are tracked explicitly in the acceptance matrix ([§13](
 | Q.1 bump tools-image pip → 26.1.2 | [#1212](https://github.com/zynax-io/zynax/issues/1212) | Q #1172 | ✅ | |
 | Q.2 honest coverage gate | [#1213](https://github.com/zynax-io/zynax/issues/1213) | Q #1172 | ✅ | |
 | Q.3 PyPI Trusted Publisher provenance | [#1214](https://github.com/zynax-io/zynax/issues/1214) | Q #1172 | ✅ | §14 |
-| Q.4 verify pkg.go.dev consumption path | [#1215](https://github.com/zynax-io/zynax/issues/1215) | Q #1172 | ⬜ | old dup #582 closed |
-| Q.5 ADR-034 ManifestWorkflowID collision domain | [#1216](https://github.com/zynax-io/zynax/issues/1216) | Q #1172 | ⬜ | old dup #583 closed; **ADR-034 `Proposed` → accept** |
+| Q.4 verify pkg.go.dev consumption path | [#1215](https://github.com/zynax-io/zynax/issues/1215) | Q #1172 | ✅ | old dup #582 closed (PR #1258) |
+| Q.5 ADR-034 ManifestWorkflowID collision domain | [#1216](https://github.com/zynax-io/zynax/issues/1216) | Q #1172 | ✅ | old dup #583 closed; ADR-034 finalized to the real crypto/rand id scheme (PR #1257) |
 | D.1 Quick Start + Developer Guide | [#1217](https://github.com/zynax-io/zynax/issues/1217) | D #1173 | ⬜ | dep T.3, O.7 |
 | D.2 Workflow + Expert authoring guides | [#1218](https://github.com/zynax-io/zynax/issues/1218) | D #1173 | ⬜ | |
 | D.3 Context + Git MCP guides | [#1219](https://github.com/zynax-io/zynax/issues/1219) | D #1173 | ⬜ | |
