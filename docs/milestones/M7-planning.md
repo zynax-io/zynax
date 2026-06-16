@@ -216,8 +216,22 @@ The remaining open rows are tracked explicitly in the acceptance matrix ([§13](
 | D.3 Context + Git MCP guides | [#1219](https://github.com/zynax-io/zynax/issues/1219) | D #1173 | ⬜ | |
 | D.4 Observability (OTEL + Uptrace) guides | [#1220](https://github.com/zynax-io/zynax/issues/1220) | D #1173 | ⬜ | |
 | D.5 Examples index + best practices + FAQ + migration | [#1221](https://github.com/zynax-io/zynax/issues/1221) | D #1173 | ⬜ | |
+| P.1 ADR-035 adapter language boundary | [#1277](https://github.com/zynax-io/zynax/issues/1277) | P #1276 | ⬜ | accept ADR-035 on canvas-P alignment |
+| P.2 Go scaffold + config | [#1278](https://github.com/zynax-io/zynax/issues/1278) | P #1276 | ⬜ | `GOWORK=off` module; dep P.1 |
+| P.3 Go providers (OpenAI/Bedrock/Ollama) | [#1279](https://github.com/zynax-io/zynax/issues/1279) | P #1276 | ⬜ | dep P.2 |
+| P.4 Go AgentService server (parity) | [#1280](https://github.com/zynax-io/zynax/issues/1280) | P #1276 | ⬜ | reuses `llm_adapter.feature`; dep P.3 |
+| P.5 registry + bootstrap + health | [#1281](https://github.com/zynax-io/zynax/issues/1281) | P #1276 | ⬜ | dep P.4 |
+| P.6 Dockerfile + images.yaml cutover | [#1282](https://github.com/zynax-io/zynax/issues/1282) | P #1276 | ⬜ | dep P.5; ADR-024 |
+| P.7 retire Python llm-adapter | [#1283](https://github.com/zynax-io/zynax/issues/1283) | P #1276 | ⬜ | dep P.6 |
+| S.1 ADR-036 CI logic as a Go CLI | [#1286](https://github.com/zynax-io/zynax/issues/1286) | S #1285 | ⬜ | accept ADR-036 on canvas-S alignment |
+| S.2 `zynax-ci coverage-comment` | [#1287](https://github.com/zynax-io/zynax/issues/1287) | S #1285 | ⬜ | ← build-coverage-comment.sh; dep S.1 |
+| S.3 `zynax-ci bench-gate` + `bdd-select` | [#1288](https://github.com/zynax-io/zynax/issues/1288) | S #1285 | ⬜ | ← bench-regression + bdd-select scripts; dep S.1 |
+| S.4 `zynax-ci bump-runner` | [#1289](https://github.com/zynax-io/zynax/issues/1289) | S #1285 | ⬜ | ← bump-ci-runner.sh; images.yaml SoT; dep S.1 |
+| S.5 `zynax-ci images meta/cleanup/retag` | [#1290](https://github.com/zynax-io/zynax/issues/1290) | S #1285 | ⬜ | ← report-image-meta + cleanup/retag blocks; dep S.1 |
+| S.6 `zynax-ci release` helpers | [#1291](https://github.com/zynax-io/zynax/issues/1291) | S #1285 | ⬜ | ← release.yml assembly; cosign stays shell; dep S.5 |
+| S.7 retire scripts + thin workflows | [#1292](https://github.com/zynax-io/zynax/issues/1292) | S #1285 | ⬜ | dep S.2–S.6 |
 
-**Tally:** 11 closed / 39 open across 10 EPICs.
+**Tally:** 11 closed / 53 open across 12 EPICs.
 
 ### Ready to claim now for `/milestone-orchestrate` (priority order, ≤3 per batch)
 **Strictly unblocked** = every dependency is closed/none. Each EPIC's `*.1` ADR step is closed, so:
@@ -230,7 +244,11 @@ The remaining open rows are tracked explicitly in the acceptance matrix ([§13](
 
 Also strictly-ready for later batches (deps closed/none): **G.2 [#1198]**, **X.2 [#1202]**,
 **R.1 [#493]**, **R.3 [#553]**, **R.4 [#1103]**, **Q.4 [#1215]**, **Q.5 [#1216]**,
-**G.5 [#1260]**, **G.6 [#1261]** (docs, no canvas — claim anytime), **G.7 [#1262]**.
+**G.5 [#1260]**, **G.6 [#1261]** (docs, no canvas — claim anytime), **G.7 [#1262]**,
+**P.1 [#1277]** (ADR/docs — accept ADR-035 on canvas-P alignment; gates P.2→P.7),
+**P.2–P.6 [#1278–#1282]** (canvas-P Aligned; P.2 ready after P.1, then chain),
+**S.1 [#1286]** (ADR/docs — accept ADR-036 on canvas-S alignment; gates S.2→S.7),
+**S.2–S.5 [#1287–#1290]** (canvas-S Aligned; parallel after S.1; S.6 dep S.5; S.7 last).
 Unblock after W.2 merges: **W.3 [#1177]** → then **R.2 [#1210]**, **T.1 [#1206]** (both dep W.3).
 Do **not** front-load O.7 #1190 / O.8 #1191 — they depend on O.2 #1185.
 
@@ -243,7 +261,8 @@ Do **not** front-load O.7 #1190 / O.8 #1191 — they depend on O.2 #1185.
 - **EPIC #467 title** still reads the pre-absorption "Wire Prometheus + OTel"; scope is the broader
   OTEL+Uptrace EPIC O. Cosmetic; retitle on next touch.
 - **ADRs 031 / 033 / 034 are still `Proposed`** while their docs issues are closed — promote to
-  `Accepted` as each canvas (C / X / Q) reaches `Aligned`.
+  `Accepted` as each canvas (C / X / Q) reaches `Aligned`. (ADR-035 / ADR-036 are already `Accepted`
+  — canvases P #1276 and S #1285 are Aligned.)
 - **Issue dependency markers are inconsistent.** Many open stories express deps as bare step
   labels (e.g. #1177 `Dependencies: W.2`, #1186 `Dependencies: O.2`) with no issue number, while
   others use `#N` (e.g. #1195, #1208). The §4a table above is the authoritative step→`#N` map the

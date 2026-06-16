@@ -21,7 +21,9 @@ active:
   labels:
     milestone: "milestone: M7"
   # EPIC W,C,G,X,T,Q,D = #1167-#1173 (new). O,L,R absorb pre-existing #467,#468,#469.
-  open_epics: [467, 468, 469, 1167, 1168, 1169, 1170, 1171, 1172, 1173]
+  # EPIC P = #1276 (llm-adapter Go port — ADR-035; supply-chain/maintenance).
+  # EPIC S = #1285 (CI bash → zynax-ci Go subcommands — ADR-036; DX/supply-chain).
+  open_epics: [467, 468, 469, 1167, 1168, 1169, 1170, 1171, 1172, 1173, 1276, 1285]
 
 history:
   - name: M6
