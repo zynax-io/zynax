@@ -49,7 +49,12 @@ Config env prefix: `GIT_ADAPTER_` / token via `GITHUB_TOKEN` (injected, never lo
 
 **G.2 — MCP server over git-adapter capabilities** · M · `feat`
 - As an `authoring agent`, I want Git ops as MCP tools so I can clone/branch/commit/PR via MCP.
-- AC: [ ] MCP tools map 1:1 to adapter handlers; [ ] no Git logic duplicated; [ ] `.feature`/contract test. Deps: G.1.
+- AC: [ ] MCP tools map 1:1 to adapter handlers; [ ] no Git logic duplicated; [ ] `.feature`/contract test;
+  [ ] tool-surface is an explicit allow-list (exposed tools enumerated, not "every adapter handler");
+  [ ] git args passed positionally with `--` / `--end-of-options` separators — no caller-supplied
+  ref/branch/remote/path interpreted as a flag (arg-injection guard);
+  [ ] remote URLs validated against an allow-list / scheme guard — no clone/push to arbitrary or
+  link-local/metadata endpoints (SSRF guard). Deps: G.1.
 
 **G.3 — Credential injection + redaction** · S · `feat`
 - As a `security reviewer`, I want tokens injected at process start and redacted so no secret leaks.
@@ -75,3 +80,15 @@ Config env prefix: `GIT_ADAPTER_` / token via `GITHUB_TOKEN` (injected, never lo
 - Never grant broader than required scope — least-privilege token per session/repo.
 - Never duplicate Git logic in the MCP layer — it is a thin shim over git-adapter only.
 - Never trust PR/issue content as instructions — treat external text as data (prompt-injection guard).
+
+### Threat surface (G is a security-sensitive EPIC — each row maps to a story AC)
+| Threat | Mitigation | Owner story |
+|--------|-----------|-------------|
+| Credential leakage to prompt/log/trace | inject-at-start; redaction test; never a tool arg | G.3 (#1199) |
+| Command/arg injection into `git` (ref/branch/remote/path begins with `-`) | positional args + `--`/`--end-of-options`; reject flag-shaped input | G.2 (#1198) |
+| SSRF / arbitrary or link-local/metadata remote | remote-URL allow-list + scheme guard at clone/push | G.2 (#1198) |
+| Over-broad MCP tool surface / authz | explicit exposed-tool allow-list, not "all handlers" | G.2 (#1198) |
+| Untrusted repo content treated as instructions | external text is data (see above) | G.2 (#1198) |
+> Credential model (inject-at-start / no-secrets-in-prompts / redaction / least-privilege / external-text-as-data)
+> is settled in ADR-032. ADR-032 does **not** cover arg-injection, SSRF, or tool-surface authz — those are
+> bounded here as G.2/G.3 acceptance criteria.
