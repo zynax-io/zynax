@@ -25,7 +25,7 @@ type registryClient struct {
 // creds controls transport security; pass TLSCreds() or insecure.NewCredentials().
 // The returned cleanup function closes the connection and must be deferred by the caller.
 func NewRegistryClient(addr string, callTimeout time.Duration, creds credentials.TransportCredentials) (domain.AgentFinder, func(), error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(creds))
+	conn, err := grpc.NewClient(addr, tracingDialOpts(creds)...)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("task-broker: registry dial: %w", err)
 	}

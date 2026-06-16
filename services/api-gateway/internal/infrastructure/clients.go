@@ -11,6 +11,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
 	"google.golang.org/grpc"
@@ -54,10 +55,12 @@ func NewGatewayClients(compilerAddr, engineAddr, registryAddr string, callTimeou
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("api-gateway: tls credentials: %w", err)
 	}
+	tracingUnary, tracingStream := zynaxobs.TracingClientInterceptors()
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
-		grpc.WithUnaryInterceptor(requestIDUnaryInterceptor),
-		grpc.WithStreamInterceptor(requestIDStreamInterceptor),
+		grpc.WithStatsHandler(zynaxobs.TracingClientHandler()),
+		grpc.WithChainUnaryInterceptor(tracingUnary, requestIDUnaryInterceptor),
+		grpc.WithChainStreamInterceptor(tracingStream, requestIDStreamInterceptor),
 	}
 	compConn, err := grpc.NewClient(compilerAddr, dialOpts...)
 	if err != nil {

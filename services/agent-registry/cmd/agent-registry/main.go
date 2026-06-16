@@ -16,6 +16,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
@@ -87,13 +88,7 @@ func run(cfg config) error {
 	}
 	svc := domain.NewAgentRegistryService(repo)
 
-	srv := grpc.NewServer(
-		grpc.Creds(creds),
-		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
-		grpc.ChainUnaryInterceptor(zynaxobs.MetricsUnaryInterceptor("agent-registry")),
-	)
-	reflection.Register(srv)
-	zynaxv1.RegisterAgentRegistryServiceServer(srv, api.NewHandler(svc))
+	srv := newGRPCServer(creds, svc)
 
 	healthSvc := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(srv, healthSvc)
@@ -118,6 +113,22 @@ func run(cfg config) error {
 	setHealth(healthSvc, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 	srv.GracefulStop()
 	return nil
+}
+
+// newGRPCServer builds the agent-registry gRPC server with OTEL tracing (server
+// stats handler + "<service>.<rpc>" span interceptors, canvas O.3) and the RED
+// metrics interceptor, then registers the service handler and reflection.
+func newGRPCServer(creds credentials.TransportCredentials, svc *domain.AgentRegistryService) *grpc.Server {
+	tracingUnary, tracingStream := zynaxobs.TracingServerInterceptors()
+	srv := grpc.NewServer(
+		grpc.Creds(creds),
+		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
+		grpc.ChainUnaryInterceptor(tracingUnary, zynaxobs.MetricsUnaryInterceptor("agent-registry")),
+		grpc.ChainStreamInterceptor(tracingStream),
+	)
+	reflection.Register(srv)
+	zynaxv1.RegisterAgentRegistryServiceServer(srv, api.NewHandler(svc))
+	return srv
 }
 
 // setHealth sets both the overall "" key and the per-service named key to the

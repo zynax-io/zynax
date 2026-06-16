@@ -43,7 +43,7 @@ type EventPublisher struct {
 // callTimeout is the per-call Publish deadline; creds controls transport
 // security. The returned cleanup closes the connection (defer it).
 func NewEventPublisher(addr string, callTimeout time.Duration, creds credentials.TransportCredentials) (*EventPublisher, func(), error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(creds))
+	conn, err := grpc.NewClient(addr, tracingDialOpts(creds)...)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("task-broker: event-bus dial: %w", err)
 	}

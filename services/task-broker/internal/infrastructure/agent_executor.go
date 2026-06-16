@@ -32,7 +32,7 @@ func NewAgentExecutor(creds credentials.TransportCredentials) *AgentExecutor {
 // Execute opens a connection to the agent, calls ExecuteCapability, and streams
 // TaskEvents until a terminal COMPLETED or FAILED event is received.
 func (e *AgentExecutor) Execute(ctx context.Context, agent domain.AgentInfo, task *domain.Task) ([]byte, *domain.TaskError, error) {
-	conn, err := grpc.NewClient(agent.Endpoint, grpc.WithTransportCredentials(e.creds))
+	conn, err := grpc.NewClient(agent.Endpoint, tracingDialOpts(e.creds)...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("task-broker: dial agent %q: %w", agent.AgentID, err)
 	}

@@ -20,8 +20,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/zynax-io/zynax/libs/zynaxobs"
@@ -55,13 +53,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	tracingUnary, tracingStream := zynaxobs.TracingServerInterceptors()
 	grpcServer := grpc.NewServer(
 		grpc.Creds(serverCreds),
-		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
 		grpc.ChainUnaryInterceptor(
+			tracingUnary,
 			zynaxobs.MetricsUnaryInterceptor("workflow-compiler"),
 			requestIDServerInterceptor,
 		),
+		grpc.ChainStreamInterceptor(tracingStream),
 	)
 	reflection.Register(grpcServer)
 

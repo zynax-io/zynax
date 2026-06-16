@@ -21,6 +21,7 @@ import (
 	"go.temporal.io/sdk/worker"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
@@ -262,7 +263,16 @@ func dialGRPCClients(cfg config) (*grpc.ClientConn, *grpc.ClientConn, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("tls credentials: %w", err)
 	}
-	brokerConn, err := grpc.NewClient(cfg.TaskBrokerAddr, grpc.WithTransportCredentials(creds))
+	tracingUnary, tracingStream := zynaxobs.TracingClientInterceptors()
+	dialOpts := func(c credentials.TransportCredentials) []grpc.DialOption {
+		return []grpc.DialOption{
+			grpc.WithTransportCredentials(c),
+			grpc.WithStatsHandler(zynaxobs.TracingClientHandler()),
+			grpc.WithChainUnaryInterceptor(tracingUnary),
+			grpc.WithChainStreamInterceptor(tracingStream),
+		}
+	}
+	brokerConn, err := grpc.NewClient(cfg.TaskBrokerAddr, dialOpts(creds)...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("task-broker dial: %w", err)
 	}
@@ -273,7 +283,7 @@ func dialGRPCClients(cfg config) (*grpc.ClientConn, *grpc.ClientConn, error) {
 		_ = brokerConn.Close()
 		return nil, nil, fmt.Errorf("event-bus tls credentials: %w", err)
 	}
-	eventBusConn, err := grpc.NewClient(cfg.EventBusAddr, grpc.WithTransportCredentials(eventBusCreds))
+	eventBusConn, err := grpc.NewClient(cfg.EventBusAddr, dialOpts(eventBusCreds)...)
 	if err != nil {
 		_ = brokerConn.Close()
 		return nil, nil, fmt.Errorf("event-bus dial: %w", err)
@@ -286,13 +296,16 @@ func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*g
 	if err != nil {
 		return nil, nil, fmt.Errorf("tls credentials: %w", err)
 	}
+	tracingUnary, tracingStream := zynaxobs.TracingServerInterceptors()
 	srv := grpc.NewServer(
 		grpc.Creds(serverCreds),
 		grpc.StatsHandler(zynaxobs.TracingStatsHandler()),
 		grpc.ChainUnaryInterceptor(
+			tracingUnary,
 			zynaxobs.MetricsUnaryInterceptor("engine-adapter"),
 			makeRequestIDInterceptor(probes),
 		),
+		grpc.ChainStreamInterceptor(tracingStream),
 	)
 	reflection.Register(srv)
 
