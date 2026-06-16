@@ -2,7 +2,7 @@
 
 # SPDD Security Review — EPIC W: Workflow Data-Flow (#1167)
 
-**Reviewed file:** `docs/spdd/W-workflow-data-flow/canvas.md`
+**Reviewed file:** `docs/spdd/1167-workflow-data-flow/canvas.md`
 **Companion ADR:** ADR-029 (Accepted)
 **Date:** 2026-06-16
 **Standard:** `.claude/commands/spdd-security-review.md` (5 checks) + EPIC-W feature-specific

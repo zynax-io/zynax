@@ -2,7 +2,7 @@
 
 # SPDD Security Review — EPIC G: Git MCP Shim (#1169)
 
-**Canvas:** `docs/spdd/G-git-mcp-shim/canvas.md` (Status: Draft)
+**Canvas:** `docs/spdd/1169-git-mcp-shim/canvas.md` (Status: Aligned)
 **Reviewer:** spdd-canvas expert · **Date:** 2026-06-16
 **Method:** `/spdd-security-review` (Tier-2 + injection) + domain threat-surface scan for a Git-over-MCP
 credential-handling EPIC.
