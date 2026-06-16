@@ -146,6 +146,34 @@ Feature: WorkflowCompilerService contract — YAML manifest compilation
     Then the gRPC status is INVALID_ARGUMENT
     And the error message mentions "manifest_yaml"
 
+  # ─── Data-flow bindings (ADR-029, EPIC W) ─────────────────────────────────
+  # output_bindings/input_bindings are additive ActionIR fields that let a state
+  # publish named outputs and a later state consume them. W.2 adds the proto
+  # fields + this contract; compiler logic lands in W.3 (out of scope here).
+
+  Scenario: Compiled ActionIR carries the action's output_bindings
+    Given a Workflow YAML where state "search" declares output "results"
+    When CompileWorkflow is called
+    Then the gRPC status is OK
+    And the response contains a WorkflowIR
+    And the ActionIR for state "search" has an output_binding "results"
+
+  Scenario: Compiled ActionIR carries the action's input_bindings
+    Given a Workflow YAML where state "summarize" consumes input "text"
+    And the input "text" references "$.states.search.output.results"
+    When CompileWorkflow is called
+    Then the gRPC status is OK
+    And the response contains a WorkflowIR
+    And the ActionIR for state "summarize" has an input_binding "text"
+    And the input_binding "text" value is "$.states.search.output.results"
+
+  Scenario: An action with no bindings compiles with empty binding maps
+    Given a valid Workflow YAML where no state declares output or input bindings
+    When CompileWorkflow is called
+    Then the gRPC status is OK
+    And the response contains a WorkflowIR
+    And every ActionIR has zero output_bindings and zero input_bindings
+
   # ─── GetCompiledWorkflow ───────────────────────────────────────────────────
 
   Scenario: GetCompiledWorkflow returns the IR for a previously compiled workflow

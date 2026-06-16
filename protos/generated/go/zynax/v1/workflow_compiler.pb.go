@@ -286,7 +286,20 @@ type ActionIR struct {
 	InputTemplateJson string `protobuf:"bytes,3,opt,name=input_template_json,json=inputTemplateJson,proto3" json:"input_template_json,omitempty"`
 	// When true the broker dispatches this capability but does not block the
 	// state machine waiting for a result. The result is delivered via an event.
-	Async         bool `protobuf:"varint,4,opt,name=async,proto3" json:"async,omitempty"`
+	Async bool `protobuf:"varint,4,opt,name=async,proto3" json:"async,omitempty"`
+	// Named outputs this action publishes into the workflow-scoped data context
+	// (ADR-029). Each entry maps a context key to a source path within the
+	// action's result payload (e.g. "results" -> "results"). Written only by
+	// this action; read by downstream input_bindings. Empty when the action
+	// publishes nothing — additive and backward-compatible (M7 EPIC W).
+	OutputBindings map[string]string `protobuf:"bytes,5,rep,name=output_bindings,json=outputBindings,proto3" json:"output_bindings,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Inputs this action consumes from the workflow-scoped data context
+	// (ADR-029). Each value is either a literal or a JSON-path reference rooted
+	// at "$.states.<state>.output.<key>" (e.g.
+	// "$.states.search.output.results"). There is no expression/transform
+	// language in M7 — a value resolves verbatim or is a compile-time error.
+	// Empty when the action consumes nothing — additive (M7 EPIC W).
+	InputBindings map[string]string `protobuf:"bytes,6,rep,name=input_bindings,json=inputBindings,proto3" json:"input_bindings,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -347,6 +360,20 @@ func (x *ActionIR) GetAsync() bool {
 		return x.Async
 	}
 	return false
+}
+
+func (x *ActionIR) GetOutputBindings() map[string]string {
+	if x != nil {
+		return x.OutputBindings
+	}
+	return nil
+}
+
+func (x *ActionIR) GetInputBindings() map[string]string {
+	if x != nil {
+		return x.InputBindings
+	}
+	return nil
 }
 
 // TransitionIR is an edge in the workflow state machine graph.
@@ -1000,14 +1027,22 @@ const file_zynax_v1_workflow_compiler_proto_rawDesc = "" +
 	"\vline_number\x18\x03 \x01(\x05R\n" +
 	"lineNumber\x12\x1d\n" +
 	"\n" +
-	"state_name\x18\x04 \x01(\tR\tstateName\"\xa5\x01\n" +
+	"state_name\x18\x04 \x01(\tR\tstateName\"\xc9\x03\n" +
 	"\bActionIR\x12\x1e\n" +
 	"\n" +
 	"capability\x18\x01 \x01(\tR\n" +
 	"capability\x123\n" +
 	"\atimeout\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\atimeout\x12.\n" +
 	"\x13input_template_json\x18\x03 \x01(\tR\x11inputTemplateJson\x12\x14\n" +
-	"\x05async\x18\x04 \x01(\bR\x05async\"\xd7\x01\n" +
+	"\x05async\x18\x04 \x01(\bR\x05async\x12O\n" +
+	"\x0foutput_bindings\x18\x05 \x03(\v2&.zynax.v1.ActionIR.OutputBindingsEntryR\x0eoutputBindings\x12L\n" +
+	"\x0einput_bindings\x18\x06 \x03(\v2%.zynax.v1.ActionIR.InputBindingsEntryR\rinputBindings\x1aA\n" +
+	"\x13OutputBindingsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
+	"\x12InputBindingsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd7\x01\n" +
 	"\fTransitionIR\x12\x1d\n" +
 	"\n" +
 	"event_type\x18\x01 \x01(\tR\teventType\x12!\n" +
@@ -1098,7 +1133,7 @@ func file_zynax_v1_workflow_compiler_proto_rawDescGZIP() []byte {
 }
 
 var file_zynax_v1_workflow_compiler_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_zynax_v1_workflow_compiler_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_zynax_v1_workflow_compiler_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_zynax_v1_workflow_compiler_proto_goTypes = []any{
 	(CompilationErrorCode)(0),           // 0: zynax.v1.CompilationErrorCode
 	(StateType)(0),                      // 1: zynax.v1.StateType
@@ -1113,35 +1148,39 @@ var file_zynax_v1_workflow_compiler_proto_goTypes = []any{
 	(*ValidateManifestResponse)(nil),    // 10: zynax.v1.ValidateManifestResponse
 	(*GetCompiledWorkflowRequest)(nil),  // 11: zynax.v1.GetCompiledWorkflowRequest
 	(*GetCompiledWorkflowResponse)(nil), // 12: zynax.v1.GetCompiledWorkflowResponse
-	nil,                                 // 13: zynax.v1.TransitionIR.ConditionsEntry
-	(*durationpb.Duration)(nil),         // 14: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),       // 15: google.protobuf.Timestamp
+	nil,                                 // 13: zynax.v1.ActionIR.OutputBindingsEntry
+	nil,                                 // 14: zynax.v1.ActionIR.InputBindingsEntry
+	nil,                                 // 15: zynax.v1.TransitionIR.ConditionsEntry
+	(*durationpb.Duration)(nil),         // 16: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),       // 17: google.protobuf.Timestamp
 }
 var file_zynax_v1_workflow_compiler_proto_depIdxs = []int32{
 	0,  // 0: zynax.v1.CompilationError.code:type_name -> zynax.v1.CompilationErrorCode
-	14, // 1: zynax.v1.ActionIR.timeout:type_name -> google.protobuf.Duration
-	13, // 2: zynax.v1.TransitionIR.conditions:type_name -> zynax.v1.TransitionIR.ConditionsEntry
-	1,  // 3: zynax.v1.StateIR.type:type_name -> zynax.v1.StateType
-	3,  // 4: zynax.v1.StateIR.actions:type_name -> zynax.v1.ActionIR
-	4,  // 5: zynax.v1.StateIR.transitions:type_name -> zynax.v1.TransitionIR
-	15, // 6: zynax.v1.WorkflowIR.compiled_at:type_name -> google.protobuf.Timestamp
-	5,  // 7: zynax.v1.WorkflowIR.states:type_name -> zynax.v1.StateIR
-	6,  // 8: zynax.v1.CompileWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
-	2,  // 9: zynax.v1.CompileWorkflowResponse.errors:type_name -> zynax.v1.CompilationError
-	2,  // 10: zynax.v1.ValidateManifestResponse.errors:type_name -> zynax.v1.CompilationError
-	6,  // 11: zynax.v1.GetCompiledWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
-	15, // 12: zynax.v1.GetCompiledWorkflowResponse.compiled_at:type_name -> google.protobuf.Timestamp
-	7,  // 13: zynax.v1.WorkflowCompilerService.CompileWorkflow:input_type -> zynax.v1.CompileWorkflowRequest
-	9,  // 14: zynax.v1.WorkflowCompilerService.ValidateManifest:input_type -> zynax.v1.ValidateManifestRequest
-	11, // 15: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:input_type -> zynax.v1.GetCompiledWorkflowRequest
-	8,  // 16: zynax.v1.WorkflowCompilerService.CompileWorkflow:output_type -> zynax.v1.CompileWorkflowResponse
-	10, // 17: zynax.v1.WorkflowCompilerService.ValidateManifest:output_type -> zynax.v1.ValidateManifestResponse
-	12, // 18: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:output_type -> zynax.v1.GetCompiledWorkflowResponse
-	16, // [16:19] is the sub-list for method output_type
-	13, // [13:16] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	16, // 1: zynax.v1.ActionIR.timeout:type_name -> google.protobuf.Duration
+	13, // 2: zynax.v1.ActionIR.output_bindings:type_name -> zynax.v1.ActionIR.OutputBindingsEntry
+	14, // 3: zynax.v1.ActionIR.input_bindings:type_name -> zynax.v1.ActionIR.InputBindingsEntry
+	15, // 4: zynax.v1.TransitionIR.conditions:type_name -> zynax.v1.TransitionIR.ConditionsEntry
+	1,  // 5: zynax.v1.StateIR.type:type_name -> zynax.v1.StateType
+	3,  // 6: zynax.v1.StateIR.actions:type_name -> zynax.v1.ActionIR
+	4,  // 7: zynax.v1.StateIR.transitions:type_name -> zynax.v1.TransitionIR
+	17, // 8: zynax.v1.WorkflowIR.compiled_at:type_name -> google.protobuf.Timestamp
+	5,  // 9: zynax.v1.WorkflowIR.states:type_name -> zynax.v1.StateIR
+	6,  // 10: zynax.v1.CompileWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
+	2,  // 11: zynax.v1.CompileWorkflowResponse.errors:type_name -> zynax.v1.CompilationError
+	2,  // 12: zynax.v1.ValidateManifestResponse.errors:type_name -> zynax.v1.CompilationError
+	6,  // 13: zynax.v1.GetCompiledWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
+	17, // 14: zynax.v1.GetCompiledWorkflowResponse.compiled_at:type_name -> google.protobuf.Timestamp
+	7,  // 15: zynax.v1.WorkflowCompilerService.CompileWorkflow:input_type -> zynax.v1.CompileWorkflowRequest
+	9,  // 16: zynax.v1.WorkflowCompilerService.ValidateManifest:input_type -> zynax.v1.ValidateManifestRequest
+	11, // 17: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:input_type -> zynax.v1.GetCompiledWorkflowRequest
+	8,  // 18: zynax.v1.WorkflowCompilerService.CompileWorkflow:output_type -> zynax.v1.CompileWorkflowResponse
+	10, // 19: zynax.v1.WorkflowCompilerService.ValidateManifest:output_type -> zynax.v1.ValidateManifestResponse
+	12, // 20: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:output_type -> zynax.v1.GetCompiledWorkflowResponse
+	18, // [18:21] is the sub-list for method output_type
+	15, // [15:18] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_zynax_v1_workflow_compiler_proto_init() }
@@ -1155,7 +1194,7 @@ func file_zynax_v1_workflow_compiler_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zynax_v1_workflow_compiler_proto_rawDesc), len(file_zynax_v1_workflow_compiler_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   12,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -151,6 +151,21 @@ message ActionIR {
   // When true the broker dispatches this capability but does not block the
   // state machine waiting for a result. The result is delivered via an event.
   bool async = 4;
+
+  // Named outputs this action publishes into the workflow-scoped data context
+  // (ADR-029). Each entry maps a context key to a source path within the
+  // action's result payload (e.g. "results" -> "results"). Written only by
+  // this action; read by downstream input_bindings. Empty when the action
+  // publishes nothing — additive and backward-compatible (M7 EPIC W).
+  map<string, string> output_bindings = 5;
+
+  // Inputs this action consumes from the workflow-scoped data context
+  // (ADR-029). Each value is either a literal or a JSON-path reference rooted
+  // at "$.states.<state>.output.<key>" (e.g.
+  // "$.states.search.output.results"). There is no expression/transform
+  // language in M7 — a value resolves verbatim or is a compile-time error.
+  // Empty when the action consumes nothing — additive (M7 EPIC W).
+  map<string, string> input_bindings = 6;
 }
 
 // TransitionIR is an edge in the workflow state machine graph.
