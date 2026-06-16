@@ -216,14 +216,14 @@ The remaining open rows are tracked explicitly in the acceptance matrix ([§13](
 | D.3 Context + Git MCP guides | [#1219](https://github.com/zynax-io/zynax/issues/1219) | D #1173 | ⬜ | |
 | D.4 Observability (OTEL + Uptrace) guides | [#1220](https://github.com/zynax-io/zynax/issues/1220) | D #1173 | ⬜ | |
 | D.5 Examples index + best practices + FAQ + migration | [#1221](https://github.com/zynax-io/zynax/issues/1221) | D #1173 | ⬜ | |
-| P.1 ADR-035 adapter language boundary | [#1277](https://github.com/zynax-io/zynax/issues/1277) | P #1276 | ⬜ | accept ADR-035 on canvas-P alignment |
+| P.1 ADR-035 adapter language boundary | [#1277](https://github.com/zynax-io/zynax/issues/1277) | P #1276 | ✅ | ADR-035 Accepted; canvas-P Aligned |
 | P.2 Go scaffold + config | [#1278](https://github.com/zynax-io/zynax/issues/1278) | P #1276 | ⬜ | `GOWORK=off` module; dep P.1 |
 | P.3 Go providers (OpenAI/Bedrock/Ollama) | [#1279](https://github.com/zynax-io/zynax/issues/1279) | P #1276 | ⬜ | dep P.2 |
 | P.4 Go AgentService server (parity) | [#1280](https://github.com/zynax-io/zynax/issues/1280) | P #1276 | ⬜ | reuses `llm_adapter.feature`; dep P.3 |
 | P.5 registry + bootstrap + health | [#1281](https://github.com/zynax-io/zynax/issues/1281) | P #1276 | ⬜ | dep P.4 |
 | P.6 Dockerfile + images.yaml cutover | [#1282](https://github.com/zynax-io/zynax/issues/1282) | P #1276 | ⬜ | dep P.5; ADR-024 |
 | P.7 retire Python llm-adapter | [#1283](https://github.com/zynax-io/zynax/issues/1283) | P #1276 | ⬜ | dep P.6 |
-| S.1 ADR-036 CI logic as a Go CLI | [#1286](https://github.com/zynax-io/zynax/issues/1286) | S #1285 | ⬜ | accept ADR-036 on canvas-S alignment |
+| S.1 ADR-036 CI logic as a Go CLI | [#1286](https://github.com/zynax-io/zynax/issues/1286) | S #1285 | ✅ | ADR-036 Accepted; canvas-S Aligned |
 | S.2 `zynax-ci coverage-comment` | [#1287](https://github.com/zynax-io/zynax/issues/1287) | S #1285 | ⬜ | ← build-coverage-comment.sh; dep S.1 |
 | S.3 `zynax-ci bench-gate` + `bdd-select` | [#1288](https://github.com/zynax-io/zynax/issues/1288) | S #1285 | ⬜ | ← bench-regression + bdd-select scripts; dep S.1 |
 | S.4 `zynax-ci bump-runner` | [#1289](https://github.com/zynax-io/zynax/issues/1289) | S #1285 | ⬜ | ← bump-ci-runner.sh; images.yaml SoT; dep S.1 |

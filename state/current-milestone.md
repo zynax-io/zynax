@@ -37,7 +37,7 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 **Uptrace**), watches it execute state→state with **data-flow**, **streamed logs**, and a connected
 **distributed trace** in the Uptrace login UI — with green `make ci`.
 
-### EPICs (10) — one REASONS Canvas each under `docs/spdd/<letter>-<slug>/`
+### EPICs (12) — one REASONS Canvas each under `docs/spdd/<letter>-<slug>/`
 | EPIC | Title | Type | Canvas |
 |------|-------|------|--------|
 | W | Workflow data-flow (output/input bindings) — **keystone** | feat | [W](../docs/spdd/1167-workflow-data-flow/canvas.md) |
@@ -50,17 +50,22 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 | R | Test rigor (absorbs #469; #493 #553 #1103) | test | [R](../docs/spdd/469-test-rigor/canvas.md) |
 | Q | Quality & supply-chain fixes (pip CVE · coverage gate · PyPI Trusted Publisher) | chore/ci | [Q](../docs/spdd/1172-quality-supply-chain/canvas.md) |
 | D | Docs — quick-start · authoring · observability | docs | [D](../docs/spdd/1173-docs/canvas.md) |
+| P | Port `llm-adapter` to Go (language-boundary cleanup, ADR-035) | refactor | [P](../docs/spdd/1276-llm-adapter-go/canvas.md) |
+| S | Consolidate CI bash into the `zynax-ci` Go CLI (ADR-036) | ci | [S](../docs/spdd/1285-ci-bash-to-go/canvas.md) |
 
 Pre-existing M7 EPICs #467 (OTel) / #468 (history streaming) / #469 (test rigor) are **absorbed** into
 O / L / R respectively. New ADRs: ADR-029…034 (Proposed).
 
-**Delivery (as of 2026-06-16):** GitHub milestone #7 — **27 closed / 42 open**. EPIC canvases
-**X #1170 and T #1171 aligned** this pass (security-reviewed PASS); O/L/R/W/G/470/471 already
-Aligned; C/Q/D still Draft. Shipped this pass: O.4 #1187 + O.7 #1190 + O.8 #1191 (Observability —
-exemplars, compose & Helm Uptrace), X.2 #1202 (`agents/examples`), R.1 #493 (benchmarks + benchstat
-gate), Q.4 #1215 / Q.5 #1216 (Go-module consumption doc + ADR-034). **Security tab clean** — all 8
+**Delivery (as of 2026-06-17):** GitHub milestone #7 — **30 closed / 56 open** (two EPICs added
+2026-06-16: **P #1276** llm-adapter Go-port and **S #1285** CI-bash-to-Go, both canvases Aligned).
+X #1170 / T #1171 aligned earlier; O/L/R/W/G/470/471 already Aligned; C/Q/D still Draft. Shipped:
+O.4 #1187 + O.7 #1190 + O.8 #1191 (Observability — exemplars, compose & Helm Uptrace), X.2 #1202
+(`agents/examples`), R.1 #493 (benchmarks + benchstat gate), Q.4 #1215 / Q.5 #1216 (Go-module
+consumption + ADR-034), P.1 #1277 / S.1 #1286 (ADR-035 / ADR-036). **Security tab clean** — all 8
 Dependabot (aiohttp → 3.14.1) and ~200 Trivy code-scanning alerts fixed (adapters rebuilt on fresh
-`python:3.12-alpine`; stale pre-alpine Debian CVEs superseded, not dismissed).
+`python:3.12-alpine`; stale pre-alpine Debian CVEs superseded, not dismissed). Process: 8
+expert-guide learnings applied (#1275); BEHIND-rebase / skip-ci / crashed-agent-recovery routed into
+the orchestrator commands (#1293).
 
 ---
 
