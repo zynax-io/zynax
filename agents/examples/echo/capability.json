@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "capability": "echo",
+  "description": "Echoes the JSON input payload back as the result.",
+  "input_schema": {
+    "type": "object",
+    "description": "Any JSON object; it is returned verbatim under the 'echo' key.",
+    "additionalProperties": true
+  },
+  "output_schema": {
+    "type": "object",
+    "required": ["echo"],
+    "properties": {
+      "echo": {
+        "type": "object",
+        "description": "The decoded input payload, copied verbatim.",
+        "additionalProperties": true
+      }
+    },
+    "additionalProperties": false
+  }
+}
