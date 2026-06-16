@@ -26,7 +26,7 @@ jobs:
     name: Count AI context lines
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:48a2646547cbe4066b3b9a82071c1f2b9e4f8ef9ceb09cc1be63930c29c9f1c1
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ad5839388e3980e3bf411372b3a22f8ebde149a3c7f4f88cc99ef793100ab481
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
