@@ -188,6 +188,9 @@ The remaining open rows are tracked explicitly in the acceptance matrix ([§13](
 | G.2 MCP server over git-adapter | [#1198](https://github.com/zynax-io/zynax/issues/1198) | G #1169 | ⬜ | |
 | G.3 credential injection + redaction | [#1199](https://github.com/zynax-io/zynax/issues/1199) | G #1169 | ⬜ | Tier-2 security review |
 | G.4 `zynax mcp git` + `.mcp.json` | [#1200](https://github.com/zynax-io/zynax/issues/1200) | G #1169 | ⬜ | |
+| G.5 least-privilege token scope validation | [#1260](https://github.com/zynax-io/zynax/issues/1260) | G #1169 | ⬜ | git-adapter hardening; Tier-2 review |
+| G.6 docs: fine-grained PAT + no-refresh note | [#1261](https://github.com/zynax-io/zynax/issues/1261) | G #1169 | ⬜ | SPDD-exempt docs; READY now |
+| G.7 refreshable credentials (App tokens) | [#1262](https://github.com/zynax-io/zynax/issues/1262) | G #1169 | ⬜ | git-adapter hardening; Tier-2 review |
 | X.1 ADR-033 expert substrate | [#1201](https://github.com/zynax-io/zynax/issues/1201) | X #1170 | ✅ | issue closed; **ADR-033 still `Proposed` → accept on canvas-X alignment** |
 | X.2 `agents/examples/` reference agents | [#1202](https://github.com/zynax-io/zynax/issues/1202) | X #1170 | ⬜ | echo, summarizer, go-review-expert |
 | X.3 runtime expert (`kind: AgentDef`) | [#1203](https://github.com/zynax-io/zynax/issues/1203) | X #1170 | ⬜ | |
@@ -213,7 +216,7 @@ The remaining open rows are tracked explicitly in the acceptance matrix ([§13](
 | D.4 Observability (OTEL + Uptrace) guides | [#1220](https://github.com/zynax-io/zynax/issues/1220) | D #1173 | ⬜ | |
 | D.5 Examples index + best practices + FAQ + migration | [#1221](https://github.com/zynax-io/zynax/issues/1221) | D #1173 | ⬜ | |
 
-**Tally:** 11 closed / 36 open across 10 EPICs.
+**Tally:** 11 closed / 39 open across 10 EPICs.
 
 ### Ready to claim now for `/milestone-orchestrate` (priority order, ≤3 per batch)
 **Strictly unblocked** = every dependency is closed/none. Each EPIC's `*.1` ADR step is closed, so:
@@ -225,7 +228,8 @@ The remaining open rows are tracked explicitly in the acceptance matrix ([§13](
 | 3 | **L.2 [#1181]** | dep L.1 #1180 ✅ | unblocks `/logs` event-merge (L.3) |
 
 Also strictly-ready for later batches (deps closed/none): **G.2 [#1198]**, **X.2 [#1202]**,
-**R.1 [#493]**, **R.3 [#553]**, **R.4 [#1103]**, **Q.4 [#1215]**, **Q.5 [#1216]**.
+**R.1 [#493]**, **R.3 [#553]**, **R.4 [#1103]**, **Q.4 [#1215]**, **Q.5 [#1216]**,
+**G.5 [#1260]**, **G.6 [#1261]** (docs, no canvas — claim anytime), **G.7 [#1262]**.
 Unblock after W.2 merges: **W.3 [#1177]** → then **R.2 [#1210]**, **T.1 [#1206]** (both dep W.3).
 Do **not** front-load O.7 #1190 / O.8 #1191 — they depend on O.2 #1185.
 
@@ -330,7 +334,18 @@ implementation, two surfaces) — see [ADR-032 stub](../adr/ADR-032-git-mcp-shim
 - **G.2** [#1198] MCP server exposing git-adapter capabilities (clone/branch/commit/PR/review) as MCP tools
 - **G.3** [#1199] Credential injection via env/secret ref at process start; redaction in logs/traces
 - **G.4** [#1200] CLI/dev wiring: `zynax mcp git` + `.mcp.json` example for Claude Code authoring loop
+- **G.5** [#1260] git-adapter **least-privilege token scope validation** at startup — fail-fast/warn when the token can reach repos beyond the configured `owner/repo` (`config.go:101` resolves the token but never checks scope; `owner/repo` pinning is an adapter guard, not a credential restriction)
+- **G.6** [#1261] **docs**: recommend a fine-grained PAT scoped to the configured repo (the example + `AGENTS.md:24` currently recommend broad `repo` scope) and document that the token is read once at startup with no refresh — *(SPDD-exempt docs; independently mergeable now)*
+- **G.7** [#1262] git-adapter **refreshable credentials** — re-resolve / mint GitHub App installation tokens so a short-lived (~1 h) token does not expire mid-process (`main.go:45` resolves once; no refresh or App flow today)
 **DoD:** an authoring session can open a PR via MCP with a scoped token; no token ever serialized into a prompt; security review PASS.
+
+> **G.5–G.7 provenance.** Surfaced during the EPIC-G credential review of the existing
+> git-adapter (the substrate the MCP shim wraps): the adapter *supports* restricted tokens
+> but does not *enforce* scope (G.5), its docs recommend an over-broad `repo` PAT (G.6), and it
+> has no token refresh / App-token path (G.7). G.5/G.7 are `feat:` (canvas O-step required
+> before `/spdd-generate` — the canvas is intentionally left `Aligned` here so the in-flight
+> G.2–G.4 stories are not reset to `Draft`; `/milestone-orchestrate` routes them through
+> `spdd-canvas` first per STEP 5). G.6 is SPDD-exempt.
 
 ### EPIC X — Expert-agent substrate + `agents/examples/`
 **Decision (both substrates, mapped):** runtime **AgentDef** experts (registered, dispatched,
@@ -431,7 +446,7 @@ Designed for autonomous/parallel agent execution (≤3 concurrent per `/mileston
 | **0** ✅ | ~~Q.1 #1212 · Q.2 #1213 · Q.3 #1214~~ (CI green + provenance) — **done** | `make ci` green on clean checkout ✅ |
 | **1** | **W.2 #1176→W.5 #1179** (data-flow) · O.2 #1185–O.4 #1187 (verify+extend OTEL core) · G.2 #1198 (MCP server) | data-flow e2e green; trace visible in Uptrace |
 | **2** | C.2 #1194–C.4 #1196 (context) · O.5 #1188–O.9 #1192 (propagation + Uptrace compose/Helm) · L.2 #1181–L.4 #1183 (log streaming) | request-id end-to-end; `/logs` streams |
-| **3** | X.2 #1202–X.5 #1205 (experts + examples) · T.1 #1206–T.4 #1209 (templates + real workflows) · G.3 #1199/G.4 #1200 | 3 real workflows run; reference agents dispatchable |
+| **3** | X.2 #1202–X.5 #1205 (experts + examples) · T.1 #1206–T.4 #1209 (templates + real workflows) · G.3 #1199/G.4 #1200 · G.5 #1260/G.6 #1261/G.7 #1262 (git-adapter credential hardening) | 3 real workflows run; reference agents dispatchable |
 | **4** | R.1 #493–R.5 #1211 (test rigor) · D.1 #1217–D.5 #1221 (docs) · Q.4 #1215/Q.5 #1216 | all CI gates active; docs complete; acceptance matrix green |
 
 Each task = one small, independently mergeable PR (≤400 lines target; planning/docs/spec

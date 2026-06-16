@@ -3,7 +3,7 @@
 # SPDD Security Review — EPIC G: Git MCP Shim (#1169)
 
 **Canvas:** `docs/spdd/1169-git-mcp-shim/canvas.md` (Status: Aligned)
-**Reviewer:** spdd-canvas expert · **Date:** 2026-06-16
+**Reviewer:** spdd-canvas expert · **Date:** 2026-06-16 (re-reviewed same day for appended G.5–G.7)
 **Method:** `/spdd-security-review` (Tier-2 + injection) + domain threat-surface scan for a Git-over-MCP
 credential-handling EPIC.
 
@@ -48,6 +48,27 @@ within a single adapter, ADR-032 §Non-Goals "exact tool schema is an implementa
 - [ ] Confirm the three added G.2 ACs (arg-injection, SSRF, tool allow-list) are in scope for #1198 and
       do not warrant splitting into a separate story.
 - [ ] Confirm ADR-032 is intentionally *not* amended (T2/T3/T4 handled as G.2 impl guards, not architecture).
-- [ ] Confirm O-section ↔ issues: G.1 #1197 (CLOSED/done), G.2 #1198, G.3 #1199, G.4 #1200 — all open
-      stories map 1:1.
+- [ ] Confirm O-section ↔ issues: G.1 #1197 (CLOSED/done), G.2 #1198, G.3 #1199, G.4 #1200, G.5 #1260,
+      G.6 #1261, G.7 #1262 — all open stories map 1:1.
 - [ ] Confirm no `canvas.private.md` is needed (no real tokens/URLs anticipated in the canvas itself).
+
+## 4. Re-review 2026-06-16 — appended stories G.5–G.7 (git-adapter credential substrate)
+
+**Verdict: PASS.** G.5–G.7 were appended to the canvas O-section after a credential review of the
+*existing* git-adapter (the runtime substrate the MCP shim wraps). They are **additive hardening** that
+*reduces* residual risk — they do not introduce new threats.
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| Tier-2 / PII / credentials / injection / abstraction / authority | PASS | gitleaks-style scan clean; only `X-OAuth-Scopes`, `GITHUB_TOKEN`, app-id/private-key *concepts* and repo-relative paths (`config.go`, `server.go`, `main.go`) — no literals, no topology. |
+| Completeness (7 REASONS sections, Status, Context-Security checklist) | PASS | Status remains **Aligned** (no Draft reset → in-flight G.2–G.4 unaffected). |
+
+Residual threats these stories close (added to the canvas Threat-surface table):
+
+| # | Threat | Owner story |
+|---|--------|-------------|
+| T6 | Over-broad token reaches repos beyond configured `owner/repo` (adapter supports but does not *enforce* scope) | G.5 #1260 (enforce), G.6 #1261 (least-privilege PAT docs) |
+| T7 | Stale/expired credential — token resolved once at startup, no refresh (short-lived App tokens expire) | G.7 #1262 |
+
+No `canvas.private.md` required. No ADR amendment required — G.5/G.7 are implementation-level guards
+within the existing adapter (consistent with ADR-032 §Non-Goals and ADR-013 adapter-first).
