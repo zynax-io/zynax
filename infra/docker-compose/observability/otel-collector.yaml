@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+# OpenTelemetry Collector — local observability overlay (canvas O.7).
+#
+# Receives OTLP/gRPC + OTLP/HTTP from Zynax services and adapters (which export
+# to ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT) and forwards traces, metrics and logs to
+# the local Uptrace backend over OTLP/gRPC. Batching keeps the request path off
+# the exporter (canvas Safeguards: "never block the request path on the exporter").
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Batch async so service request paths never block on export.
+  batch:
+    timeout: 5s
+    send_batch_size: 10000
+
+exporters:
+  # Forward everything to the Uptrace single-binary OTLP ingest port.
+  # The DSN carries the project token Uptrace uses to attribute the data.
+  otlp/uptrace:
+    endpoint: uptrace:14317
+    tls:
+      insecure: true
+    headers:
+      uptrace-dsn: ${env:UPTRACE_DSN}
+
+service:
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/uptrace]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/uptrace]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/uptrace]

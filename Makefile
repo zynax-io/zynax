@@ -13,6 +13,7 @@ AGENTS        := $(shell find agents/examples -maxdepth 2 -name pyproject.toml -
 COMPOSE          := docker compose -f infra/docker-compose/docker-compose.yml
 COMPOSE_SERVICES := docker compose -f infra/docker-compose/docker-compose.services.yml
 COMPOSE_TOOLS    := docker compose -f infra/docker-compose/docker-compose.tools.yml
+COMPOSE_OBS      := docker compose --env-file infra/docker-compose/observability/.env.observability -f infra/docker-compose/docker-compose.observability.yml
 # Override to use a local build: make TOOLS_IMAGE=zynax/tools:local build-tools
 TOOLS_IMAGE   ?= ghcr.io/zynax-io/zynax/tools:latest
 REGISTRY      := ghcr.io/zynax-io
@@ -87,6 +88,19 @@ dev-reset:   ## ⚠ Destroy data and restart
 dev-restart: ## Rebuild one service: make dev-restart SVC=agent-registry
 	@test -n "$(SVC)" || (echo "Usage: make dev-restart SVC=<n>" && exit 1)
 	$(COMPOSE) up -d --build $(SVC)
+
+.PHONY: obs-up obs-down obs-logs
+obs-up: check-docker ## Start local Uptrace observability stack (UI → http://localhost:7020)
+	@test -f infra/docker-compose/observability/.env.observability || \
+	  (echo "Missing infra/docker-compose/observability/.env.observability — copy .env.observability.example and fill it in" && exit 1)
+	$(COMPOSE_OBS) up -d
+	@echo ""
+	@echo "  Uptrace UI  → http://localhost:7020"
+	@echo "  OTLP/gRPC   → export ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:7017"
+obs-down:    ## Stop the observability stack
+	$(COMPOSE_OBS) down
+obs-logs:    ## Tail observability stack logs
+	$(COMPOSE_OBS) logs -f
 
 .PHONY: run-local stop-local logs-local install-cli install-ci-tools sync-images check-images
 run-local: check-docker ## ★ Build images + start local stack (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)

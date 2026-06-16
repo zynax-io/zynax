@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: Apache-2.0
+# Uptrace single-binary config — local observability overlay (canvas O.7).
+#
+# Login credentials and the project token come from the environment (see
+# .env.observability.example) — there are NO committed default credentials
+# (canvas Safeguards: creds must come from .env, never committed defaults).
+
+# ClickHouse stores spans, metrics and logs.
+ch:
+  addr: clickhouse:9000
+  user: default
+  password: ''
+  database: uptrace
+
+# Postgres stores Uptrace metadata (users, projects, dashboards).
+pg:
+  addr: postgres-uptrace:5432
+  user: uptrace
+  password: ${PG_PASSWORD}
+  database: uptrace
+
+# A single project keyed by the DSN token the collector forwards data with.
+projects:
+  - id: 1
+    name: zynax
+    token: ${UPTRACE_PROJECT_TOKEN}
+    pinned_attrs:
+      - service.name
+      - host.name
+    group_by_env: false
+    group_funcs_by_service: false
+
+# Initial login user — password is env-injected, never hard-coded.
+auth:
+  users:
+    - name: zynax
+      email: ${UPTRACE_ADMIN_EMAIL}
+      password: ${UPTRACE_ADMIN_PASSWORD}
+      notify_by_email: false
+
+# OTLP ingest + HTTP UI listeners (container-internal; host binding is set on
+# the compose port mapping and pinned to 127.0.0.1).
+listen:
+  grpc:
+    addr: ':14317'
+  http:
+    addr: ':14318'
+
+# Base URL the UI links resolve against (matches the host port mapping).
+site:
+  addr: 'http://localhost:7020'
+
+# Keep telemetry data for a week locally — long-term retention is M8 (canvas).
+ch_schema:
+  cluster: ''
+  replicated: false
+  ttl: 168h
+
+spans:
+  ttl: 168h
+metrics:
+  ttl: 168h
+logs:
+  ttl: 168h

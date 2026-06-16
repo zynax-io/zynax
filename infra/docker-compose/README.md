@@ -9,6 +9,7 @@ All Compose files live in this directory:
 | `docker-compose.services.yml` | Profiles-based overlay (testing/dev) — used by `make test-integration` |
 | `docker-compose.tools.yml` | Test-runner container for Python integration tests |
 | `docker-compose.test.yml` | CI overlay — disables persistent volumes for ephemeral test runs |
+| `docker-compose.observability.yml` | Local Uptrace stack — traces/metrics/logs/APM with a login UI |
 
 ## Local dev stack
 
@@ -44,6 +45,34 @@ Internal-only (no host port):
 postgres (healthy) → temporal (healthy) → engine-adapter (healthy)
                                         → workflow-compiler (healthy) → api-gateway
 ```
+
+## Observability stack (Uptrace)
+
+A separate overlay brings up Uptrace (traces, metrics, logs, APM, service map) with
+a login UI, backed by ClickHouse + Postgres and fronted by an OpenTelemetry Collector.
+
+```bash
+cp observability/.env.observability.example observability/.env.observability
+# edit observability/.env.observability — set login + token (no committed defaults)
+make obs-up        # Uptrace UI → http://localhost:7020
+make obs-logs
+make obs-down
+```
+
+Point services at the collector (telemetry is off by default — env-gated):
+
+```bash
+export ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:7017
+```
+
+| Host port | Service | Purpose |
+|-----------|---------|---------|
+| 7020 | Uptrace UI | Login UI — traces/metrics/logs/APM |
+| 7017 | OTel Collector | OTLP/gRPC ingest (`ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT`) |
+| 7018 | OTel Collector | OTLP/HTTP ingest |
+
+All observability host ports bind to `127.0.0.1` only — OTLP ingest is never publicly
+exposed (canvas O.7 Safeguards). ClickHouse and Postgres have no host ports.
 
 ## Not included
 
