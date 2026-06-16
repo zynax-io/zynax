@@ -41,7 +41,7 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 | EPIC | Title | Type | Canvas |
 |------|-------|------|--------|
 | W | Workflow data-flow (output/input bindings) — **keystone** | feat | [W](../docs/spdd/1167-workflow-data-flow/canvas.md) |
-| L | Execution log/event streaming (`/logs`) | feat | [L](../docs/spdd/L-log-streaming/canvas.md) |
+| L | Execution log/event streaming (`/logs`) | feat | [L](../docs/spdd/468-log-streaming/canvas.md) |
 | O | Observability — OTEL + **Uptrace** (traces/metrics/logs/APM + login UI; compose **and** Helm) | feat | [O](../docs/spdd/467-observability-otel-uptrace/canvas.md) |
 | C | Context propagation (trace · data · correlation) | feat | [C](../docs/spdd/1168-context-propagation/canvas.md) |
 | G | Git MCP shim over git-adapter | feat | [G](../docs/spdd/1169-git-mcp-shim/canvas.md) |
