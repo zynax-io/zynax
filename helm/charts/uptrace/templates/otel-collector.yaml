@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+# OpenTelemetry Collector — the in-cluster OTLP ingest endpoint for all services.
+# Services set ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT to this Service's gRPC port.
+# This endpoint is ClusterIP only — never exposed via Ingress (canvas Safeguards).
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "uptrace.fullname" . }}-otel-collector
+  labels:
+    {{- include "uptrace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "uptrace.selectorLabels" (dict "ctx" . "component" "otel-collector") | nindent 4 }}
+  ports:
+    - name: otlp-grpc
+      port: {{ .Values.collector.ports.grpc }}
+      targetPort: otlp-grpc
+    - name: otlp-http
+      port: {{ .Values.collector.ports.http }}
+      targetPort: otlp-http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "uptrace.fullname" . }}-otel-collector
+  labels:
+    {{- include "uptrace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+spec:
+  replicas: {{ .Values.collector.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "uptrace.selectorLabels" (dict "ctx" . "component" "otel-collector") | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/otel-collector-config.yaml") . | sha256sum }}
+      labels:
+        {{- include "uptrace.selectorLabels" (dict "ctx" . "component" "otel-collector") | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: otel-collector
+          image: "{{ .Values.collector.image.repository }}:{{ .Values.collector.image.tag }}"
+          imagePullPolicy: {{ .Values.collector.image.pullPolicy }}
+          args: ["--config=/etc/otel/otel-collector.yaml"]
+          env:
+            - name: UPTRACE_PROJECT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.uptrace.existingSecret }}
+                  key: {{ .Values.uptrace.secretKeys.projectToken }}
+          ports:
+            - name: otlp-grpc
+              containerPort: {{ .Values.collector.ports.grpc }}
+            - name: otlp-http
+              containerPort: {{ .Values.collector.ports.http }}
+          resources:
+            {{- toYaml .Values.collector.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otel
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "uptrace.fullname" . }}-otel-collector
+{{- end }}

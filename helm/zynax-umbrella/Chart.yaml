@@ -65,3 +65,9 @@ dependencies:
     version: "0.1.0"
     repository: "file://../charts/cert-manager"
     condition: zynax-cert-manager.enabled
+  # In-cluster Uptrace observability backend (EPIC O #467, step O.8).
+  # Disabled by default; enable with `observability.enabled=true`.
+  - name: zynax-uptrace
+    version: "0.1.0"
+    repository: "file://../charts/uptrace"
+    condition: observability.enabled

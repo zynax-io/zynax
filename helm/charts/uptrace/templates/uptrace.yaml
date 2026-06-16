@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: Apache-2.0
+# Uptrace single-binary backend: traces · metrics · logs · APM · login UI.
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "uptrace.fullname" . }}
+  labels:
+    {{- include "uptrace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: uptrace
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "uptrace.selectorLabels" (dict "ctx" . "component" "uptrace") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.uptrace.ports.http }}
+      targetPort: http
+    - name: grpc
+      port: {{ .Values.uptrace.ports.grpc }}
+      targetPort: grpc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "uptrace.fullname" . }}
+  labels:
+    {{- include "uptrace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: uptrace
+spec:
+  replicas: {{ .Values.uptrace.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "uptrace.selectorLabels" (dict "ctx" . "component" "uptrace") | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/uptrace-config.yaml") . | sha256sum }}
+      labels:
+        {{- include "uptrace.selectorLabels" (dict "ctx" . "component" "uptrace") | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: uptrace
+          image: "{{ .Values.uptrace.image.repository }}:{{ .Values.uptrace.image.tag }}"
+          imagePullPolicy: {{ .Values.uptrace.image.pullPolicy }}
+          args: ["--config=/etc/uptrace/uptrace.yml", "serve"]
+          env:
+            # All credentials injected from the pre-created Secret — never committed.
+            - name: UPTRACE_ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.uptrace.existingSecret }}
+                  key: {{ .Values.uptrace.secretKeys.adminEmail }}
+            - name: UPTRACE_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.uptrace.existingSecret }}
+                  key: {{ .Values.uptrace.secretKeys.adminPassword }}
+            - name: UPTRACE_PROJECT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.uptrace.existingSecret }}
+                  key: {{ .Values.uptrace.secretKeys.projectToken }}
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.uptrace.existingSecret }}
+                  key: {{ .Values.uptrace.secretKeys.pgPassword }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.uptrace.ports.http }}
+            - name: grpc
+              containerPort: {{ .Values.uptrace.ports.grpc }}
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 20
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.uptrace.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/uptrace
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "uptrace.fullname" . }}
+{{- end }}
