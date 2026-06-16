@@ -40,7 +40,7 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 ### EPICs (10) — one REASONS Canvas each under `docs/spdd/<letter>-<slug>/`
 | EPIC | Title | Type | Canvas |
 |------|-------|------|--------|
-| W | Workflow data-flow (output/input bindings) — **keystone** | feat | [W](../docs/spdd/W-workflow-data-flow/canvas.md) |
+| W | Workflow data-flow (output/input bindings) — **keystone** | feat | [W](../docs/spdd/1167-workflow-data-flow/canvas.md) |
 | L | Execution log/event streaming (`/logs`) | feat | [L](../docs/spdd/L-log-streaming/canvas.md) |
 | O | Observability — OTEL + **Uptrace** (traces/metrics/logs/APM + login UI; compose **and** Helm) | feat | [O](../docs/spdd/O-observability-otel-uptrace/canvas.md) |
 | C | Context propagation (trace · data · correlation) | feat | [C](../docs/spdd/C-context-propagation/canvas.md) |
