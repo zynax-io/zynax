@@ -3,7 +3,8 @@
 # Zynax M7 — Usable Workflows + Observability Planning
 
 > **Target version:** v0.6.0 · **GitHub milestone:** #7 (`Full Observability (M7)`)
-> **Status:** Active (opened 2026-06-15) · **Planning author:** SPDD program plan
+> **Status:** Active (opened 2026-06-15) · **Last updated:** 2026-06-16 (reconciled to live GitHub
+> issue state + live tree at HEAD `main`; see [§4a Delivery Progress](#4a--delivery-progress-live-issue-state)) · **Planning author:** SPDD program plan
 > **Program context:** first of a three-milestone program M7 → M-dx → M8 (see [§1 Program Roadmap](#1--program-roadmap)).
 
 This document is the **single planning source of truth** for M7. It is generated from
@@ -118,6 +119,11 @@ ROADMAP/brief  →  this plan (EPIC)  →  REASONS Canvas  →  ADR (if one-way 
 Verified by booting the full stack (`make run-local`, 13 containers healthy) and the test
 suite on 2026-06-15.
 
+> **⚠ Reconciliation note (2026-06-16).** The original §4 (2026-06-15) was a point-in-time snapshot.
+> Re-verified against the tree at HEAD, **three rows it listed as "cannot do" are already done** and
+> several "OPEN" stories already have substantial groundwork. Corrected rows are struck/annotated
+> below; the authoritative per-issue picture is [§4a Delivery Progress](#4a--delivery-progress-live-issue-state).
+
 ### Works today ✅
 | Capability | Evidence |
 |------------|----------|
@@ -127,20 +133,120 @@ suite on 2026-06-15.
 | Spec validation | `make validate-spec` — all 5 validators pass |
 | Contract + unit + SDK tests | `make test-bdd`, `test-unit-go`, `test-unit-agents` (100% SDK cov) green |
 | Proto/Python lint, Go vuln scan | `make lint-protos`, `lint-agents`, `security-go` clean |
+| **OTEL trace + RED-metric core (Go)** ✅ *(was listed as missing)* | `libs/zynaxobs/tracing.go` `InitTracer()` OTLP/gRPC + W3C `traceparent`; `metrics.go` `zynax_grpc_requests_total`/`_duration_seconds`; `TracingStatsHandler()` wired in all 7 services' `main.go`. Backend/UI (Uptrace) is what's missing — see EPIC O |
+| **`/logs` SSE plumbing** ✅ *(was listed as stubbed)* | `services/api-gateway/internal/api/handler.go:133` `handleWorkflowLogs` streams `text/event-stream` via `WatchWorkflowLogs`; `"streaming not supported"` is only a defensive `http.Flusher` guard. Event-merge (engine history + capability events) still needs L.2 |
+| **pip CVE fixed; coverage gate honest; PyPI provenance recorded** ✅ | `infra/docker/Dockerfile.tools:152` pins `pip==26.1.2`; Q.2 #1213 + Q.3 #1214 closed |
 
-### Cannot do yet — **M7 scope** ❌
+### Cannot do yet — **M7 scope** ❌ *(corrected)*
 | Gap | Evidence | Owning EPIC |
 |-----|----------|-------------|
-| Workflow **state→state data flow** (`output:`) | `apply research-task.yaml` → `COMPILATION_ERROR … "output: which is not yet implemented; … upgrade to M7+"` | **EPIC W** |
-| Execution **log/event streaming** (`/logs`) | `GET …/logs` → `{"error":"streaming not supported","code":"INTERNAL"}` | **EPIC L** |
-| **OTEL traces / Prometheus metrics** | no telemetry emitted; no collector in compose | **EPIC O** |
-| `agents/examples/` reference agents | directory does not exist | **EPIC X** |
-| `make lint-go` / `make security-agents` clean run | tools image ships `pip 26.1.1` (PYSEC-2026-196; fix 26.1.2) | **EPIC Q** |
-| `make test-coverage` clean run | `services/event-bus/internal/domain` is interface-only → gate reads `0.0% < 90%` | **EPIC Q** |
-| PyPI **Trusted Publisher** provenance history | not documented in milestone history / release docs | **EPIC Q** |
+| Workflow **state→state data flow** (`output:`) — **keystone** | compiler rejects `output:` at `services/workflow-compiler/internal/domain/manifest.go:255-263` ("not yet implemented; … upgrade to M7+"); `ActionIR` in `protos/zynax/v1/workflow_compiler.proto` has no output fields. Reference `research-task.yaml`/`code-review.yaml` ship `output:` and therefore **do not compile today** | **EPIC W** (#1167) |
+| **Observability backend/UI** (Uptrace) + Python-adapter OTEL + log export + exemplars | Go OTEL core exists (above) but no Uptrace backend, no `infra/docker-compose/docker-compose.observability.yml`, **no `helm/charts/uptrace/`** (charts live at `helm/charts/`, *not* `infra/helm/`), no OTLP log export, no Python OTEL | **EPIC O** (#467) |
+| `/logs` **event-merge + CLI follower** | SSE plumbing present; missing per-workflow event subscription (L.2 #1181) + `zynax logs --follow` (L.4 #1183) | **EPIC L** (#468) |
+| `agents/examples/` reference agents | directory does not exist | **EPIC X** (#1170) |
+| Git **MCP shim** | no `.mcp.json`, no MCP server, no `zynax mcp` | **EPIC G** (#1169) |
+| **Benchmark / fuzz / required-integration / e2e** CI gates | no `Fuzz*.go`, no bench/fuzz workflow; integration advisory-only | **EPIC R** (#469) |
+| ~~`make lint-go` / `make security-agents` (pip 26.1.1)~~ | **DONE** — pip `26.1.2` pinned; Q.1 #1212 closed | ~~EPIC Q~~ ✅ |
+| ~~`make test-coverage` (interface-only event-bus)~~ | **DONE** — honest coverage gate; Q.2 #1213 closed | ~~EPIC Q~~ ✅ |
+| ~~PyPI Trusted Publisher provenance history~~ | **DONE** — recorded (§14); Q.3 #1214 closed | ~~EPIC Q~~ ✅ |
 
-These seven rows are **must-fix in M7** and are tracked explicitly in the acceptance matrix
-([§13](#13--acceptance-matrix)).
+The remaining open rows are tracked explicitly in the acceptance matrix ([§13](#13--acceptance-matrix)).
+
+---
+
+## 4a — Delivery Progress (live issue state)
+
+> Reconciled to GitHub milestone #7 + tree at HEAD on **2026-06-16**. Every M7 EPIC and story issue
+> already exists on GitHub (created 2026-06-15). Status legend: ✅ closed · ⬜ open · 🟡 open but
+> substantial groundwork in tree (orchestrate as **verify + extend**, not green-field).
+
+| Story | Issue | EPIC | Status | Notes |
+|-------|-------|------|--------|-------|
+| W.1 ADR-029 data-flow semantics | [#1175](https://github.com/zynax-io/zynax/issues/1175) | W #1167 | ✅ | ADR-029 Accepted |
+| W.2 proto output/input fields + `.feature` | [#1176](https://github.com/zynax-io/zynax/issues/1176) | W #1167 | ⬜ | **keystone — claim first** |
+| W.3 compiler compile/validate; lift rejection | [#1177](https://github.com/zynax-io/zynax/issues/1177) | W #1167 | ⬜ | removes `manifest.go:255-263` |
+| W.4 engine workflow-scoped data context | [#1178](https://github.com/zynax-io/zynax/issues/1178) | W #1167 | ⬜ | dep W.2/W.3 |
+| W.5 real workflows run green e2e | [#1179](https://github.com/zynax-io/zynax/issues/1179) | W #1167 | ⬜ | dep W.4 |
+| L.1 Temporal history long-poll | [#1180](https://github.com/zynax-io/zynax/issues/1180) | L #468 | ✅ | PR #1237 (old dup #492 closed) |
+| L.2 per-workflow event subscription stream | [#1181](https://github.com/zynax-io/zynax/issues/1181) | L #468 | ⬜ | unblocks L.3 event-merge |
+| L.3 streaming `GET /workflows/{id}/logs` | [#1182](https://github.com/zynax-io/zynax/issues/1182) | L #468 | 🟡 | SSE plumbing in `handler.go:133`; needs L.2 merge |
+| L.4 `zynax logs --follow` | [#1183](https://github.com/zynax-io/zynax/issues/1183) | L #468 | ⬜ | alias over existing SSE |
+| O.1 ADR-030 OTEL + Uptrace | [#1184](https://github.com/zynax-io/zynax/issues/1184) | O #467 | ✅ | ADR-030 Accepted |
+| O.2 shared OTEL providers package | [#1185](https://github.com/zynax-io/zynax/issues/1185) | O #467 | 🟡 | **exists as `libs/zynaxobs`** (planned name `zynaxotel` is wrong) — extend, don't recreate |
+| O.3 instrument all 7 services | [#1186](https://github.com/zynax-io/zynax/issues/1186) | O #467 | 🟡 | `TracingStatsHandler()` already wired in every `main.go` — verify+gap-fill |
+| O.4 RED metrics + exemplars | [#1187](https://github.com/zynax-io/zynax/issues/1187) | O #467 | 🟡 | RED metrics exist; exemplars missing |
+| O.5 trace propagation Temporal + NATS | [#1188](https://github.com/zynax-io/zynax/issues/1188) | O #467 | ⬜ | W3C propagator installed; verify Temporal/NATS hops |
+| O.6 Python adapter OTEL (traces+logs) | [#1189](https://github.com/zynax-io/zynax/issues/1189) | O #467 | ⬜ | |
+| O.7 local Uptrace docker-compose stack | [#1190](https://github.com/zynax-io/zynax/issues/1190) | O #467 | ⬜ | `infra/docker-compose/docker-compose.observability.yml` |
+| O.8 Uptrace Helm chart | [#1191](https://github.com/zynax-io/zynax/issues/1191) | O #467 | ⬜ | **`helm/charts/uptrace/`** (not `infra/helm/`) |
+| O.9 ship logs to Uptrace via OTLP + naming | [#1192](https://github.com/zynax-io/zynax/issues/1192) | O #467 | ⬜ | |
+| C.1 ADR-031 context model | [#1193](https://github.com/zynax-io/zynax/issues/1193) | C #1168 | ✅ | issue closed; **ADR-031 still `Proposed` → accept on canvas-C alignment** |
+| C.2 propagate correlation across hops | [#1194](https://github.com/zynax-io/zynax/issues/1194) | C #1168 | 🟡 | request-id+traceparent partially flow (`requestid.go`, `clients.go:276-302`) |
+| C.3 data-context read/write scoping | [#1195](https://github.com/zynax-io/zynax/issues/1195) | C #1168 | ⬜ | dep W |
+| C.4 agent handoff context contract | [#1196](https://github.com/zynax-io/zynax/issues/1196) | C #1168 | ⬜ | |
+| G.1 ADR-032 Git MCP shim | [#1197](https://github.com/zynax-io/zynax/issues/1197) | G #1169 | ✅ | ADR-032 Accepted |
+| G.2 MCP server over git-adapter | [#1198](https://github.com/zynax-io/zynax/issues/1198) | G #1169 | ⬜ | |
+| G.3 credential injection + redaction | [#1199](https://github.com/zynax-io/zynax/issues/1199) | G #1169 | ⬜ | Tier-2 security review |
+| G.4 `zynax mcp git` + `.mcp.json` | [#1200](https://github.com/zynax-io/zynax/issues/1200) | G #1169 | ⬜ | |
+| X.1 ADR-033 expert substrate | [#1201](https://github.com/zynax-io/zynax/issues/1201) | X #1170 | ✅ | issue closed; **ADR-033 still `Proposed` → accept on canvas-X alignment** |
+| X.2 `agents/examples/` reference agents | [#1202](https://github.com/zynax-io/zynax/issues/1202) | X #1170 | ⬜ | echo, summarizer, go-review-expert |
+| X.3 runtime expert (`kind: AgentDef`) | [#1203](https://github.com/zynax-io/zynax/issues/1203) | X #1170 | ⬜ | |
+| X.4 discover + test `agents/examples/*` | [#1204](https://github.com/zynax-io/zynax/issues/1204) | X #1170 | ⬜ | |
+| X.5 authoring↔runtime mapping + CI check | [#1205](https://github.com/zynax-io/zynax/issues/1205) | X #1170 | ⬜ | |
+| T.1 reusable templates + versioning | [#1206](https://github.com/zynax-io/zynax/issues/1206) | T #1171 | ⬜ | dep X |
+| T.2 `zynax validate` + version surfacing | [#1207](https://github.com/zynax-io/zynax/issues/1207) | T #1171 | ⬜ | |
+| T.3 three real runnable workflows | [#1208](https://github.com/zynax-io/zynax/issues/1208) | T #1171 | ⬜ | dep W,X |
+| T.4 `zynax init workflow\|expert` | [#1209](https://github.com/zynax-io/zynax/issues/1209) | T #1171 | ⬜ | |
+| R.1 benchmarks + regression gate | [#493](https://github.com/zynax-io/zynax/issues/493) | R #469 | ⬜ | |
+| R.2 fuzz YAML→IR compiler | [#1210](https://github.com/zynax-io/zynax/issues/1210) | R #469 | ⬜ | |
+| R.3 integration suite as required gate | [#553](https://github.com/zynax-io/zynax/issues/553) | R #469 | ⬜ | |
+| R.4 flip platform-readiness xfail to real e2e | [#1103](https://github.com/zynax-io/zynax/issues/1103) | R #469 | ⬜ | carried from M6 |
+| R.5 observability-validation trace assertion | [#1211](https://github.com/zynax-io/zynax/issues/1211) | R #469 | ⬜ | dep O |
+| Q.1 bump tools-image pip → 26.1.2 | [#1212](https://github.com/zynax-io/zynax/issues/1212) | Q #1172 | ✅ | |
+| Q.2 honest coverage gate | [#1213](https://github.com/zynax-io/zynax/issues/1213) | Q #1172 | ✅ | |
+| Q.3 PyPI Trusted Publisher provenance | [#1214](https://github.com/zynax-io/zynax/issues/1214) | Q #1172 | ✅ | §14 |
+| Q.4 verify pkg.go.dev consumption path | [#1215](https://github.com/zynax-io/zynax/issues/1215) | Q #1172 | ⬜ | old dup #582 closed |
+| Q.5 ADR-034 ManifestWorkflowID collision domain | [#1216](https://github.com/zynax-io/zynax/issues/1216) | Q #1172 | ⬜ | old dup #583 closed; **ADR-034 `Proposed` → accept** |
+| D.1 Quick Start + Developer Guide | [#1217](https://github.com/zynax-io/zynax/issues/1217) | D #1173 | ⬜ | dep T.3, O.7 |
+| D.2 Workflow + Expert authoring guides | [#1218](https://github.com/zynax-io/zynax/issues/1218) | D #1173 | ⬜ | |
+| D.3 Context + Git MCP guides | [#1219](https://github.com/zynax-io/zynax/issues/1219) | D #1173 | ⬜ | |
+| D.4 Observability (OTEL + Uptrace) guides | [#1220](https://github.com/zynax-io/zynax/issues/1220) | D #1173 | ⬜ | |
+| D.5 Examples index + best practices + FAQ + migration | [#1221](https://github.com/zynax-io/zynax/issues/1221) | D #1173 | ⬜ | |
+
+**Tally:** 11 closed / 36 open across 10 EPICs.
+
+### Ready to claim now for `/milestone-orchestrate` (priority order, ≤3 per batch)
+**Strictly unblocked** = every dependency is closed/none. Each EPIC's `*.1` ADR step is closed, so:
+
+| # | Issue | Why ready | Note |
+|---|-------|-----------|------|
+| 1 | **W.2 [#1176]** | dep W.1 #1175 ✅ | **keystone — claim first** (W/C/T/X data-flow all gate on it) |
+| 2 | **O.2 [#1185]** | dep O.1 #1184 ✅ | 🟡 verify+extend `libs/zynaxobs`; unblocks O.4/O.6/O.7 |
+| 3 | **L.2 [#1181]** | dep L.1 #1180 ✅ | unblocks `/logs` event-merge (L.3) |
+
+Also strictly-ready for later batches (deps closed/none): **G.2 [#1198]**, **X.2 [#1202]**,
+**R.1 [#493]**, **R.3 [#553]**, **R.4 [#1103]**, **Q.4 [#1215]**, **Q.5 [#1216]**.
+Unblock after W.2 merges: **W.3 [#1177]** → then **R.2 [#1210]**, **T.1 [#1206]** (both dep W.3).
+Do **not** front-load O.7 #1190 / O.8 #1191 — they depend on O.2 #1185.
+
+### State-hygiene flags (for a maintainer; not auto-fixable here)
+- **Closed duplicate issues** already superseded — harmless to orchestrate but worth closing-as-dup
+  with a note: #492 (old L.1), #582 (old Q.4), #583 (old Q.5).
+- **EPIC #468 is CLOSED on GitHub** but is listed in `state/milestone.yaml › open_epics` and remains
+  the parent of open L.2–L.4. Its stories are live; only the EPIC umbrella is closed. `milestone.yaml`
+  is mutated **only** by `/milestone-new` / `/milestone-close` — flag for the next milestone op.
+- **EPIC #467 title** still reads the pre-absorption "Wire Prometheus + OTel"; scope is the broader
+  OTEL+Uptrace EPIC O. Cosmetic; retitle on next touch.
+- **ADRs 031 / 033 / 034 are still `Proposed`** while their docs issues are closed — promote to
+  `Accepted` as each canvas (C / X / Q) reaches `Aligned`.
+- **Issue dependency markers are inconsistent.** Many open stories express deps as bare step
+  labels (e.g. #1177 `Dependencies: W.2`, #1186 `Dependencies: O.2`) with no issue number, while
+  others use `#N` (e.g. #1195, #1208). The §4a table above is the authoritative step→`#N` map the
+  orchestrator should use to classify BLOCKED vs READY. **Recommended one-time normalization**
+  (a `gh issue edit` pass, awaiting maintainer go-ahead): rewrite each bare-label dep to
+  `Depends on #N` so `/milestone-orchestrate` STEP 3 detects blockers without cross-referencing.
+  Step-label-only issues needing it: #1177 #1178 #1179 #1182 #1183 #1186 #1187 #1188 #1189 #1190
+  #1191 #1192 #1196 #1199 #1200 #1204 #1207 #1209.
 
 ---
 
@@ -169,20 +275,20 @@ duplicated. New EPICs are created by this plan ([§10](#10--github-bootstrap)).
 ### EPIC W — Workflow data-flow *(keystone; everything depends on it)*
 **Why first:** real workflows and expert pipelines are impossible without state→state data.
 The compiler explicitly rejects `output:` today.
-- **W.1** ADR: data-flow semantics & scoping model (`adr-proposal`) — see [ADR-029 stub](../adr/ADR-029-workflow-data-flow.md)
-- **W.2** Proto: `output`/`input` binding fields on `WorkflowIR` state/action + `.feature` (feat, new gRPC boundary → `/spdd-api-test`)
-- **W.3** Compiler: compile `output:` bindings to IR; validate references; lift the "not implemented" rejection
-- **W.4** Engine-adapter: interpreter threads outputs into a workflow-scoped data context; inputs resolve from it
-- **W.5** End-to-end: make `research-task.yaml` + `code-review.yaml` apply and run green
+- **W.1** [#1175 ✅] ADR: data-flow semantics & scoping model — [ADR-029](../adr/ADR-029-workflow-data-flow.md) (Accepted)
+- **W.2** [#1176] Proto: `output`/`input` binding fields on `WorkflowIR` state/action + `.feature` (feat, new gRPC boundary → `/spdd-api-test`) — **keystone, claim first**
+- **W.3** [#1177] Compiler: compile `output:` bindings to IR; validate references; **lift the rejection at `services/workflow-compiler/internal/domain/manifest.go:255-263`**
+- **W.4** [#1178] Engine-adapter: interpreter threads outputs into a workflow-scoped data context; inputs resolve from it
+- **W.5** [#1179] End-to-end: make `research-task.yaml` + `code-review.yaml` apply and run green (they ship `output:` today and therefore do not compile)
 **DoD:** `apply research-task.yaml` reaches terminal state with `summarize` consuming `search`'s output; BDD scenario for data-flow; ≥90% domain cov.
 
 ### EPIC L — Execution log/event streaming
 **Why:** the `/logs` endpoint is stubbed; developers can't watch a run. Couples with #468
 (replace polling with Temporal history long-poll) on the engine side.
-- **L.1** Engine-adapter: history streaming (long-poll `GetWorkflowHistory`) — **closes #468**
-- **L.2** Event-bus: per-workflow event subscription stream (reuse `Subscribe` w/ `WorkflowID` scope)
-- **L.3** api-gateway: real Server-Sent-Events / chunked `GET /api/v1/workflows/{id}/logs`
-- **L.4** CLI: `zynax logs <run-id> --follow`
+- **L.1** [#1180 ✅] Engine-adapter: history streaming (long-poll `GetWorkflowHistory`) — merged (PR #1237)
+- **L.2** [#1181] Event-bus: per-workflow event subscription stream (reuse `Subscribe` w/ `WorkflowID` scope)
+- **L.3** [#1182 🟡] api-gateway: SSE `GET /api/v1/workflows/{id}/logs` — **plumbing already in `handler.go:133`**; remaining work is merging engine history + L.2 capability events
+- **L.4** [#1183] CLI: `zynax logs <run-id> --follow`
 **DoD:** streaming logs for the e2e-demo run show each state transition + capability event; no `streaming not supported`.
 
 ### EPIC O — Observability: OTEL + **Uptrace (traces · metrics · logs · APM, with login UI)** + Prometheus *(absorbs #467)*
@@ -191,34 +297,39 @@ and APM**, with its **web UI (login) for viewing logs and service maps**; **OTLP
 OTLP/HTTP optional. No Jaeger/Loki/Elasticsearch (see [ADR-030 stub](../adr/ADR-030-observability-uptrace.md)).
 Uptrace ships in **both** the local `docker compose` stack **and** the Helm deployment, so a
 developer always has a UI to see logs/traces — locally and in-cluster.
-- **O.1** ADR: OTEL + Uptrace (traces+metrics+logs+APM), OTLP/gRPC default, head-based parent sampling (`adr-proposal`)
-- **O.2** Shared `libs/zynaxotel` Go package: tracer/meter/**logger** providers, OTLP exporter, resource attrs (semconv)
-- **O.3** Instrument all 7 services: gRPC server/client interceptors + HTTP middleware (api-gateway)
-- **O.4** Prometheus `/metrics` already exists (M6 gRPC health/metrics) — add RED metrics + exemplars; forward to Uptrace metrics
-- **O.5** Trace propagation across Temporal activities + NATS headers (W3C `traceparent`)
-- **O.6** Python adapters: OTEL SDK (traces+logs) in `agents/sdk`; auto-instrument capability handlers
-- **O.7** **`docker compose up` Uptrace stack** (`infra/docker-compose/docker-compose.observability.yml`): Uptrace + its ClickHouse/Postgres deps + OTLP collector; **login UI on a 70xx host port** for logs/traces/APM
-- **O.8** **Uptrace Helm chart** (`infra/helm/charts/uptrace/`): Deployment/Service/Ingress + login UI, wired as the in-cluster OTLP endpoint; values toggle (`observability.enabled`)
-- **O.9** **Log export to Uptrace** (structured logs shipped via OTLP logs) so logs are viewable in the Uptrace UI alongside traces; span/metric naming conventions doc + `trace_id`/`span_id` in every log line
+> **Reconciliation:** the Go OTEL **trace + RED-metric core already exists** in **`libs/zynaxobs`**
+> (`tracing.go` OTLP/gRPC + W3C propagator, `metrics.go` RED counters, `TracingStatsHandler()` wired
+> in all 7 `main.go`). O.2/O.3 are therefore **verify + extend on `libs/zynaxobs`** (the planned name
+> `libs/zynaxotel` has zero references — do not create a parallel package). The net-new work is the
+> **Uptrace backend + UI, the OTLP collector, log export, exemplars, and Python-adapter OTEL.**
+- **O.1** [#1184 ✅] ADR: OTEL + Uptrace — [ADR-030](../adr/ADR-030-observability-uptrace.md) (Accepted)
+- **O.2** [#1185 🟡] **Extend `libs/zynaxobs`** with the logger provider + log OTLP exporter (tracer/meter already present)
+- **O.3** [#1186 🟡] Verify gRPC server/client interceptors across all 7 services (already wired) + add HTTP middleware on api-gateway
+- **O.4** [#1187 🟡] RED metrics exist — add **exemplars**; forward to Uptrace metrics
+- **O.5** [#1188] Trace propagation across Temporal activities + NATS headers (W3C `traceparent`)
+- **O.6** [#1189] Python adapters: OTEL SDK (traces+logs) in `agents/sdk`; auto-instrument capability handlers
+- **O.7** [#1190] **`docker compose up` Uptrace stack** (`infra/docker-compose/docker-compose.observability.yml`): Uptrace + its ClickHouse/Postgres deps + OTLP collector; **login UI on a 70xx host port** for logs/traces/APM
+- **O.8** [#1191] **Uptrace Helm chart** (**`helm/charts/uptrace/`** — charts live at `helm/charts/`, *not* `infra/helm/`): Deployment/Service/Ingress + login UI, wired as the in-cluster OTLP endpoint; values toggle (`observability.enabled`)
+- **O.9** [#1192] **Log export to Uptrace** (structured logs shipped via OTLP logs) so logs are viewable in the Uptrace UI alongside traces; span/metric naming conventions doc + `trace_id`/`span_id` in every log line
 **DoD:** one workflow run produces a connected trace across all hops **and its logs**, viewable
 in the **Uptrace login UI** (local compose **and** Helm); RED metrics scraped; APM/service-map populated.
 
 ### EPIC C — Context propagation
 **Why:** experts and multi-step workflows need deterministic context (both **trace context**
 and **workflow data context**) to flow across service, engine, and agent boundaries.
-- **C.1** ADR: context model — trace context vs. data context vs. correlation IDs; inheritance & handoff rules ([ADR-031 stub](../adr/ADR-031-context-propagation.md))
-- **C.2** Propagate `traceparent` + `x-request-id` + `x-namespace` through every gRPC hop and Temporal memo
-- **C.3** Workflow-scoped data context store (builds on EPIC W) with explicit read/write scoping
-- **C.4** Documented handoff contract between agents (what context an agent receives/returns)
+- **C.1** [#1193 ✅] ADR: context model — [ADR-031](../adr/ADR-031-context-propagation.md) (issue closed; **promote ADR `Proposed`→`Accepted`** on canvas alignment)
+- **C.2** [#1194 🟡] Propagate `traceparent` + `x-request-id` + `x-namespace` through every gRPC hop and Temporal memo (request-id + traceparent partially flow via `requestid.go` + `clients.go:276-302`)
+- **C.3** [#1195] Workflow-scoped data context store (builds on EPIC W) with explicit read/write scoping
+- **C.4** [#1196] Documented handoff contract between agents (what context an agent receives/returns)
 **DoD:** a request-id set at api-gateway appears in every downstream span and log line for that run; documented in the context guide.
 
 ### EPIC G — Git MCP shim over git-adapter
 **Decision:** MCP is a **thin protocol shim over the existing git-adapter** (one Git
 implementation, two surfaces) — see [ADR-032 stub](../adr/ADR-032-git-mcp-shim.md).
-- **G.1** ADR: MCP-shim-over-adapter; least-privilege token injection; **no secrets in prompts**
-- **G.2** MCP server exposing git-adapter capabilities (clone/branch/commit/PR/review) as MCP tools
-- **G.3** Credential injection via env/secret ref at process start; redaction in logs/traces
-- **G.4** CLI/dev wiring: `zynax mcp git` + `.mcp.json` example for Claude Code authoring loop
+- **G.1** [#1197 ✅] ADR: MCP-shim-over-adapter — [ADR-032](../adr/ADR-032-git-mcp-shim.md) (Accepted)
+- **G.2** [#1198] MCP server exposing git-adapter capabilities (clone/branch/commit/PR/review) as MCP tools
+- **G.3** [#1199] Credential injection via env/secret ref at process start; redaction in logs/traces
+- **G.4** [#1200] CLI/dev wiring: `zynax mcp git` + `.mcp.json` example for Claude Code authoring loop
 **DoD:** an authoring session can open a PR via MCP with a scoped token; no token ever serialized into a prompt; security review PASS.
 
 ### EPIC X — Expert-agent substrate + `agents/examples/`
@@ -226,43 +337,43 @@ implementation, two surfaces) — see [ADR-032 stub](../adr/ADR-032-git-mcp-shim
 OTEL-traced) for in-workflow execution **and** Claude Code experts (extend
 `automation/workflows/experts/*.yaml` + `.claude` skills) for the delivery/authoring loop, with
 a documented mapping ([ADR-033 stub](../adr/ADR-033-expert-agent-substrate.md)).
-- **X.1** ADR: expert substrate + runtime↔authoring mapping table
-- **X.2** Create `agents/examples/` with three reference agents (uses SDK): `echo`, `summarizer`, `go-review-expert`
-- **X.3** Runtime expert pattern: `kind: AgentDef` expert template + registration + capability schema
-- **X.4** Wire `make lint-agent`/`test-unit-agent` to discover `agents/examples/*`
-- **X.5** Map each authoring expert (`experts/*.yaml`) to its runtime counterpart (or "authoring-only")
+- **X.1** [#1201 ✅] ADR: expert substrate + runtime↔authoring mapping — [ADR-033](../adr/ADR-033-expert-agent-substrate.md) (issue closed; **promote ADR `Proposed`→`Accepted`** on canvas alignment)
+- **X.2** [#1202] Create `agents/examples/` with three reference agents (uses SDK): `echo`, `summarizer`, `go-review-expert`
+- **X.3** [#1203] Runtime expert pattern: `kind: AgentDef` expert template + registration + capability schema
+- **X.4** [#1204] Wire `make lint-agent`/`test-unit-agent` to discover `agents/examples/*`
+- **X.5** [#1205] Map each authoring expert (`experts/*.yaml`) to its runtime counterpart (or "authoring-only")
 **DoD:** `agents/examples/` builds, lints, tests; `go-review-expert` registers and is dispatchable in a workflow with a trace.
 
 ### EPIC T — Reusable templates + first real workflows
-- **T.1** Template mechanism: workflow templates + task templates + expert templates (with versioning field)
-- **T.2** Workflow validation + versioning fields surfaced in CLI (`zynax validate`, `version:`)
-- **T.3** First **production-quality** real workflows (runnable end-to-end): `code-review`, `ci-pipeline`, `feature-implementation`
-- **T.4** `zynax init workflow|expert` scaffolds from templates
+- **T.1** [#1206] Template mechanism: workflow templates + task templates + expert templates (with versioning field)
+- **T.2** [#1207] Workflow validation + versioning fields surfaced in CLI (`zynax validate`, `version:`)
+- **T.3** [#1208] First **production-quality** real workflows (runnable end-to-end): `code-review`, `ci-pipeline`, `feature-implementation`
+- **T.4** [#1209] `zynax init workflow|expert` scaffolds from templates
 **DoD:** the three real workflows apply and run green locally with data-flow + traces; templates documented.
 
 ### EPIC R — Test rigor *(absorbs #469; pulls in #553, #493, #1103)*
-- **R.1** Benchmarks for IRInterpreter + workflow-compiler with regression gate — **#493**
-- **R.2** Fuzz tests for the YAML→IR compiler
-- **R.3** Activate integration test suite as a required CI gate — **#553**
-- **R.4** Flip platform-readiness `xfail` to real `zynax apply` e2e — **#1103**
-- **R.5** Observability validation test: assert a run emits a connected trace
+- **R.1** [#493] Benchmarks for IRInterpreter + workflow-compiler with regression gate
+- **R.2** [#1210] Fuzz tests for the YAML→IR compiler
+- **R.3** [#553] Activate integration test suite as a required CI gate
+- **R.4** [#1103] Flip platform-readiness `xfail` to real `zynax apply` e2e
+- **R.5** [#1211] Observability validation test: assert a run emits a connected trace
 **DoD:** benchmarks + fuzz + integration + e2e + observability tests run in CI as gates.
 
 ### EPIC Q — Quality & supply-chain fixes (audit closeout)
 *(Directly closes the [§4](#4--reality-check-what-zynax-can-and-cannot-do-today) red rows that aren't features.)*
-- **Q.1** Bump tools image `pip` → 26.1.2 (PYSEC-2026-196) so `make security-agents` / `lint-go` run clean — `ci`
-- **Q.2** Coverage gate: exclude/ærhandle interface-only packages (`event-bus/internal/domain`) so `make test-coverage` passes honestly — `ci`
-- **Q.3** Document **PyPI Trusted Publisher** provenance in milestone history + release docs (the SDK publishes via Trusted Publisher; record the OIDC publisher config + first-publish provenance) — `docs`
-- **Q.4** Verify & document Go module consumption path (pkg.go.dev) — **#582**
-- **Q.5** ADR for `ManifestWorkflowID` 64-bit collision domain — **#583**
+- **Q.1** [#1212 ✅] Bump tools image `pip` → 26.1.2 (PYSEC-2026-196) — done (`infra/docker/Dockerfile.tools:152`)
+- **Q.2** [#1213 ✅] Honest coverage gate for interface-only packages (`event-bus/internal/domain`) — done
+- **Q.3** [#1214 ✅] Document **PyPI Trusted Publisher** provenance ([§14](#14--pypi-trusted-publisher-history)) — done
+- **Q.4** [#1215] Verify & document Go module consumption path (pkg.go.dev) — *(supersedes closed #582)*
+- **Q.5** [#1216] ADR for `ManifestWorkflowID` 64-bit collision domain — promote [ADR-034](../adr/ADR-034-manifest-workflow-id-collision-domain.md) `Proposed`→`Accepted` *(supersedes closed #583)*
 **DoD:** `make ci` is green end-to-end on a clean checkout; PyPI Trusted Publisher history present in this doc ([§14](#14--pypi-trusted-publisher-history)).
 
 ### EPIC D — Docs: quick-start + authoring + observability
-- **D.1** Quick Start (`docker compose up` → apply → watch trace) + Developer Guide
-- **D.2** Workflow Authoring + Expert Authoring guides
-- **D.3** Context System + Git MCP guides
-- **D.4** Observability + OpenTelemetry + Uptrace guides (sampling/retention/troubleshooting)
-- **D.5** Examples index + Best Practices + FAQ + Migration notes (v0.5→v0.6)
+- **D.1** [#1217] Quick Start (`docker compose up` → apply → watch trace) + Developer Guide
+- **D.2** [#1218] Workflow Authoring + Expert Authoring guides
+- **D.3** [#1219] Context System + Git MCP guides
+- **D.4** [#1220] Observability + OpenTelemetry + Uptrace guides (sampling/retention/troubleshooting)
+- **D.5** [#1221] Examples index + Best Practices + FAQ + Migration notes (v0.5→v0.6)
 **DoD:** a new developer can go from clone to a traced real-workflow run using only the docs.
 
 ---
@@ -312,13 +423,16 @@ graph TD
 
 Designed for autonomous/parallel agent execution (≤3 concurrent per `/milestone-orchestrate`).
 
+> **Reconciliation (2026-06-16):** Wave 0 is **complete** (Q.1 #1212 / Q.2 #1213 / Q.3 #1214 closed)
+> and every EPIC's W.1/O.1/C.1/G.1/X.1 ADR step is closed. Execution now starts at **Wave 1, W.2 #1176**.
+
 | Wave | EPICs / tasks (parallel) | Gate to advance |
 |------|--------------------------|-----------------|
-| **0** | Q.1, Q.2, Q.3 (CI green + provenance) | `make ci` green on clean checkout |
-| **1** | W.1–W.5 (data-flow) · O.1–O.4 (OTEL core) · G.1–G.2 (MCP shim) | data-flow e2e green; trace visible in Uptrace |
-| **2** | C.1–C.4 (context) · O.5–O.8 (propagation+Uptrace compose) · L.1–L.4 (log streaming) | request-id end-to-end; `/logs` streams |
-| **3** | X.1–X.5 (experts + examples) · T.1–T.4 (templates + real workflows) · G.3–G.4 | 3 real workflows run; reference agents dispatchable |
-| **4** | R.1–R.5 (test rigor) · D.1–D.5 (docs) · Q.4/Q.5 | all CI gates active; docs complete; acceptance matrix green |
+| **0** ✅ | ~~Q.1 #1212 · Q.2 #1213 · Q.3 #1214~~ (CI green + provenance) — **done** | `make ci` green on clean checkout ✅ |
+| **1** | **W.2 #1176→W.5 #1179** (data-flow) · O.2 #1185–O.4 #1187 (verify+extend OTEL core) · G.2 #1198 (MCP server) | data-flow e2e green; trace visible in Uptrace |
+| **2** | C.2 #1194–C.4 #1196 (context) · O.5 #1188–O.9 #1192 (propagation + Uptrace compose/Helm) · L.2 #1181–L.4 #1183 (log streaming) | request-id end-to-end; `/logs` streams |
+| **3** | X.2 #1202–X.5 #1205 (experts + examples) · T.1 #1206–T.4 #1209 (templates + real workflows) · G.3 #1199/G.4 #1200 | 3 real workflows run; reference agents dispatchable |
+| **4** | R.1 #493–R.5 #1211 (test rigor) · D.1 #1217–D.5 #1221 (docs) · Q.4 #1215/Q.5 #1216 | all CI gates active; docs complete; acceptance matrix green |
 
 Each task = one small, independently mergeable PR (≤400 lines target; planning/docs/spec
 exempt per CLAUDE.md PR-size rules).
@@ -401,15 +515,15 @@ gh issue create \
 
 | ADR | Title | Status | One-way door? | EPIC |
 |-----|-------|--------|---------------|------|
-| ADR-029 | Workflow data-flow semantics (binding model, scoping) | Proposed | Yes — proto contract | W |
-| ADR-030 | Observability: OTEL + Uptrace, OTLP/gRPC, head sampling | Proposed | Yes — backend choice | O |
-| ADR-031 | Context propagation model (trace vs data vs correlation) | Proposed | Yes — cross-service contract | C |
-| ADR-032 | Git MCP as a thin shim over git-adapter | Proposed | Partly — auth model | G |
-| ADR-033 | Expert-agent substrate (runtime AgentDef + authoring experts) | Proposed | Yes — agent model | X |
-| ADR-034 | `ManifestWorkflowID` 64-bit collision domain (from #583) | Proposed | No | Q |
+| ADR-029 | Workflow data-flow semantics (binding model, scoping) | **Accepted** | Yes — proto contract | W |
+| ADR-030 | Observability: OTEL + Uptrace, OTLP/gRPC, head sampling | **Accepted** | Yes — backend choice | O |
+| ADR-031 | Context propagation model (trace vs data vs correlation) | Proposed → accept on canvas-C alignment | Yes — cross-service contract | C |
+| ADR-032 | Git MCP as a thin shim over git-adapter | **Accepted** | Partly — auth model | G |
+| ADR-033 | Expert-agent substrate (runtime AgentDef + authoring experts) | Proposed → accept on canvas-X alignment | Yes — agent model | X |
+| ADR-034 | `ManifestWorkflowID` 64-bit collision domain (from #583) | Proposed → accept in Q.5 #1216 | No | Q |
 
-Stubs for ADR-029–033 are committed with this plan under [docs/adr/](../adr/) (status `Proposed`;
-finalized during each EPIC's canvas alignment).
+ADR-029/030/032 are **Accepted** (per [docs/adr/INDEX.md](../adr/INDEX.md)); 031/033/034 remain
+`Proposed` and should be promoted to `Accepted` as canvases C/X/Q reach `Aligned`.
 
 ---
 
@@ -423,7 +537,7 @@ finalized during each EPIC's canvas alignment).
 - Span naming: `<service>.<rpc>` for gRPC, `workflow.<state>` / `capability.<name>` for execution.
 - Sampling: head-based parent sampling (configurable ratio; 100% local dev). Retention: M7 = dev defaults; scale retention → M8.
 - **Local:** `docker compose -f …observability.yml up` brings Uptrace (+ deps + OTLP collector) with the login UI on a 70xx port.
-- **In-cluster:** `infra/helm/charts/uptrace/` deploys Uptrace + UI behind an Ingress, toggled by `observability.enabled`, so logs/traces are visible in any environment — not just locally.
+- **In-cluster:** `helm/charts/uptrace/` (charts live at `helm/charts/`, not `infra/helm/`) deploys Uptrace + UI behind an Ingress, toggled by `observability.enabled`, so logs/traces are visible in any environment — not just locally.
 - Validation: R.5 asserts a connected end-to-end trace per run.
 
 ### Security plan (review BEFORE implementation — Tier 2 scan per canvas)
