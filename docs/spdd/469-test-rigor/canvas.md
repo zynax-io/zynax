@@ -6,7 +6,7 @@
 
 **Issue:** #469 (absorbed) + #493 #553 #1103 · **Milestone:** M7 (v0.6.0)
 **Author:** M7 program plan (consolidates #469 "M7.C Test Rigor Upgrade" by Oscar Gómez Manresa)
-**Date:** 2026-06-16 · **Status:** Draft
+**Date:** 2026-06-16 · **Status:** Aligned
 
 **Child issues:** #493 (benchmarks + fuzz + request correlation logging) · #553 (integration gate) · #1103 (real e2e)
 
