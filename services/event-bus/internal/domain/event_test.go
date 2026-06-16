@@ -115,6 +115,34 @@ func TestSubscribeRequest_ZeroValue(t *testing.T) {
 	}
 }
 
+func TestIsTerminalEventType(t *testing.T) {
+	cases := []struct {
+		name      string
+		eventType string
+		want      bool
+	}{
+		{"completed full taxonomy", "zynax.v1.engine-adapter.workflow.completed", true},
+		{"failed full taxonomy", "zynax.v1.engine-adapter.workflow.failed", true},
+		{"terminated", "zynax.v1.engine-adapter.workflow.terminated", true},
+		{"canceled", "zynax.v1.engine-adapter.workflow.canceled", true},
+		{"timed_out", "zynax.v1.engine-adapter.workflow.timed_out", true},
+		{"bare completed verb", "workflow.completed", true},
+		{"engine lifecycle completed", "zynax.workflow.completed", true},
+		{"engine lifecycle failed", "zynax.workflow.failed", true},
+		{"non-terminal state transition", "zynax.v1.engine-adapter.workflow.state.entered", false},
+		{"capability event", "zynax.v1.task-broker.task.completed", false},
+		{"empty", "", false},
+		{"suffix-only false positive guard", "myworkflow.completed", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := domain.IsTerminalEventType(tc.eventType); got != tc.want {
+				t.Errorf("IsTerminalEventType(%q) = %v, want %v", tc.eventType, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestErrors_Sentinel(t *testing.T) {
 	if domain.ErrTopicNotFound == nil {
 		t.Error("ErrTopicNotFound must not be nil")

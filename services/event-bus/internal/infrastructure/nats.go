@@ -408,6 +408,15 @@ func dispatchMsg(ctx context.Context, msg *nats.Msg, req domain.SubscribeRequest
 	case ch <- event:
 		_ = msg.Ack()
 	}
+
+	// A workflow-scoped subscription is a per-run follower: once that run
+	// reaches a terminal lifecycle event no further events are coming, so
+	// deliver the terminal event (above) and then close the stream. Wildcard
+	// subscriptions (no WorkflowID scope) span many runs and must not close on
+	// one run's terminal event.
+	if req.WorkflowID != "" && domain.IsTerminalEventType(event.Type) {
+		return true
+	}
 	return false
 }
 
