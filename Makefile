@@ -8,6 +8,10 @@ SHELL         := /bin/bash
 GO_SERVICES   := $(shell grep -E '^\s+\./services/' go.work | sed 's|.*services/||' | tr -d '\t ' | sort)
 # Auto-discovered from go.work — no manual update needed when adding a new adapter module under agents/adapters/.
 GO_ADAPTERS   := $(shell grep -E '^\s+\./agents/adapters/' go.work | sed 's|.*agents/adapters/||' | tr -d '\t ' | sort)
+# Services carrying Go benchmarks (EPIC R / #493). Add a service here when it gains a Benchmark* test.
+BENCH_SERVICES := engine-adapter workflow-compiler
+# Committed benchmark baseline — CI compares fresh runs against this with benchstat.
+BENCH_BASELINE := tools/bench-baseline.txt
 # Auto-discovered from agents/examples/*/pyproject.toml — no manual update needed when adding a new agent.
 AGENTS        := $(shell find agents/examples -maxdepth 2 -name pyproject.toml -exec dirname {} \; 2>/dev/null | xargs -rI{} basename {} | sort)
 COMPOSE          := docker compose -f infra/docker-compose/docker-compose.yml
@@ -168,7 +172,7 @@ lint-fix: ensure-tools ## Auto-fix Python agent lint errors
 		$(TOOLS_RUN) sh -c "cd agents/examples/$$a && uv run ruff check --fix src/ tests/ && uv run ruff format src/ tests/" || true; done
 
 # ── Tests ──────────────────────────────────────────────────────────────────
-.PHONY: test test-unit test-unit-go test-unit-adapters test-unit-svc test-unit-agents test-unit-agent test-bdd test-coverage test-coverage-adapters test-integration
+.PHONY: test test-unit test-unit-go test-unit-adapters test-unit-svc test-unit-agents test-unit-agent test-bdd test-coverage test-coverage-adapters test-integration bench
 test: validate-spec test-unit test-bdd test-coverage test-coverage-adapters ## ★ Full local test suite — mirrors CI (spec + Go + Python + BDD + coverage gate)
 test-unit: test-unit-go test-unit-adapters test-unit-agents ## All unit tests (Go services + Go adapters + Python)
 
@@ -261,6 +265,16 @@ test-integration: check-docker ## Integration tests (//go:build integration file
 	@echo "Stopping testing backing services..."
 	$(COMPOSE_SERVICES) --profile testing down --remove-orphans
 	@echo "✅ Integration tests passed"
+
+bench: ensure-tools ## Run domain benchmarks and regenerate $(BENCH_BASELINE) (-bench=. -benchmem -count=3)
+	@echo "📊 Running benchmarks → $(BENCH_BASELINE)"
+	@: > "$(BENCH_BASELINE)"
+	@for svc in $(BENCH_SERVICES); do \
+		echo "── bench: services/$$svc"; \
+		$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off go test ./internal/domain/... -run='^\$$' -bench=. -benchmem -count=3" \
+			| tee -a "$(BENCH_BASELINE)" || exit 1; \
+	done
+	@echo "✅ Benchmarks complete — baseline written to $(BENCH_BASELINE)"
 
 # ── Proto generation + lint ────────────────────────────────────────────────
 .PHONY: generate-protos go-generate lint-protos

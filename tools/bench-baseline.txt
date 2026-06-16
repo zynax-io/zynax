@@ -1,0 +1,20 @@
+# Zynax benchmark baseline — committed reference for the CI regression gate (EPIC R / #493).
+#
+# Regenerate with:  make bench
+# CI compares fresh runs against this file with benchstat; >20% regression warns
+# (fail-open until a stable 3-run baseline is established, then blocking).
+#
+# Format below is standard `go test -bench` output (benchstat-parseable). Absolute
+# ns/op figures are machine-dependent — the gate compares ratios, not absolutes.
+goos: linux
+goarch: amd64
+pkg: github.com/zynax-io/zynax/services/engine-adapter/internal/domain
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkIRInterpreter-16    	   47688	     22261 ns/op	   37792 B/op	     267 allocs/op
+BenchmarkIRInterpreter-16    	   55714	     21154 ns/op	   37792 B/op	     267 allocs/op
+BenchmarkIRInterpreter-16    	   54642	     21719 ns/op	   37792 B/op	     267 allocs/op
+pkg: github.com/zynax-io/zynax/services/workflow-compiler/internal/domain
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkParseManifest-16    	    6780	    165789 ns/op	   89687 B/op	    1401 allocs/op
+BenchmarkParseManifest-16    	    6921	    184089 ns/op	   89686 B/op	    1401 allocs/op
+BenchmarkParseManifest-16    	    6559	    204848 ns/op	   89686 B/op	    1401 allocs/op
