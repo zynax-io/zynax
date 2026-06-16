@@ -3,7 +3,7 @@
 > Tier 1 (public-safe). Tier 2 → `canvas.private.md`. Run `/spdd-security-review` before committing.
 
 **Issue:** #468 (engine side; EPIC L) · **Milestone:** M7 (v0.6.0)
-**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Draft
+**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Aligned
 
 ---
 
@@ -16,11 +16,17 @@
 
 ## E — Entities
 ```
-EngineAdapter.HistoryStream      ← long-poll GetWorkflowHistory → ordered events
+EngineAdapter.HistoryStream      ← GetWorkflowExecutionHistory(isLongPoll=true) → ordered events
+  Temporal history event types   ← WorkflowExecutionStarted / ActivityTaskCompleted /
+                                    WorkflowExecutionCompleted … → StateTransitionEvent
+                                    (from_state/to_state/event_type, ordered, non-empty)
+  WatchTask RPC (TaskBrokerSvc)  ← broker pushes activity events (replaces GetTask 500ms poll)
 EventBus subscription (scoped)   ← per-workflow CloudEvents (TypePattern + WorkflowID)
 api-gateway log stream           ← SSE/chunked HTTP merging engine history + events
 CLI follower (`zynax logs`)      ← consumes the stream
 ```
+> L.1 (history long-poll + WatchTask streaming) was delivered via #1180 / PR #1237; the original
+> M7.B refactor canvas (`468-history-streaming`) is consolidated here.
 
 ## A — Approach
 **We will:** replace polling with Temporal **history long-poll** (closes #468); reuse EventBus
@@ -40,9 +46,9 @@ Config env prefix: `ZYNAX_ENGINE_ADAPTER_` / `ZYNAX_GW_`.
 ## O — Operations (stories — `spdd-story` form)
 
 **GitHub issues:** L.1 #1180 · L.2 #1181 · L.3 #1182 · L.4 #1183 (epic #468)
-**L.1 — Engine-adapter history streaming (closes #468)** · M · `refactor`
+**L.1 — Engine-adapter history streaming (closes #468)** · M · `refactor` · **delivered: #1180 (PR #1237)**
 - As an `operator`, I want history long-poll instead of polling so events stream with low latency.
-- AC: [ ] `GetWorkflowHistory` long-poll replaces `DescribeWorkflowExecution` polling; [ ] ordered event stream; [ ] domain cov ≥90%. Deps: none.
+- AC: [x] `GetWorkflowExecutionHistory(isLongPoll=true)` replaces `DescribeWorkflowExecution` polling (no periodic `DescribeWorkflowExecution` calls during a running workflow); [x] history events mapped to ordered `StateTransitionEvent`s with correct non-empty `from_state`/`to_state` (fixes the empty-state fidelity bug from review §5.6/H6/R10); [x] `GetTask` polling replaced with `WatchTask` streaming RPC (reconnect-with-backoff on broker restart); [x] activity completion latency p50 ≤ 100 ms (broker ACK → Temporal completion); [x] domain cov ≥90%. Deps: none.
 
 **L.2 — Per-workflow event subscription** · S · `feat`
 - As the `gateway`, I want a workflow-scoped event stream so capability events reach clients.
