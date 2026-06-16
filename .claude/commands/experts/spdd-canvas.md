@@ -27,7 +27,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `ALIGN` | When setting `Status: Aligned` on the canvas |
 | `STORIES` | When creating story issues via `/spdd-story` |
 | `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
-| `PR` | Before `gh pr create` |
+| `PR` | Before `gh pr create` — build the PR body from docs/contributing/pr-templates.md (your type variant) |
 | `CI_WAIT` | On entering the CI polling loop |
 | `DONE` | On successful merge and cleanup |
 | `ERROR` | On any failure — include the reason |

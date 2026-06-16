@@ -24,7 +24,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `STAGE` | Before `git add` |
 | `COMMIT` | Before `git commit` |
 | `PUSH` | Before `git push` |
-| `PR` | Before `gh pr create` |
+| `PR` | Before `gh pr create` — build the PR body from docs/contributing/pr-templates.md (your type variant) |
 | `REBASE` | Before `git rebase` or conflict resolution |
 | `MERGE` | Before `gh pr merge` |
 | `CLEANUP` | Before branch delete + worktree remove |

@@ -23,7 +23,7 @@ structured evidence of every action taken.
 | `DIGEST_UPDATE` | Before updating digest pins in files |
 | `ISSUE_TRIAGE` | Before processing open digest-bump issues |
 | `COMMIT` | Before git add / git commit |
-| `PR` | Before gh pr create |
+| `PR` | Before gh pr create — chore(ci) digest PR body per docs/contributing/pr-templates.md |
 | `CI_WAIT` | Polling for the digest-bump PR's own CI |
 | `DONE` | All steps complete — print evidence block |
 | `SKIP` | Nothing to do (no affected services in matrix) |

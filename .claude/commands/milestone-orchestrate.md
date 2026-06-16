@@ -292,7 +292,15 @@ Agent({
        sole mutex: if a sibling already pushed `<type>/<N>` your push is rejected → stop,
        run cleanup, report "claim lost". Apply any human-readable slug only AFTER the push
        wins (rename + push the slugged ref); never let a slug into the claim push.
-    3. Implement, run all local gates, commit (DCO + Assisted-by), open PR.
+    3. Implement and run all local gates. Commit (DCO `-s` + `Assisted-by: Claude/<model>`, never
+       Co-Authored-By). Open the PR with a body **built from the canonical template**
+       `docs/contributing/pr-templates.md` (your commit type's variant). REQUIRED sections, in order:
+       `Closes #<N>` (auto-close — a bare mention does not close it), **Why**, **What you'll get**
+       (deliverables ↔ the change that provides each), **Scope & boundaries**, **Test plan &
+       acceptance** (one row per issue/canvas Acceptance Criterion with the EXACT verify command +
+       result), **Evidence**, **Risk & rollback**, **Review aids**. For `feat:` add the SPDD line
+       (canvas Aligned + security-review PASS). Leave the "Post-merge digest sync → main" evidence
+       line as a placeholder — STEP 7.5's verifier fills it after the release pipeline runs.
     4. Wait for CI. Report result.
     5. Cleanup — your LAST action, always, success or failure (a SINGLE Bash call, literal path):
        ```bash
@@ -511,13 +519,19 @@ Agent({
     5. Update images/images.yaml if ci-runner or a base image was rebuilt; run make sync-images.
     6. Find all open "bump <image> digest" issues; close stale duplicates; implement newest.
     7. Commit all digest updates as a single chore(ci) PR; squash-merge.
-    8. Output the full ## Post-Merge Evidence block.
-    9. Cleanup — your LAST action, always (a SINGLE Bash call, literal path):
+    8. Back-fill the delivered PR's Evidence block: replace the "Post-merge digest sync → main"
+       placeholder (from the canonical PR template, `docs/contributing/pr-templates.md`) on the
+       originating PR #PR_N with the real `chore(images): sync digests after main-<sha>` commit SHA
+       (the one from step 7, or "N/A — no image rebuild" if none). Use a PR comment if PR_N is
+       already merged. This closes the loop the template promises: from "PR merged" to
+       "main is digest-consistent".
+    9. Output the full ## Post-Merge Evidence block.
+    10. Cleanup — your LAST action, always (a SINGLE Bash call, literal path):
        ```bash
        git -C <REPO> worktree remove /tmp/zynax-postmerge-<RUN_ID>-<PR_N> --force
        ```
        Do NOT chain an `rm -rf` (denied); the STEP 7 sweep reclaims any lingering path.
-    10. End with ## Session Learnings.
+    11. End with ## Session Learnings.
 
     ## Constraints
     - Context budget: stay under 20K tokens.

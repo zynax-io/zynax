@@ -24,7 +24,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `CODE` | When beginning to create or edit workflow / CI files |
 | `VALIDATE` | Before running `make lint` or local workflow validation |
 | `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
-| `PR` | Before `gh pr create` |
+| `PR` | Before `gh pr create` — build the PR body from docs/contributing/pr-templates.md (your type variant) |
 | `CI_WAIT` | On entering the CI polling loop |
 | `IMAGE_CHECK` | When verifying Docker/GHCR artifact publication post-merge |
 | `DONE` | On successful merge and cleanup |
