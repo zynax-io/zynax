@@ -32,7 +32,7 @@ document the agent handoff contract.
 
 ## S — Structure (first S)
 ```
-libs/zynaxotel/ (propagators)   ← inject/extract carriers
+libs/zynaxobs/ (propagators)   ← inject/extract carriers
 services/*/ (interceptors)       ← attach RequestContext to ctx
 services/engine-adapter/         ← Temporal memo/header carrier; data-context scoping
 agents/sdk/                       ← inbound context extraction; handoff helpers

@@ -7,7 +7,7 @@
 | **Status** | Accepted |
 | **Date** | 2026-06-16 |
 | **Deciders** | Oscar Gómez Manresa |
-| **Scope** | all services + adapters, `libs/zynaxotel`, observability compose + Helm — M7 EPIC O (#467) |
+| **Scope** | all services + adapters, `libs/zynaxobs`, observability compose + Helm — M7 EPIC O (#467) |
 | **Related** | ADR-022 (event-bus/NATS — trace propagation over message headers), ADR-020 (mTLS — secure OTLP in-cluster), ADR-026 (Postgres distribution — backend storage option) |
 | **Canvas** | `docs/spdd/467-observability-otel-uptrace/canvas.md` step O.1 |
 
@@ -33,7 +33,7 @@ Both the **instrumentation standard** and the **backend** are one-way doors:
 they shape every service's dependencies and the wire format of every span,
 metric, and log record. Reversing either after services are instrumented means
 re-instrumenting the whole platform. The decision is therefore recorded here,
-before any instrumentation code (`libs/zynaxotel`, O.2+) is written.
+before any instrumentation code (`libs/zynaxobs`, O.2+) is written.
 
 ---
 
@@ -116,7 +116,7 @@ before any instrumentation code (`libs/zynaxotel`, O.2+) is written.
 
 | Story | Work |
 |-------|------|
-| O.2 #1185 | Shared `libs/zynaxotel` package (providers + OTLP exporter + semconv) |
+| O.2 #1185 | Shared `libs/zynaxobs` package (providers + OTLP exporter + semconv) |
 | O.3 #1186 | Instrument all 7 services (gRPC/HTTP interceptors) |
 | O.4 #1187 | RED metrics + exemplars |
 | O.5 #1188 | Trace propagation across Temporal + NATS |
