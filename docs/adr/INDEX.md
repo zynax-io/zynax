@@ -46,6 +46,7 @@ a PR against `docs/adr/`.
 | [ADR-033](ADR-033-expert-agent-substrate.md) | Expert-agent substrate (runtime AgentDef + authoring experts) | Proposed | 2026-06-15 | `agents/examples/`, `automation/workflows/experts/`, agent-registry — M7 EPIC X |
 | [ADR-034](ADR-034-manifest-workflow-id-collision-domain.md) | ManifestWorkflowID 64-bit collision domain + canonicalization stability | Proposed | 2026-06-15 | workflow-compiler — M7 EPIC Q (#583) |
 | [ADR-035](ADR-035-adapter-language-boundary.md) | Adapter language boundary — Go for provider/proxy adapters, Python for AI-framework adapters | Accepted | 2026-06-16 | `agents/adapters/*` — refines ADR-009 — M7 EPIC P (#1276) |
+| [ADR-036](ADR-036-ci-logic-as-go-cli.md) | CI logic belongs in a tested Go CLI (zynax-ci), not inline workflow bash | Accepted | 2026-06-16 | `cmd/zynax-ci/`, `.github/workflows/*`, `scripts/`, `Makefile` — M7 EPIC S (#1285) |
 
 ---
 
