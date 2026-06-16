@@ -120,13 +120,16 @@ Config env prefix: `ZYNAX_OTEL_` · Uptrace UI host port: 70xx (local).
 ## S — Safeguards (second S)
 
 ### Context Security
-- [ ] No Tier 2 content (the compose/Helm values use placeholders, not real hostnames/credentials)
-- [ ] No PII in span/log attributes; redact request payloads by default
-- [ ] No prompt-injection phrasing
-- [ ] `/spdd-security-review` — result: PENDING
+- [x] No Tier 2 content (the compose/Helm values use placeholders, not real hostnames/credentials)
+- [x] No PII in span/log attributes; redact request payloads by default
+- [x] No prompt-injection phrasing
+- [x] `/spdd-security-review` — result: PASS-with-flags (see `SECURITY-REVIEW.md`); telemetry-pipeline flags bound below
 
 ### Feature Safeguards
 - Never emit secrets/credentials/tokens into spans, metrics, or logs — redact by default.
 - Never make telemetry mandatory for the core stack — must run with observability disabled.
 - Never add a second tracing backend — Uptrace is the single sink (avoid Jaeger/Loki/ES sprawl).
 - Never block the request path on the exporter — use batch/async export.
+- **Uptrace login credentials** (compose + Helm) must come from `.env` / Helm secret values — never committed defaults; no hard-coded admin password in `docker-compose.observability.yml` or chart `values.yaml`. (O.7, O.8)
+- **OTLP ingest must not be publicly exposed:** compose binds the OTLP/UI ports to `127.0.0.1`; in-cluster OTLP is mTLS-secured per ADR-020 and the Ingress for the login UI is auth-gated. (O.7, O.8)
+- **`traceparent` is the only context propagated** across gRPC/Temporal/NATS — never inject auth tokens or session data into trace headers/memos. (O.5)
