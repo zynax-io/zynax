@@ -29,7 +29,7 @@
 # stubs + bundled example graphs; the uv/build layer stays in the builder stage.
 
 # BEGIN zynax-ci:images:python-alpine
-ARG PYTHON_ALPINE_DIGEST=sha256:4d5e6e9fdab73ef5833d6c9c4e12503e838b7e19a56362d51b7206b2739ca103
+ARG PYTHON_ALPINE_DIGEST=sha256:f7fd610959cae736251523b54eb26cecb74f60ffa60bf39d9faccf128b526ab8
 # END zynax-ci:images:python-alpine
 # renovate: datasource=docker depName=python versioning=docker
 FROM python:3.12-alpine@${PYTHON_ALPINE_DIGEST} AS builder
