@@ -3,7 +3,7 @@
 > **All content in this Canvas is Tier 1 (public-safe).** Tier 2 → `canvas.private.md`. Run `/spdd-security-review` before committing.
 
 **Issue:** #467 (absorbed into EPIC O)
-**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Draft
+**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Aligned
 **Supersedes:** the original "M7.A Wire Prometheus + OTel" canvas (child issue #491; folds in the M5.D #483 event-publish counter and #484 request-id propagation).
 
 ---
