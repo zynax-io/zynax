@@ -543,3 +543,29 @@ domain: ci-release · post-merge verification of refactor(engine-adapter)
 ### Proposed expert prompt update
 - Rule: This repo follows ADR-027 retag-only: release.yml fires via `workflow_run` AFTER the CI run on main completes (not on the push). Wait for CI green, then query `actions/runs?event=workflow_run` for the Release run. Its github-actions bot auto-commits digest sync to images/images.yaml as `chore(images): sync digests … [skip ci]` — verify pins are current there before assuming a manual digest PR is needed; service-image digests legitimately live in images.yaml via that bot.
   Category: domain
+
+## Session — 2026-06-16 (post-merge PRs #1248 #1247 #1249, issues #1185 #1181 #1176)
+domain: ci-release / post-mrg · M7 batch post-merge verification (3 verifiers; digest PR #1251)
+
+### Effective patterns
+- `gh run view <release_run_id> --json jobs` is the ONLY reliable promotion proof: a "Release" run existing — even with conclusion `success` — does NOT mean images were rebuilt. #1249's Release run was success but its retag promoted 0 images (proto-only); #1250's run is what actually re-promoted event-bus.
+- Cross-reference each PR's changed files against the retag-on-merge model (promotes only `staging/pr-<that-PR-head>`) to reason about which services were truly rebuilt — this explained how event-bus recovered: #1250 touched `event-bus/go.sum` → CI rebuilt its staging image → #1250's retag re-promoted it, so the skipped #1247 retag left no permanent gap.
+- `gh pr view --json files` first immediately classifies a libs-only / proto-only change and short-circuits matrix mapping.
+
+### Edge cases discovered
+- The release pipeline auto-syncs `images/images.yaml` ONLY, never `infra/docker-compose/docker-compose.services.yml` — compose pins drift silently and reconciling them is the verifier's real job when images.yaml is already current (here http-adapter `b12750bf`→`d2d6e87a`).
+- A "Release" run triggers even on a libs-only / non-service merge but runs only the retag/promote job with all service-build matrix jobs `skipped`. A FAILED CI on main skips the ENTIRE Release run — that is why #1247's event-bus retag was skipped while main was transiently red from the #1248 go.sum drift.
+- `ci.yml build-images` matrix runs only on `pull_request`/`workflow_dispatch`, never on push — the on-merge path is retag-only, never a fresh build.
+- A required check that is path-gated to `skipped` is treated as satisfied by the ruleset; a required check that simply never reports keeps the PR BLOCKED forever — distinguish the two before assuming a stuck PR.
+
+### Failed approaches
+- Literal `[skip ci]` in a digest PR's commit message AND body silently suppressed the PR's CI (only CodeQL ran), leaving auto-merge BLOCKED with "no required checks reported". Fix: amend the commit + edit the body to use "skip-ci marker" phrasing, force-push to re-trigger CI.
+- `gh api -f body=@file` does NOT read the file (`@` only works with `-F`) — it set the body literally to `@/path`; use `gh api -F body=@file`.
+- `gh run view <jobID> --log-failed` returns HTTP 404 — pass the RUN id, not a job id, and let `--log-failed` find the failing job.
+
+### Proposed expert prompt update
+- Rule: Verify post-merge promotion via `gh run view <release_run_id> --json jobs` and confirm the "Retag staging → main" job conclusion is `success` (not `skipped`); a Release run merely existing/succeeding is not proof. A failed CI on main skips the entire Release. The guide's matrix-service list is stale (event-bus IS in the matrix) — use the per-PR changed-file → staging-image mapping instead.
+  Category: domain
+- Rule: NEVER put the literal `[skip ci]`/`[ci skip]` token in a digest PR's commit message OR body, even when quoting the bot's skip-ci digest-sync commit — write "skip-ci marker". The token in a PR body silently skips the PR's CI and leaves auto-merge BLOCKED with "no required checks reported".
+  Category: structural-workaround
+  Reason: Recurring, hard-to-diagnose, and unique to this verifier role which routinely references the bot's skip-ci digest-sync commits.
