@@ -109,6 +109,11 @@ cat AGENTS.md §Architecture      # layer invariants
 
 Read only the Helm/infra files named in the issue body. Do not scan all templates.
 
+- **The shared OTEL package is `libs/zynaxobs` (NOT `zynaxotel`); the OTLP exporter endpoint env var
+  is `ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT`** (`libs/zynaxobs/providers.go`). Any collector / Helm /
+  compose OTLP wiring must match these exact names — services point at the collector through this var,
+  and a green-field `zynaxotel` package is always wrong. (#1190, #1184, #1185)
+
 ---
 
 ## Helm chart layout
@@ -238,6 +243,13 @@ helm lint helm/zynax-<service>/
 # Dry-run against a kind cluster (if available)
 helm upgrade --install zynax-<service> helm/zynax-<service>/ --dry-run
 ```
+
+- **Compose credential files: commit only `.env.<name>.example` with non-email placeholders**
+  (`you-at-example-dot-com`, never a literal `x`-at-`y.com` address), gitignore the real
+  `.env.<name>`, and put `${VAR:?msg}` required-var guards on every credential. gitleaks scans the
+  FULL PR commit range with `--source .`; its email-address allowlist is path-scoped to AI-context
+  files only, so a literal email in an infra `.env.example` IS flagged. Validate overlays with
+  `docker compose config --quiet` against a throwaway gitignored `.env`. (#1190, #807)
 
 ---
 

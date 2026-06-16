@@ -115,6 +115,13 @@ cat services/<svc>/AGENTS.md    # per-service contract (if it exists)
 
 Read only the files named in the issue body + canvas O-step. Do not scan the entire repo.
 
+- **Live tree wins over canvas naming — verify before creating.** When a canvas/issue names a new
+  file, package, or symbol to create (`libs/zynaxotel`, an ADR scheme, a `ManifestWorkflowID` field),
+  grep/glob for it FIRST: it often already exists under a different name (`libs/zynaxobs`), or the
+  prose name maps to a different real symbol (the `workflow_id` proto envelope field set by
+  `generateWorkflowID`, not a literal `ManifestWorkflowID`). Extend/finalize the live artifact; never
+  green-field a duplicate or document a scheme that was never built. (#1185, #1186, #1216, #1175)
+
 ---
 
 ## Architecture invariants (non-negotiable)
@@ -133,6 +140,12 @@ services/<svc>/
 **Layer rule (ADR-001):** handler → domain interface → infra adapter. Never handler → infra directly.
 Importing from another service's `internal/` is a **hard blocker** — use gRPC stubs only.
 
+- **The git-adapter is a GO adapter (`agents/adapters/git/`, own `go.mod`), NOT Python** — its MCP
+  shim is Go. Route git-adapter / Git-MCP work here, never to python-adapters. The go-adapter coverage
+  gate is a per-MODULE aggregate ≥85% (`go test ./... -coverprofile` → `total:`), not per-package: one
+  low-coverage package (a new `internal/mcp`) can drag the whole module under the gate. Cover gRPC
+  `ServerStream` sink stubs and any `cmd/<adapter>/main.go` helper. (#1186, #1198)
+
 ---
 
 ## GOWORK=off — why and how
@@ -147,6 +160,13 @@ GOWORK=off go build ./...
 GOWORK=off go test ./... -race -timeout 60s
 GOWORK=off go mod tidy
 ```
+
+- **A shared `libs/*` dep change requires re-tidying EVERY replace-directive consumer.** When a
+  `libs/<x>` module gains a dependency, find all consumers (`grep -rl "libs/<x>" --include=go.mod`)
+  and `GOWORK=off go mod tidy` each — a libs-only PR's CI never rebuilds the consuming services, so a
+  stale consumer `go.sum` reaches main and breaks `test-integration`/`lint-go`/`security` post-merge.
+  CI may name only one failing module; the fix is repo-wide. Do it in a dedicated `chore(deps)` PR,
+  never inside the feature PR. (#491, #1248)
 
 ---
 
