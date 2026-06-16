@@ -46,8 +46,13 @@ type WorkflowRun struct {
 
 // WorkflowEvent is emitted when the workflow transitions state or reaches
 // a terminal condition. Streamed by Watch and published to the event bus.
+//
+// EventID carries the engine's monotonically increasing history event ID. It
+// gives consumers a total order over the stream even when timestamps collide,
+// satisfying the ordered-event-stream contract for history long-poll (#468).
 type WorkflowEvent struct {
 	RunID     string
+	EventID   int64
 	EventType string
 	FromState string
 	ToState   string
