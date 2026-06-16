@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/adapter"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/config"
+	"github.com/zynax-io/zynax/agents/adapters/git/internal/mcp"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/registry"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/grpc"
@@ -47,6 +49,13 @@ func run() error {
 		return fmt.Errorf("resolve token: %w", err)
 	}
 
+	// `git-adapter mcp` runs the thin MCP stdio shim over the same handlers
+	// instead of the runtime gRPC server (ADR-032 — one implementation, two
+	// surfaces). It needs no registry and binds no port.
+	if len(os.Args) > 1 && os.Args[1] == "mcp" {
+		return serveMCP(cfg, token, os.Stdin, os.Stdout)
+	}
+
 	regClient, cleanup, err := dialRegistry(cfg.RegistryEndpoint)
 	if err != nil {
 		return err
@@ -57,6 +66,21 @@ func run() error {
 	defer stop()
 
 	return serve(ctx, cfg, token, regClient)
+}
+
+// serveMCP runs the MCP stdio shim. The exposed tool set is an explicit
+// allow-list built from the configured capability names — not "every handler".
+func serveMCP(cfg *config.AdapterConfig, token string, in io.Reader, out io.Writer) error {
+	srv := adapter.NewAgentServer(cfg, token)
+	tools := make([]string, 0, len(cfg.Capabilities))
+	for _, c := range cfg.Capabilities {
+		tools = append(tools, c.Name)
+	}
+	slog.Info("git-adapter mcp serving over stdio", "tools", tools) //nolint:gosec
+	if err := mcp.NewServer(srv, tools).Serve(context.Background(), in, out); err != nil {
+		return fmt.Errorf("mcp serve: %w", err)
+	}
+	return nil
 }
 
 func dialRegistry(endpoint string) (zynaxv1.AgentRegistryServiceClient, func(), error) {

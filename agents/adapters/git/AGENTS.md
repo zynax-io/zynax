@@ -41,6 +41,16 @@ YAML file at the path given by `ADAPTER_CONFIG`. Key fields:
 
 Default: **50060** (set via `endpoint` in config YAML).
 
+## MCP shim surface (ADR-032)
+
+`git-adapter mcp` runs a thin Model Context Protocol stdio server over the **same**
+capability handlers (one Git implementation, two surfaces — ADR-032). It binds no
+port and needs no registry. MCP tools map 1:1 onto the capabilities above; the
+exposed tool set is an explicit allow-list built from `capabilities[].name` — no
+Git logic is reimplemented in `internal/mcp/`. The owner/repo target stays pinned
+in config, so no caller-supplied owner/repo/remote reaches a Git call (SSRF guard).
+Credential injection + redaction are delivered by G.3 (#1199), not this layer.
+
 ## Testing
 
 ```bash
