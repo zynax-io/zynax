@@ -59,7 +59,11 @@ func (i *IRInterpreter) Run(
 	}
 	// data is the run-scoped data context (ADR-029): written by output_bindings,
 	// read by input_bindings. It lives for this Run only and is never persisted.
-	data := NewWorkflowDataContext()
+	// It is bound to this run's scope (run id + namespace); reads/writes that
+	// present any other scope are denied so data never leaks across runs
+	// (canvas C.3).
+	scope := DataContextScope{RunID: ir.GetWorkflowId(), Namespace: ir.GetNamespace()}
+	data := NewScopedWorkflowDataContext(scope)
 	for {
 		state := findState(ir, ec.CurrentState)
 		if state == nil {
@@ -74,7 +78,7 @@ func (i *IRInterpreter) Run(
 		if err := pub.Publish(ctx, "zynax.workflow.state.entered", ec.WorkflowID, ec.CurrentState); err != nil {
 			return fmt.Errorf("engine-adapter: publish state.entered: %w", err)
 		}
-		result, err := executeActions(ctx, state, ec, exec, data)
+		result, err := executeActions(ctx, state, ec, exec, data, scope)
 		if err != nil {
 			if perr := pub.Publish(ctx, "zynax.workflow.failed", ec.WorkflowID, ec.CurrentState); perr != nil {
 				slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.failed", "workflow_id", ec.WorkflowID, "err", perr)
@@ -106,6 +110,7 @@ func executeActions(
 	ec *ExecutionContext,
 	exec ActivityExecutor,
 	data *WorkflowDataContext,
+	scope DataContextScope,
 ) (*ActivityResult, error) {
 	var last *ActivityResult
 	for _, action := range state.GetActions() {
@@ -123,7 +128,7 @@ func executeActions(
 		// Resolve input_bindings from the run-scoped data context (ADR-029) and
 		// merge them into the template context. A missing or typed-mismatch
 		// reference fails the run with a structured DataReferenceError.
-		inputs, err := data.ResolveInputs(action.GetInputBindings())
+		inputs, err := data.ResolveInputs(scope, action.GetInputBindings())
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +149,7 @@ func executeActions(
 		}
 		// Publish this action's declared output_bindings into the data context
 		// so downstream states can consume them (ADR-029).
-		if err := data.WriteOutputs(state.GetId(), action.GetOutputBindings(), result.Payload); err != nil {
+		if err := data.WriteOutputs(scope, state.GetId(), action.GetOutputBindings(), result.Payload); err != nil {
 			return nil, err
 		}
 		last = result
