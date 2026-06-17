@@ -594,3 +594,14 @@ Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicaliza
 - `json:",omitempty"` on a new client struct field = clean back-compat for surfacing new fields (older gateways omit it).
 - Single-pass error reporting: a YAML parse error should be owned by exactly one validation pass; the other returns `(nil,nil)` with `//nolint:nilerr` to avoid double-reporting.
 - `status` calls `os.Exit(2)` for non-terminal runs → version tests must use a terminal status to hit the clean return path.
+
+## Session — 2026-06-17 cycle 4 (issues #1210 #1183)
+
+### #1210 (R.2 fuzz YAML→IR compiler)
+- Go fuzz: feed seed corpora via `//go:embed testdata/...` + `f.Add` (mirror the sibling Benchmark embed pattern), NOT hand-written `testdata/fuzz/<Func>/` wire files — keeps the target GOWORK=off self-contained, runs seed-only under plain `go test` for the CI gate, avoids drift from canvas-named SoT (`spec/workflows/examples`). Fuzz body asserts structural invariants + no-panic only (e.g. `(manifest==nil) XOR (len(errs)>0)`), never specific output. Non-Workflow kinds (Policy/AgentDef) make good rejection-path seeds.
+- `make fuzz` must loop one `-fuzz` per `go test` (Go forbids multiple per run); discover with `go test -list='^Fuzz'`.
+
+### #1183 (L.4 zynax logs --follow)
+- Sentinel error from an SSE callback (`errFollowDone`) + `errors.Is` swallow at the command boundary cleanly stops a stream loop early without treating "done" as an error; keeps --follow and default(drain) on one path.
+- gh `projectCards` deprecation: `gh issue view N` (no --json) and `gh pr edit --add-label` fail with a Projects-classic GraphQL error. Read with `gh issue/pr view N --json <fields>` (omit projects); label via `gh api -X POST repos/<o>/<r>/issues/N/labels -f 'labels[]=<label>'`.
+- In an isolated worktree, always Read the WORKTREE copy of a file before Edit (not the source-tree copy) or the Edit fails "modified since read".
