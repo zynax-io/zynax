@@ -388,6 +388,73 @@ func TestList_MultiLabelSelector(t *testing.T) {
 	}
 }
 
+// ── Runtime expert (kind: AgentDef) ─────────────────────────────────────────────
+
+// expertAgent builds the domain Agent that a runtime-expert AgentDef manifest
+// (spec/workflows/examples/agent-def-expert.yaml) maps to: an ordinary agent whose
+// capability is the expert's routing key and whose labels mark it as an expert.
+func expertAgent(id string) domain.Agent {
+	a := validAgent(id, "go_review")
+	a.Labels = map[string]string{
+		"team":                  "platform",
+		"agent.zynax.io/kind":   "expert",
+		"agent.zynax.io/expert": "go-review",
+	}
+	return a
+}
+
+// TestRuntimeExpert_RegistersAndIsDispatchable covers EPIC X step X.3 (#1203):
+// a runtime expert registers in the registry, is discoverable by the task broker
+// via its capability routing key, and is selectable by the expert kind label.
+func TestRuntimeExpert_RegistersAndIsDispatchable(t *testing.T) {
+	svc := domain.NewAgentRegistryService(newFakeRepo())
+
+	reg := seed(t, svc, expertAgent("go-review-expert"))
+	if reg.Status != domain.AgentStatusRegistered {
+		t.Fatalf("expert not registered: status=%s", reg.Status)
+	}
+
+	// Dispatchable: the broker resolves the agent endpoint by capability routing key.
+	found, err := svc.FindByCapability(context.Background(), "go_review")
+	if err != nil {
+		t.Fatalf("FindByCapability: %v", err)
+	}
+	if len(found) != 1 || found[0].ID != "go-review-expert" {
+		t.Fatalf("expert not dispatchable by capability: got %d agents", len(found))
+	}
+	if found[0].Endpoint == "" {
+		t.Errorf("dispatch target has empty endpoint")
+	}
+
+	// Selectable as an expert via the kind label selector.
+	res, err := svc.List(context.Background(), domain.ListFilter{LabelSelector: "agent.zynax.io/kind=expert"})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(res.Agents) != 1 || res.Agents[0].ID != "go-review-expert" {
+		t.Errorf("expert not selectable by kind label: got %d agents", len(res.Agents))
+	}
+}
+
+// TestRuntimeExpert_DeregisterStopsDispatch confirms a deregistered expert is no
+// longer routed to, so a retired expert cannot receive new workflow dispatches.
+func TestRuntimeExpert_DeregisterStopsDispatch(t *testing.T) {
+	svc := domain.NewAgentRegistryService(newFakeRepo())
+	seed(t, svc, expertAgent("go-review-expert"))
+
+	if _, err := svc.Deregister(context.Background(), "go-review-expert"); err != nil {
+		t.Fatalf("Deregister: %v", err)
+	}
+
+	found, err := svc.FindByCapability(context.Background(), "go_review")
+	if err != nil {
+		t.Fatalf("FindByCapability: %v", err)
+	}
+	if len(found) != 0 {
+		t.Errorf("deregistered expert still dispatchable: got %d agents", len(found))
+	}
+}
+
 // ── AgentStatus ───────────────────────────────────────────────────────────────
 
 func TestAgentStatus_String(t *testing.T) {
