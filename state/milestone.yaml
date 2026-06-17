@@ -8,12 +8,13 @@
 # Validated against state/milestone.schema.json by `make validate-milestone-state`
 # (containerized) and by the advisory milestone-state-check job in pr-checks.yml.
 
-# M7 opened 2026-06-15 — target v0.6.0 (GitHub milestone #7, "Full Observability").
-# Scope is broadened to "Usable Workflows + Observability" per docs/milestones/M7-planning.md
-# (first of the M7 → M-dx → M8 program). open_epics is filled as EPIC issues are created.
+# M7 opened 2026-06-15 — target v0.6.0 (GitHub milestone #7).
+# GitHub milestone renamed 2026-06-17 "Full Observability" → "Usable Workflows + Observability"
+# to match docs/milestones/M7-planning.md scope (first of the M7 → M-dx → M8 program).
+# Delivery commands resolve the GitHub milestone by title, so this field tracks the live title.
 active:
   name: M7
-  title: "Full Observability"
+  title: "Usable Workflows + Observability"
   github_milestone_number: 7
   version: v0.6.0
   status: active # active | closing | complete
