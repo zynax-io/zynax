@@ -59,11 +59,16 @@ O / L / R respectively — and their issue titles were aligned to that scheme 20
 (#467 → M7.O, #469 → M7.R, #553 backref) to resolve the duplicate `M7.C` label with #1168.
 New ADRs: ADR-029…034 (Proposed).
 
-**Delivery (as of 2026-06-17):** GitHub milestone #7 — **33 closed / 57 open**. **All 12 EPIC
-canvases now Aligned** — C/Q/D aligned 2026-06-17 (#1301). 2026-06-17 truth-pass: verified
-architecture review committed (`docs/reviews/06`, #1295 + correction #1303); milestone renamed +
-ROADMAP reconciled (#1299); `make ci` re-verified green on the current tools image (the only local
-gap is a Makefile↔CI `pip-audit` ignore-flag drift, tracked as **#1302** under EPIC Q). Earlier:
+**Delivery (as of 2026-06-17, mid-orchestration):** GitHub milestone #7 — **~57 closed / ~34 open**
+(active /milestone-orchestrate drain in progress). **EPICs O (#467), X (#1170), Q (#1172) COMPLETE
+and closed**; canvases Implemented. Delivered this session (2-agent batches after a host-OOM
+mitigation): W.4 #1178 (data-flow keystone), C.2 #1194, X.3 #1203 / X.4 #1204 / X.5 #1205,
+L.3 #1182 / L.4 #1183, T.1 #1206 / T.2 #1207 / T.4 #1209, G.3 #1199 / G.4 #1200 / G.5 #1260,
+O.5 #1188 / O.6 #1189 / O.9 #1192, R.2 #1210, P.2 #1278 / P.3 #1279, S.2 #1287, plus #1302.
+All 12 EPIC canvases Aligned/Implemented. 2026-06-17 truth-pass: verified architecture review
+committed (`docs/reviews/06`, #1295 + correction #1303); milestone renamed + ROADMAP reconciled
+(#1299); `make ci` green on the current tools image (#1302 closed the Makefile↔CI pip-audit drift).
+Earlier:
 two EPICs added 2026-06-16 (**P #1276** llm-adapter Go-port, **S #1285** CI-bash-to-Go). Shipped:
 O.4 #1187 + O.7 #1190 + O.8 #1191 (Observability — exemplars, compose & Helm Uptrace), X.2 #1202
 (`agents/examples`), R.1 #493 (benchmarks + benchstat gate), Q.4 #1215 / Q.5 #1216 (Go-module

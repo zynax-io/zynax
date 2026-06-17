@@ -3,7 +3,7 @@
 > Tier 1 (public-safe). Tier 2 → `canvas.private.md`. Run `/spdd-security-review` before committing.
 
 **Issue:** #1170 · **Milestone:** M7 (v0.6.0)
-**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Aligned
+**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Implemented (EPIC X complete 2026-06-17 — X.3 #1203, X.4 #1204, X.5 #1205 merged; EPIC #1170 closed)
 
 ---
 
