@@ -57,6 +57,9 @@ func (i *IRInterpreter) Run(
 		CurrentState: ir.GetInitialState(),
 		Ctx:          make(map[string]string),
 	}
+	// data is the run-scoped data context (ADR-029): written by output_bindings,
+	// read by input_bindings. It lives for this Run only and is never persisted.
+	data := NewWorkflowDataContext()
 	for {
 		state := findState(ir, ec.CurrentState)
 		if state == nil {
@@ -71,7 +74,7 @@ func (i *IRInterpreter) Run(
 		if err := pub.Publish(ctx, "zynax.workflow.state.entered", ec.WorkflowID, ec.CurrentState); err != nil {
 			return fmt.Errorf("engine-adapter: publish state.entered: %w", err)
 		}
-		result, err := executeActions(ctx, state, ec, exec)
+		result, err := executeActions(ctx, state, ec, exec, data)
 		if err != nil {
 			if perr := pub.Publish(ctx, "zynax.workflow.failed", ec.WorkflowID, ec.CurrentState); perr != nil {
 				slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.failed", "workflow_id", ec.WorkflowID, "err", perr)
@@ -102,6 +105,7 @@ func executeActions(
 	state *zynaxv1.StateIR,
 	ec *ExecutionContext,
 	exec ActivityExecutor,
+	data *WorkflowDataContext,
 ) (*ActivityResult, error) {
 	var last *ActivityResult
 	for _, action := range state.GetActions() {
@@ -116,7 +120,15 @@ func executeActions(
 			}
 			timeoutSec = int32(sec)
 		}
-		resolved, err := resolveTemplate(action.GetInputTemplateJson(), ec.Ctx)
+		// Resolve input_bindings from the run-scoped data context (ADR-029) and
+		// merge them into the template context. A missing or typed-mismatch
+		// reference fails the run with a structured DataReferenceError.
+		inputs, err := data.ResolveInputs(action.GetInputBindings())
+		if err != nil {
+			return nil, err
+		}
+		tmplCtx := mergeInputs(ec.Ctx, inputs)
+		resolved, err := resolveTemplate(action.GetInputTemplateJson(), tmplCtx)
 		if err != nil {
 			return nil, fmt.Errorf("engine-adapter: action %q template error: %w", action.GetCapability(), err)
 		}
@@ -129,6 +141,11 @@ func executeActions(
 		result, err := exec.DispatchCapability(ctx, in)
 		if err != nil {
 			return nil, fmt.Errorf("engine-adapter: action %q: %w", action.GetCapability(), err)
+		}
+		// Publish this action's declared output_bindings into the data context
+		// so downstream states can consume them (ADR-029).
+		if err := data.WriteOutputs(state.GetId(), action.GetOutputBindings(), result.Payload); err != nil {
+			return nil, err
 		}
 		last = result
 	}
