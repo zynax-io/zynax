@@ -103,3 +103,9 @@ ADR-proposal docs story with a security dimension (ADR-032 Git MCP shim + auth m
 ### Edge cases discovered
 - Docs-only diff makes the whole Go/Python build matrix report `skipping` — correct behaviour,
   not a failure; only universal gates (DCO, gitleaks, CodeQL, dep-review, layer-boundary) run.
+
+## Session — 2026-06-17 cycle 4 (issue #1189, O.6 SDK OTEL)
+- Mirror the Go observability contract for cross-language consistency: same env var (`ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT`), off-by-default no-op, W3C propagator, semconv resource attrs. Read `libs/zynaxobs/{providers,propagation}.go` first.
+- OTLP **exporter** (`opentelemetry-exporter-otlp-proto-grpc`, all versions) caps `protobuf<7` via `opentelemetry-proto` — conflicts with the SDK's `protobuf>=7`. uv resolves extras in one universe, so even an optional-dependency extra fails. Omit the exporter entirely; run on `opentelemetry-api`/`-sdk`; import the exporter lazily with graceful degradation. Live OTLP export is a deployment-image concern.
+- OTel global `TracerProvider` is set-once per process; in tests patch module-level `trace.get_tracer` to return your own provider + `InMemorySpanExporter` (do NOT rely on `set_tracer_provider` — silently no-ops after first set → zero spans).
+- Pre-commit ruff fails on root-owned `.ruff_cache` left by Docker `make lint`; prefix `RUFF_CACHE_DIR=/tmp/ruff-cache-<N> git commit -s -F <file>` (bare single-assignment prefix is sandbox-permitted).
