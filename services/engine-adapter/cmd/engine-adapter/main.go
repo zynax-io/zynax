@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/interceptor"
 	"go.temporal.io/sdk/worker"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -214,9 +215,19 @@ func buildArgoEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientCon
 func buildTemporalEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.ClientConn, error) {
 	infrastructure.DefaultActivityMaxAttempts = cfg.MaxActivityAttempts
 
+	// Trace-context interceptor: serializes the active span into the workflow
+	// Temporal header on ExecuteWorkflow and extracts it before each workflow /
+	// activity runs, so capability dispatch and lifecycle-event publishes made
+	// inside activities stay on the originating request's trace (canvas O.5).
+	tracingInterceptor, err := infrastructure.TemporalTracingInterceptor()
+	if err != nil {
+		return nil, func() {}, nil, fmt.Errorf("temporal tracing: %w", err)
+	}
+
 	tc, err := client.Dial(client.Options{
-		HostPort:  cfg.TemporalHostPort,
-		Namespace: cfg.TemporalNamespace,
+		HostPort:     cfg.TemporalHostPort,
+		Namespace:    cfg.TemporalNamespace,
+		Interceptors: []interceptor.ClientInterceptor{tracingInterceptor},
 	})
 	if err != nil {
 		return nil, func() {}, nil, fmt.Errorf("temporal client: %w", err)
@@ -234,7 +245,9 @@ func buildTemporalEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.Clien
 		EventBus: zynaxv1.NewEventBusServiceClient(eventBusConn),
 	}
 
-	w := worker.New(tc, cfg.TemporalTaskQueue, worker.Options{})
+	w := worker.New(tc, cfg.TemporalTaskQueue, worker.Options{
+		Interceptors: []interceptor.WorkerInterceptor{tracingInterceptor},
+	})
 	w.RegisterWorkflow(infrastructure.IRInterpreterWorkflow)
 	w.RegisterActivity(dispatcher.DispatchCapabilityActivity)
 	w.RegisterActivity(activityWorker.PublishLifecycleEventActivity)
