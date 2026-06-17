@@ -516,7 +516,7 @@ jobs:
       # authoring experts (read-only), agents/examples runtime agents, and the
       # ADR-033 mapping table. Always runs in this lane (no agents/ files needed).
       - name: Expert mapping drift guard (ADR-033)
-        run: python automation/scripts/check_expert_mapping.py
+        run: uv run --no-project --quiet --with pyyaml python automation/scripts/check_expert_mapping.py
 
 # ── Tests: Go ─────────────────────────────────────────────────────────────────
 # Calls _test-go.yml reusable workflow (Go unit + BDD + coverage gates).
