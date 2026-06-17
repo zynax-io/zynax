@@ -4,5 +4,19 @@
 __version__ = "0.1.0"
 
 from zynax_sdk.agent import Agent, capability
+from zynax_sdk.telemetry import (
+    capability_span,
+    extract_context,
+    init_telemetry,
+    is_enabled,
+)
 
-__all__ = ["Agent", "capability", "__version__"]
+__all__ = [
+    "Agent",
+    "capability",
+    "capability_span",
+    "extract_context",
+    "init_telemetry",
+    "is_enabled",
+    "__version__",
+]

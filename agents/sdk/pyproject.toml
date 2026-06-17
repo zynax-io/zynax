@@ -13,6 +13,14 @@ description = "Minimal Python SDK for Zynax capability adapters — Agent base c
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 
+# NOTE: the OTLP/gRPC exporter (opentelemetry-exporter-otlp-proto-grpc) is
+# intentionally NOT a dependency — its opentelemetry-proto pin caps protobuf<7
+# while this SDK pins protobuf>=7.35.0, so the two are mutually exclusive in one
+# resolved environment. The tracer/logger API and W3C context extraction here run
+# on opentelemetry-api + opentelemetry-sdk (protobuf-7 compatible). Live OTLP
+# export is a deployment concern: an adapter image installs the exporter in an
+# environment that relaxes the protobuf floor. init_telemetry degrades gracefully
+# (in-process providers + a warning) when the exporter is not importable.
 dependencies = [
     "grpcio>=1.80.0",
     "urllib3>=2.7.0",  # CVE-2026-44431, CVE-2026-44432 — pin floor via transitive grpcio dep

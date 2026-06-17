@@ -14,6 +14,7 @@ import grpc
 from google.protobuf import timestamp_pb2
 
 from zynax.v1 import agent_pb2, agent_pb2_grpc
+from zynax_sdk.telemetry import capability_span
 
 
 def capability(name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -99,6 +100,8 @@ class Agent(agent_pb2_grpc.AgentServiceServicer, ABC):  # type: ignore[misc]
 
         Validates ``capability_name``, ``task_id``, and ``input_payload`` before
         dispatching.  Unknown capabilities yield a FAILED event rather than raising.
+        The dispatched handler runs inside a ``capability.<name>`` span stitched to
+        the inbound trace context (no-op when telemetry is disabled — canvas O.6).
 
         Args:
             request: ``ExecuteCapabilityRequest`` proto message.
@@ -133,13 +136,14 @@ class Agent(agent_pb2_grpc.AgentServiceServicer, ABC):  # type: ignore[misc]
 
         loop = asyncio.new_event_loop()
         try:
-            agen = handler(self, request, context)
-            while True:
-                try:
-                    event = loop.run_until_complete(agen.__anext__())
-                    yield event
-                except StopAsyncIteration:
-                    break
+            with capability_span(request.capability_name, context):
+                agen = handler(self, request, context)
+                while True:
+                    try:
+                        event = loop.run_until_complete(agen.__anext__())
+                        yield event
+                    except StopAsyncIteration:
+                        break
         finally:
             loop.close()
 
