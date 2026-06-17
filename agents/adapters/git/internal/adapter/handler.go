@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/go-github/v67/github"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/config"
+	"github.com/zynax-io/zynax/agents/adapters/git/internal/redact"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -31,11 +32,12 @@ type executeStream interface {
 }
 
 type gitHandler struct {
-	gh *github.Client
+	gh  *github.Client
+	red redact.Redactor // scrubs the token from any caller-visible text (G.3 / #1199)
 }
 
 func newGitHandler(token string) *gitHandler {
-	return &gitHandler{gh: newGitHubClient(token)}
+	return &gitHandler{gh: newGitHubClient(token), red: redact.New(token)}
 }
 
 // newGitHandlerWithURL creates a handler pointed at a custom base URL (for tests).
@@ -50,7 +52,7 @@ func newGitHandlerWithURL(token, baseURL string) *gitHandler {
 		return newGitHandler(token)
 	}
 	client.BaseURL = parsed
-	return &gitHandler{gh: client}
+	return &gitHandler{gh: client, red: redact.New(token)}
 }
 
 func (h *gitHandler) execute(
@@ -94,7 +96,7 @@ func (h *gitHandler) openPR(
 ) error {
 	var inp openPRInput
 	if err := parsePayload(payload, &inp); err != nil {
-		return sendFailed(stream, taskID, "INVALID_INPUT", sanitise(err.Error()))
+		return sendFailed(stream, taskID, "INVALID_INPUT", h.sanitise(err.Error()))
 	}
 	if inp.Title == "" || inp.Head == "" || inp.Base == "" {
 		return sendFailed(stream, taskID, "INVALID_INPUT", "title, head, and base are required")
@@ -122,7 +124,7 @@ func (h *gitHandler) openPR(
 			}
 		case res := <-ch:
 			if res.err != nil {
-				return sendFailed(stream, taskID, githubErrCode(res.err), sanitise(res.err.Error()))
+				return sendFailed(stream, taskID, githubErrCode(res.err), h.sanitise(res.err.Error()))
 			}
 			out, err := marshalPayload(map[string]interface{}{
 				"pr_url":    res.pr.GetHTMLURL(),
@@ -131,7 +133,7 @@ func (h *gitHandler) openPR(
 			if err != nil {
 				return sendFailed(stream, taskID, "UPSTREAM_ERROR", "failed to marshal response")
 			}
-			return stream.Send(completedEvent(taskID, out)) //nolint:wrapcheck
+			return stream.Send(completedEvent(taskID, h.red.Bytes(out))) //nolint:wrapcheck
 		case <-ctx.Done():
 			return sendFailed(stream, taskID, "TIMEOUT", "request exceeded timeout_seconds")
 		}
@@ -159,7 +161,7 @@ func (h *gitHandler) requestReview(
 ) error {
 	var inp requestReviewInput
 	if err := parsePayload(payload, &inp); err != nil {
-		return sendFailed(stream, taskID, "INVALID_INPUT", sanitise(err.Error()))
+		return sendFailed(stream, taskID, "INVALID_INPUT", h.sanitise(err.Error()))
 	}
 	if inp.PRNumber <= 0 {
 		return sendFailed(stream, taskID, "INVALID_INPUT", "pr_number must be a positive integer")
@@ -171,7 +173,7 @@ func (h *gitHandler) requestReview(
 	_, _, err := h.gh.PullRequests.RequestReviewers(ctx, gcap.Owner, gcap.Repo, inp.PRNumber,
 		github.ReviewersRequest{Reviewers: inp.Reviewers})
 	if err != nil {
-		return sendFailed(stream, taskID, githubErrCode(err), sanitise(err.Error()))
+		return sendFailed(stream, taskID, githubErrCode(err), h.sanitise(err.Error()))
 	}
 
 	// Poll for reviewer assignment confirmation (up to maxPollCycles).
@@ -187,7 +189,7 @@ func (h *gitHandler) requestReview(
 
 		pr, _, err := h.gh.PullRequests.Get(ctx, gcap.Owner, gcap.Repo, inp.PRNumber)
 		if err != nil {
-			return sendFailed(stream, taskID, githubErrCode(err), sanitise(err.Error()))
+			return sendFailed(stream, taskID, githubErrCode(err), h.sanitise(err.Error()))
 		}
 		for _, r := range pr.RequestedReviewers {
 			for _, want := range inp.Reviewers {
@@ -218,7 +220,7 @@ func (h *gitHandler) getDiff(
 ) error {
 	var inp getDiffInput
 	if err := parsePayload(payload, &inp); err != nil {
-		return sendFailed(stream, taskID, "INVALID_INPUT", sanitise(err.Error()))
+		return sendFailed(stream, taskID, "INVALID_INPUT", h.sanitise(err.Error()))
 	}
 	if inp.PRNumber <= 0 {
 		return sendFailed(stream, taskID, "INVALID_INPUT", "pr_number must be a positive integer")
@@ -267,7 +269,7 @@ func (h *gitHandler) getDiff(
 			}
 		case res := <-ch:
 			if res.err != nil {
-				return sendFailed(stream, taskID, githubErrCode(res.err), sanitise(res.err.Error()))
+				return sendFailed(stream, taskID, githubErrCode(res.err), h.sanitise(res.err.Error()))
 			}
 			out, err := marshalPayload(map[string]interface{}{
 				"diff":      res.diff,
@@ -276,7 +278,7 @@ func (h *gitHandler) getDiff(
 			if err != nil {
 				return sendFailed(stream, taskID, "UPSTREAM_ERROR", "failed to marshal diff response")
 			}
-			return stream.Send(completedEvent(taskID, out)) //nolint:wrapcheck
+			return stream.Send(completedEvent(taskID, h.red.Bytes(out))) //nolint:wrapcheck
 		case <-ctx.Done():
 			return sendFailed(stream, taskID, "TIMEOUT", "request exceeded timeout_seconds")
 		}
@@ -317,7 +319,12 @@ func sendFailed(stream executeStream, taskID, code, msg string) error {
 	})
 }
 
-func sanitise(s string) string {
+// sanitise scrubs the credential from caller-visible error text, then caps its
+// length. Redaction runs first so truncation can never split a token in two and
+// leave a usable fragment. This is the egress backstop for the one path a token
+// could reach a caller — an upstream/git error string that embeds it (G.3 / #1199).
+func (h *gitHandler) sanitise(s string) string {
+	s = h.red.String(s)
 	if len(s) > maxErrMsgLen {
 		return s[:maxErrMsgLen]
 	}

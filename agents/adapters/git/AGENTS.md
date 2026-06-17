@@ -49,7 +49,16 @@ port and needs no registry. MCP tools map 1:1 onto the capabilities above; the
 exposed tool set is an explicit allow-list built from `capabilities[].name` — no
 Git logic is reimplemented in `internal/mcp/`. The owner/repo target stays pinned
 in config, so no caller-supplied owner/repo/remote reaches a Git call (SSRF guard).
-Credential injection + redaction are delivered by G.3 (#1199), not this layer.
+
+### Credential injection + redaction (G.3 / #1199)
+
+The token is **injected at process start** — resolved once from the env var named
+in `git.auth_env` (see `config.ResolveToken`), held only in process memory, never
+a config field, never a tool argument, never serialized. `internal/redact` is the
+egress backstop: a `redact.Redactor` built from the injected token scrubs the
+secret (replaced with `[REDACTED]`) from every caller-visible CapabilityError
+message and COMPLETED payload, and again at the MCP prompt boundary where the
+tool-result text becomes model context. The token value itself is never logged.
 
 ## Testing
 

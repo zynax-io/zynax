@@ -25,6 +25,7 @@ type AgentServer struct {
 }
 
 // NewAgentServer builds an AgentServer from a validated AdapterConfig and a GitHub token.
+// The token is redacted from every caller-visible error and payload (G.3 / #1199).
 func NewAgentServer(cfg *config.AdapterConfig, token string) *AgentServer {
 	return newAgentServer(cfg, newGitHandler(token))
 }

@@ -10,11 +10,16 @@
 // one Git implementation, two surfaces). The set of exposed tools is an explicit
 // allow-list built from the configured capabilities — never "every handler".
 //
-// Credential injection and redaction are out of scope here; they are delivered
-// by G.3 (#1199). This layer never accepts a token as a tool argument and never
-// derives owner/repo from input (the adapter already pins those in config —
-// SSRF prevention), so no caller-supplied value reaches a privileged Git call as
-// a flag or remote.
+// This layer never accepts a token as a tool argument and never derives
+// owner/repo from input (the adapter already pins those in config — SSRF
+// prevention), so no caller-supplied value reaches a privileged Git call as a
+// flag or remote.
+//
+// Credential redaction (G.3 / #1199): the tool-result text returned to the
+// authoring agent is model prompt content, so it is the most sensitive egress
+// for a secret. A redact.Redactor built from the injected token scrubs the
+// terminal-event payload before it leaves this layer, backstopping the
+// adapter's own redaction at the actual prompt boundary.
 package mcp
 
 import (
@@ -24,6 +29,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/zynax-io/zynax/agents/adapters/git/internal/redact"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 )
 
@@ -44,13 +50,23 @@ type Capabilities interface {
 // Server is a stdio JSON-RPC 2.0 MCP server bound to a fixed allow-list of tools.
 type Server struct {
 	caps  Capabilities
-	tools []string // explicit allow-list; nothing outside this is exposed
+	tools []string        // explicit allow-list; nothing outside this is exposed
+	red   redact.Redactor // scrubs the injected token from prompt-facing tool results
 }
 
 // NewServer builds a shim that exposes exactly the named capabilities as MCP
 // tools. toolNames is the allow-list (typically the configured capability names);
-// a tool absent from this slice is never advertised nor dispatchable.
+// a tool absent from this slice is never advertised nor dispatchable. The
+// redactor is the zero (no-op) value — use NewServerWithRedactor to scrub the
+// injected token from tool-result text at the prompt boundary.
 func NewServer(caps Capabilities, toolNames []string) *Server {
+	return NewServerWithRedactor(caps, toolNames, redact.Redactor{})
+}
+
+// NewServerWithRedactor is NewServer plus a credential redactor (G.3 / #1199).
+// Every tool result the shim returns is passed through red before it reaches the
+// authoring agent, so an injected token can never surface in prompt content.
+func NewServerWithRedactor(caps Capabilities, toolNames []string, red redact.Redactor) *Server {
 	allow := make([]string, 0, len(toolNames))
 	seen := make(map[string]struct{}, len(toolNames))
 	for _, n := range toolNames {
@@ -63,7 +79,7 @@ func NewServer(caps Capabilities, toolNames []string) *Server {
 		seen[n] = struct{}{}
 		allow = append(allow, n)
 	}
-	return &Server{caps: caps, tools: allow}
+	return &Server{caps: caps, tools: allow, red: red}
 }
 
 // allowed reports whether name is in the explicit tool allow-list.
@@ -239,6 +255,9 @@ func (s *Server) handleToolsCall(ctx context.Context, id, params json.RawMessage
 	}
 
 	text, isError := sink.result()
+	// Final prompt-boundary redaction: tool-result text becomes model context, so
+	// scrub the injected token here even if the adapter already redacted upstream.
+	text = s.red.String(text)
 	return &rpcResponse{
 		JSONRPC: jsonRPCVersion,
 		ID:      id,
