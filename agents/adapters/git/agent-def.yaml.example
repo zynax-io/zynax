@@ -2,9 +2,22 @@
 # git-adapter — example AgentDef YAML
 #
 # Copy this file to agent-def.yaml and set the ADAPTER_CONFIG env var to its path.
-# Set the env var named in git.auth_env to a GitHub PAT with repo scope.
+#
+# Token (least privilege): set the env var named in git.auth_env to a GitHub
+# fine-grained PAT scoped to ONLY the owner/repo configured below, granting just
+# "Pull requests: Read and write" — all three capabilities (open_pr,
+# request_review, get_diff) act on pull requests. Do NOT use a classic PAT with
+# the broad `repo` scope (full repo control across every repo the token owner can
+# reach). See agents/adapters/git/AGENTS.md for the per-capability scope table.
+#
+# Lifecycle: the token is read once at startup and never refreshed. A short-lived
+# credential (e.g. a GitHub App installation token, ~1 h TTL) will expire mid-run;
+# until refreshable credentials land (epic G, step G.7 / #1262) use a PAT or a
+# token whose lifetime exceeds the process.
 #
 # SSRF prevention: owner and repo are declared here — never in input_payload.
+# This static owner/repo pinning is defense-in-depth, separate from token scope:
+# even a broader token cannot reach a repo the config does not name.
 
 agent_id: git-adapter
 name: Git Adapter
