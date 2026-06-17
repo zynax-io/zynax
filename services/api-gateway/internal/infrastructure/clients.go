@@ -330,7 +330,29 @@ func mapRegistryGRPCError(err error) error {
 	}
 }
 
-// ── gRPC client interceptors ──────────────────────────────────────────────
+// ── gRPC client correlation interceptors ──────────────────────────────────
+
+// gRPC metadata keys carrying the correlation context to downstream hops. These
+// mirror the X-Request-ID / X-Namespace HTTP headers the gateway accepts and are
+// distinct from the W3C traceparent, which the tracing interceptors propagate
+// separately (canvas C.2).
+const (
+	requestIDMetaKey = "request-id"
+	namespaceMetaKey = "x-namespace"
+)
+
+// withCorrelationMetadata appends the request-id and namespace held on ctx to the
+// outgoing gRPC metadata, skipping any identifier that is unset. Only correlation
+// ids are attached — never auth tokens or secrets (canvas C safeguard).
+func withCorrelationMetadata(ctx context.Context) context.Context {
+	if id := domain.RequestIDFromContext(ctx); id != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, requestIDMetaKey, id)
+	}
+	if ns := domain.NamespaceFromContext(ctx); ns != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, namespaceMetaKey, ns)
+	}
+	return ctx
+}
 
 func requestIDUnaryInterceptor(
 	ctx context.Context,
@@ -340,10 +362,7 @@ func requestIDUnaryInterceptor(
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
 ) error {
-	if id := domain.RequestIDFromContext(ctx); id != "" {
-		ctx = metadata.AppendToOutgoingContext(ctx, "request-id", id)
-	}
-	return invoker(ctx, method, req, reply, cc, opts...)
+	return invoker(withCorrelationMetadata(ctx), method, req, reply, cc, opts...)
 }
 
 func requestIDStreamInterceptor(
@@ -354,10 +373,7 @@ func requestIDStreamInterceptor(
 	streamer grpc.Streamer,
 	opts ...grpc.CallOption,
 ) (grpc.ClientStream, error) {
-	if id := domain.RequestIDFromContext(ctx); id != "" {
-		ctx = metadata.AppendToOutgoingContext(ctx, "request-id", id)
-	}
-	return streamer(ctx, desc, cc, method, opts...)
+	return streamer(withCorrelationMetadata(ctx), desc, cc, method, opts...)
 }
 
 // ── proto conversion ──────────────────────────────────────────────────────
