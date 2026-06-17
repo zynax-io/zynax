@@ -48,13 +48,12 @@ type Provider interface {
 // API-key Secret) at construction time. The selection is immutable: callers
 // build one Provider at startup and reuse it. An unknown provider name is a
 // programming error guarded by config validation, but is still rejected here.
-//
-// The bedrock case is added in the follow-up PR for #1279 (it carries the
-// aws-sdk-go-v2 dependency); until then a bedrock selection is rejected here.
 func New(cfg config.ProviderConfig, secret config.Secret) (Provider, error) {
 	switch cfg.Name {
 	case "openai":
 		return newOpenAIProvider(cfg, secret), nil
+	case "bedrock":
+		return newBedrockProvider(cfg)
 	case "ollama":
 		return newOllamaProvider(cfg), nil
 	default:

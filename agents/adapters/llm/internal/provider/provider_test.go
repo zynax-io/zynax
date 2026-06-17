@@ -23,8 +23,8 @@ func TestNew(t *testing.T) {
 		wantErr  bool
 	}{
 		{"openai", config.ProviderConfig{Name: "openai", Model: "gpt-4o"}, "*provider.openAIProvider", false},
+		{"bedrock", config.ProviderConfig{Name: "bedrock", Model: "m", Region: "us-east-1"}, "*provider.bedrockProvider", false},
 		{"ollama", config.ProviderConfig{Name: "ollama", Model: "llama3", OllamaBaseURL: "http://x:11434"}, "*provider.ollamaProvider", false},
-		{"bedrock-not-yet-wired", config.ProviderConfig{Name: "bedrock", Model: "m", Region: "us-east-1"}, "", true},
 		{"unknown", config.ProviderConfig{Name: "anthropic", Model: "m"}, "", true},
 	}
 	for _, tt := range tests {
@@ -84,6 +84,8 @@ func typeName(p Provider) string {
 	switch p.(type) {
 	case *openAIProvider:
 		return "*provider.openAIProvider"
+	case *bedrockProvider:
+		return "*provider.bedrockProvider"
 	case *ollamaProvider:
 		return "*provider.ollamaProvider"
 	default:
