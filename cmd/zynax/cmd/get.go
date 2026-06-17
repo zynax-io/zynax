@@ -27,6 +27,9 @@ var getWorkflowCmd = &cobra.Command{
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "workflow_id:   %s\n", run.WorkflowID)
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "status:        %s\n", run.Status)
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "current_state: %s\n", run.CurrentState)
+		if run.Version != "" {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "version:       %s\n", run.Version)
+		}
 		return nil
 	},
 }
