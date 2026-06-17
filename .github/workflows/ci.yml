@@ -57,7 +57,7 @@ jobs:
     name: dco
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ad5839388e3980e3bf411372b3a22f8ebde149a3c7f4f88cc99ef793100ab481
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ba265d1ce7904d700738c9da7ae7e75aa0f4946b4e3f982189effd965199fa2c
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -108,7 +108,7 @@ jobs:
     name: changes
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ad5839388e3980e3bf411372b3a22f8ebde149a3c7f4f88cc99ef793100ab481
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ba265d1ce7904d700738c9da7ae7e75aa0f4946b4e3f982189effd965199fa2c
       options: --user root
     needs: [dco]
     outputs:
@@ -249,7 +249,7 @@ jobs:
     name: lint-proto
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ad5839388e3980e3bf411372b3a22f8ebde149a3c7f4f88cc99ef793100ab481
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ba265d1ce7904d700738c9da7ae7e75aa0f4946b4e3f982189effd965199fa2c
       options: --user root
     needs: [changes]
     if: needs.changes.outputs.proto == 'true'
@@ -391,7 +391,7 @@ jobs:
     name: lint-go
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ad5839388e3980e3bf411372b3a22f8ebde149a3c7f4f88cc99ef793100ab481
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ba265d1ce7904d700738c9da7ae7e75aa0f4946b4e3f982189effd965199fa2c
       options: --user root
     needs: [changes]
     if: needs.changes.outputs.go == 'true'
@@ -464,7 +464,7 @@ jobs:
     name: lint-python
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ad5839388e3980e3bf411372b3a22f8ebde149a3c7f4f88cc99ef793100ab481
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ba265d1ce7904d700738c9da7ae7e75aa0f4946b4e3f982189effd965199fa2c
       options: --user root
     needs: [changes]
     if: needs.changes.outputs.python == 'true'
@@ -572,7 +572,7 @@ jobs:
     name: test-unit
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ad5839388e3980e3bf411372b3a22f8ebde149a3c7f4f88cc99ef793100ab481
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ba265d1ce7904d700738c9da7ae7e75aa0f4946b4e3f982189effd965199fa2c
       options: --user root
     needs: [test-go, test-python]
     if: always()
@@ -594,7 +594,7 @@ jobs:
     name: test-integration
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ad5839388e3980e3bf411372b3a22f8ebde149a3c7f4f88cc99ef793100ab481
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ba265d1ce7904d700738c9da7ae7e75aa0f4946b4e3f982189effd965199fa2c
       options: --user root
     needs: [changes, lint-go, lint-proto, lint-python]
     if: >-
@@ -638,7 +638,7 @@ jobs:
     name: security
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ad5839388e3980e3bf411372b3a22f8ebde149a3c7f4f88cc99ef793100ab481
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ba265d1ce7904d700738c9da7ae7e75aa0f4946b4e3f982189effd965199fa2c
       options: --user root
     needs: [dco, changes]
     if: github.event_name != 'push' || needs.changes.outputs.code == 'true'
