@@ -19,6 +19,7 @@ import (
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/adapter"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/auth"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/config"
+	"github.com/zynax-io/zynax/agents/adapters/git/internal/credential"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/mcp"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/redact"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/registry"
@@ -48,19 +49,23 @@ func run() error {
 	}
 	slog.Info("config loaded", "agent_id", cfg.AgentID, "endpoint", cfg.Endpoint) //nolint:gosec
 
-	token, err := config.ResolveToken(cfg)
+	// Build the credential source. App mode (G.7 / #1262) mints a short-lived
+	// installation token and refreshes it before expiry; PAT mode wraps the
+	// non-expiring token read once from the environment. seedToken is the initial
+	// token used to seed the egress redactor (empty for App mode — its token is
+	// minted lazily and never reaches a payload thanks to per-request Bearer
+	// isolation). No secret value is logged at any point.
+	src, seedToken, err := resolveCredentialSource(cfg)
 	if err != nil {
-		return fmt.Errorf("resolve token: %w", err)
+		return err
 	}
 
-	// Least-privilege gate (G.5 / #1260): verify the token cannot reach repos
-	// beyond the configured owner/repo before it is ever used. The token value is
-	// never passed to the logger — only scope/class metadata.
-	probe, err := newScopeProbe(token)
-	if err != nil {
-		return fmt.Errorf("scope probe init: %w", err)
-	}
-	if err := validateTokenScope(context.Background(), probe, auth.ParseMode(os.Getenv("GIT_ADAPTER_SCOPE_MODE"))); err != nil {
+	// Least-privilege gate (G.5 / #1260): verify the credential cannot reach repos
+	// beyond the configured owner/repo before it is ever used. App installation
+	// tokens carry no X-OAuth-Scopes header and are least-privilege by construction;
+	// the probe classifies them as such. The token value is never logged — only
+	// scope/class metadata.
+	if err := runScopeGate(context.Background(), src); err != nil {
 		return err
 	}
 
@@ -68,7 +73,7 @@ func run() error {
 	// instead of the runtime gRPC server (ADR-032 — one implementation, two
 	// surfaces). It needs no registry and binds no port.
 	if len(os.Args) > 1 && os.Args[1] == "mcp" {
-		return serveMCP(cfg, token, os.Stdin, os.Stdout)
+		return serveMCP(cfg, src, seedToken, os.Stdin, os.Stdout)
 	}
 
 	regClient, cleanup, err := dialRegistry(cfg.RegistryEndpoint)
@@ -80,7 +85,50 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	return serve(ctx, cfg, token, regClient)
+	return serve(ctx, cfg, src, seedToken, regClient)
+}
+
+// resolveCredentialSource builds the credential.Source for the configured mode.
+// PAT mode returns a StaticSource and the token (for redactor seeding). App mode
+// resolves the App identity, builds the minter, and returns an AppSource minting
+// installation tokens on demand; its seed token is empty. No secret is logged.
+func resolveCredentialSource(cfg *config.AdapterConfig) (credential.Source, string, error) {
+	if cfg.UsesApp() {
+		inputs, err := config.ResolveAppCredentials(cfg)
+		if err != nil {
+			return nil, "", fmt.Errorf("resolve app credentials: %w", err)
+		}
+		minter, err := credential.NewGitHubAppMinter(credential.AppCredentials{
+			AppID:          inputs.AppID,
+			InstallationID: inputs.InstallationID,
+			PrivateKeyPEM:  inputs.PrivateKeyPEM,
+		})
+		if err != nil {
+			return nil, "", fmt.Errorf("init app minter: %w", err)
+		}
+		slog.Info("git-adapter using GitHub App installation-token credentials (refreshable)") //nolint:gosec
+		return credential.NewAppSource(minter, nil), "", nil
+	}
+	token, err := config.ResolveToken(cfg)
+	if err != nil {
+		return nil, "", fmt.Errorf("resolve token: %w", err)
+	}
+	return credential.NewStaticSource(token), token, nil
+}
+
+// runScopeGate resolves the current token from the source and runs the
+// least-privilege probe (G.5). A source resolution failure (e.g. App minting
+// down at startup) surfaces as a startup error.
+func runScopeGate(ctx context.Context, src credential.Source) error {
+	token, err := src.Token(ctx)
+	if err != nil {
+		return fmt.Errorf("resolve credential for scope gate: %w", err)
+	}
+	probe, err := newScopeProbe(token)
+	if err != nil {
+		return fmt.Errorf("scope probe init: %w", err)
+	}
+	return validateTokenScope(ctx, probe, auth.ParseMode(os.Getenv("GIT_ADAPTER_SCOPE_MODE")))
 }
 
 // scopeValidator is the probe surface auth.Validate consumes at startup (enables
@@ -127,15 +175,17 @@ func validateTokenScope(ctx context.Context, p scopeValidator, mode auth.Mode) e
 
 // serveMCP runs the MCP stdio shim. The exposed tool set is an explicit
 // allow-list built from the configured capability names — not "every handler".
-func serveMCP(cfg *config.AdapterConfig, token string, in io.Reader, out io.Writer) error {
-	srv := adapter.NewAgentServer(cfg, token)
+// The credential source is shared with the runtime path, so App-token refresh
+// applies equally to the MCP surface (ADR-032 — one implementation, two surfaces).
+func serveMCP(cfg *config.AdapterConfig, src credential.Source, seedToken string, in io.Reader, out io.Writer) error {
+	srv := adapter.NewAgentServerWithSource(cfg, src, seedToken)
 	tools := make([]string, 0, len(cfg.Capabilities))
 	for _, c := range cfg.Capabilities {
 		tools = append(tools, c.Name)
 	}
 	// The injected token is scrubbed from every tool result at the prompt
 	// boundary (G.3 / #1199); the token value itself is never logged here.
-	red := redact.New(token)
+	red := redact.New(seedToken)
 	slog.Info("git-adapter mcp serving over stdio", "tools", tools) //nolint:gosec
 	if err := mcp.NewServerWithRedactor(srv, tools, red).Serve(context.Background(), in, out); err != nil {
 		return fmt.Errorf("mcp serve: %w", err)
@@ -151,14 +201,14 @@ func dialRegistry(endpoint string) (zynaxv1.AgentRegistryServiceClient, func(), 
 	return zynaxv1.NewAgentRegistryServiceClient(conn), func() { _ = conn.Close() }, nil
 }
 
-func serve(ctx context.Context, cfg *config.AdapterConfig, token string, regClient zynaxv1.AgentRegistryServiceClient) error {
+func serve(ctx context.Context, cfg *config.AdapterConfig, src credential.Source, seedToken string, regClient zynaxv1.AgentRegistryServiceClient) error {
 	lis, err := net.Listen("tcp", cfg.Endpoint)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", cfg.Endpoint, err)
 	}
 
 	grpcSrv := grpc.NewServer()
-	zynaxv1.RegisterAgentServiceServer(grpcSrv, adapter.NewAgentServer(cfg, token))
+	zynaxv1.RegisterAgentServiceServer(grpcSrv, adapter.NewAgentServerWithSource(cfg, src, seedToken))
 	healthSrv := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcSrv, healthSrv)
 

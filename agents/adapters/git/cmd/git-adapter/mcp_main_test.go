@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/config"
+	"github.com/zynax-io/zynax/agents/adapters/git/internal/credential"
 )
 
 // TestServeMCP_ClosedTransportReturnsNil covers serveMCP: it builds the tool
@@ -18,7 +19,8 @@ func TestServeMCP_ClosedTransportReturnsNil(t *testing.T) {
 	cfg := &config.AdapterConfig{
 		Capabilities: []config.GitCapabilityConfig{{Name: "open_pr"}, {Name: "get_diff"}},
 	}
-	if err := serveMCP(cfg, "token", strings.NewReader(""), io.Discard); err != nil {
+	src := credential.NewStaticSource("token")
+	if err := serveMCP(cfg, src, "token", strings.NewReader(""), io.Discard); err != nil {
 		t.Fatalf("serveMCP over a closed transport should return nil, got %v", err)
 	}
 }
