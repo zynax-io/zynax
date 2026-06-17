@@ -13,9 +13,16 @@ import (
 	"time"
 
 	nats "github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 
+	"github.com/zynax-io/zynax/libs/zynaxobs"
 	"github.com/zynax-io/zynax/services/event-bus/internal/domain"
 )
+
+// eventBusTracerName is the OTel instrumentation scope for spans this package
+// creates (the NATS consumer-side delivery span).
+const eventBusTracerName = "github.com/zynax-io/zynax/services/event-bus"
 
 // NATSEventBus implements domain.EventBus backed by NATS JetStream.
 type NATSEventBus struct {
@@ -187,6 +194,12 @@ func (b *NATSEventBus) Publish(ctx context.Context, event domain.CloudEvent) (st
 	msg.Header.Set("ce-id", event.ID)
 	msg.Header.Set("ce-type", event.Type)
 	msg.Header.Set("ce-source", event.Source)
+
+	// Carry the W3C traceparent so a subscriber's delivery span stitches to the
+	// publisher's trace across this async NATS hop (canvas O.5). nats.Header is
+	// a map[string][]string, accepted directly by the carrier. No-op when no
+	// active span / OTLP endpoint is configured.
+	zynaxobs.InjectMapHeader(ctx, msg.Header)
 
 	pubAck, err := b.js.PublishMsg(msg)
 	if err != nil {
@@ -373,6 +386,16 @@ func (b *NATSEventBus) openSubscription(streamName, subject, durName, dlqDeliver
 // glob pattern and workflow_id filters, then sends to ch. Returns true if the
 // goroutine should stop (context cancelled during send).
 func dispatchMsg(ctx context.Context, msg *nats.Msg, req domain.SubscribeRequest, ch chan<- domain.CloudEvent) bool {
+	// Stitch this delivery to the publisher's trace across the async NATS hop by
+	// extracting the W3C traceparent carried in the message headers (canvas O.5).
+	// nats.Header is a map[string][]string, accepted directly by the carrier.
+	// No-op when the message carries no traceparent.
+	ctx = zynaxobs.ExtractMapHeader(ctx, msg.Header)
+	ctx, span := otel.Tracer(eventBusTracerName).Start(
+		ctx, "EventBus.deliver", trace.WithSpanKind(trace.SpanKindConsumer),
+	)
+	defer span.End()
+
 	var env cloudEventEnvelope
 	if err := json.Unmarshal(msg.Data, &env); err != nil {
 		_ = msg.Nak()
