@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: Apache-2.0
+# Runtime expert template (kind: AgentDef) — EPIC X (#1170) step X.3 (#1203).
+#
+# A "runtime expert" is an ordinary AgentDef whose capabilities encode an expert
+# review loop, declared so it registers in agent-registry and is dispatchable by
+# the task broker inside a workflow. This template mirrors the go-review-expert
+# reference agent (agents/examples/go-review-expert, X.2) so the manifest and the
+# running agent advertise the same capability routing key (go_review).
+#
+# Distinguishing label: agent.zynax.io/kind=expert marks this AgentDef as a
+# runtime expert (vs a plain capability provider) so operators and the authoring
+# ↔ runtime mapping (X.5) can select experts via a ListAgents label selector.
+#
+# Dispatch + tracing: the task broker routes ActionIR.capability=go_review to this
+# agent's endpoint via FindByCapability; ExecuteCapability calls are OTEL-traced by
+# the broker/agent gRPC interceptors (M7) under the workflow's propagated context.
+#
+# Validated by: make validate-spec (against spec/schemas/agent-def.schema.json).
+apiVersion: zynax.io/v1alpha1
+kind: AgentDef
+
+metadata:
+  name: go-review-expert
+  namespace: default
+  labels:
+    team: platform
+    agent.zynax.io/kind: expert
+    agent.zynax.io/expert: go-review
+
+spec:
+  capabilities:
+    - name: go_review
+      description: >
+        Rule-based Go code review. Inspects a Go diff or source file and returns
+        structured findings (line, severity, message), a finding count, and an
+        approval flag that is false when any finding has severity 'error'.
+      input_schema:
+        type: object
+        required: [diff]
+        properties:
+          diff:
+            type: string
+            description: Go source or unified-diff text to review.
+        additionalProperties: false
+      output_schema:
+        type: object
+        required: [findings, finding_count, approved]
+        properties:
+          findings:
+            type: array
+            description: Ordered review findings.
+            items:
+              type: object
+          finding_count:
+            type: integer
+            description: Number of findings returned.
+            minimum: 0
+          approved:
+            type: boolean
+            description: False when any finding has severity 'error'.
+        additionalProperties: false
+      timeout_seconds: 30
+      max_retries: 1
+
+  runtime:
+    image: ghcr.io/zynax-io/zynax/go-review-expert:latest
+    env:
+      LOG_LEVEL: info
+      GRPC_PORT: "50051"
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+    replicas: 1

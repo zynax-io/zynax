@@ -10,6 +10,10 @@ GO_SERVICES   := $(shell grep -E '^\s+\./services/' go.work | sed 's|.*services/
 GO_ADAPTERS   := $(shell grep -E '^\s+\./agents/adapters/' go.work | sed 's|.*agents/adapters/||' | tr -d '\t ' | sort)
 # Services carrying Go benchmarks (EPIC R / #493). Add a service here when it gains a Benchmark* test.
 BENCH_SERVICES := engine-adapter workflow-compiler
+# Services carrying Go fuzz targets (EPIC R / #1210). Add a service here when it gains a Fuzz* test.
+FUZZ_SERVICES := workflow-compiler
+# Per-target fuzz campaign duration for `make fuzz` (override: make fuzz DURATION=60s).
+DURATION ?= 60s
 # Committed benchmark baseline — CI compares fresh runs against this with benchstat.
 BENCH_BASELINE := tools/bench-baseline.txt
 # Auto-discovered from agents/examples/*/pyproject.toml — no manual update needed when adding a new agent.
@@ -172,7 +176,7 @@ lint-fix: ensure-tools ## Auto-fix Python agent lint errors
 		$(TOOLS_RUN) sh -c "cd agents/examples/$$a && uv run ruff check --fix src/ tests/ && uv run ruff format src/ tests/" || true; done
 
 # ── Tests ──────────────────────────────────────────────────────────────────
-.PHONY: test test-unit test-unit-go test-unit-adapters test-unit-svc test-unit-agents test-unit-agent test-bdd test-coverage test-coverage-adapters test-integration bench
+.PHONY: test test-unit test-unit-go test-unit-adapters test-unit-svc test-unit-agents test-unit-agent test-bdd test-coverage test-coverage-adapters test-integration bench fuzz
 test: validate-spec test-unit test-bdd test-coverage test-coverage-adapters ## ★ Full local test suite — mirrors CI (spec + Go + Python + BDD + coverage gate)
 test-unit: test-unit-go test-unit-adapters test-unit-agents ## All unit tests (Go services + Go adapters + Python)
 
@@ -275,6 +279,18 @@ bench: ensure-tools ## Run domain benchmarks and regenerate $(BENCH_BASELINE) (-
 			| tee -a "$(BENCH_BASELINE)" || exit 1; \
 	done
 	@echo "✅ Benchmarks complete — baseline written to $(BENCH_BASELINE)"
+
+fuzz: ensure-tools ## Run domain fuzz campaigns locally (override duration: make fuzz DURATION=60s)
+	@echo "🎲 Running fuzz campaigns (DURATION=$(DURATION) per target)"
+	@for svc in $(FUZZ_SERVICES); do \
+		echo "── fuzz: services/$$svc"; \
+		$(TOOLS_RUN) sh -c "cd services/$$svc && \
+			for fn in \$$(GOWORK=off go test ./internal/domain/... -list='^Fuzz' 2>/dev/null | grep '^Fuzz'); do \
+				echo \"   campaign: \$$fn\"; \
+				GOWORK=off go test ./internal/domain/... -run='^\$$' -fuzz=\"^\$$fn\$$\" -fuzztime=$(DURATION) || exit 1; \
+			done" || exit 1; \
+	done
+	@echo "✅ Fuzz campaigns complete — no crashers found"
 
 # ── Proto generation + lint ────────────────────────────────────────────────
 .PHONY: generate-protos go-generate lint-protos
