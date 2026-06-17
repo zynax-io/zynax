@@ -4,8 +4,8 @@
 # Job names match the branch protection required status checks on `main`.
 # Never rename a job without updating branch protection first.
 #
-# Required checks: dco · lint-proto · lint-go · lint-python · test-unit · security
-# (test-integration is non-required until real integration tests exist — #227)
+# Required checks: dco · lint-proto · lint-go · lint-python · test-unit · security · test-integration
+# (test-integration runs the real //go:build integration suite via testcontainers — #227, #553)
 #
 # Job graph:
 #   dco → changes → lint-proto ─╮
@@ -589,13 +589,29 @@ jobs:
           echo "✅ all tests passed or skipped"
 
 # ── Integration Tests ─────────────────────────────────────────────────────────
-# No-op skeleton until real integration tests exist (#227 / M7.C).
+# Runs the real //go:build integration suite (#227, #553). The tests use
+# testcontainers-go to spin up real backing services (Postgres, NATS, pgvector)
+# inside the test, so this job needs a live Docker daemon. It therefore runs on
+# the BARE ubuntu-24.04 host (Docker pre-installed) — NOT inside the ci-runner
+# container (no DinD socket) — with actions/setup-go for the toolchain.
+#
+# Required check (branch protection on main). The job must FAIL — never skip
+# silently — when its scope is empty: a SKIPPED required check is treated as
+# neutral by GitHub and would bypass the gate entirely (#986).
+#
+# Scope = the M5.C cross-service dispatch-path services named in #553 AC#1
+# (task-broker, agent-registry), whose integration suites are green and
+# deterministic. INTEGRATION_SUITES is an explicit allowlist, NOT env
+# SERVICE_LIST: SERVICE_LIST omits the services with integration suites, and a
+# blind glob would also pull in event-bus + memory-service, whose integration
+# suites have pre-existing deterministic failures (event-bus godog step arity +
+# DLQ timeout; memory-service DeleteNamespace cascade) tracked as a follow-up.
+# A self-check below FAILS if any allowlisted suite loses its build-tagged files,
+# so the gate can never silently shrink to a no-op. Expand the allowlist as each
+# additional suite is fixed and proven green.
   test-integration:
     name: test-integration
     runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:7ccd7f7c50bf40a937988e32f9b280a1ef8d62f860410798758720f29ce46c9c
-      options: --user root
     needs: [changes, lint-go, lint-proto, lint-python]
     if: >-
       always() &&
@@ -603,34 +619,49 @@ jobs:
       needs.changes.outputs.code == 'true' &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')
+    env:
+      # Explicit allowlist of dispatch-path service dirs with green integration
+      # suites (#553 AC#1). Keep in sync with branch-protection required check.
+      INTEGRATION_SUITES: "task-broker agent-registry"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Detect integration tests
-        id: int-detect
-        run: |
-          count=$(grep -rl "//go:build integration" services/ 2>/dev/null | wc -l)
-          echo "has_integration=$count" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: "1.26.4"
+          cache: false
 
-      - name: Run integration tests
-        if: steps.int-detect.outputs.has_integration != '0'
+      - name: Verify allowlisted suites still carry integration files
         run: |
-          failed=false
-          for svc in ${{ env.SERVICE_LIST }}; do
-            if grep -rl "//go:build integration" "services/${svc}/" 2>/dev/null | grep -q .; then
-              echo "── integration: services/${svc}"
-              cd "services/${svc}"
-              GOWORK=off go test -tags=integration ./... -v -timeout 120s
-              cd ../..
+          # Guard against the gate silently degrading to a no-op: every
+          # allowlisted service MUST still own //go:build integration files.
+          missing=""
+          for svc in $INTEGRATION_SUITES; do
+            if ! grep -rl "//go:build integration" "services/${svc}/" 2>/dev/null | grep -q .; then
+              missing="${missing} ${svc}"
             fi
           done
-          echo "✅ Integration tests passed"
+          if [ -n "$missing" ]; then
+            echo "::error::Allowlisted integration suite(s) have no //go:build integration files:${missing}"
+            echo "This REQUIRED gate must never pass as a no-op (#553)."
+            exit 1
+          fi
+          echo "✅ all allowlisted suites carry integration files"
 
-      - name: No integration tests yet
-        if: steps.int-detect.outputs.has_integration == '0'
+      - name: Run integration tests (testcontainers — real Docker daemon)
+        env:
+          GOWORK: "off"
         run: |
-          echo "ℹ️  No integration test files found — job passes as a no-op."
-          echo "   Tag test files with '//go:build integration' to include them here."
+          failed=false
+          for svc in $INTEGRATION_SUITES; do
+            echo "── integration: services/${svc}"
+            ( cd "services/${svc}" && go test -tags=integration ./... -race -timeout 120s ) || failed=true
+          done
+          if [ "$failed" = "true" ]; then
+            echo "::error::One or more integration suites failed."
+            exit 1
+          fi
+          echo "✅ Integration tests passed"
 
 # ── Security ──────────────────────────────────────────────────────────────────
 # govulncheck (Go CVE), bandit + pip-audit (Python SAST/CVE), trivy (Dockerfile).
