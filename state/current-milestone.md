@@ -30,8 +30,9 @@ See [docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md).
 
 ## M7 — Active (🚧 target v0.6.0, opened 2026-06-15)
 
-GitHub milestone #7 ("Full Observability"); scope broadened to **Usable Workflows + Observability**
-— first of the M7 → M-dx → M8 program. Full plan: **[docs/milestones/M7-planning.md](../docs/milestones/M7-planning.md)**.
+GitHub milestone #7 — **Usable Workflows + Observability** (renamed 2026-06-17 from "Full
+Observability" to match scope; `state/milestone.yaml` synced in #1300) — first of the M7 → M-dx → M8
+program. Full plan: **[docs/milestones/M7-planning.md](../docs/milestones/M7-planning.md)**.
 
 Goal: a developer authors a real multi-step workflow, runs it locally (`docker compose up` incl.
 **Uptrace**), watches it execute state→state with **data-flow**, **streamed logs**, and a connected
@@ -54,11 +55,16 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 | S | Consolidate CI bash into the `zynax-ci` Go CLI (ADR-036) | ci | [S](../docs/spdd/1285-ci-bash-to-go/canvas.md) |
 
 Pre-existing M7 EPICs #467 (OTel) / #468 (history streaming) / #469 (test rigor) are **absorbed** into
-O / L / R respectively. New ADRs: ADR-029…034 (Proposed).
+O / L / R respectively — and their issue titles were aligned to that scheme 2026-06-17
+(#467 → M7.O, #469 → M7.R, #553 backref) to resolve the duplicate `M7.C` label with #1168.
+New ADRs: ADR-029…034 (Proposed).
 
-**Delivery (as of 2026-06-17):** GitHub milestone #7 — **30 closed / 56 open** (two EPICs added
-2026-06-16: **P #1276** llm-adapter Go-port and **S #1285** CI-bash-to-Go, both canvases Aligned).
-X #1170 / T #1171 aligned earlier; O/L/R/W/G/470/471 already Aligned; C/Q/D still Draft. Shipped:
+**Delivery (as of 2026-06-17):** GitHub milestone #7 — **33 closed / 57 open**. **All 12 EPIC
+canvases now Aligned** — C/Q/D aligned 2026-06-17 (#1301). 2026-06-17 truth-pass: verified
+architecture review committed (`docs/reviews/06`, #1295 + correction #1303); milestone renamed +
+ROADMAP reconciled (#1299); `make ci` re-verified green on the current tools image (the only local
+gap is a Makefile↔CI `pip-audit` ignore-flag drift, tracked as **#1302** under EPIC Q). Earlier:
+two EPICs added 2026-06-16 (**P #1276** llm-adapter Go-port, **S #1285** CI-bash-to-Go). Shipped:
 O.4 #1187 + O.7 #1190 + O.8 #1191 (Observability — exemplars, compose & Helm Uptrace), X.2 #1202
 (`agents/examples`), R.1 #493 (benchmarks + benchstat gate), Q.4 #1215 / Q.5 #1216 (Go-module
 consumption + ADR-034), P.1 #1277 / S.1 #1286 (ADR-035 / ADR-036). **Security tab clean** — all 8

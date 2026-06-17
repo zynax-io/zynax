@@ -2,10 +2,12 @@
 
 # Zynax M7 — Usable Workflows + Observability Planning
 
-> **Target version:** v0.6.0 · **GitHub milestone:** #7 (`Full Observability (M7)`)
-> **Status:** Active (opened 2026-06-15) · **Last updated:** 2026-06-16 (reconciled to live GitHub
-> issue state + live tree at HEAD `main`; see [§4a Delivery Progress](#4a--delivery-progress-live-issue-state);
-> truth-pass 2026-06-16 marked O.4/O.7/O.8/X.2/R.1/Q.4/Q.5 ✅ and aligned EPIC X #1170 + EPIC T #1171 canvases) · **Planning author:** SPDD program plan
+> **Target version:** v0.6.0 · **GitHub milestone:** #7 (`Usable Workflows + Observability (M7)`)
+> **Status:** Active (opened 2026-06-15) · **Last updated:** 2026-06-17 (truth-pass: milestone renamed
+> "Full Observability" → "Usable Workflows + Observability", verified review `docs/reviews/06` committed,
+> all 12 EPIC canvases Aligned, EPIC-letter scheme reconciled #467→O/#469→R; see
+> [§4a Delivery Progress](#4a--delivery-progress-live-issue-state); the 2026-06-16 pass marked
+> O.4/O.7/O.8/X.2/R.1/Q.4/Q.5 ✅ and aligned EPIC X #1170 + EPIC T #1171 canvases) · **Planning author:** SPDD program plan
 > **Program context:** first of a three-milestone program M7 → M-dx → M8 (see [§1 Program Roadmap](#1--program-roadmap)).
 
 This document is the **single planning source of truth** for M7. It is generated from
@@ -56,9 +58,10 @@ graph LR
 | **M-dx** | v0.7.0 | #9 | **Developer Experience** | Scales experts + examples + context once the substrate exists. Pure additive; no platform contract changes. |
 | **M8** | v1.0.0 | #8 | **CNCF Sandbox** | Production hardening, scale testing, governance — gated on a feature-complete, observable platform. |
 
-> **Reframing note.** GitHub milestone #7 was titled *"Full Observability"*. M7 keeps observability
-> as a pillar but is **broader**: observability is necessary but not sufficient for "usable". The
-> GitHub milestone title is unchanged (idempotent reuse); the scope is this document.
+> **Reframing note.** GitHub milestone #7 was originally titled *"Full Observability"*. M7 keeps
+> observability as a pillar but is **broader**: observability is necessary but not sufficient for
+> "usable". The GitHub milestone was **renamed to "Usable Workflows + Observability (M7)" on
+> 2026-06-17** to match this scope (`state/milestone.yaml` synced in #1300).
 
 ---
 
@@ -539,7 +542,7 @@ in [§10a](#10a--epic-create-commands). Pre-existing EPICs #467/#468/#469 and st
 gh issue create \
   --title "epic(workflow-compiler): M7.W — Workflow data-flow (output/input bindings)" \
   --label "type: epic,area: workflow-compiler,area: engine-adapter,area: protos,priority: high,milestone: M7" \
-  --milestone "Full Observability (M7)" \
+  --milestone "Usable Workflows + Observability (M7)" \
   --body "<scope · stories W.1–W.5 · ADR-029 · DoD · AC>  Assisted-by: Claude/claude-opus-4-8"
 # … EPICs L, O, C, G, X, T, Q, D analogously (see §5 for scope/stories).
 ```

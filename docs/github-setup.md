@@ -382,7 +382,7 @@ gh label create "milestone: M3" --color "f9d0c4" --description "Temporal Executi
 gh label create "milestone: M4" --color "f9d0c4" --description "YAML System + CLI"
 gh label create "milestone: M5" --color "f9d0c4" --description "Adapter Library"
 gh label create "milestone: M6" --color "f9d0c4" --description "K8s Production-Ready"
-gh label create "milestone: M7" --color "f9d0c4" --description "Full Observability"
+gh label create "milestone: M7" --color "f9d0c4" --description "Usable Workflows + Observability"
 gh label create "milestone: M8" --color "f9d0c4" --description "CNCF Sandbox Submission"
 gh label create "milestone: unscheduled" --color "cfd3d7" --description "Accepted but not yet assigned to milestone"
 
@@ -440,7 +440,7 @@ gh api repos/zynax-io/zynax/milestones --method POST \
   -f state="open"
 
 gh api repos/zynax-io/zynax/milestones --method POST \
-  -f title="Full Observability (M7)" \
+  -f title="Usable Workflows + Observability (M7)" \
   -f description="End-to-end observability across all workflow execution layers." \
   -f state="open"
 
