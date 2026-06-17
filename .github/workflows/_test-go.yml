@@ -189,7 +189,8 @@ jobs:
           else
             export BASE="HEAD~1" HEAD="HEAD"
           fi
-          pkgs=$(bash tools/ci/bdd-select-packages.sh)
+          # Build-from-source until the ci-runner image carries the bdd-select verb.
+          pkgs=$(GOWORK=off go -C cmd/zynax-ci run . bdd-select)
           cd protos/tests
           if [ "$pkgs" = "ALL" ]; then
             echo "── BDD: full suite"
