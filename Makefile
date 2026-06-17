@@ -52,14 +52,9 @@ build-tools: check-docker ## Build zynax/tools:local from source — use when ed
 	docker build -f infra/docker/Dockerfile.tools -t $(TOOLS_IMAGE) .
 	@echo "✅ Tools image: $(TOOLS_IMAGE)"
 
-bump-ci-runner: ## [DEPRECATED] Use: edit images/images.yaml then make sync-images
-	@echo "⚠️  bump-ci-runner is deprecated. Use the new flow instead:"
-	@echo "    1. Edit images/images.yaml — update ci-runner digest"
-	@echo "    2. make sync-images"
-	@echo "    3. Verify: make check-images"
-	@echo "    Proceeding with legacy script for backward compatibility..."
+bump-ci-runner: ## Pin a new ci-runner digest in images.yaml and re-stamp consumers
 	@[ -n "$(NEW_DIGEST)" ] || (echo "❌ Usage: make bump-ci-runner NEW_DIGEST=sha256:<64-hex>"; exit 1)
-	scripts/bump-ci-runner.sh $(NEW_DIGEST)
+	cd cmd/zynax-ci && GOWORK=off go run . bump-runner "$(NEW_DIGEST)" --root "$(CURDIR)"
 
 pull-tools: check-docker ## Pull tools image from GHCR (authenticates via `gh auth token`)
 	@echo "🔐 Authenticating to GHCR via gh..."
