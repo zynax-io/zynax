@@ -630,3 +630,10 @@ Story: Q.4 — verify + document Go module consumption path (pkg.go.dev). PR #12
 
 ### Structural-workaround (shared-tree / Docker)
 - After a container-backed `make` target (e.g. `make security` → uv/pip-audit) runs inside a /tmp worktree, it leaves root-owned `.venv`/cache dirs. `git worktree remove --force` may DE-REGISTER the worktree yet fail to delete the dir ("Permiso denegado"). Do NOT re-run `git worktree remove` (it then reports "not a worktree") — finish with `docker run --rm -v /tmp:/tmp alpine rm -rf <worktree-path>` then `git worktree prune`.
+
+## Session — 2026-06-17 cycle 3 (issue #1204)
+
+### Effective patterns
+- "CI runs/tests X" ACs: grep the workflow for the loop's SOURCE variable, not just the loop's presence. A `for x in ${{ env.LIST }}` over a hardcoded-empty `LIST` is a silently-inert gate (green but covers nothing — same class as a skipped required check). Fix with in-job discovery: an `id:` step writing `agents=<glob>` to `$GITHUB_OUTPUT`, consumed as `${{ steps.<id>.outputs.agents }}`, mirroring the Makefile's `$(shell find …)` glob so make and CI never diverge.
+- actionlint runs shellcheck and exits 1 on warnings; distinguish NEW from baseline by running against `git show origin/main:<file>`. Prefer a shell-glob `for dir in agents/examples/*/` over `find|xargs basename` (avoids SC2038).
+- A `.github/workflows/`-only PR does NOT trigger the python/go lint/test lanes (changes-filter path is `^agents/`), so they show "skipping" and the effect lands on the next matching PR — note this in the PR body.
