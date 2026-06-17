@@ -10,11 +10,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -306,6 +308,121 @@ func TestDeleteWorkflow_ServerError(t *testing.T) {
 
 	if err := newGateway().DeleteWorkflow(context.Background(), "run-x"); err == nil {
 		t.Error("expected error for 500 response")
+	}
+}
+
+// ── root Execute() ────────────────────────────────────────────────────────────
+
+// ── logs subcommand ───────────────────────────────────────────────────────────
+
+// sseServer returns a test server that emits the given JSON events as SSE
+// frames on GET /api/v1/workflows/{id}/logs.
+func sseServer(t *testing.T, events []map[string]any) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/logs") {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		for _, ev := range events {
+			b, _ := json.Marshal(ev)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func runLogs(t *testing.T, args []string) (string, error) {
+	t.Helper()
+	cmd := fakeCmd(t)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	err := logsCmd.RunE(cmd, args)
+	return out.String(), err
+}
+
+func TestLogsCmd_Follow_StopsAtTerminal(t *testing.T) {
+	srv := sseServer(t, []map[string]any{
+		{"run_id": "r1", "event_type": "state.entered", "to_state": "review", "status": "WORKFLOW_STATUS_RUNNING"},
+		{"run_id": "r1", "event_type": "capability.invoked", "status": "WORKFLOW_STATUS_RUNNING"},
+		{"run_id": "r1", "event_type": "workflow.completed", "from_state": "review", "to_state": "done", "status": "WORKFLOW_STATUS_COMPLETED"},
+	})
+	apiURL = srv.URL
+	logsFormat = formatText
+	logsFollow = true
+	defer func() { logsFollow = false }()
+
+	out, err := runLogs(t, []string{"r1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Terminal event is the last and exits cleanly (sentinel swallowed).
+	if !strings.Contains(out, "workflow.completed") {
+		t.Errorf("expected terminal event in output, got:\n%s", out)
+	}
+	// State transition renders the arrow.
+	if !strings.Contains(out, "review → done") {
+		t.Errorf("expected state arrow for transition, got:\n%s", out)
+	}
+	// Capability event without a transition omits the arrow.
+	if strings.Contains(out, "capability.invoked  ") && strings.Contains(out, "capability.invoked   →") {
+		t.Errorf("capability event should not render a state arrow, got:\n%s", out)
+	}
+}
+
+func TestLogsCmd_NoFollow_StreamsAll(t *testing.T) {
+	srv := sseServer(t, []map[string]any{
+		{"run_id": "r2", "event_type": "state.entered", "to_state": "start", "status": "WORKFLOW_STATUS_RUNNING"},
+		{"run_id": "r2", "event_type": "state.entered", "to_state": "review", "status": "WORKFLOW_STATUS_RUNNING"},
+	})
+	apiURL = srv.URL
+	logsFormat = formatText
+	logsFollow = false
+
+	out, err := runLogs(t, []string{"r2"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Count(out, "state.entered") != 2 {
+		t.Errorf("expected 2 events in non-follow mode, got:\n%s", out)
+	}
+}
+
+func TestLogsCmd_JSONFormat(t *testing.T) {
+	srv := sseServer(t, []map[string]any{
+		{"run_id": "r3", "event_type": "workflow.completed", "status": "WORKFLOW_STATUS_COMPLETED"},
+	})
+	apiURL = srv.URL
+	logsFormat = formatJSON
+	logsFollow = true
+	defer func() {
+		logsFormat = formatText
+		logsFollow = false
+	}()
+
+	out, err := runLogs(t, []string{"r3"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &decoded); err != nil {
+		t.Errorf("logs JSON output is not valid JSON: %v\noutput: %s", err, out)
+	}
+}
+
+func TestLogsCmd_NotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+	apiURL = srv.URL
+	logsFollow = false
+
+	if _, err := runLogs(t, []string{"ghost"}); err == nil {
+		t.Error("expected error for 404 response")
 	}
 }
 

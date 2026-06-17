@@ -24,7 +24,7 @@ cmd/zynax/
     get.go          zynax get workflow <run-id>
     delete.go       zynax delete workflow <run-id>
     status.go       zynax status workflow <run-id>   (exit 0 = terminal, 2 = running)
-    logs.go         zynax logs <run-id> [--format text|json]
+    logs.go         zynax logs <run-id> [--follow|-f] [--format text|json]
     validate.go      zynax validate <file> [--schema-dir] [--format]  (local: schema + data-flow)
   validate/
     manifest.go     JSON Schema validation (validate.Manifest) + combined pipeline (validate.File)

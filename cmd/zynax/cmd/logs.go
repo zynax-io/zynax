@@ -4,41 +4,74 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/zynax-io/zynax/cmd/zynax/client"
 )
 
-var logsFormat string
+var (
+	logsFormat string
+	logsFollow bool
+)
+
+// errFollowDone is the sentinel returned from the SSE callback to stop the
+// stream cleanly once a terminal event is seen in --follow mode. It is
+// swallowed at the command boundary and never surfaces as an error.
+var errFollowDone = errors.New("follow: terminal state reached")
 
 var logsCmd = &cobra.Command{
 	Use:   "logs <run-id>",
 	Short: "Stream lifecycle events for a workflow run",
-	Args:  cobra.ExactArgs(1),
+	Long: "Stream lifecycle events (state transitions and capability events) for a " +
+		"workflow run from the api-gateway SSE endpoint.\n\n" +
+		"With --follow the command tails the run live and exits once the workflow " +
+		"reaches a terminal state (completed, failed, or cancelled).",
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		gw := newGateway()
-		return gw.WatchWorkflowLogs(cmd.Context(), args[0], func(ev client.LogEvent) error {
+		err := gw.WatchWorkflowLogs(cmd.Context(), args[0], func(ev client.LogEvent) error {
 			if logsFormat == "json" {
-				b, err := json.Marshal(ev)
-				if err != nil {
-					return err
+				b, mErr := json.Marshal(ev)
+				if mErr != nil {
+					return mErr
 				}
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(b))
-				return nil
+			} else {
+				printLogEvent(cmd, ev)
 			}
-			ts := ev.Timestamp
-			if ts == "" {
-				ts = "-"
+			if logsFollow && terminalStatuses[ev.Status] {
+				return errFollowDone
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[%s] %-30s %s → %s (%s)\n",
-				ts, ev.EventType, ev.FromState, ev.ToState, ev.Status)
 			return nil
 		})
+		if errors.Is(err, errFollowDone) {
+			return nil
+		}
+		return err
 	},
+}
+
+// printLogEvent renders a single event in human-readable text form. State
+// transitions show a from→to arrow; capability/lifecycle events without a
+// transition show only the event type so progression reads cleanly.
+func printLogEvent(cmd *cobra.Command, ev client.LogEvent) {
+	ts := ev.Timestamp
+	if ts == "" {
+		ts = "-"
+	}
+	out := cmd.OutOrStdout()
+	if ev.FromState != "" || ev.ToState != "" {
+		_, _ = fmt.Fprintf(out, "[%s] %-30s %s → %s (%s)\n",
+			ts, ev.EventType, ev.FromState, ev.ToState, ev.Status)
+		return
+	}
+	_, _ = fmt.Fprintf(out, "[%s] %-30s (%s)\n", ts, ev.EventType, ev.Status)
 }
 
 func init() {
 	logsCmd.Flags().StringVar(&logsFormat, "format", "text", "output format: text|json")
+	logsCmd.Flags().BoolVarP(&logsFollow, "follow", "f", false, "tail the run live until it reaches a terminal state")
 	rootCmd.AddCommand(logsCmd)
 }
