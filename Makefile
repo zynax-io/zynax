@@ -383,13 +383,16 @@ validate-capability-schemas: ensure-tools ## Validate capability declarations in
 	$(TOOLS_RUN) zynax-ci validate capabilities spec/workflows/examples/ --schema-dir spec/schemas
 	@echo "✅ Capability schemas valid"
 
-validate-workflow-schema: ensure-tools ## Validate Workflow manifests (spec examples + automation/workflows) against workflow.schema.json
+validate-workflow-schema: ensure-tools ## Validate Workflow manifests (spec examples + templates + automation/workflows) against workflow.schema.json
 	$(TOOLS_RUN) zynax-ci validate workflows spec/workflows/examples/ --schema-dir spec/schemas
+	$(TOOLS_RUN) zynax-ci validate workflows spec/templates/workflow/ --schema-dir spec/schemas
 	$(TOOLS_RUN) zynax-ci validate workflows automation/workflows/ --schema-dir spec/schemas
 	@echo "✅ Workflow schemas valid"
 
-validate-agent-def-schema: ensure-tools ## Validate AgentDef manifests (spec examples + automation/workflows) against agent-def.schema.json
+validate-agent-def-schema: ensure-tools ## Validate AgentDef manifests (spec examples + templates + automation/workflows) against agent-def.schema.json
 	$(TOOLS_RUN) zynax-ci validate agent-defs spec/workflows/examples/ --schema-dir spec/schemas
+	$(TOOLS_RUN) zynax-ci validate agent-defs spec/templates/task/ --schema-dir spec/schemas
+	$(TOOLS_RUN) zynax-ci validate agent-defs spec/templates/expert/ --schema-dir spec/schemas
 	$(TOOLS_RUN) zynax-ci validate agent-defs automation/workflows/ --schema-dir spec/schemas
 	$(TOOLS_RUN) zynax-ci validate agent-defs automation/workflows/experts/ --schema-dir spec/schemas
 	@echo "✅ AgentDef schemas valid"

@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: Apache-2.0
+# spec/templates/task/task.template.yaml
+#
+# Reusable, versioned task template (EPIC T.1 — #1206).
+# A "task" is a single capability an agent performs. This AgentDef scaffold
+# declares one capability with input/output contracts. Copy, rename, and
+# replace the values marked < ... > to add a new task-shaped agent.
+#
+# Validate after editing:  make validate-spec
+# (The bare template itself validates against spec/schemas/agent-def.schema.json.)
+#
+# Authoring rules (see spec/AGENTS.md):
+#   * capability names are snake_case, 1–64 chars, ^[a-z][a-z0-9_]*$
+#   * input_schema / output_schema are draft-07-subset JSON Schema objects
+#   * bump metadata.version on every contract change (SemVer 2.0.0)
+
+apiVersion: zynax.io/v1alpha1
+kind: AgentDef
+
+metadata:
+  # < your-task-agent-name >  — lowercase DNS-style, unique per namespace
+  name: my-task
+  namespace: default
+  # Bump on every contract change. Omit for the unversioned baseline.
+  version: "0.1.0"
+  labels:
+    kind: task
+
+spec:
+  capabilities:
+    # < your_capability_name >  — the routing key workflows reference.
+    - name: do_work
+      description: >
+        One-sentence description of what this task does. Shown in the agent
+        registry UI and generated docs.
+      input_schema:
+        type: object
+        required: [payload]
+        properties:
+          payload:
+            type: string
+            description: The work item to process.
+      output_schema:
+        type: object
+        required: [value]
+        properties:
+          value:
+            type: string
+            description: The result of the task.
+      timeout_seconds: 300
+      max_retries: 1
+
+  runtime:
+    # Fully qualified image with tag or digest.
+    image: ghcr.io/zynax-io/my-task-agent:v0.1.0
+    replicas: 1

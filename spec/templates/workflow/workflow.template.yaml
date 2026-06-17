@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: Apache-2.0
+# spec/templates/workflow/workflow.template.yaml
+#
+# Reusable, versioned Workflow template (EPIC T.1 — #1206).
+# Copy this file, rename it, and replace the values marked < ... > below to
+# author a new workflow from a known-good baseline instead of from scratch.
+#
+# Validate after editing:  make validate-spec
+# (The bare template itself validates against spec/schemas/workflow.schema.json.)
+#
+# Authoring rules (see spec/AGENTS.md):
+#   * capabilities are snake_case and reference capabilities, never agent names
+#   * state names are lowercase and descriptive
+#   * at least one state must be type: terminal
+#   * bump metadata.version on every change (SemVer 2.0.0)
+
+kind: Workflow
+apiVersion: zynax.io/v1
+
+metadata:
+  # < your-workflow-name >  — lowercase DNS-style, unique per namespace
+  name: my-workflow
+  namespace: default
+  # Bump on every change. Backward-compatible: omit for the unversioned baseline.
+  version: "0.1.0"
+  labels:
+    team: my-team
+  annotations:
+    description: "What this workflow automates — one sentence."
+
+spec:
+  # Must match a key under states.
+  initial_state: start
+
+  # Optional: events that auto-start a NEW instance. Delete if manually triggered.
+  triggers:
+    - event: example.event.received
+      filter:
+        # All entries must match for the trigger to fire.
+        source: my-source
+
+  states:
+    # ── First working state ─────────────────────────────────────────
+    start:
+      actions:
+        - capability: my_capability
+          input:
+            # Reference trigger data with {{ .trigger.field }} or workflow
+            # context with {{ .context.key }}.
+            payload: "{{ .trigger.payload }}"
+          # Write results back into the workflow context for later states.
+          output:
+            context.result: "{{ .result.value }}"
+          timeout: 30m
+      on:
+        - event: my_capability.completed
+          goto: done
+        - event: my_capability.failed
+          goto: failed
+
+    # ── Terminal states (at least one required) ─────────────────────
+    done:
+      type: terminal
+      actions:
+        - capability: notify
+          input:
+            message: "Workflow completed: {{ .context.result }}"
+
+    failed:
+      type: terminal
+      actions:
+        - capability: notify
+          input:
+            message: "Workflow failed — manual follow-up required."

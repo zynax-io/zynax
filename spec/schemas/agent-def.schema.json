@@ -38,6 +38,11 @@
           "maxLength": 253,
           "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
         },
+        "version": {
+          "type": "string",
+          "description": "Optional semantic version of this AgentDef manifest (e.g. '1.0.0', '2.1.0-rc.1'). Backward-compatible: omitting it implies the unversioned baseline. Lets task/expert authors evolve a capability contract without breaking registered agents. Follows the SemVer 2.0.0 'MAJOR.MINOR.PATCH' grammar with optional pre-release and build metadata.",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+        },
         "namespace": {
           "type": "string",
           "description": "Logical namespace for multi-tenant isolation. Defaults to 'default' when omitted.",
