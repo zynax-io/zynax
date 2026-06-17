@@ -24,6 +24,23 @@ cd cmd/zynax && GOWORK=off go build -o ~/bin/zynax .
 
 ---
 
+## Scaffold a new manifest
+
+Start a new workflow or expert from a reusable, versioned template instead of from
+scratch. The manifest prints to stdout by default, or to `--output`/`-o`:
+
+```bash
+zynax init workflow                       # print a starting Workflow manifest
+zynax init workflow my-pipeline -o wf.yaml  # override metadata.name, write to file
+zynax init expert                         # print a starting expert (AgentDef) manifest
+```
+
+Templates live under `spec/templates/<kind>/<kind>.template.yaml`. Override the source
+directory with `--template-dir`. The emitted manifest is valid and versioned — run
+`zynax validate <file>` to confirm before `zynax apply`.
+
+---
+
 ## One-time setup
 
 ```bash

@@ -162,6 +162,133 @@ func TestRunValidate_DataFlowError(t *testing.T) {
 	}
 }
 
+// ── init subcommand ───────────────────────────────────────────────────────────
+
+func TestRunInit_Workflow_EmitsValidManifest(t *testing.T) {
+	root := repoRoot(t)
+	initTemplateDir = filepath.Join(root, "spec/templates")
+	initOutput = ""
+
+	cmd := fakeCmd(t)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := runInit(cmd, "workflow", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out.String(), "kind: Workflow") {
+		t.Errorf("expected Workflow manifest, got:\n%s", out.String())
+	}
+	// AC: emits a *versioned* manifest.
+	if !strings.Contains(out.String(), "version:") {
+		t.Errorf("expected version field in scaffolded manifest, got:\n%s", out.String())
+	}
+
+	// AC: the scaffolded manifest must be *valid* — round-trip through validate.
+	dir := t.TempDir()
+	f := filepath.Join(dir, "wf.yaml")
+	if err := os.WriteFile(f, out.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	validateSchemaDir = filepath.Join(root, "spec/schemas")
+	validateFormat = formatText
+	if err := runValidate(fakeCmd(t), []string{f}); err != nil {
+		t.Errorf("scaffolded workflow failed validation: %v", err)
+	}
+}
+
+func TestRunInit_Expert_EmitsValidManifest(t *testing.T) {
+	root := repoRoot(t)
+	initTemplateDir = filepath.Join(root, "spec/templates")
+	initOutput = ""
+
+	cmd := fakeCmd(t)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := runInit(cmd, "expert", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out.String(), "kind: AgentDef") {
+		t.Errorf("expected AgentDef manifest, got:\n%s", out.String())
+	}
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "expert.yaml")
+	if err := os.WriteFile(f, out.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	validateSchemaDir = filepath.Join(root, "spec/schemas")
+	validateFormat = formatText
+	if err := runValidate(fakeCmd(t), []string{f}); err != nil {
+		t.Errorf("scaffolded expert failed validation: %v", err)
+	}
+}
+
+func TestRunInit_NameOverride(t *testing.T) {
+	root := repoRoot(t)
+	initTemplateDir = filepath.Join(root, "spec/templates")
+	initOutput = ""
+
+	cmd := fakeCmd(t)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := runInit(cmd, "workflow", []string{"my-pipeline"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out.String(), "name: my-pipeline") {
+		t.Errorf("expected overridden name, got:\n%s", out.String())
+	}
+}
+
+func TestRunInit_OutputFile(t *testing.T) {
+	root := repoRoot(t)
+	initTemplateDir = filepath.Join(root, "spec/templates")
+	dir := t.TempDir()
+	initOutput = filepath.Join(dir, "wf.yaml")
+	defer func() { initOutput = "" }()
+
+	cmd := fakeCmd(t)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := runInit(cmd, "workflow", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out.String(), initOutput) {
+		t.Errorf("expected confirmation message, got:\n%s", out.String())
+	}
+	b, err := os.ReadFile(initOutput) //nolint:gosec // test reads the file it just scaffolded into a temp dir
+	if err != nil {
+		t.Fatalf("output file not written: %v", err)
+	}
+	if !strings.Contains(string(b), "kind: Workflow") {
+		t.Errorf("output file missing manifest, got:\n%s", b)
+	}
+}
+
+func TestRunInit_TemplateNotFound(t *testing.T) {
+	initTemplateDir = t.TempDir()
+	initOutput = ""
+
+	cmd := fakeCmd(t)
+	if err := runInit(cmd, "workflow", nil); err == nil {
+		t.Error("expected error for missing template")
+	}
+}
+
+func TestScaffold_NoMetadataName(t *testing.T) {
+	dir := t.TempDir()
+	kindDir := filepath.Join(dir, "workflow")
+	if err := os.Mkdir(kindDir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(kindDir, "workflow.template.yaml"),
+		[]byte("kind: Workflow\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scaffold(dir, "workflow", "x"); err == nil {
+		t.Error("expected error when template has no metadata.name")
+	}
+}
+
 // ── apply subcommand ──────────────────────────────────────────────────────────
 
 func TestRunApply_Workflow_202(t *testing.T) {
