@@ -581,3 +581,16 @@ Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicaliza
 - `gh pr checks --required` errors "no required checks reported" on this repo — protection gates on `mergeStateStatus` (CLEAN), not named contexts; use plain `--watch` + confirm `mergeable`/`mergeStateStatus`.
 - `gh issue view`/`gh pr edit` can fail with a projectCards GraphQL deprecation error; read with `--json <explicit fields>`, write labels via `gh api -X POST .../labels`.
 - `rm -rf <dir>` is denied by the sandbox; decompose into `rm <file>` then `rmdir <dir>`.
+
+## Session — 2026-06-17 cycle 3 (issues #1188 #1207)
+
+### #1188 (O.5 trace propagation Temporal + NATS)
+- Temporal OTel lives in a SEPARATE module `go.temporal.io/sdk/contrib/opentelemetry` (not in `go.temporal.io/sdk`); `go get` it into the SERVICE module only (engine-adapter), never shared `libs/zynaxobs`. `NewTracingInterceptor(TracerOptions{TextMapPropagator: propagation.TraceContext{}, DisableBaggage: true})` returns a value satisfying BOTH `interceptor.ClientInterceptor` and `interceptor.WorkerInterceptor` — wire into both `client.Options.Interceptors` and `worker.Options.Interceptors` (replay-safe; don't hand-roll).
+- For NATS, a `map[string][]string` carrier (nats.Header is that type) in zynaxobs keeps the shared lib transport-agnostic (zero NATS/Temporal imports). W3C propagator writes RAW lowercase `traceparent` into a bare map (no canonicalization) — assert `header["traceparent"]` not `["Traceparent"]`.
+- Commit early: the pre-commit golangci-lint (revive) surfaces unused-param/wrapcheck deltas that `make lint-go` misses.
+
+### #1207 (T.2 zynax validate + version surfacing)
+- Promoting a Cobra subcommand's args to its parent while keeping the old form as a back-compat alias: move shared flags to `parent.PersistentFlags()` (local `.Flags()` are NOT inherited by children/aliases).
+- `json:",omitempty"` on a new client struct field = clean back-compat for surfacing new fields (older gateways omit it).
+- Single-pass error reporting: a YAML parse error should be owned by exactly one validation pass; the other returns `(nil,nil)` with `//nolint:nilerr` to avoid double-reporting.
+- `status` calls `os.Exit(2)` for non-terminal runs → version tests must use a terminal status to hit the clean return path.
