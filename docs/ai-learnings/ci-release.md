@@ -621,3 +621,12 @@ Story: Q.4 — verify + document Go module consumption path (pkg.go.dev). PR #12
 - Rule: For docs/release issues asking to verify Go module consumption / pkg.go.dev import path in a monorepo, the authoritative verification is `curl -s https://proxy.golang.org/<module-path>/@latest` (non-empty JSON with Version+Subdir = consumable). Empty `@v/list` means no module-path-prefixed semver tags exist (proxy serves a `v0.0.0-<ts>-<commit>` pseudo-version); a 404 on the pkg.go.dev HTML page is lazy-indexing, not non-consumability. Document both the proxy evidence and the monorepo caveats (repo-level vs `<subdir>/vX.Y.Z` tags; in-repo `replace`/`go.work` per ADR-017 are internal-only, ignored by downstream consumers).
   Category: domain
   Reason: Module-consumption verification recurs for any monorepo release/docs task; the proxy-vs-pkg.go.dev distinction is non-obvious and easy to misreport as a failure.
+
+## Session — 2026-06-17 (issue #1302, Makefile↔CI pip-audit drift)
+
+### Effective patterns
+- Read both sides of a drift before editing (Makefile security-agents + ci.yml:666): copy CI's exact flag string so the Makefile line is a verbatim match, not an approximation — eliminates re-drift.
+- Local-gate-as-acceptance: run the gate (`make security`) and capture the exit code for the PR test-plan row — clean rc=0 proof without parsing noisy output.
+
+### Structural-workaround (shared-tree / Docker)
+- After a container-backed `make` target (e.g. `make security` → uv/pip-audit) runs inside a /tmp worktree, it leaves root-owned `.venv`/cache dirs. `git worktree remove --force` may DE-REGISTER the worktree yet fail to delete the dir ("Permiso denegado"). Do NOT re-run `git worktree remove` (it then reports "not a worktree") — finish with `docker run --rm -v /tmp:/tmp alpine rm -rf <worktree-path>` then `git worktree prune`.

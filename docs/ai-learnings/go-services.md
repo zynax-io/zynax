@@ -538,3 +538,26 @@ Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicaliza
 - Rule: When an issue says "document the existing X scheme", trace X to its actual implementation (the proto envelope field name often differs from the prose name — e.g. `ManifestWorkflowID` is the `workflow_id` field set by `generateWorkflowID`) and verify any pre-existing stub against the real code before finalizing; stubs may describe a scheme that was never built.
   Category: domain
   Reason: ADR/docs tasks that "record existing behaviour" are only correct if grounded in the real implementation; pre-staged stubs can carry an aspirational/wrong description that would otherwise merge verbatim.
+
+## Session — 2026-06-17 (issue #1178, EPIC W.4 data-flow keystone)
+
+### Effective patterns
+- Isolate new domain logic in one file (`datacontext.go`: store, `$.states.<state>.output.<key>` parsing, scalar coercion, `DataReferenceError`) and extend only the unexported `executeActions` signature — additive diff, near-zero blast radius; no-op guards keep binding-free actions byte-identical.
+- Read the generated `.pb.go` field doc-comments first: `ActionIR.OutputBindings`/`InputBindings` comments stated the exact key→source-path + literal-vs-`$.`-reference semantics, so the runtime matched the W.3 compiler contract without re-reading compiler code.
+- `mergeInputs` overlays resolved inputs onto a COPY of the exec ctx (never mutates), so per-action inputs don't leak into transition guards/later states (ADR-029 read-only consumption).
+
+### Edge cases
+- Stringly-typed "typed mismatch" (ADR-029 §3): treat any source path resolving to object/array/null as `DataReferenceError`; only string/bool/number coerce. Render integral float64 without trailing zeros (`42`, not `42.000000`).
+
+### Structural-workaround (shared-tree / sandbox)
+- On a fast-moving main, plain `gh pr merge --squash`/`--auto` can loop on BEHIND faster than rebase+arm lands. For an isolated change (no CODEOWNERS paths) with required checks green, escalate to operator-authorized `gh pr merge --squash --admin`. Note: `gh pr checks` has NO `--json` flag — use `--required`.
+
+## Session — 2026-06-17 (issue #1203, EPIC X.3 runtime expert)
+
+### Effective patterns
+- Verify-live-tree first: registry already had Register/FindByCapability/label-List machinery, so X.3 needed only a `kind: AgentDef` manifest + domain tests asserting register→dispatch — zero service-code change. Avoided a wasteful proto/handler edit.
+- `make validate-agent-def-schema` auto-discovers any `kind: AgentDef` file under `spec/workflows/examples/` — dropping the file there satisfies the CI gate with no Makefile wiring.
+- Mirror the upstream agent's routing key exactly (capability `go_review` from `capability.json`) in both manifest and registration test → manifest/runtime dispatch stay consistent.
+
+### Structural-workaround (sandbox)
+- Do NOT poll a growing background-job output file with the Read tool — Read dedups and reports "unchanged" even after the file grows. Use `grep -nE`/`test -s` on the literal path, or wait for the background-completion notification.
