@@ -60,6 +60,14 @@ func (h *Handler) handleApply(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error(), code)
 		return
 	}
+	// Attach the namespace to the request context so the downstream gRPC
+	// interceptors carry it as correlation metadata on every hop (canvas C.2).
+	// The X-Namespace header set by RequestIDMiddleware takes precedence; the
+	// ?namespace= query param only applies when no header value is present, and
+	// an empty param never clears an existing namespace.
+	if ns := r.URL.Query().Get("namespace"); ns != "" && domain.NamespaceFromContext(r.Context()) == "" {
+		r = r.WithContext(domain.WithNamespace(r.Context(), ns))
+	}
 	switch kind {
 	case domain.KindWorkflow:
 		h.applyWorkflow(w, r, body)

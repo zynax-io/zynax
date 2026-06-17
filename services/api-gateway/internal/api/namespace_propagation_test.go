@@ -26,15 +26,20 @@ import (
 // The recording stubs capture the namespace observed at each boundary so the
 // test can assert continuity across all three hops in a single HTTP request.
 
+// nsTeamA is the sample namespace used across the end-to-end propagation asserts.
+const nsTeamA = "team-a"
+
 // recordingCompiler captures the namespace it receives and echoes it back on
 // the CompileResult, mirroring the real compiler embedding the namespace into
 // WorkflowIR.namespace (proto field 3).
 type recordingCompiler struct {
-	gotNamespace string
+	gotNamespace    string
+	gotCtxNamespace string
 }
 
-func (c *recordingCompiler) CompileWorkflow(_ context.Context, _ []byte, namespace string, _ bool) (domain.CompileResult, error) {
+func (c *recordingCompiler) CompileWorkflow(ctx context.Context, _ []byte, namespace string, _ bool) (domain.CompileResult, error) {
 	c.gotNamespace = namespace
+	c.gotCtxNamespace = domain.NamespaceFromContext(ctx)
 	return domain.CompileResult{IRBytes: []byte("ir"), Namespace: namespace}, nil
 }
 
@@ -65,7 +70,9 @@ func newRecordingServer(c domain.CompilerPort, e domain.EnginePort) *httptest.Se
 	h := api.NewHandler(svc, "")
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
-	return httptest.NewServer(mux)
+	// Front the mux with RequestIDMiddleware (as main.go does) so the X-Namespace
+	// header is read into the correlation context before the handler runs.
+	return httptest.NewServer(api.RequestIDMiddleware(mux))
 }
 
 // TestNamespacePropagation_EndToEnd asserts the namespace from the HTTP query
@@ -76,7 +83,7 @@ func TestNamespacePropagation_EndToEnd(t *testing.T) {
 	srv := newRecordingServer(compiler, engine)
 	defer srv.Close()
 
-	resp, err := http.Post(srv.URL+"/api/v1/apply?namespace=team-a", "application/yaml", bytes.NewBufferString(workflowYAML))
+	resp, err := http.Post(srv.URL+"/api/v1/apply?namespace="+nsTeamA, "application/yaml", bytes.NewBufferString(workflowYAML))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,12 +93,47 @@ func TestNamespacePropagation_EndToEnd(t *testing.T) {
 		t.Fatalf("status: got %d, want 202", resp.StatusCode)
 	}
 	// Hop 1: HTTP ?namespace= → CompileWorkflowRequest.namespace
-	if compiler.gotNamespace != "team-a" {
-		t.Errorf("compile hop: got namespace %q, want team-a", compiler.gotNamespace)
+	if compiler.gotNamespace != nsTeamA {
+		t.Errorf("compile hop: got namespace %q, want %s", compiler.gotNamespace, nsTeamA)
+	}
+	// Correlation context: the namespace must also ride on the call context so
+	// the gRPC interceptors attach it as x-namespace metadata on every hop.
+	if compiler.gotCtxNamespace != nsTeamA {
+		t.Errorf("compile hop: ctx namespace %q, want %s", compiler.gotCtxNamespace, nsTeamA)
 	}
 	// Hop 3: WorkflowIR.namespace (compiled.Namespace) → SubmitWorkflowRequest.namespace
-	if engine.gotNamespace != "team-a" {
-		t.Errorf("submit hop: got namespace %q, want team-a", engine.gotNamespace)
+	if engine.gotNamespace != nsTeamA {
+		t.Errorf("submit hop: got namespace %q, want %s", engine.gotNamespace, nsTeamA)
+	}
+}
+
+// TestNamespacePropagation_HeaderWinsOverQuery asserts the X-Namespace header
+// set on the request takes precedence over the ?namespace= query param when both
+// are present, and that the header value rides the correlation context.
+func TestNamespacePropagation_HeaderWinsOverQuery(t *testing.T) {
+	compiler := &recordingCompiler{}
+	engine := &recordingEngine{}
+	srv := newRecordingServer(compiler, engine)
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/apply?namespace=team-q", bytes.NewBufferString(workflowYAML))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("X-Namespace", "team-h")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("status: got %d, want 202", resp.StatusCode)
+	}
+	// The request field still reflects the query param (existing #767 contract),
+	// but the correlation context carries the header-supplied namespace.
+	if compiler.gotCtxNamespace != "team-h" {
+		t.Errorf("ctx namespace %q, want team-h (header wins)", compiler.gotCtxNamespace)
 	}
 }
 
