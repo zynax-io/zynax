@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: Apache-2.0
+# Example Policy manifest — illustrates capability routing, rate limiting,
+# and quota rules for the platform namespace.
+# Validated by: make validate-spec (against spec/schemas/policy.schema.json)
+# Note: Policy enforcement is implemented in M6. This manifest is valid for
+# schema validation and compiler policy-reference checks in M2+.
+
+apiVersion: zynax.io/v1alpha1
+kind: Policy
+
+metadata:
+  name: platform-policy
+  namespace: platform
+  labels:
+    tier: production
+    managed-by: platform-team
+
+spec:
+  rules:
+    # Route all LLM inference capabilities from the platform namespace
+    # to the shared ml-infra namespace where GPU agents are registered.
+    - type: capability_routing
+      capability_selector: "llm_*"
+      namespace_selector: "platform"
+      target_namespace: ml-infra
+
+    # Rate-limit the summarize capability globally to protect against
+    # runaway workflow loops that spam the LLM gateway.
+    - type: rate_limit
+      capability_selector: "summarize"
+      max_rps: 10.0
+      burst: 20
+
+    # Limit concurrent code review invocations per workflow namespace
+    # to prevent one team from exhausting the review agent pool.
+    - type: quota
+      capability_selector: "review_*"
+      namespace_selector: "team-*"
+      max_concurrent: 5
+
+    # Hard quota on all capabilities in the staging namespace to prevent
+    # runaway test workflows from affecting production throughput.
+    - type: quota
+      capability_selector: "*"
+      namespace_selector: "staging"
+      max_concurrent: 20

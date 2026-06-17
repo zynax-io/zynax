@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: Apache-2.0
+# E2E Demo Workflow — minimal capability dispatch fixture
+#
+# Exercises the full dispatch chain end-to-end:
+#   api-gateway → workflow-compiler → engine-adapter → Temporal
+#   → task-broker → agent-registry → langgraph-adapter (echo)
+#   → TASK_EVENT_TYPE_COMPLETED
+#
+# Prerequisites: make run-local (all services + langgraph-adapter in compose)
+#
+# Usage:
+#   zynax apply spec/workflows/examples/e2e-demo.yaml
+#
+# Expected outcome: workflow starts, dispatches "echo" to the langgraph-adapter,
+# receives {"reply": "Hello from Zynax E2E demo"} back, and reaches terminal state.
+# Observable in Temporal UI at http://localhost:7088.
+
+kind: Workflow
+apiVersion: zynax.io/v1
+
+metadata:
+  name: e2e-demo
+  namespace: demo
+
+spec:
+  initial_state: greet
+
+  states:
+
+    # ── greet — dispatches the echo capability ───────────────────────────────
+    greet:
+      actions:
+        - capability: echo
+          input:
+            message: "Hello from Zynax E2E demo"
+      on:
+        - event: echo.completed
+          goto: done
+
+    # ── done — terminal; workflow completes ──────────────────────────────────
+    done:
+      type: terminal
