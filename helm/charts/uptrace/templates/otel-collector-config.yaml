@@ -18,6 +18,10 @@ data:
           http:
             endpoint: 0.0.0.0:{{ .Values.collector.ports.http }}
     processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 25
       batch:
         timeout: 5s
     exporters:
@@ -31,14 +35,16 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          processors: [batch]
+          processors: [memory_limiter, batch]
           exporters: [otlp/uptrace]
         metrics:
           receivers: [otlp]
-          processors: [batch]
+          processors: [memory_limiter, batch]
           exporters: [otlp/uptrace]
+        # Logs forwarded verbatim — trace_id/span_id preserved end-to-end
+        # (docs/observability/naming-conventions.md).
         logs:
           receivers: [otlp]
-          processors: [batch]
+          processors: [memory_limiter, batch]
           exporters: [otlp/uptrace]
 {{- end }}

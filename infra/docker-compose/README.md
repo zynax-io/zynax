@@ -74,6 +74,10 @@ export ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:7017
 All observability host ports bind to `127.0.0.1` only — OTLP ingest is never publicly
 exposed (canvas O.7 Safeguards). ClickHouse and Postgres have no host ports.
 
+Logs ship to Uptrace as OTLP log records through the collector `logs` pipeline,
+correlated to traces by `trace_id`/`span_id`. Span, metric, and log naming rules
+live in [docs/observability/naming-conventions.md](../../docs/observability/naming-conventions.md).
+
 ## Not included
 
 The following services are unimplemented stubs awaiting M5 and are intentionally
