@@ -28,6 +28,7 @@ type config struct {
 	CompilerAddr       string `envconfig:"COMPILER_ADDR" default:"localhost:50054"`
 	EngineAddr         string `envconfig:"ENGINE_ADDR" default:"localhost:50055"`
 	RegistryAddr       string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
+	EventBusAddr       string `envconfig:"EVENT_BUS_ADDR" default:"localhost:50056"`
 	LogLevel           string `envconfig:"LOG_LEVEL" default:"info"`
 	APIKey             string `envconfig:"API_KEY"`
 	DevInsecure        bool   `envconfig:"DEV_INSECURE"`
@@ -75,7 +76,7 @@ func main() {
 // run contains the service lifecycle. Deferred cleanups execute before returning.
 func run(cfg config) error {
 	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
-	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, cfg.EventBusAddr, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
 		return fmt.Errorf("gateway clients: %w", err)
 	}
@@ -83,7 +84,7 @@ func run(cfg config) error {
 
 	probes := api.NewProbes(int64(cfg.LivenessThresholdS), clients.ConnectionsReady)
 
-	svc := domain.NewApplyService(clients, clients, clients)
+	svc := domain.NewApplyService(clients, clients, clients, clients)
 	handler := api.NewHandler(svc, cfg.APIKey)
 
 	tracerShutdown, err := zynaxobs.InitTracer(context.Background(), "api-gateway")

@@ -65,6 +65,19 @@ type EnginePort interface {
 	WatchWorkflow(ctx context.Context, runID string, send func(WatchEvent) error) error
 }
 
+// EventBusPort is the gateway's outbound dependency on EventBusService. It
+// delivers capability-level CloudEvents (e.g. task dispatched/completed) so the
+// streaming /logs endpoint can merge them with the engine's state-transition
+// history into a single chronological stream.
+type EventBusPort interface {
+	// SubscribeWorkflowEvents opens a workflow-scoped subscription and calls
+	// send for each capability event whose CloudEvent workflow_id matches
+	// workflowID. It returns when ctx is cancelled, send returns an error, or
+	// the upstream stream closes (the event-bus closes the stream on terminal
+	// workflow state — EPIC L step 2 / #1181).
+	SubscribeWorkflowEvents(ctx context.Context, workflowID string, send func(WatchEvent) error) error
+}
+
 // AgentRegistration is the domain view of a successful RegisterAgent response.
 type AgentRegistration struct {
 	AgentID string
