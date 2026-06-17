@@ -7,10 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/go-github/v67/github"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/config"
+	"github.com/zynax-io/zynax/agents/adapters/git/internal/credential"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -24,16 +26,34 @@ type AgentServer struct {
 	handler *gitHandler
 }
 
-// NewAgentServer builds an AgentServer from a validated AdapterConfig and a GitHub token.
-// The token is redacted from every caller-visible error and payload (G.3 / #1199).
+// NewAgentServer builds an AgentServer from a validated AdapterConfig and a static
+// GitHub token (classic / fine-grained PAT). The token is redacted from every
+// caller-visible error and payload (G.3 / #1199). For refreshable App credentials
+// use NewAgentServerWithSource (G.7 / #1262).
 func NewAgentServer(cfg *config.AdapterConfig, token string) *AgentServer {
 	return newAgentServer(cfg, newGitHandler(token))
+}
+
+// NewAgentServerWithSource builds an AgentServer backed by a refreshable
+// credential.Source — used for GitHub App installation tokens that expire (~1 h)
+// and must refresh without a process restart (G.7 / #1262). redactSeed is the
+// initial token value (if known) used to seed the egress redactor; pass "" when
+// the first token is minted lazily. The PAT path uses NewAgentServer unchanged.
+func NewAgentServerWithSource(cfg *config.AdapterConfig, src credential.Source, redactSeed string) *AgentServer {
+	return newAgentServer(cfg, newGitHandlerWithSource(src, redactSeed))
 }
 
 // NewAgentServerWithURL builds an AgentServer using a custom GitHub API base URL.
 // Intended for testing against httptest.Server.
 func NewAgentServerWithURL(cfg *config.AdapterConfig, token, baseURL string) *AgentServer {
 	return newAgentServer(cfg, newGitHandlerWithURL(token, baseURL))
+}
+
+// NewAgentServerWithSourceURL builds a source-backed AgentServer against a custom
+// GitHub API base URL. Intended for testing the refreshable-credential path
+// against an httptest.Server.
+func NewAgentServerWithSourceURL(cfg *config.AdapterConfig, src credential.Source, baseURL string) *AgentServer {
+	return newAgentServer(cfg, newGitHandlerFromSourceWithURL(src, baseURL))
 }
 
 func newAgentServer(cfg *config.AdapterConfig, h *gitHandler) *AgentServer {
@@ -86,9 +106,18 @@ func (s *AgentServer) GetCapabilitySchema(_ context.Context, req *zynaxv1.GetCap
 	}, nil
 }
 
-// newGitHubClient builds an authenticated GitHub client.
+// newGitHubClient builds a GitHub client authenticated by a static token.
 func newGitHubClient(token string) *github.Client {
 	return github.NewClient(nil).WithAuthToken(token)
+}
+
+// newGitHubClientFromSource builds a GitHub client whose Authorization header is
+// resolved per request from a refreshable credential.Source (G.7 / #1262). When
+// the source re-mints a token, subsequent requests carry the new value with no
+// client rebuild.
+func newGitHubClientFromSource(src credential.Source) *github.Client {
+	httpClient := &http.Client{Transport: credential.NewTransport(src, nil)}
+	return github.NewClient(httpClient)
 }
 
 // marshalPayload marshals v to JSON, returning an "UPSTREAM_ERROR" terminal event on failure.

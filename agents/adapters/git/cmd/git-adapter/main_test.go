@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/config"
+	"github.com/zynax-io/zynax/agents/adapters/git/internal/credential"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -210,7 +211,7 @@ func TestServe_GracefulShutdown(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- serve(ctx, cfg, "fake-token", client)
+		done <- serve(ctx, cfg, credential.NewStaticSource("fake-token"), "fake-token", client)
 	}()
 
 	// Give serve() time to start up (register + begin listening).

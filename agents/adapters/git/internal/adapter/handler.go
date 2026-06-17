@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/go-github/v67/github"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/config"
+	"github.com/zynax-io/zynax/agents/adapters/git/internal/credential"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/redact"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -38,6 +39,27 @@ type gitHandler struct {
 
 func newGitHandler(token string) *gitHandler {
 	return &gitHandler{gh: newGitHubClient(token), red: redact.New(token)}
+}
+
+// newGitHandlerWithSource builds a handler whose client resolves its token per
+// request from a refreshable credential.Source (G.7 / #1262). redactSeed seeds
+// the egress redactor with the initial token value when known; minted-on-demand
+// tokens are still scrubbed by the same Bearer-header isolation in the transport
+// (the token never reaches a payload or error string in the first place).
+func newGitHandlerWithSource(src credential.Source, redactSeed string) *gitHandler {
+	return &gitHandler{gh: newGitHubClientFromSource(src), red: redact.New(redactSeed)}
+}
+
+// newGitHandlerFromSourceWithURL creates a source-backed handler pointed at a
+// custom base URL (for tests against httptest).
+func newGitHandlerFromSourceWithURL(src credential.Source, baseURL string) *gitHandler {
+	client := newGitHubClientFromSource(src)
+	if baseURL != "" {
+		if parsed, err := client.BaseURL.Parse(baseURL + "/"); err == nil {
+			client.BaseURL = parsed
+		}
+	}
+	return &gitHandler{gh: client, red: redact.New()}
 }
 
 // newGitHandlerWithURL creates a handler pointed at a custom base URL (for tests).
