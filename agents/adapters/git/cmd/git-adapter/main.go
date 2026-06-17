@@ -17,6 +17,7 @@ import (
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/adapter"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/config"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/mcp"
+	"github.com/zynax-io/zynax/agents/adapters/git/internal/redact"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/registry"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/grpc"
@@ -76,8 +77,11 @@ func serveMCP(cfg *config.AdapterConfig, token string, in io.Reader, out io.Writ
 	for _, c := range cfg.Capabilities {
 		tools = append(tools, c.Name)
 	}
+	// The injected token is scrubbed from every tool result at the prompt
+	// boundary (G.3 / #1199); the token value itself is never logged here.
+	red := redact.New(token)
 	slog.Info("git-adapter mcp serving over stdio", "tools", tools) //nolint:gosec
-	if err := mcp.NewServer(srv, tools).Serve(context.Background(), in, out); err != nil {
+	if err := mcp.NewServerWithRedactor(srv, tools, red).Serve(context.Background(), in, out); err != nil {
 		return fmt.Errorf("mcp serve: %w", err)
 	}
 	return nil
