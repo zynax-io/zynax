@@ -1,82 +1,55 @@
 # SPDX-License-Identifier: Apache-2.0
 # Build context: repo root  (docker build -f agents/adapters/llm/Dockerfile .)
 #
-# Two-stage build:
-#   builder  — python:3.12-alpine + uv; installs locked dependencies into /app/.venv
-#   runtime  — python:3.12-alpine; copies venv + source + proto stubs; runs as zynax (UID 1001)
+# Go re-implementation of the llm-adapter (ADR-035). Multi-stage build:
+#   builder  — golang:1.26.4-alpine; compiles a static CGO_ENABLED=0 binary
+#   runtime  — distroless/static:nonroot; carries only the adapter + healthcheck
 #
-# Required env vars at runtime: LLM_PROVIDER, REGISTRY_ADDR, AGENT_ID, ADAPTER_ENDPOINT
-# Provider-specific: OPENAI_API_KEY | AWS_REGION | OLLAMA_BASE_URL
-# Optional: LLM_MODEL, LLM_MAX_TOKENS, ZYNAX_LLM_ADAPTER_GRPC_PORT (default 50057)
+# Config is read from the YAML file named by ZYNAX_LLM_CONFIG (default below
+# points at the baked example; operators mount their own). Provider + model are
+# always declared in that file — never in input_payload. The API-key value is
+# resolved from the env var named in provider.api_key_env and is never logged.
 #
-# ── Base image: alpine (musl), not Debian slim ────────────────────────────────
-# Debian trixie's python:3.12-slim carries perl-base and ncurses with unfixed
-# CRITICAL/HIGH CVEs that red-wall the pre-merge Trivy gate (ADR-027) — packages
-# this adapter never uses. Alpine drops them entirely. The historical objection
-# (manylinux-only native wheels forcing musl source builds) no longer holds:
-# every native dep in uv.lock ships musllinux wheels (grpcio, pydantic-core,
-# aiohttp, …) and protobuf falls back to its pure-python wheel. `--no-build`
-# enforces wheels-only, so a future lock bump that loses a musl wheel fails
-# loudly at build time instead of attempting a source compile.
-#
-# ── Final image size ──────────────────────────────────────────────────────────
-# Compressed (amd64): ~48 MB (was ~75 MB on slim; 80 MB target). The runtime stage carries
-# only the python:3.12-alpine base + the frozen uv venv (no-dev) + source + proto
-# stubs; the uv/build layer is left behind in the builder stage.
+# Final image: distroless static nonroot — materially smaller than the prior
+# python:3.12-alpine image (the runtime stage holds only two static Go binaries
+# and the example config; no interpreter, no venv, no proto-stub tree).
 
-# BEGIN zynax-ci:images:python-alpine
-ARG PYTHON_ALPINE_DIGEST=sha256:f7fd610959cae736251523b54eb26cecb74f60ffa60bf39d9faccf128b526ab8
-# END zynax-ci:images:python-alpine
-# renovate: datasource=docker depName=python versioning=docker
-FROM python:3.12-alpine@${PYTHON_ALPINE_DIGEST} AS builder
+# BEGIN zynax-ci:images:golang-alpine
+ARG GO_ALPINE_DIGEST=sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f
+# END zynax-ci:images:golang-alpine
+# BEGIN zynax-ci:images:distroless-static
+ARG DISTROLESS_DIGEST=sha256:dfadf31470f770fcabd48903762dce126958e98d1ce320acf1216bbfaa42d79c
+# END zynax-ci:images:distroless-static
+FROM golang:1.26.4-alpine@${GO_ALPINE_DIGEST} AS builder
 
-WORKDIR /app
+WORKDIR /workspace
 
-# Install uv for fast, deterministic dependency resolution
-# renovate: datasource=docker depName=ghcr.io/astral-sh/uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY protos/generated/go/go.mod protos/generated/go/go.sum ./protos/generated/go/
+COPY agents/adapters/llm/go.mod agents/adapters/llm/go.sum ./agents/adapters/llm/
+RUN cd agents/adapters/llm && GOWORK=off go mod download
 
-# Install locked dependencies (without the project itself — source is copied separately)
-COPY agents/adapters/llm/pyproject.toml agents/adapters/llm/uv.lock ./
-RUN uv sync --no-dev --no-install-project --frozen --no-build
+COPY protos/generated/go/ ./protos/generated/go/
+COPY agents/adapters/llm/ ./agents/adapters/llm/
+COPY tools/healthcheck/ ./tools/healthcheck/
+RUN cd agents/adapters/llm && CGO_ENABLED=0 GOWORK=off \
+    go build -trimpath -ldflags "-s -w" -o /llm-adapter ./cmd/llm-adapter/
+RUN cd tools/healthcheck && CGO_ENABLED=0 GOWORK=off \
+    go build -trimpath -ldflags "-s -w" -o /healthcheck .
 
-# renovate: datasource=docker depName=python versioning=docker
-FROM python:3.12-alpine@${PYTHON_ALPINE_DIGEST}
-
-WORKDIR /app
-
-# Non-root user (ADR-002)
-RUN adduser -S -H -u 1001 -G nogroup zynax
-
-# Strip the base image's build-time-only packages (pip/setuptools/wheel). They are
-# never used at runtime — the app runs the uv venv via `python -m` — and are a
-# recurring source of Trivy CVE noise that red-walls the release gate (#1022).
-RUN rm -rf /usr/local/lib/python3.12/site-packages/pip* \
-           /usr/local/lib/python3.12/site-packages/setuptools* \
-           /usr/local/lib/python3.12/site-packages/pkg_resources \
-           /usr/local/lib/python3.12/site-packages/wheel* \
-           /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.12
-
-# Venv with all locked dependencies
-COPY --from=builder /app/.venv /app/.venv
-
-# Generated proto stubs (zynax.v1.*)
-COPY protos/generated/python/ /protos/
-
-# Adapter source package
-COPY agents/adapters/llm/src/ /app/src/
-
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/src:/protos"
-
+# renovate: datasource=docker depName=gcr.io/distroless/static
+FROM gcr.io/distroless/static:nonroot@${DISTROLESS_DIGEST}
+COPY --from=builder /llm-adapter /llm-adapter
+COPY --from=builder /healthcheck /healthcheck
+COPY --from=builder /workspace/agents/adapters/llm/agent-def.yaml.example /etc/llm-adapter/config.yaml
+ENV ZYNAX_LLM_CONFIG=/etc/llm-adapter/config.yaml
 LABEL org.opencontainers.image.title="Zynax LLM Adapter" \
-      org.opencontainers.image.description="Zynax capability adapter for LLM inference. Supports multiple providers: OpenAI, Ollama, Amazon Bedrock." \
+      org.opencontainers.image.description="Zynax capability adapter for LLM inference. Streams chat_completion over the unchanged AgentService contract; routes by config to OpenAI, Amazon Bedrock, or Ollama." \
       org.opencontainers.image.url="https://github.com/zynax-io/zynax" \
       org.opencontainers.image.source="https://github.com/zynax-io/zynax" \
       org.opencontainers.image.documentation="https://github.com/zynax-io/zynax/blob/main/agents/adapters/llm/Dockerfile" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.vendor="Zynax"
-
-USER zynax
-
-CMD ["python", "-m", "llm_adapter"]
+      org.opencontainers.image.vendor="Zynax" \
+      com.zynax.service.role="adapter" \
+      com.zynax.service.language="Go" \
+      com.zynax.service.port="50070/tcp (gRPC)"
+ENTRYPOINT ["/llm-adapter"]

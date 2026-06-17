@@ -32,6 +32,7 @@ images:
       - agents/adapters/ci/Dockerfile
       - agents/adapters/git/Dockerfile
       - agents/adapters/http/Dockerfile
+      - agents/adapters/llm/Dockerfile
       - infra/docker/Dockerfile.ci-runner
       - infra/docker/Dockerfile.service
       - infra/docker/Dockerfile.tools
@@ -57,6 +58,7 @@ images:
       - agents/adapters/ci/Dockerfile
       - agents/adapters/git/Dockerfile
       - agents/adapters/http/Dockerfile
+      - agents/adapters/llm/Dockerfile
       - infra/docker/Dockerfile.service
 
   # Alpine (musl) replaced Debian slim for the Python adapters: trixie's
@@ -69,7 +71,6 @@ images:
     digest: sha256:f7fd610959cae736251523b54eb26cecb74f60ffa60bf39d9faccf128b526ab8
     consumers:
       - agents/adapters/langgraph/Dockerfile
-      - agents/adapters/llm/Dockerfile
 
   # Python base for the developer tools image (distinct from python-alpine,
   # which is 3.12 for the adapters). digest MUST be the multi-arch INDEX digest
