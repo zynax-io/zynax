@@ -99,6 +99,40 @@ Labels use a `group: value` naming convention so they sort and filter predictabl
 
 ---
 
+## `product:` — Why It Matters (Product / Adoption Dimension)
+
+> Applied by `/roadmap-plan` to strategy-inferred work and by maintainers during triage.
+> The binding constraint on this project is **traction, not features**
+> (see [docs/product/strategy.md](product/strategy.md)) — these labels make adoption-driving
+> work filterable and promotable.
+
+| Label | Colour | Description |
+|-------|--------|-------------|
+| `product: strategy` | `#0e8a16` (green) | Inferred from product strategy / roadmap analysis (every `/roadmap-plan` issue carries this) |
+| `product: adoption` | `#0e8a16` (green) | Drives user adoption — onboarding, Day-0 experience, time-to-first-workflow |
+| `product: dx` | `#0e8a16` (green) | Developer experience — attracting and retaining contributors |
+| `product: use-case` | `#0e8a16` (green) | Enables a concrete real-world use case / hero workflow |
+
+## `audience:` — Who Benefits (User Type)
+
+> Mirrors the `## What for (user impact)` block required in every issue, story, canvas, and PR
+> body (see [docs/contributing/pr-templates.md](contributing/pr-templates.md)). Pick all that apply.
+
+| Label | Colour | Description |
+|-------|--------|-------------|
+| `audience: developer` | `#c5def5` (pale blue) | Developers building with or contributing to Zynax |
+| `audience: operator` | `#c5def5` (pale blue) | Teams deploying/running Zynax (K8s, Helm, observability) |
+| `audience: maintainer` | `#c5def5` (pale blue) | Project maintainers (governance, release, CI health) |
+| `audience: product-owner` | `#c5def5` (pale blue) | Product owners evaluating fit, roadmap, governance |
+| `audience: zynax-user` | `#c5def5` (pale blue) | End users authoring workflows / agents (`kind: Workflow` / `AgentDef`) |
+| `audience: enterprise` | `#c5def5` (pale blue) | Enterprises needing RBAC, policy, compliance, audit, multi-tenancy |
+
+> **The `## What for (user impact)` block is required** in every issue/story/canvas/PR body:
+> user type(s) → the `audience:` labels; expected impact; **adoption lever** (how it attracts
+> developers / lowers Day-0 friction); and the **real use case** it unlocks.
+
+---
+
 ## Process Labels
 
 | Label | Colour | Description |
