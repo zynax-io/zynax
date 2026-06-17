@@ -47,9 +47,9 @@ spec:
           output:
             implementation_plan: plan
       on:
-        - event: draft_plan.completed
+        - event: plan.completed
           goto: implement
-        - event: draft_plan.failed
+        - event: plan.failed
           goto: failed
 
     # ── Implement — CONSUMES the plan, PUBLISHES branch + diff summary ──
@@ -65,9 +65,9 @@ spec:
             branch_name: branch
             diff_summary: summary
       on:
-        - event: write_code.completed
+        - event: code.completed
           goto: verify
-        - event: write_code.failed
+        - event: code.failed
           goto: failed
 
     # ── Verify — CONSUMES the branch, PUBLISHES the test report ──
@@ -96,9 +96,9 @@ spec:
             failures: "$.states.verify.output.test_report"
           timeout: 1h
       on:
-        - event: write_code.completed
+        - event: code.completed
           goto: verify
-        - event: write_code.failed
+        - event: code.failed
           goto: failed
 
     # ── Open PR — CONSUMES branch + diff summary to draft the PR ──
@@ -111,9 +111,9 @@ spec:
             body: "$.states.implement.output.diff_summary"
           timeout: 10m
       on:
-        - event: open_pull_request.completed
+        - event: pr.completed
           goto: done
-        - event: open_pull_request.failed
+        - event: pr.failed
           goto: failed
 
     # ── Terminal states ──
