@@ -94,6 +94,10 @@ services correlate to one run.
 
 ## See also
 
+- [opentelemetry.md](opentelemetry.md) — what is emitted and how to enable telemetry
+- [uptrace.md](uptrace.md) — run the Uptrace backend (compose + Helm, login UI)
+- [sampling.md](sampling.md) — sampling and retention tuning
+- [troubleshooting.md](troubleshooting.md) — when signals do not show up
 - `infra/docker-compose/docker-compose.observability.yml` — local Uptrace + collector stack (O.7)
 - `helm/charts/uptrace/` — in-cluster Uptrace + collector chart (O.8)
 - ADR-030 — OTEL + Uptrace backend decision
