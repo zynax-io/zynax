@@ -53,8 +53,7 @@ no shell, package manager, or libc, so most container CVE classes do not apply.
 | Image | Base | Compressed (amd64) | Budget | Notes |
 |-------|------|--------------------|--------|-------|
 | api-gateway, workflow-compiler, engine-adapter, task-broker, agent-registry | `distroless/static:nonroot` | ~8 MB | ≤ 15 MB | static, stripped (`-s -w -trimpath`), no shell |
-| http-adapter, git-adapter, ci-adapter | `distroless/static:nonroot` | ~8 MB | ≤ 15 MB | static, stripped, no shell |
-| llm-adapter | `python:3.12-slim` | ~75 MB | ≤ 80 MB | frozen uv venv (no-dev); slim over alpine (manylinux wheels) |
+| http-adapter, git-adapter, ci-adapter, llm-adapter | `distroless/static:nonroot` | ~8 MB | ≤ 15 MB | static, stripped, no shell (llm ported from Python to Go, ADR-035) |
 | langgraph-adapter | `python:3.12-slim` | ~78 MB | ≤ 80 MB | frozen uv venv (no-dev); slim over alpine (manylinux wheels) |
 | tools | `python:3.14-alpine` + Go | ~480 MB | dev-only | not deployed; full Go toolchain + Python dev tools (justified in Dockerfile header) |
 | ci-runner | `alpine:3.21` + Go | ~430 MB | CI-only | not deployed; Go toolchain + CI tools (justified in Dockerfile header) |

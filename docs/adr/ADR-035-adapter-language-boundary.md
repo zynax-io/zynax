@@ -25,7 +25,7 @@ rule that ADR-009 never wrote down:
 | `http`  | **Go**    | stateless proxy over an arbitrary REST API |
 | `git`   | **Go**    | stateless proxy over GitHub/GitLab APIs |
 | `ci`    | **Go**    | stateless proxy over CI systems |
-| `llm`   | **Python** | stateless proxy over OpenAI / Bedrock / Ollama HTTP APIs |
+| `llm`   | **Go** (ported from Python, #1276) | stateless proxy over OpenAI / Bedrock / Ollama HTTP APIs |
 | `langgraph` | **Python** | mounts a Python-only `StateGraph` as a capability |
 
 Three of five adapters are already Go. The split is not "platform vs agents" — it is

@@ -430,7 +430,7 @@ Current implementation status per service and adapter (as of M7 active developme
 | http-adapter | Go | ✅ Complete | Generic HTTP capability bridge; SSRF-safe static routing |
 | git-adapter | Go | ✅ Complete | `open_pr`, `request_review`, `get_diff` via GitHub REST API |
 | ci-adapter | Go | ✅ Complete | `trigger_workflow`, `get_run_status` via GitHub Actions REST API |
-| llm-adapter | Python | ✅ Complete | `chat_completion` — OpenAI, AWS Bedrock, Ollama |
+| llm-adapter | Go | ✅ Complete | `chat_completion` — OpenAI, AWS Bedrock, Ollama (ported from Python, ADR-035) |
 | langgraph-adapter | Python | ✅ Complete | LangGraph `StateGraph` as Zynax capabilities; wired in e2e-demo |
 
 **Legend:** ✅ Complete · 🟡 MVP (in-memory, ephemeral) · 🔄 In Progress · 📋 Planned

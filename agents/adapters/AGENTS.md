@@ -19,7 +19,7 @@ External System      Adapter             Zynax capability
 REST API        →    http/    (Go)     → call_payments_api
 GitHub API      →    git/     (Go)     → open_pr, request_review
 Jenkins/CI      →    ci/      (Go)     → trigger_workflow, get_run_status
-Bedrock/OpenAI  →    llm/     (Python) → chat_completion
+Bedrock/OpenAI  →    llm/     (Go)     → chat_completion
 LangGraph app   →    langgraph/ (Py)   → research_topic
 ```
 
@@ -32,7 +32,7 @@ agents/adapters/
 ├── http/          ← Wraps any REST API (config-only) — Go, #380
 ├── git/           ← GitHub/GitLab operations          — Go, #381
 ├── ci/            ← GitHub Actions / Jenkins triggers  — Go, #382
-├── llm/           ← Bedrock, Ollama, OpenAI            — Python, #383
+├── llm/           ← Bedrock, Ollama, OpenAI            — Go, #383 (ported #1276)
 └── langgraph/     ← LangGraph app as capability        — Python, #384
 ```
 
@@ -49,7 +49,7 @@ Individual REASONS Canvas required before any implementation (ADR-019).
 | `http/` | **Go** | Stateless REST proxy — no ML deps. Single binary, small image. |
 | `git/` | **Go** | GitHub/GitLab API calls over HTTP — same profile as http. |
 | `ci/` | **Go** | CI API calls (GitHub Actions, Jenkins REST) — same profile. |
-| `llm/` | **Python** | OpenAI / Anthropic / Bedrock SDKs are Python-native. ML ecosystem. |
+| `llm/` | **Go** | Stateless provider proxy over OpenAI / Bedrock / Ollama HTTP APIs — no framework state. Ported from Python under ADR-035. |
 | `langgraph/` | **Python** | LangGraph is a Python framework — adapter must import graph code. |
 
 **Rule:** Default to Go for any adapter that is a stateless HTTP/gRPC proxy. Only choose Python

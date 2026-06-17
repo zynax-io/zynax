@@ -23,7 +23,7 @@ that want the full AgentRuntime Protocol + LangGraph/AutoGen integration.
 It is never required. Zero features require SDK adoption.
 
 ## Adapters Provided
-- `http-adapter` — wrap any REST API
-- `llm-adapter` — Bedrock, Ollama, OpenAI
-- `git-adapter` — GitHub/GitLab capabilities + webhook integration
-- `langgraph-adapter` — LangGraph app as capability
+- `http-adapter` (Go) — wrap any REST API
+- `llm-adapter` (Go) — Bedrock, Ollama, OpenAI (ported from Python, ADR-035)
+- `git-adapter` (Go) — GitHub/GitLab capabilities + webhook integration
+- `langgraph-adapter` (Python) — LangGraph app as capability
