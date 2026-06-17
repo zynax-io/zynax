@@ -63,6 +63,11 @@ spec:
                 configMapKeyRef:
                   name: {{ include "zynax.fullname" . }}
                   key: registry-addr
+            - name: ZYNAX_GW_EVENT_BUS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "zynax.fullname" . }}
+                  key: event-bus-addr
             - name: ZYNAX_GW_LOG_LEVEL
               valueFrom:
                 configMapKeyRef:

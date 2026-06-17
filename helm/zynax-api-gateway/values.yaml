@@ -28,6 +28,11 @@ env:
   compilerAddr: "zynax-workflow-compiler:50054"
   engineAddr: "zynax-engine-adapter:50055"
   registryAddr: "zynax-agent-registry:50052"
+  # EventBusService gRPC address consumed by the /logs SSE merge (#1182) to
+  # stream per-workflow capability CloudEvents (ADR-022). The gRPC client is
+  # lazy and the subscription is best-effort, so an unreachable address falls
+  # back to engine-history-only logs (e.g. when zynax-event-bus is disabled).
+  eventBusAddr: "zynax-event-bus:50056"
   logLevel: "info"
   grpcCallTimeoutS: 30
   livenessThresholdS: 60
