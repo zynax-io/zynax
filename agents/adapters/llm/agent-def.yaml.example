@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: Apache-2.0
+# llm-adapter — example AgentDef YAML (Go re-implementation, ADR-035)
+#
+# Copy this file to agent-def.yaml and set the ZYNAX_LLM_CONFIG env var to its path.
+# The provider and model are always declared here — never in input_payload.
+# The API key is resolved at startup from the env var named in provider.api_key_env;
+# its value is never stored in config and never logged.
+
+agent_id: llm-adapter
+name: LLM Adapter
+description: Wraps OpenAI / Bedrock / Ollama chat completions as Zynax capabilities.
+endpoint: :50070
+registry_endpoint: agent-registry:50052
+
+provider:
+  name: openai            # one of: openai | bedrock | ollama
+  model: gpt-4o
+  api_key_env: OPENAI_API_KEY  # name of the env var holding the API key (openai/bedrock)
+  max_tokens: 4096
+  # ollama_base_url: http://localhost:11434  # required when name == ollama
+  # region: us-east-1                          # required when name == bedrock
+
+capabilities:
+  - name: chat_completion
+    timeout_seconds: 60
+    description: Stream a chat completion from the configured LLM provider.
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["prompt"],
+        "properties": {
+          "prompt": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    output_schema_json: |
+      {
+        "type": "object",
+        "properties": {
+          "completion": { "type": "string" }
+        }
+      }
