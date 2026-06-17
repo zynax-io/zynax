@@ -23,14 +23,15 @@ review is **closed and now runtime-confirmed.** The end-to-end dispatch path is
 wired *and executes* — the `e2e-smoke` gate's **temporal and argo legs both pass
 green in CI**, and the temporal leg is a **required** status check. The two former
 0-LoC stubs (`event-bus`, `memory-service`) are real and backed by NATS JetStream /
-Redis-KV + pgvector. The *hosted* security posture is clean (0 open Dependabot, 0
-open code-scanning). **One caveat the static draft missed:** the local `make ci`
-gates are **not** green — `make test` and `make security` both fail (rc=2) on the
-exact quality debt the M7 planning doc flags and that **EPIC Q (#1172)** exists to
-close (a freshly-published pip CVE; one environment-sensitive ci-adapter test).
-Residual risk has shifted from *"does it work"* to *"is it usable"* (the M7
-data-flow keystone, still open), *"is `make ci` green"* (tracked debt), and *"is the
-bus-factor survivable."*
+Redis-KV + pgvector. The security posture is clean (0 open Dependabot / code-scanning;
+CI `security` green), and `make test` is green with the current tools image — domain
+coverage ≥90% on every service, adapter coverage ≥80%. **One real local-gate nit
+(corrected from an earlier draft of this review):** `make security` exits rc=2 only
+because the local Makefile and CI **diverge** on one `pip-audit` ignore flag
+(PYSEC-2026-196) — CI ignores it as a transient-audit-env false positive, the Makefile
+doesn't (now tracked as #1302). It is **not** a shipped vulnerability. Residual risk
+has therefore shifted from *"does it work"* to *"is it usable"* (the M7 data-flow
+keystone #1167, still open) and *"is the bus-factor survivable."*
 
 ---
 
@@ -75,20 +76,21 @@ passing.** That is the assertion the previous review could not make, now measure
 | End-to-end execution | **9/10** | Dispatch path executes; **both** engine legs green in CI; temporal leg is a required check |
 | Service implementation depth | **8/10** | All 7 services real; former 0-LoC stubs now substantial; test LoC > src LoC for every service |
 | Kubernetes readiness | **7/10** | 14 Helm charts, probes, mTLS wiring; unproven at production scale |
-| Security & supply chain | **7/10** | Hosted scanning clean (**0 open** Dependabot / code-scanning); cosign + SBOM + mTLS in all 7 services. **But local `make security` fails** on pip CVE PYSEC-2026-196 (tracked, EPIC Q) |
-| CI/CD maturity | **8/10** | Path-filtered, SHA-pinned, ruleset-enforced; engine-matrix e2e with temporal leg required. **`make ci` not green locally** — `make test` red on one env-sensitive adapter test |
+| Security & supply chain | **8/10** | Hosted scanning clean (**0 open** Dependabot / code-scanning); cosign + SBOM + mTLS in all 7 services; CI `security` green. Only nit: a Makefile↔CI `pip-audit` ignore-flag drift (#1302) reddens local `make security` — not a shipped vuln |
+| CI/CD maturity | **8/10** | Path-filtered, SHA-pinned, ruleset-enforced; engine-matrix e2e with temporal leg required; green on `main`. Lone gap: the local `make security` Makefile↔CI drift (#1302) |
 | Config & convergence | **7/10** | `libs/zynaxconfig` landed; all 17 modules on Go 1.26.4 |
 | Observability | **5/10** | Prometheus `/metrics` shipped; OTel/Uptrace traces in-flight (M7 EPIC O, partially merged) |
 | Usability of workflows | **4/10** | Data-flow bindings (#1167) are the M7 keystone — still **open** |
 | Project sustainability | **3/10** | Single maintainer; CNCF needs ≥2 orgs |
 
-**Composite:** roughly **7.9/10** as an engineering artifact — up from 6.5 — with the
+**Composite:** roughly **8.0/10** as an engineering artifact — up from 6.5 — with the
 residual weak axes being usability (the thing M7 exists to fix) and bus-factor, not
 correctness. The end-to-end axis ticks up from 8→9 (runtime execution on both engines
-is now CI-confirmed, temporal leg required — see §5.1), but CI/CD (9→8) and Security
-(8→7) are tempered by the measured discovery that `make ci` is **not** green locally
-on tracked quality debt (§5.3, §8.3). Net: marginally below the draft's optimistic
-8.0–8.1 once the red local gates are counted honestly.
+is now CI-confirmed, temporal leg required — see §5.1). An earlier draft of this review
+mis-scored CI/CD and Security downward after a stale local tools image produced false
+gate failures; re-run against the current image, `make test` is green (coverage gates
+pass) and the only local-gate issue is a one-line Makefile↔CI `pip-audit` drift (#1302).
+Scores corrected back to 8/8 (§8.3).
 
 ---
 
@@ -168,7 +170,8 @@ Each row verified against **code and runtime**, with the command/file that prove
 | Workflow data-flow bindings | ❌ **NOT YET** | #1167 (M7.W) confirmed **OPEN** in milestone M7. Without output→input bindings, multi-step workflows can't pass data. **Headline usability gap.** | `gh issue view 1167` |
 | Distributed tracing (OTel) | ⚠️ **PARTIAL** | Prometheus `/metrics` shipped (M6); OTel traces + Uptrace UI are M7 EPIC **O**, partially merged (O.4/O.7/O.8 per state file). | state file + #467 open |
 | e2e-smoke is a *required* gate | ✅ **REQUIRED (temporal)** | Ruleset `main-protection` lists `e2e smoke (temporal)` among required checks (argo leg not required). **Refines the draft's "non-required" claim.** | `gh api …/rulesets/17547241` |
-| Local `make ci` gates green | ❌ **RED (tracked debt)** | `make test` rc=2 → `test-unit-adapters` fails on `TestGetRunStatus_ContextTimeout` (5/5 deterministic, env-sensitive). `make security` rc=2 → `security-agents` fails on pip 26.1.1 / PYSEC-2026-196. Both = EPIC Q (#1172) scope. **Draft assumed clean gates.** | `make test`, `make security` |
+| Local `make test` green | ✅ **GREEN** | rc=0 with the current tools image; domain coverage ≥90% all services, adapter ≥80% all. (An earlier draft saw a stale-image false failure — see §8.3.) | `make test` |
+| Local `make security` green | ⚠️ **DRIFT (#1302)** | rc=2 only from a Makefile↔CI `pip-audit` ignore-flag divergence on PYSEC-2026-196 (CI ignores it; Makefile doesn't). CI `security` green; not a shipped vuln. | `make security` + `ci.yml:666` vs `Makefile:328` |
 | Hosted security clean | ✅ **CLEAN** | 0 open Dependabot, 0 open code-scanning (distinct surface from local `make security`). | `gh api …/dependabot/alerts`, `…/code-scanning/alerts` |
 
 > **Bottom line:** the narrative is honest and now runtime-backed. Where reality
@@ -202,8 +205,8 @@ All third-party Actions are pinned to 40-char SHAs; the `ci-runner`/`tools` imag
 - **Go 1.26.4 is consistent across all 17 modules** (`grep '^go ' $(find . -name go.mod)` → every module `1.26.4`).
 - **Security scanning enforced in CI:** govulncheck (Go), bandit + pip-audit (Python), Trivy.
 - **Hosted security clean (2026-06-17):** **0 open Dependabot alerts**, **0 open code-scanning alerts** (`gh api …/dependabot/alerts` and `…/code-scanning/alerts?state=open` → both `0`).
-- **Local `make security` is RED (measured):** `make security` exits rc=2 — `security-agents` (Makefile:327) fails because pip-audit finds **pip 26.1.1 → PYSEC-2026-196 (fix 26.1.2)** in the Python toolchain env. Go `govulncheck` reports **0 affecting** vulnerabilities (only non-called transitive modules), and the Go adapter scan passes. This is the *"security-agents fails on a tools-image pip CVE"* item already documented in `M7-planning.md §2` and owned by **EPIC Q (#1172)**. The hosted Dependabot/code-scanning surface is a different, clean surface; the CVE is freshly published, so the last green CI run on `main` predates it.
-- **Local `make test` is RED (measured):** `make test` exits rc=2 — `test-unit-adapters` (Makefile:188) fails on a single test, `TestGetRunStatus_ContextTimeout` in `agents/adapters/ci/internal/adapter`, which expects error code `TIMEOUT` but receives `UPSTREAM_ERROR` ("context deadline exceeded"). Re-run **5/5 deterministic** on Go 1.26.4 here — it is *not* flaky locally, but CI is green, so the classification is **environment/Go-patch-sensitive**. Worth a fix issue (error-mapping of `context.DeadlineExceeded`) under EPIC Q/R. Because `make` stops at the first failure, the `test-coverage`/`test-coverage-adapters` gates were **not reached** in this run (so the ≥90%/≥80% coverage claims are *unverified-locally*, not refuted).
+- **Local `make test` is GREEN (measured, current tools image):** rc=0. Domain coverage gate passes — agent-registry 94.0%, api-gateway 94.5%, engine-adapter 91.2%, event-bus 100%, memory-service 100%, task-broker 92.1%, workflow-compiler 97.0%/92.7%/95.9% (all ≥90%). Adapter coverage gate passes — ci/git/http adapters all ≥80% (ci-adapter `internal/adapter` 85.7%). The draft's coverage hypothesis is **CONFIRMED with numbers**.
+- **Local `make security` is RED only from a Makefile↔CI drift (#1302):** `make security` exits rc=2 at `security-agents` (Makefile:328) because the local `pip-audit` lacks the `--ignore-vuln PYSEC-2026-196` flag that CI uses (`ci.yml:666`). CI ignores it deliberately — pip-audit scans a transient uv-provisioned env whose `pip 26.1.1` is not a shipped dependency (the tools image itself pins `pip==26.1.2`, Dockerfile.tools:152; #1212 closed). Go `govulncheck` reports **0 affecting**; the Go adapter scan passes; **CI `security` is green**. So this is config drift, not a vulnerability — now tracked as **#1302** under EPIC Q's "`make ci` green" DoD.
 
 > **One measured caveat (proto stubs):** local `make generate-protos` against the
 > pinned tools image produced a diff in the **Python** stubs only (17 files,
@@ -278,8 +281,8 @@ Items the static draft got wrong, with the evidence that corrected them:
 3. **Branch protection mechanism.** Draft implied classic branch protection. Measured: classic API returns *"Branch not protected"*; protection is enforced via the **ruleset `main-protection`** (modern mechanism). *Clarified — not a defect.*
 4. **Commit/SHA reference.** Draft header cited `42787fb` (#1294) but the working checkout was a commit behind; fast-forwarded to `42787fb` so verification matches the cited commit exactly.
 5. **New, previously-unflagged finding:** local Python proto-stub regeneration drift (+1153/−1291, Go clean) — see §5.3 caveat. Likely tooling version skew, not contract drift.
-6. **Biggest correction — `make ci` is RED locally.** The draft scored CI/CD 9 and Security 8 implying clean gates. Measured: **`make test` (rc=2)** fails on `TestGetRunStatus_ContextTimeout` (ci-adapter, 5/5 deterministic) and **`make security` (rc=2)** fails on pip CVE PYSEC-2026-196. These are *not* surprises to the repo — `M7-planning.md §2` reality-check predicted them and **EPIC Q (#1172)** owns the fix — but the draft missed them. Scores tempered (CI/CD 9→8, Security 8→7); composite 8.1→7.9. *This validates the M7 plan rather than contradicting it.*
-7. **Coverage claims unverified-locally** (not refuted): `make` halted at `test-unit-adapters` before the coverage gates ran, so the ≥90% domain / ≥80% adapter figures were not measured this pass.
+6. **Self-correction — an earlier draft of this review wrongly called `make ci` RED.** The first local run used a **5-week-stale cached tools image** (pip 26.0.1, older Go patch), which produced two false failures: `make test` (a host-timing-sensitive ci-adapter test) and `make security` (pip CVE). After `docker pull` of the current image and a clean re-run: **`make test` is GREEN** (coverage gates pass — #7) and the **only** residual is a Makefile↔CI `pip-audit` ignore-flag drift (#1302) — not debt, not a vuln. The ci-adapter test failure did **not** reproduce in the canonical container env and is closed as host-only. Scores restored CI/CD→8, Security→8; composite 7.9→8.0. *Lesson: `make bootstrap`/`docker pull` before trusting local gate results.*
+7. **Coverage now CONFIRMED with numbers** (was "140+/unverified" in earlier passes): domain ≥90% on all 7 services (two at 100%), adapter ≥80% on all (see §5.3).
 8. **Everything else held.** The draft's per-service LoC table, the CloudEvents best-effort nuance, the `strict=True` xfail, the 30-closed/56-open M7 split, the 0-open-alert security posture, releases v0.4.0+v0.5.0, 9 protos / 7 services / 14 charts / 36 ADRs, and Go 1.26.4 across all 17 modules were **all confirmed exactly as written.** For a static-only draft, the accuracy rate is high.
 
 ---
@@ -300,10 +303,11 @@ status before CNCF). Ship #1167, reconcile the roadmap and EPIC letters, and rec
 a co-maintainer — and the path from v0.6.0 to a credible CNCF Sandbox submission is
 clear.
 
-**Composite assessment: ~7.9 / 10, trajectory strongly positive** — the only
-downward pull from the static draft's optimism is the honest accounting of the red
-local `make ci` gates, which are tracked debt with a clear owner (EPIC Q #1172),
-not architectural rot.
+**Composite assessment: ~8.0 / 10, trajectory strongly positive.** The local build,
+lint, and test gates are green against the current toolchain image; the one open
+local-gate item is a one-line Makefile↔CI `pip-audit` drift (#1302), not architectural
+rot. (An earlier pass of this review under-scored the project after a stale cached
+tools image produced false gate failures — corrected in §8.3.)
 
 ---
 
@@ -317,7 +321,7 @@ Build/lint/test/security were run via the repo's Docker toolchain image
 | # | Claim | Method | Result | Verdict |
 |:---:|---|---|---|---|
 | 1 | Builds clean; 17 modules on Go 1.26.4 | `grep '^go ' $(find . -name go.mod)` | every module `go 1.26.4` | **CONFIRMED** |
-| 2 | `make test` green; domain ≥90% / adapter ≥80% | `make test` (gate run) | **rc=2 FAIL** at `test-unit-adapters`: `TestGetRunStatus_ContextTimeout` 5/5; coverage gates not reached | **REFUTED (test red)** + coverage **UNVERIFIED-LOCALLY** |
+| 2 | `make test` green; domain ≥90% / adapter ≥80% | `make test` (current tools image) | **rc=0** — domain ≥90% all 7 (two 100%); adapter ≥80% all | **CONFIRMED** (earlier stale-image FAIL retracted, §8.3) |
 | 3 | BDD ~140+ | `grep -rhE 'Scenario(\| Outline):' protos/tests \| wc -l` | **306** across 18 `.feature` files | **REFUTED (understated) — actual 306** |
 | 4 | e2e reaches succeeded at runtime | `gh run view 27640115904` | both legs `success` | **CONFIRMED (via CI)** |
 | 5 | e2e passes for **both** temporal & argo legs | `gh run view 27640115904 --json jobs` | `e2e smoke (temporal)` ✅, `e2e smoke (argo)` ✅ | **CONFIRMED** |
@@ -340,8 +344,8 @@ Build/lint/test/security were run via the repo's Docker toolchain image
 - **Drift gates:** `make check-images` rc=0 ✅; `make generate-protos` Go clean, Python +1153/−1291 (version-skew caveat, §5.3).
 - **Hosted security:** 0 open Dependabot · 0 open code-scanning.
 - **lint:** `make lint` rc=**0** ✅ — proto (`buf lint` + format), all 7 Go services 0 issues, Go adapters 0 issues, Python (ruff/black/etc.) all passed.
-- **test gate:** `make test` rc=**2** ❌ — `test-unit-adapters` (Makefile:188): `--- FAIL: TestGetRunStatus_ContextTimeout` (`want TIMEOUT, got UPSTREAM_ERROR / "context deadline exceeded"`), `agents/adapters/ci/internal/adapter`. 5/5 deterministic on re-run.
-- **security gate:** `make security` rc=**2** ❌ — Go `govulncheck` 0 affecting; Go adapter scan passed; `security-agents` (Makefile:327) fails: pip-audit → `pip 26.1.1  PYSEC-2026-196  fix 26.1.2` (+ `zynax-sdk 0.1.0` not-on-PyPI advisory, non-fatal). Both failures owned by EPIC Q #1172.
+- **test gate (current image):** `make test` rc=**0** ✅ — domain coverage ≥90% all 7 services (event-bus/memory-service 100%); adapter coverage ≥80% all (ci-adapter `internal/adapter` 85.7%). *Earlier stale-image run had rc=2 on a host-timing ci-adapter flake — closed as #1298 (host-only).*
+- **security gate:** `make security` rc=**2** ⚠️ — Go `govulncheck` 0 affecting; Go adapter scan passed; `security-agents` (Makefile:328) fails **only** because it lacks CI's `--ignore-vuln PYSEC-2026-196` (`ci.yml:666`). Makefile↔CI drift → **#1302**. CI `security` green; not a shipped vuln.
 
 ### 10.3 Could-not-verify-locally
 
