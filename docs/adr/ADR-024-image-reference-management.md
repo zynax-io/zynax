@@ -106,8 +106,8 @@ remaining duplication is generated, not hand-maintained.
   changes overwritten by the next `make sync-images` run and caught by CI.
 - All digest bumps go through `make sync-images`; a bump that skips `sync`
   will fail the CI gate. This is intentional — the friction is the feature.
-- `scripts/bump-ci-runner.sh` is deprecated (kept for backward compatibility
-  in M6; scheduled for removal in M7 or when confirmed disused).
+- `scripts/bump-ci-runner.sh` was removed in M7.S.7 (#1292, ADR-036); the bump is
+  now the tested `zynax-ci bump-runner <digest>` verb (`make bump-ci-runner`).
 
 ### Out of scope
 
@@ -124,5 +124,5 @@ The following image references are **intentionally excluded** from
 
 | Action | Tracking |
 |--------|---------|
-| Remove `scripts/bump-ci-runner.sh` | M7 or when confirmed disused |
+| ~~Remove `scripts/bump-ci-runner.sh`~~ | Done — M7.S.7 (#1292), replaced by `zynax-ci bump-runner` |
 | Upgrade Renovate config to open PRs that edit `images/images.yaml` directly | Future Renovate config PR |

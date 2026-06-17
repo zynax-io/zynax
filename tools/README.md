@@ -39,4 +39,26 @@ zynax-ci check ai-context
 make install-ci-tools
 ```
 
+## CI gates
+
+Deterministic CI-gate logic is implemented as tested `zynax-ci` subcommands, one
+source of truth per gate (ADR-036). The shell scripts that previously lived here
+and under `.github/` (`bench-regression.sh`, `bdd-select-packages.sh`,
+`build-coverage-comment.sh`, `bump-ci-runner.sh`) and the `report-image-meta`
+composite action were retired in M7.S.7 (#1292). Their replacements:
+
+| Gate | Verb |
+|------|------|
+| PR coverage comment | `zynax-ci coverage-comment` |
+| Benchmark regression | `zynax-ci bench-gate` |
+| BDD package matrix | `zynax-ci bdd-select` |
+| ci-runner digest bump | `zynax-ci bump-runner <digest>` |
+| Image metadata/budget | `zynax-ci images meta` |
+| GHCR version cleanup | `zynax-ci images cleanup` |
+| Release retag list | `zynax-ci images retag` |
+
+`tools/ci/run-go-svc-loop.sh` stays bash (a thin per-service `go` loop), as does
+the e2e harness (`scripts/e2e/*`) — both are thin orchestration over external
+CLIs (ADR-036).
+
 See [cmd/zynax-ci/AGENTS.md](../cmd/zynax-ci/AGENTS.md) for the full command reference.

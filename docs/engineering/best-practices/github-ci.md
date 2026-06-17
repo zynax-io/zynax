@@ -204,7 +204,31 @@ step in release workflow.
 | `pr-size.yml` | PR | PR size gate |
 
 `ci.yml` is 1,325 lines — tracked for DRY refactor to composite/reusable workflows (#555).
-Do NOT add more inline YAML blocks; extract to `tools/` scripts instead.
+Do NOT add more inline `run:` logic; move deterministic decisions into a tested
+`zynax-ci` subcommand and call it from the step (ADR-036). The external primitives
+(`cosign` / `crane` / `kubectl` / `helm` / `docker` / `curl` / `gh api`) stay in
+thin shell; `zynax-ci` only computes the decisions around them.
+
+### Deterministic CI gates as `zynax-ci` verbs (ADR-036)
+
+Each gate is one tested subcommand — one source of truth per gate. The bash
+scripts these replaced (`build-coverage-comment.sh`, `bench-regression.sh`,
+`bdd-select-packages.sh`, `bump-ci-runner.sh`) and the `report-image-meta`
+composite action were retired in M7.S.7 (#1292).
+
+| Gate / step | Verb | Used by |
+|-------------|------|---------|
+| PR coverage comment | `zynax-ci coverage-comment` | `_test-go.yml` |
+| Benchmark regression | `zynax-ci bench-gate` | benchmark gate |
+| BDD package matrix | `zynax-ci bdd-select` | `_test-go.yml` |
+| ci-runner digest bump | `zynax-ci bump-runner <digest>` | `make bump-ci-runner` |
+| Image metadata/budget | `zynax-ci images meta` | `tools-image.yml` |
+| GHCR version cleanup | `zynax-ci images cleanup` | pr-image / prune |
+| Release retag list | `zynax-ci images retag` | `tools-image.yml` |
+| Release notes/matrix | `zynax-ci release notes` / `matrix` | `release.yml` |
+
+The e2e harness (`scripts/e2e/*`) is the one sanctioned exception — it stays bash
+(thin orchestration over kind/kubectl/helm/docker, ADR-036).
 
 ---
 
