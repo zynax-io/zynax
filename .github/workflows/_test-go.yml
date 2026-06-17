@@ -350,7 +350,7 @@ jobs:
           RUN_NUMBER: ${{ github.run_number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SHA: ${{ github.sha }}
-        run: bash .github/scripts/build-coverage-comment.sh
+        run: GOWORK=off go -C cmd/zynax-ci run . coverage-comment >/dev/null
 
       - name: Post coverage report on PR
         if: always() && inputs.event_name == 'pull_request'
