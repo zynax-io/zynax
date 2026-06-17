@@ -25,6 +25,7 @@ cmd/zynax/
     delete.go       zynax delete workflow <run-id>
     status.go       zynax status workflow <run-id>   (exit 0 = terminal, 2 = running)
     logs.go         zynax logs <run-id> [--follow|-f] [--format text|json]
+    mcp.go          zynax mcp git   (launch Git MCP server — execs `git-adapter mcp`, ADR-032)
     validate.go      zynax validate <file> [--schema-dir] [--format]  (local: schema + data-flow)
   validate/
     manifest.go     JSON Schema validation (validate.Manifest) + combined pipeline (validate.File)
