@@ -77,7 +77,7 @@ spec:
         - event: github.push
           goto: review
           set:
-            context.escalation_count: 0
+            context.escalation_count: "0"
         # Developer explicitly requests a re-review.
         - event: review.requested
           goto: review
