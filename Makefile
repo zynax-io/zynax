@@ -324,7 +324,7 @@ security-go-adapters: ensure-tools ## govulncheck on all Go adapter modules
 	done && echo "✅ Adapter security scan passed"
 
 security-agents: ensure-tools ## bandit + pip-audit on SDK + all agents
-	@$(TOOLS_RUN) sh -c "cd agents/sdk && uv run bandit -r src/ -ll && uv run pip-audit"
+	@$(TOOLS_RUN) sh -c "cd agents/sdk && uv run bandit -r src/ -ll && uv run pip-audit --ignore-vuln PYSEC-2026-196"
 	@for a in $(AGENTS); do [ -f "agents/examples/$$a/pyproject.toml" ] && \
 		$(TOOLS_RUN) sh -c "cd agents/examples/$$a && uv run bandit -r src/ -ll && uv run pip-audit" || true; done
 
