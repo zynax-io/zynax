@@ -101,60 +101,60 @@ images:
 
   - name: api-gateway
     ref: ghcr.io/zynax-io/zynax/api-gateway
-    digest: sha256:757b8d3f142b029758205293b051575ce8abe493496c95ac0389aa02fc54434b
+    digest: sha256:a304284aa2eda224dbd8156ef78822fb217e7027d007dd110d1d62314f5a41ab
     consumers: []
 
   - name: engine-adapter
     ref: ghcr.io/zynax-io/zynax/engine-adapter
-    digest: sha256:f9e613724e868f82a105f1952ebb003ff2e18e7fda9bb8b3dff61832f4883e44
+    digest: sha256:d4d58667124f2a064ce6d3ef2fef27528e212abd7236f03af3392e460e7731fe
     consumers: []
 
   - name: workflow-compiler
     ref: ghcr.io/zynax-io/zynax/workflow-compiler
-    digest: sha256:d6c5dc291124dd0c195bbab9039f522e891314031a5f64c1be9c59976ea43fa7
+    digest: sha256:0787eed495c0f1f8b7f3a005b702317c1355597d6301a00f5a789cc52dd28663
     consumers: []
 
   - name: task-broker
     ref: ghcr.io/zynax-io/zynax/task-broker
-    digest: sha256:8d202d1931b554be6615753f40014d6ff3f762c96e2f833dc033cf338fbc7807
+    digest: sha256:f92e98ba7ab3e886e1b606dbee451dbde81e5c385e1daeea02ae63dd257b99f6
     consumers: []
 
   - name: agent-registry
     ref: ghcr.io/zynax-io/zynax/agent-registry
-    digest: sha256:9a067643de0a61c540285ae571aacaa894274b7f8799502e0c5b6a23f558a9c5
+    digest: sha256:187cfd281512f9707fee30e01f36ec9891a0cf03be15a71d5040ef595108aca4
     consumers: []
 
   - name: http-adapter
     ref: ghcr.io/zynax-io/zynax/http-adapter
-    digest: sha256:b40d60dcd88f06efa224394f215d76136eeb9526fe047feb3f68b8a33d285121
+    digest: sha256:6aa71f07b63b95999c527cafe2800ef3fe5194d4559be8602e1ada9fe0e9fc93
     consumers: []
 
   - name: langgraph-adapter
     ref: ghcr.io/zynax-io/zynax/langgraph-adapter
-    digest: sha256:4f14261803fb9e57884b36812da81059790c854b0e28df326b23293b53d0c38b
+    digest: sha256:78dd571f3353b8359361fc8008ffa61b688703909783b7fda425afbbe517e81b
     consumers: []
 
   - name: ci-adapter
     ref: ghcr.io/zynax-io/zynax/ci-adapter
-    digest: sha256:a00c58e9c41742364cabe01269c5352fc0dae984633261a892c8e34f148ada65
+    digest: sha256:1485c3cd9e1f6505e128beed51a9bcd912e31f2731f843b0feb84eec47f692d7
     consumers: []
 
   - name: git-adapter
     ref: ghcr.io/zynax-io/zynax/git-adapter
-    digest: sha256:2c9a20bc47f728f24aef2f1d7e4bfe46a617de8220d0c925c7aa83121d68b8f7
+    digest: sha256:5b9fada9fa59dd94ef9618381782b064857857039c3047498a0ba623b44c34b6
     consumers: []
 
   - name: event-bus
     ref: ghcr.io/zynax-io/zynax/event-bus
-    digest: sha256:61b38331a4adbc5312470d58fb01d8182da488f92aed7da755d8a9cc1bf2189d
+    digest: sha256:8d60989988b33eca4cd612ac6582506d970a9a429f8a109caa1c71e7297fa267
     consumers: []
 
   - name: memory-service
     ref: ghcr.io/zynax-io/zynax/memory-service
-    digest: sha256:e72223281a62bed5409b4985451156d93b69fe1c402c81395dcdddb1bbfc8750
+    digest: sha256:f17a3e497b6369ff4db7952473da2fcf0f97d1027848fa7dfd2ce5c93d3a75d3
     consumers: []
 
   - name: llm-adapter
     ref: ghcr.io/zynax-io/zynax/llm-adapter
-    digest: sha256:f32420e19a05d82cfb50150321c6d23207637b7cb1f150b5de4896556c419027
+    digest: sha256:95af89946bac17697d464feefb2cd090331b8b5b9802716c81db00d96600c5a4
     consumers: []
