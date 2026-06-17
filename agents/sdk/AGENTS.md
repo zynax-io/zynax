@@ -32,7 +32,9 @@ What the SDK does **not** handle (M6+):
 ```
 agents/sdk/src/zynax_sdk/
 ├── agent.py       ← Agent base class, @capability decorator, report_* helpers
-└── __init__.py    ← Exports: Agent, capability, __version__
+├── handoff.py     ← HandoffContext contract + inbound_context / outbound_metadata
+├── telemetry.py   ← OTel traces + logs (off by default)
+└── __init__.py    ← Exports: Agent, capability, HandoffContext, …, __version__
 ```
 
 ---
@@ -101,6 +103,53 @@ Aborts with `INVALID_ARGUMENT` if `capability_name` or `task_id` is empty, or if
 
 gRPC handler. Returns basic schema metadata for a registered capability. Aborts with
 `NOT_FOUND` if the capability is not registered.
+
+---
+
+## Agent Handoff Context (canvas EPIC C, step C.4)
+
+When the broker dispatches a capability the agent is handed a **deterministic
+context** so the run stays traceable and data-scoped end to end. The contract is
+the frozen `HandoffContext` dataclass; two helpers honour it.
+
+The carrier keys mirror the Go gateway byte-for-byte (no bespoke formats — ADR-031):
+
+| `HandoffContext` field | gRPC metadata key | source of truth |
+|------------------------|-------------------|-----------------|
+| `request_id` | `request-id` | gateway correlation interceptor (C.2) |
+| `namespace` | `x-namespace` | gateway correlation interceptor (C.2) |
+| `traceparent` | `traceparent` (W3C) | tracing interceptor (C.2) |
+| `tracestate` | `tracestate` (W3C) | tracing interceptor (C.2) |
+| `workflow_id` | — (proto `workflow_id`) | run id; scopes the data-context (C.3) |
+| `task_id` | — (proto `task_id`) | per-task id |
+
+Correlation + trace are read from inbound gRPC metadata; `workflow_id` / `task_id`
+come from the proto request. The data-context (EPIC W / C.3) is scoped server-side
+by `namespace` + `workflow_id` — the agent receives the identifiers, never the
+store handle, so it cannot reach across runs.
+
+**Safeguard:** only correlation ids and W3C trace headers cross a handoff — never
+auth tokens, cookies, api keys, or secrets. `inbound_context` drops those keys.
+
+### `inbound_context(request, context=None) -> HandoffContext`
+
+Reads the deterministic context an agent **receives**. Metadata `request-id` is
+authoritative; the proto `request_id` is the fallback when metadata is absent.
+
+### `outbound_metadata(ctx: HandoffContext) -> list[tuple[str, str]]`
+
+Emits the context an agent **forwards** to its next Zynax hop, as ordered,
+unset-omitted gRPC metadata: `stub.Method(req, metadata=outbound_metadata(ctx))`.
+
+```python
+from zynax_sdk import inbound_context, outbound_metadata
+
+@capability("summarize")
+async def summarize(self, request, context):
+    hc = inbound_context(request, context)          # what I was handed
+    md = outbound_metadata(hc)                        # forward it downstream
+    yield self.report_completed(request.task_id, {"req": hc.request_id})
+```
 
 ---
 

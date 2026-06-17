@@ -4,6 +4,11 @@
 __version__ = "0.1.0"
 
 from zynax_sdk.agent import Agent, capability
+from zynax_sdk.handoff import (
+    HandoffContext,
+    inbound_context,
+    outbound_metadata,
+)
 from zynax_sdk.telemetry import (
     capability_span,
     extract_context,
@@ -13,10 +18,13 @@ from zynax_sdk.telemetry import (
 
 __all__ = [
     "Agent",
+    "HandoffContext",
     "capability",
     "capability_span",
     "extract_context",
+    "inbound_context",
     "init_telemetry",
     "is_enabled",
+    "outbound_metadata",
     "__version__",
 ]
