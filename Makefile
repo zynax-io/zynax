@@ -382,14 +382,14 @@ clean-tools: ## Remove tools image
 clean-all: clean dev-down clean-tools ## ⚠ Remove everything
 
 # ── Spec validation ───────────────────────────────────────────────────────────
-.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-canvas validate-milestone-state dry-run
+.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema check-expert-mapping validate-canvas validate-milestone-state dry-run
 
 validate-milestone-state: ensure-tools ## Validate state/milestone.yaml against state/milestone.schema.json (Docker)
 	$(TOOLS_RUN) uv run --no-project --quiet --with pyyaml --with jsonschema \
 	  python3 scripts/validate_milestone_state.py
 	@echo "✅ Milestone state valid"
 
-validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema validate-policy-schema ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def + policy manifests)
+validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema validate-policy-schema check-expert-mapping ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def + policy manifests + expert mapping)
 
 validate-canvas: ensure-tools ## Validate REASONS Canvas files under docs/spdd/ (SPDD — ADR-019)
 	$(TOOLS_RUN) zynax-ci validate canvas docs/spdd/
@@ -416,6 +416,9 @@ validate-agent-def-schema: ensure-tools ## Validate AgentDef manifests (spec exa
 validate-policy-schema: ensure-tools ## Validate Policy manifests in spec/workflows/examples/ against policy.schema.json
 	$(TOOLS_RUN) zynax-ci validate policies spec/workflows/examples/ --schema-dir spec/schemas
 	@echo "✅ Policy schemas valid"
+
+check-expert-mapping: ensure-tools ## Drift guard: authoring <-> runtime expert mapping (ADR-033)
+	$(TOOLS_RUN) python automation/scripts/check_expert_mapping.py
 
 validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)
 	# renovate: datasource=docker depName=asyncapi/cli

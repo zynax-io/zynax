@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: Apache-2.0
+# automation/experts/runtime_mapping.yaml
+#
+# Authoring <-> runtime expert mapping — machine-readable source of truth
+# (EPIC X #1170, step X.5 #1205; governed by ADR-033).
+#
+# Each authoring expert (.claude/commands/experts/<slug>.md, used in the SPDD
+# delivery/authoring loop) declares a `runtime_mapping`: either the name of a
+# runtime expert (kind: AgentDef registered under agents/examples/) or the
+# literal "authoring-only" when no runtime counterpart exists yet.
+#
+# This file lives OUTSIDE .claude/** on purpose: .claude/** is CODEOWNERS-gated,
+# so the machine-readable mapping is kept here where the drift-guard check
+# (automation/scripts/check_expert_mapping.py) can read every authoring expert
+# (read-only) and reconcile it against this file, ADR-033's table, and
+# agents/examples/.
+#
+# Drift guard (ADR-033): every authoring expert MUST appear here exactly once;
+# a runtime reference MUST resolve to agents/examples/<name>; and this file
+# MUST stay identical to ADR-033's mapping table. Any divergence fails CI.
+#
+# docs/experts/mapping.md is the human-readable mirror of this file.
+
+apiVersion: zynax.io/v1alpha1
+kind: ExpertMapping
+
+experts:
+  - authoring: go-services
+    runtime_mapping: go-review-expert
+    capability: code.review.go
+    status: runtime (M7, agents/examples/go-review-expert)
+
+  - authoring: bdd-contract
+    runtime_mapping: authoring-only
+    capability: ""
+    status: authoring-only (deferred to M-dx)
+
+  - authoring: ci-release
+    runtime_mapping: authoring-only
+    capability: ""
+    status: authoring-only (deferred to M-dx)
+
+  - authoring: git-ops
+    runtime_mapping: authoring-only
+    capability: ""
+    status: authoring-only (deferred to M-dx)
+
+  - authoring: infra-helm
+    runtime_mapping: authoring-only
+    capability: ""
+    status: authoring-only (deferred to M-dx)
+
+  - authoring: post-merge
+    runtime_mapping: authoring-only
+    capability: ""
+    status: authoring-only (deferred to M-dx)
+
+  - authoring: python-adapters
+    runtime_mapping: authoring-only
+    capability: ""
+    status: authoring-only (deferred to M-dx)
+
+  - authoring: spdd-canvas
+    runtime_mapping: authoring-only
+    capability: ""
+    status: authoring-only (deferred to M-dx)
