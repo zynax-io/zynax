@@ -1,65 +1,62 @@
 # agents/adapters/llm — LLM Provider Capability Adapter
 
-Python adapter service implementing `AgentService` for LLM inference via OpenAI, AWS Bedrock, and Ollama.
+Go adapter service implementing `AgentService` for LLM inference via OpenAI, AWS Bedrock, and Ollama.
+
+Ported from Python to Go under ADR-035 (M7 EPIC P / #1276): the adapter is a stateless
+provider proxy with no Python-specific dependency, so it ships as a single static distroless
+binary — dropping the `openai` / `aiobotocore` / `aiohttp` supply-chain tree.
 
 ## Module
 
-`llm-adapter` · `src/llm_adapter/`
+`github.com/zynax-io/zynax/agents/adapters/llm` · `cmd/llm-adapter/` + `internal/`
 
 ## Capabilities
 
 | Name | Description |
 |------|-------------|
-| `chat_completion` | Stream a multi-turn chat completion. Provider is selected by `LLM_PROVIDER`. Returns streamed `PROGRESS` events during generation and a final `COMPLETED` event with the full response text. |
+| `chat_completion` | Stream a chat completion from the configured provider. Returns streamed `PROGRESS` events during generation and a final `COMPLETED` event with the full response text. |
 
 ## Supported Providers
 
-| `LLM_PROVIDER` value | SDK | Required env vars |
-|----------------------|-----|-------------------|
-| `openai` | `openai` | `OPENAI_API_KEY` |
-| `bedrock` | `aiobotocore` | `AWS_REGION` (+ ambient AWS credentials) |
-| `ollama` | `httpx` (REST) | `OLLAMA_BASE_URL` |
+| `provider.name` | Backend | Required config |
+|-----------------|---------|-----------------|
+| `openai` | OpenAI HTTP API | `provider.api_key_env` → env var holding the API key |
+| `bedrock` | AWS Bedrock runtime | `provider.region` (+ ambient AWS credentials) |
+| `ollama` | Ollama REST API | `provider.ollama_base_url` |
 
-## Environment Variables
+## Configuration
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `LLM_PROVIDER` | ✓ | — | Active provider: `openai`, `bedrock`, or `ollama`. |
-| `AGENT_ID` | ✓ | — | Unique agent identifier registered with agent-registry. |
-| `ADAPTER_ENDPOINT` | ✓ | — | gRPC address the task-broker dials, e.g. `llm-adapter:50057`. |
-| `REGISTRY_ADDR` | ✓ | — | agent-registry gRPC address, e.g. `agent-registry:50052`. |
-| `OPENAI_API_KEY` | ✓ if openai | — | OpenAI API key (never log or echo). |
-| `OLLAMA_BASE_URL` | ✓ if ollama | — | Ollama REST base URL, e.g. `http://ollama:11434`. |
-| `AWS_REGION` | ✓ if bedrock | — | AWS region for the Bedrock endpoint. |
-| `LLM_MODEL` | — | `gpt-4o` / `anthropic.claude-3-5-sonnet-20241022-v2:0` / `llama3.2` | Model name; provider-specific default applies when unset. |
-| `LLM_MAX_TOKENS` | — | `4096` | Maximum token ceiling enforced before calling the provider. |
-| `ZYNAX_LLM_ADAPTER_GRPC_PORT` | — | `50057` | TCP port the adapter's gRPC server binds to. |
+Provider, model, and limits are declared in a YAML config file named by the
+`ZYNAX_LLM_CONFIG` env var (default: the baked example at `/etc/llm-adapter/config.yaml`).
+The provider and model are **always** declared in config — never in `input_payload`.
 
-API keys are stored as `pydantic.SecretStr` — they never appear in repr, logs, or error messages.
+See `agent-def.yaml.example` for the full schema. Key fields:
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `provider.name` | ✓ | — | Active provider: `openai`, `bedrock`, or `ollama`. |
+| `provider.model` | ✓ | — | Model name (provider-specific). |
+| `provider.api_key_env` | ✓ if openai | — | Name of the env var holding the API key (never logged or echoed). |
+| `provider.ollama_base_url` | ✓ if ollama | — | Ollama REST base URL, e.g. `http://ollama:11434`. |
+| `provider.region` | ✓ if bedrock | — | AWS region for the Bedrock endpoint. |
+| `provider.max_tokens` | — | `4096` | Maximum token ceiling enforced before calling the provider. |
+| `endpoint` | ✓ | `:50070` | gRPC address the adapter's server binds to. |
+| `registry_endpoint` | ✓ | — | agent-registry gRPC address, e.g. `agent-registry:50052`. |
+
+The API-key value is resolved at startup from the named env var and is never stored in
+config, repr, logs, or error messages.
 
 ## gRPC Port
 
-Default: **50057** (override via `ZYNAX_LLM_ADAPTER_GRPC_PORT`).
-
-## Docker Compose (local dev — Ollama)
-
-Add to your `.env` (values never in `docker-compose.yml`):
-```
-LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://host.docker.internal:11434
-LLM_MODEL=llama3.2
-```
-
-Ollama must be running on the Docker host. With Docker Desktop, `host.docker.internal` resolves to the host machine automatically. On Linux, add `--add-host=host.docker.internal:host-gateway` or use your host IP.
+Default: **50070** (override via the `endpoint` field in the config file).
 
 ## Testing
 
 ```bash
 cd agents/adapters/llm
-uv run pytest tests/ -v
-uv run pytest tests/ --cov=src --cov-fail-under=80 -v
+GOWORK=off go test ./... -race -timeout 60s
 ```
 
 ## Reference
 
-Canvas: `docs/spdd/383-llm-adapter/canvas.md`
+ADR-035 (adapter language boundary) · Canvas: `docs/spdd/383-llm-adapter/canvas.md`

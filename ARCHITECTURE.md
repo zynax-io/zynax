@@ -116,7 +116,7 @@ Layer 3 engines are always behind the `WorkflowEngine` interface.
                   │ http-adapter ✅ (Go)                     │
                   │ git-adapter  ✅ (Go)                     │
                   │ ci-adapter   ✅ (Go)                     │
-                  │ llm-adapter  ✅ (Python)                 │
+                  │ llm-adapter  ✅ (Go)                     │
                   │ langgraph    ✅ (Python)                 │
                   └────────────────────────────────────────┘
 ```

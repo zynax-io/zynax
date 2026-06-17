@@ -222,8 +222,8 @@ jobs:
               services/task-broker/*)       task_broker=true ;;
               services/agent-registry/*)    agent_registry=true ;;
               cmd/*)                        cli=true ;;
-              agents/adapters/http/*|agents/adapters/git/*|agents/adapters/ci/*) adapters_go=true ;;
-              agents/adapters/llm/*|agents/adapters/langgraph/*)                 adapters_python=true ;;
+              agents/adapters/http/*|agents/adapters/git/*|agents/adapters/ci/*|agents/adapters/llm/*) adapters_go=true ;;
+              agents/adapters/langgraph/*)                                       adapters_python=true ;;
               protos/generated/go/*|go.work|go.work.sum)
                 engine_adapter=true workflow_compiler=true api_gateway=true
                 task_broker=true agent_registry=true cli=true adapters_go=true ;;
