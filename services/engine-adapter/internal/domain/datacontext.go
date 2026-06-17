@@ -14,6 +14,49 @@ import (
 // workflow-scoped data context rather than a literal value (ADR-029 §1).
 const dataRefPrefix = "$."
 
+// DataContextScope identifies the single workflow run that owns a
+// WorkflowDataContext (canvas C.3). A data context is bound to exactly one
+// scope at construction; every read and write must present a scope that equals
+// the owning scope, so one run can never read or write another run's data even
+// if it somehow obtains a reference to the instance.
+//
+// RunID is the per-run identity (the workflow run / envelope workflow_id).
+// Namespace is the run's namespace (ADR-008 — never share state across
+// namespaces); it may be empty for single-namespace deployments.
+type DataContextScope struct {
+	RunID     string
+	Namespace string
+}
+
+// equals reports whether two scopes denote the same run in the same namespace.
+func (s DataContextScope) equals(other DataContextScope) bool {
+	return s.RunID == other.RunID && s.Namespace == other.Namespace
+}
+
+// String renders the scope for diagnostics as "<namespace>/<run-id>".
+func (s DataContextScope) String() string {
+	return s.Namespace + "/" + s.RunID
+}
+
+// ScopeError is returned when a read or write presents a scope that does not
+// match the data context's owning scope (canvas C.3 — cross-run access denied).
+// It fails the access loudly rather than silently returning or dropping data.
+type ScopeError struct {
+	// Owner is the scope the data context is bound to.
+	Owner DataContextScope
+	// Requester is the scope that attempted the access.
+	Requester DataContextScope
+	// Op is the attempted operation ("read" or "write").
+	Op string
+}
+
+func (e *ScopeError) Error() string {
+	return fmt.Sprintf(
+		"engine-adapter: cross-run data-context %s denied: context owned by %s, requested by %s",
+		e.Op, e.Owner, e.Requester,
+	)
+}
+
 // DataReferenceError is a structured error returned when an input binding
 // reference cannot be resolved against the workflow-scoped data context, or
 // when a referenced/extracted value is not a coercible scalar (a typed
@@ -45,13 +88,42 @@ func (e *DataReferenceError) Error() string {
 // Keys are canonical dotted paths of the form "states.<stateID>.output.<key>";
 // values are the scalar string form of the extracted output. The interpreter
 // owns exactly one instance per Run (behind the WorkflowEngine interface).
+//
+// The context is bound to a single DataContextScope at construction. Every read
+// (ResolveInputs) and write (WriteOutputs) must present a matching scope, so a
+// run can never leak data into or out of another run (canvas C.3).
 type WorkflowDataContext struct {
+	scope DataContextScope
 	store map[string]string
 }
 
-// NewWorkflowDataContext returns an empty run-scoped data context.
+// NewWorkflowDataContext returns an empty data context bound to the zero scope.
+// It is retained for back-compat with callers that do not yet thread a run
+// scope; reads and writes must present the same (zero) scope. Prefer
+// NewScopedWorkflowDataContext so cross-run access is denied (canvas C.3).
 func NewWorkflowDataContext() *WorkflowDataContext {
-	return &WorkflowDataContext{store: make(map[string]string)}
+	return NewScopedWorkflowDataContext(DataContextScope{})
+}
+
+// NewScopedWorkflowDataContext returns an empty data context owned by scope.
+// Every subsequent read/write must present a scope equal to this one, so the
+// context cannot serve another run's data (canvas C.3 — cross-run denied).
+func NewScopedWorkflowDataContext(scope DataContextScope) *WorkflowDataContext {
+	return &WorkflowDataContext{scope: scope, store: make(map[string]string)}
+}
+
+// Scope returns the run scope that owns this data context.
+func (c *WorkflowDataContext) Scope() DataContextScope {
+	return c.scope
+}
+
+// assertScope returns a ScopeError when requester does not match the owning
+// scope, enforcing strict run+namespace isolation on every read and write.
+func (c *WorkflowDataContext) assertScope(requester DataContextScope, op string) error {
+	if !c.scope.equals(requester) {
+		return &ScopeError{Owner: c.scope, Requester: requester, Op: op}
+	}
+	return nil
 }
 
 // WriteOutputs extracts each declared output from the action's result payload
@@ -62,7 +134,13 @@ func NewWorkflowDataContext() *WorkflowDataContext {
 // does not resolve to a scalar value is reported as a typed mismatch so the
 // run fails loudly rather than storing an unusable value. A nil/empty bindings
 // map is a no-op (actions that publish nothing).
-func (c *WorkflowDataContext) WriteOutputs(stateID string, bindings map[string]string, payload []byte) error {
+//
+// requester is the scope of the run performing the write; it must equal the
+// context's owning scope or the write is denied with a ScopeError (canvas C.3).
+func (c *WorkflowDataContext) WriteOutputs(requester DataContextScope, stateID string, bindings map[string]string, payload []byte) error {
+	if err := c.assertScope(requester, "write"); err != nil {
+		return err
+	}
 	if len(bindings) == 0 {
 		return nil
 	}
@@ -96,7 +174,13 @@ func (c *WorkflowDataContext) WriteOutputs(stateID string, bindings map[string]s
 // reference resolved against the store. A reference that does not resolve is a
 // DataReferenceError — the run fails rather than substituting an empty value.
 // A nil/empty bindings map yields a nil result (actions that consume nothing).
-func (c *WorkflowDataContext) ResolveInputs(bindings map[string]string) (map[string]string, error) {
+//
+// requester is the scope of the run performing the read; it must equal the
+// context's owning scope or the read is denied with a ScopeError (canvas C.3).
+func (c *WorkflowDataContext) ResolveInputs(requester DataContextScope, bindings map[string]string) (map[string]string, error) {
+	if err := c.assertScope(requester, "read"); err != nil {
+		return nil, err
+	}
 	if len(bindings) == 0 {
 		return nil, nil
 	}
