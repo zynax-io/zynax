@@ -1,0 +1,22 @@
+{
+  "$comment": [
+    "Zynax Git MCP server — example wiring for an authoring loop (e.g. Claude Code).",
+    "Copy to .mcp.json and adjust paths. See docs/git-mcp/README.md (ADR-032).",
+    "SECURITY: never put a literal token here. The token is injected into the",
+    "process environment at start and read once by the git-adapter; it is never a",
+    "tool argument and never reaches a prompt. Reference it by env name only.",
+    "Use a LEAST-PRIVILEGE, fine-grained PAT scoped to exactly the owner/repo in",
+    "ADAPTER_CONFIG (Contents + Pull requests: Read/Write only) — not a broad",
+    "classic `repo` PAT."
+  ],
+  "mcpServers": {
+    "zynax-git": {
+      "command": "zynax",
+      "args": ["mcp", "git"],
+      "env": {
+        "ADAPTER_CONFIG": "agents/adapters/git/config.yaml",
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
