@@ -1,7 +1,16 @@
-# Code Review Workflow — Reference Example
-# Demonstrates: loops, async events, human-in-the-loop, timeout handling
+# SPDX-License-Identifier: Apache-2.0
+# Code Review Workflow — real, runnable reference (EPIC T.3, #1208)
 #
-# To apply: zynax apply spec/workflows/examples/code-review.yaml
+# Demonstrates: loops, async events, human-in-the-loop, timeout handling, and
+# cross-state DATA-FLOW bindings (ADR-029, EPIC W.4 #1178).
+#
+# Data-flow:
+#   * the `fix` state's summarize_feedback action PUBLISHES its `summary`
+#     result field under the context key `feedback_summary` via `output:`
+#   * the `escalate` state CONSUMES it with an input binding rooted at
+#     "$.states.fix.output.feedback_summary" — no template indirection.
+#
+# To apply:   zynax apply spec/workflows/examples/code-review.yaml
 # To dry-run: zynax apply --dry-run spec/workflows/examples/code-review.yaml
 
 kind: Workflow
@@ -10,20 +19,21 @@ apiVersion: zynax.io/v1
 metadata:
   name: code-review-workflow
   namespace: engineering
+  version: "1.0.0"
   labels:
     team: platform
     tier: production
   annotations:
-    description: "Automated code review with human escalation"
+    description: "Automated code review with feedback data-flow and human escalation."
 
 spec:
   initial_state: review
 
-  # Events that automatically trigger a NEW workflow instance
+  # Events that automatically trigger a NEW workflow instance.
   triggers:
     - event: github.pull_request.opened
       filter:
-        repo: "zynax/zynax"
+        repo: "zynax-io/zynax"
         base_branch: "main"
 
   states:
@@ -35,43 +45,40 @@ spec:
             pr_url: "{{ .trigger.pr_url }}"
             reviewers: "{{ .context.assigned_reviewers }}"
           timeout: 24h   # If no review in 24h, emit review.timeout
-
       on:
         - event: review.approved
           goto: merge
 
         - event: review.needswork
           goto: fix
-          # Store the feedback in workflow context for the fix state
+          # Carry the raw reviewer comments forward for the fix state.
           set:
             context.latest_feedback: "{{ .event.comments }}"
 
         - event: review.timeout
           goto: escalate
-          guard: "{{ .context.escalation_count }} < 2"
+          guard: "escalation_count < 2"
 
         - event: review.timeout
           goto: abandon
-          guard: "{{ .context.escalation_count }} >= 2"
+          guard: "escalation_count >= 2"
 
-    # ── Fix state ────────────────────────────────────────────────
+    # ── Fix state — PUBLISHES a feedback summary via output binding ──
     fix:
       actions:
-        # Summarise the feedback so the agent knows what to fix
         - capability: summarize_feedback
           input:
             feedback: "{{ .context.latest_feedback }}"
+          # Publish the action's `summary` result field as `feedback_summary`.
           output:
-            context.feedback_summary: "{{ .result.summary }}"
-
+            feedback_summary: summary
       on:
-        # Developer pushes a new commit → go back to review (the loop)
+        # Developer pushes a new commit → go back to review (the loop).
         - event: github.push
           goto: review
           set:
             context.escalation_count: 0
-
-        # Developer explicitly requests a re-review
+        # Developer explicitly requests a re-review.
         - event: review.requested
           goto: review
 
@@ -85,25 +92,24 @@ spec:
       on:
         - event: merge.success
           goto: done
-
         - event: merge.conflict
           goto: fix
           set:
             context.latest_feedback: "Merge conflict — please rebase"
 
-    # ── Escalate state (human-in-the-loop) ───────────────────────
+    # ── Escalate state — CONSUMES the fix summary via input binding ──
     escalate:
-      type: human_in_the_loop    # Workflow pauses here until a human signals
+      type: human_in_the_loop    # Workflow pauses here until a human signals.
       actions:
         - capability: notify_human
           input:
             channel: "#engineering"
-            message: "PR {{ .trigger.pr_url }} needs manual review — timed out"
+            message: "PR needs manual review — timed out"
+            # Data-flow binding: pull the summary published by the fix state.
+            review_summary: "$.states.fix.output.feedback_summary"
       on:
-        # Human approves via Slack command or dashboard
         - event: human.approved
           goto: merge
-        # Human requests more changes
         - event: human.needswork
           goto: fix
           set:
@@ -117,7 +123,7 @@ spec:
         - capability: notify_author
           input:
             pr_url: "{{ .trigger.pr_url }}"
-            message: "Your PR has been merged. 🎉"
+            message: "Your PR has been merged."
 
     abandon:
       type: terminal

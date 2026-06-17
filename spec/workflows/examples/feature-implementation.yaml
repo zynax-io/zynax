@@ -1,0 +1,134 @@
+# SPDX-License-Identifier: Apache-2.0
+# Feature Implementation Workflow — real, runnable reference (EPIC T.3, #1208)
+#
+# Demonstrates: an end-to-end "issue → plan → implement → test → open PR"
+# agent pipeline that threads results between stages with cross-state
+# DATA-FLOW bindings (ADR-029, EPIC W.4 #1178).
+#
+# Data-flow chain:
+#   plan      → publishes `implementation_plan`
+#   implement → consumes the plan, publishes `branch_name` + `diff_summary`
+#   verify    → consumes the branch, publishes `test_report`
+#   open_pr   → consumes branch + diff summary to draft the PR body
+#
+# To apply: zynax apply spec/workflows/examples/feature-implementation.yaml
+
+kind: Workflow
+apiVersion: zynax.io/v1
+
+metadata:
+  name: feature-implementation-workflow
+  namespace: engineering
+  version: "1.0.0"
+  labels:
+    team: platform
+    tier: production
+  annotations:
+    description: "Plan, implement, verify and open a PR for a tracked feature issue."
+
+spec:
+  initial_state: plan
+
+  triggers:
+    - event: github.issues.labeled
+      filter:
+        repo: "zynax-io/zynax"
+        label: "agent:implement"
+
+  states:
+    # ── Plan — PUBLISHES the implementation plan ──
+    plan:
+      actions:
+        - capability: draft_plan
+          input:
+            issue_url: "{{ .trigger.issue_url }}"
+          timeout: 15m
+          # Publish the action's `plan` result as `implementation_plan`.
+          output:
+            implementation_plan: plan
+      on:
+        - event: draft_plan.completed
+          goto: implement
+        - event: draft_plan.failed
+          goto: failed
+
+    # ── Implement — CONSUMES the plan, PUBLISHES branch + diff summary ──
+    implement:
+      actions:
+        - capability: write_code
+          input:
+            issue_url: "{{ .trigger.issue_url }}"
+            # Data-flow binding: feed the plan from the previous state.
+            plan: "$.states.plan.output.implementation_plan"
+          timeout: 1h
+          output:
+            branch_name: branch
+            diff_summary: summary
+      on:
+        - event: write_code.completed
+          goto: verify
+        - event: write_code.failed
+          goto: failed
+
+    # ── Verify — CONSUMES the branch, PUBLISHES the test report ──
+    verify:
+      actions:
+        - capability: run_tests
+          input:
+            branch: "$.states.implement.output.branch_name"
+          timeout: 30m
+          output:
+            test_report: report
+      on:
+        - event: tests.passed
+          goto: open_pr
+        - event: tests.failed
+          goto: rework
+        - event: tests.timeout
+          goto: failed
+
+    # ── Rework — feed the failing report back into another code pass ──
+    rework:
+      actions:
+        - capability: write_code
+          input:
+            branch: "$.states.implement.output.branch_name"
+            failures: "$.states.verify.output.test_report"
+          timeout: 1h
+      on:
+        - event: write_code.completed
+          goto: verify
+        - event: write_code.failed
+          goto: failed
+
+    # ── Open PR — CONSUMES branch + diff summary to draft the PR ──
+    open_pr:
+      actions:
+        - capability: open_pull_request
+          input:
+            issue_url: "{{ .trigger.issue_url }}"
+            branch: "$.states.implement.output.branch_name"
+            body: "$.states.implement.output.diff_summary"
+          timeout: 10m
+      on:
+        - event: open_pull_request.completed
+          goto: done
+        - event: open_pull_request.failed
+          goto: failed
+
+    # ── Terminal states ──
+    done:
+      type: terminal
+      actions:
+        - capability: notify_author
+          input:
+            issue_url: "{{ .trigger.issue_url }}"
+            message: "Feature implemented — PR opened for review."
+
+    failed:
+      type: terminal
+      actions:
+        - capability: notify_author
+          input:
+            issue_url: "{{ .trigger.issue_url }}"
+            message: "Feature implementation failed — manual follow-up required."

@@ -1,5 +1,16 @@
-# CI Pipeline Workflow — Reference Example
-# Demonstrates: parallel actions, CI integration, failure recovery
+# SPDX-License-Identifier: Apache-2.0
+# CI Pipeline Workflow — real, runnable reference (EPIC T.3, #1208)
+#
+# Demonstrates: sequential CI stages, failure recovery, human gate, and
+# cross-state DATA-FLOW bindings (ADR-029, EPIC W.4 #1178).
+#
+# Data-flow:
+#   * the `build` state PUBLISHES the built image digest under `built_image`
+#     via `output:`
+#   * `deploy_staging` and `integration_test` CONSUME it through input
+#     bindings rooted at "$.states.build.output.built_image".
+#
+# To apply: zynax apply spec/workflows/examples/ci-pipeline.yaml
 
 kind: Workflow
 apiVersion: zynax.io/v1
@@ -7,6 +18,9 @@ apiVersion: zynax.io/v1
 metadata:
   name: ci-pipeline-workflow
   namespace: platform
+  version: "1.0.0"
+  annotations:
+    description: "Test → scan → build → deploy CI pipeline with image data-flow."
 
 spec:
   initial_state: test
@@ -44,9 +58,10 @@ spec:
         - event: scan.failed
           goto: block_merge
         - event: scan.findings
-          guard: "{{ .event.severity }} == 'low'"
+          guard: "severity == 'low'"
           goto: build    # low severity findings don't block
 
+    # ── Build — PUBLISHES the image digest via output binding ──
     build:
       actions:
         - capability: build_image
@@ -54,18 +69,23 @@ spec:
             commit: "{{ .trigger.commit_sha }}"
             registry: "ghcr.io/zynax-io"
           timeout: 20m
+          # Publish the action's `image_digest` result as `built_image`.
+          output:
+            built_image: image_digest
       on:
         - event: build.success
           goto: deploy_staging
         - event: build.failed
           goto: notify_failure
 
+    # ── Deploy — CONSUMES the build digest via input binding ──
     deploy_staging:
       actions:
         - capability: deploy
           input:
             environment: "staging"
-            image: "{{ .context.built_image }}"
+            # Data-flow binding: deploy exactly what `build` produced.
+            image: "$.states.build.output.built_image"
           timeout: 10m
       on:
         - event: deploy.success
@@ -78,6 +98,8 @@ spec:
         - capability: run_integration_tests
           input:
             environment: "staging"
+            # Same digest the workflow built and deployed.
+            image: "$.states.build.output.built_image"
           timeout: 20m
       on:
         - event: integration.passed
@@ -120,4 +142,5 @@ spec:
       actions:
         - capability: notify_author
           input:
-            message: "CI pipeline passed ✅ — staging deployment live"
+            message: "CI pipeline passed — staging deployment live"
+            channel: "#ci"
