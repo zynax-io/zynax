@@ -6,15 +6,18 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/adapter"
+	"github.com/zynax-io/zynax/agents/adapters/git/internal/auth"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/config"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/mcp"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/redact"
@@ -50,6 +53,17 @@ func run() error {
 		return fmt.Errorf("resolve token: %w", err)
 	}
 
+	// Least-privilege gate (G.5 / #1260): verify the token cannot reach repos
+	// beyond the configured owner/repo before it is ever used. The token value is
+	// never passed to the logger — only scope/class metadata.
+	probe, err := newScopeProbe(token)
+	if err != nil {
+		return fmt.Errorf("scope probe init: %w", err)
+	}
+	if err := validateTokenScope(context.Background(), probe, auth.ParseMode(os.Getenv("GIT_ADAPTER_SCOPE_MODE"))); err != nil {
+		return err
+	}
+
 	// `git-adapter mcp` runs the thin MCP stdio shim over the same handlers
 	// instead of the runtime gRPC server (ADR-032 — one implementation, two
 	// surfaces). It needs no registry and binds no port.
@@ -67,6 +81,48 @@ func run() error {
 	defer stop()
 
 	return serve(ctx, cfg, token, regClient)
+}
+
+// scopeValidator is the probe surface auth.Validate consumes at startup (enables
+// testing main's wiring with a fake probe without reaching the GitHub API).
+type scopeValidator interface {
+	Probe(ctx context.Context) (http.Header, error)
+}
+
+// newScopeProbe builds the startup scope probe. It is a package var so tests can
+// substitute a fake probe that never reaches the network; production resolves to
+// the public GitHub API.
+var newScopeProbe = func(token string) (scopeValidator, error) {
+	return auth.NewGitHubProbe(token, "")
+}
+
+// validateTokenScope runs the startup least-privilege check and applies the
+// configured mode. In enforce mode an over-broad token aborts startup; in warn
+// mode it emits a loud structured warning and continues. The token value is
+// never logged — only scope/class metadata from the Result.
+func validateTokenScope(ctx context.Context, p scopeValidator, mode auth.Mode) error {
+	res, err := auth.Validate(ctx, p, mode)
+	if err != nil {
+		if errors.Is(err, auth.ErrOverBroadScope) {
+			// Metadata only — no token, no secret material in the message.
+			return fmt.Errorf("token scope validation failed: %w", err)
+		}
+		// Probe transport error: surface but do not block startup on a probe that
+		// could not run (e.g. offline registry-only bring-up); warn and proceed.
+		//nolint:gosec // G706: scope/error metadata only, never the token value
+		slog.Warn("token scope probe could not run; skipping least-privilege check",
+			"err", err, "mode", mode.String())
+		return nil
+	}
+	if len(res.OverBroad) > 0 {
+		//nolint:gosec // G706: scope metadata only, never the token value
+		slog.Warn("git token grants scope beyond configured owner/repo (least-privilege)",
+			"token_class", res.TokenClass, "over_broad_scopes", res.OverBroad, "mode", mode.String())
+		return nil
+	}
+	//nolint:gosec // G706: scope/class metadata only, never the token value
+	slog.Info("git token scope validated", "token_class", res.TokenClass, "mode", mode.String())
+	return nil
 }
 
 // serveMCP runs the MCP stdio shim. The exposed tool set is an explicit
