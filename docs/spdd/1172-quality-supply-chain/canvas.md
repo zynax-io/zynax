@@ -3,7 +3,7 @@
 > Tier 1 (public-safe). `chore:`/`ci:`/`docs:` work is SPDD-exempt; committed for traceability.
 
 **Issue:** #1172 + #582 #583 · **Milestone:** M7 (v0.6.0)
-**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Aligned (operator-approved 2026-06-17; chore/ci/docs SPDD-exempt)
+**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Implemented (EPIC Q complete 2026-06-17 — Q.1-Q.5 #1212-1216 + #1302 merged; `make ci` green; EPIC #1172 closed)
 
 ---
 
