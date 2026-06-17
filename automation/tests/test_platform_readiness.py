@@ -45,20 +45,41 @@ class TestPlatformReadiness:
                 doc = yaml.safe_load(f)
             jsonschema.validate(doc, schema)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Wave 4: requires a running Zynax platform (Postgres #626 + EventBus "
-            "#772) and the orchestrator workflow (O3, #1098). Flips to a real e2e "
-            "in O8 (#1103)."
-        ),
-    )
     def test_orchestrator_executes_on_platform(self, zynax_client):
-        """Orchestrator workflow loads and executes on a running Zynax platform."""
+        """`zynax apply` of the orchestrator Workflow on a live platform yields
+        an aggregated verdict + a decision-log entry (O8, #1103).
+
+        This is a real e2e — the ``xfail`` marker is gone. The ``zynax_client``
+        fixture SKIPS CLEANLY (not error, not a false xfail) unless a running
+        platform is opted into via ``ZYNAX_PLATFORM_E2E=1`` (+ ``ZYNAX_GATEWAY_URL``),
+        so the PR-level check is a clean skip and the assertion runs only in the
+        gated e2e job against a real platform (Postgres + EventBus).
+        """
         result = zynax_client.apply(str(ORCHESTRATOR_YAML))
-        assert result.workflow_id is not None
+        assert result.workflow_id is not None, "apply must return a run id"
+
         status = zynax_client.wait_for_completion(result.workflow_id, timeout=60)
-        assert status == "COMPLETED"
+        assert status in ("COMPLETED", "SUCCEEDED"), (
+            f"orchestrator run did not reach a terminal success state: {status}"
+        )
+
         outputs = zynax_client.get_outputs(result.workflow_id)
-        assert "aggregated_verdict" in outputs
-        assert outputs["aggregated_verdict"]["confidence"] in ("low", "medium", "high")
+
+        # Aggregated verdict — the weighted-consensus output of the `aggregate`
+        # state (dev-advisory-orchestrator.yaml).
+        assert "aggregated_verdict" in outputs, (
+            "run produced no aggregated_verdict output"
+        )
+        assert outputs["aggregated_verdict"].get("confidence") in (
+            "low",
+            "medium",
+            "high",
+        ), f"unexpected verdict confidence: {outputs['aggregated_verdict']!r}"
+
+        # Decision-log entry — recorded on every path by the terminal `done`
+        # state (record_decision capability). The verdict alone is not enough;
+        # readiness requires a durable decision record.
+        decision_log = outputs.get("decision_log_artifact") or outputs.get(
+            "decision_log"
+        )
+        assert decision_log, "run produced no decision-log entry"
