@@ -29,11 +29,11 @@ git fetch origin --prune
 git checkout main && git pull --rebase origin main
 git checkout -b chore/bump-ci-runner-<short-digest>
 
-# 2. Run the bump script
+# 2. Pin the new digest (updates images.yaml + re-stamps consumers)
 make bump-ci-runner NEW_DIGEST=sha256:<replace-me>
 
-# 3. Verify all 18 refs are updated
-scripts/bump-ci-runner.sh --check sha256:<replace-me>
+# 3. Verify the consumers would re-stamp cleanly (dry-run, parity with --check)
+(cd cmd/zynax-ci && GOWORK=off go run . bump-runner sha256:<replace-me> --root "$(git rev-parse --show-toplevel)" --dry-run)
 
 # 4. Commit
 git add -u
@@ -59,7 +59,7 @@ git push origin --delete chore/bump-ci-runner-<short-digest>
 ## Checklist
 
 - [ ] `make bump-ci-runner NEW_DIGEST=sha256:<replace-me>` ran successfully
-- [ ] `scripts/bump-ci-runner.sh --check sha256:<replace-me>` exits 0
+- [ ] `zynax-ci bump-runner sha256:<replace-me> --dry-run` exits 0
 - [ ] `config/ci-runner-digest.txt` updated
 - [ ] All 18 workflow digest refs updated (ci.yml ×8, pr-checks.yml ×7, _test-go.yml ×1, _test-python.yml ×1, ai-context-budget.yml ×1)
 - [ ] Branch created from fresh `origin/main`

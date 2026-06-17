@@ -187,6 +187,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
+      # zynax-ci makes the metadata + retag/prune decisions (ADR-036); built
+      # from source until the ci-runner image carries the verbs.
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: cmd/zynax-ci/go.mod
+          cache-dependency-path: cmd/zynax-ci/go.sum
+
       # --- Merge manifests via imagetools (no re-build) ---
       - name: Create tools multi-arch manifest
         id: create-tools-manifest
@@ -234,25 +241,24 @@ jobs:
           echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
 
       # --- Report image metadata ---
+      # curl fetches the GHCR index (the external primitive, with read-after-write
+      # retry); zynax-ci images meta makes the annotation/attestation decisions
+      # (ADR-036). The per-platform size-budget loop stays thin shell.
       - name: Report tools image size
-        uses: ./.github/actions/report-image-meta
-        with:
-          image-name: ${{ env.IMAGE_NAME }}
-          image-label: tools
-          digest: ${{ steps.create-tools-manifest.outputs.digest }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          image-type: tooling
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          DIGEST: ${{ steps.create-tools-manifest.outputs.digest }}
+        run: bash .github/scripts/report-image-meta.sh tools tooling
 
       - name: Report ci-runner digest and sizes
-        uses: ./.github/actions/report-image-meta
-        with:
-          image-name: ${{ env.CI_RUNNER_IMAGE }}
-          image-label: ci-runner
-          digest: ${{ steps.create-ci-runner-manifest.outputs.digest }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          image-type: tooling
-          extra-summary: >
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_NAME: ${{ env.CI_RUNNER_IMAGE }}
+          DIGEST: ${{ steps.create-ci-runner-manifest.outputs.digest }}
+          EXTRA_SUMMARY: >-
             ci-runner digest synced to `images/images.yaml` automatically by this run (ADR-027).
+        run: bash .github/scripts/report-image-meta.sh ci-runner tooling
 
       # --- cosign sign (every main build — parity with release.yml promotions) ---
       - name: Install cosign
@@ -275,12 +281,7 @@ jobs:
       # GITHUB_TOKEN cannot push (GitHub App `workflows` permission) — use
       # the BOT_GITHUB_TOKEN fine-grained PAT (contents + workflows write).
       # [skip ci] keeps this commit from triggering any workflow → no loop.
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        if: github.event_name == 'push'
-        with:
-          go-version-file: cmd/zynax-ci/go.mod
-          cache-dependency-path: cmd/zynax-ci/go.sum
-
+      # (Go is already set up earlier in this job for the metadata verbs.)
       - name: Sync ci-runner digest to images.yaml [skip ci]
         if: github.event_name == 'push'
         env:

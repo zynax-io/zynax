@@ -36,6 +36,12 @@ cmd/zynax-ci/
     check_ai_context.go    zynax-ci check ai-context
     check_deps.go          zynax-ci check deps
     images.go              zynax-ci images sync / check
+    images_report.go       zynax-ci images meta / cleanup / retag
+    coverage_comment.go    zynax-ci coverage-comment
+    bench_gate.go          zynax-ci bench-gate
+    bdd_select.go          zynax-ci bdd-select
+    bump_runner.go         zynax-ci bump-runner <digest>
+    release.go             zynax-ci release notes / matrix
   validate/
     canvas.go              Canvas validator (seven REASONS sections, header fields, Status)
     canvas_test.go
