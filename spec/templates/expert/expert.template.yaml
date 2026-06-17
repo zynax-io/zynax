@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: Apache-2.0
+# spec/templates/expert/expert.template.yaml
+#
+# Reusable, versioned expert template (EPIC T.1 — #1206).
+# An "expert" is an advisory AgentDef (ADR-028) that exposes a `review`
+# capability over a strictly isolated context slice. Copy, rename, and replace
+# the values marked < ... > to add a new expert.
+#
+# Validate after editing:  make validate-spec
+# (The bare template itself validates against spec/schemas/agent-def.schema.json.)
+#
+# Authoring rules (see spec/AGENTS.md + automation/workflows/experts/*.yaml):
+#   * context_slice is bound at dispatch time and hard-capped at max_tokens
+#   * never reference another expert's slice or output (strict isolation)
+#   * bump metadata.version on every contract change (SemVer 2.0.0)
+
+apiVersion: zynax.io/v1alpha1
+kind: AgentDef
+
+metadata:
+  # < your-expert-name >  — lowercase DNS-style, unique per namespace
+  name: my-expert
+  namespace: default
+  # Bump on every contract change. Omit for the unversioned baseline.
+  version: "0.1.0"
+  labels:
+    kind: expert
+    aggregation-weight: "1.0"
+    context-max-tokens: "3000"
+
+spec:
+  capabilities:
+    - name: review
+      description: >
+        One-sentence description of what this expert reviews and the rules it
+        enforces. Shown in the agent registry UI and generated docs.
+      input_schema:
+        type: object
+        required: [trigger, diff_summary, changed_files, context_slice]
+        properties:
+          trigger:
+            type: string
+            description: Event that initiated this review.
+            enum: [pull_request, push, post_merge]
+          diff_summary:
+            type: string
+            description: git diff --stat output for the change under review.
+          changed_files:
+            type: array
+            description: List of changed file paths.
+            items:
+              type: string
+          context_slice:
+            type: object
+            description: >
+              Bounded context slice injected at dispatch time (ADR-028). Only
+              the files declared below, hard-capped at max_tokens. Strict
+              isolation — never another expert's slice or output.
+            required: [files, max_tokens]
+            properties:
+              files:
+                type: array
+                description: Glob patterns this expert is allowed to read.
+                items:
+                  type: string
+                default:
+                  - "docs/**/*.md"
+              max_tokens:
+                type: integer
+                description: Hard context budget (tokens) per invocation.
+                default: 3000
+      output_schema:
+        type: object
+        required: [summary, recommended_actions, reasons_decisions, confidence, flags]
+        properties:
+          summary:
+            type: string
+            description: Plain text summary, max 200 words.
+          recommended_actions:
+            type: array
+            description: Ordered list of specific actions with rationale.
+            items:
+              type: object
+              required: [action, rationale, priority]
+              properties:
+                action:
+                  type: string
+                rationale:
+                  type: string
+                priority:
+                  type: string
+                  enum: [low, medium, high]
+          reasons_decisions:
+            type: array
+            description: Reasoning chain for each recommendation.
+            items:
+              type: string
+          confidence:
+            type: string
+            description: Overall confidence level for this expert's output.
+            enum: [low, medium, high]
+          flags:
+            type: array
+            description: Tier-2 security flags or blocker flags (empty if none).
+            items:
+              type: string
+      timeout_seconds: 300
+      max_retries: 1
