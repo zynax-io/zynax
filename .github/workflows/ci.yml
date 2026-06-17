@@ -209,6 +209,12 @@ jobs:
             if echo "$f" | grep -qE '^agents/' && ! echo "$f" | grep -qE '^agents/adapters/'; then
               python=true
             fi
+            # Expert-mapping drift guard (#1205 / ADR-033) reconciles the mapping
+            # against .claude experts, agents/examples, and ADR-033 — trigger the
+            # python lane when any of those surfaces move.
+            if echo "$f" | grep -qE '^(automation/|\.claude/commands/experts/|docs/adr/ADR-033)'; then
+              python=true
+            fi
             case "$f" in
               services/engine-adapter/*)    engine_adapter=true ;;
               services/workflow-compiler/*) workflow_compiler=true ;;
@@ -504,6 +510,13 @@ jobs:
           done
 
           $failed && exit 1 || echo "✅ Python lint passed"
+
+      # Authoring <-> runtime expert mapping drift guard (#1205 / ADR-033).
+      # Reconciles automation/experts/runtime_mapping.yaml against the .claude
+      # authoring experts (read-only), agents/examples runtime agents, and the
+      # ADR-033 mapping table. Always runs in this lane (no agents/ files needed).
+      - name: Expert mapping drift guard (ADR-033)
+        run: uv run --no-project --quiet --with pyyaml python automation/scripts/check_expert_mapping.py
 
 # ── Tests: Go ─────────────────────────────────────────────────────────────────
 # Calls _test-go.yml reusable workflow (Go unit + BDD + coverage gates).
