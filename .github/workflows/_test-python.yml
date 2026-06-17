@@ -16,9 +16,6 @@ defaults:
   run:
     shell: bash
 
-env:
-  AGENT_LIST: ""
-
 jobs:
   test-python:
     name: test-python
@@ -43,6 +40,15 @@ jobs:
         run: |
           count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
           echo "has_py=$count" >> "$GITHUB_OUTPUT"
+          # Auto-discover example agents from agents/examples/*/pyproject.toml
+          # (mirrors the Makefile AGENTS glob — no manual list to maintain).
+          agents=""
+          for dir in agents/examples/*/; do
+            [ -f "${dir}pyproject.toml" ] && agents="$agents $(basename "$dir")"
+          done
+          agents=$(echo "$agents" | tr ' ' '\n' | sort | tr '\n' ' ')
+          echo "agents=$agents" >> "$GITHUB_OUTPUT"
+          echo "Discovered example agents: ${agents:-<none>}"
 
       - name: pytest-bdd (SDK + all Python agents)
         if: steps.py-detect.outputs.has_py != '0'
@@ -61,7 +67,7 @@ jobs:
             cd ../..
           fi
 
-          for agent in ${{ env.AGENT_LIST }}; do
+          for agent in ${{ steps.py-detect.outputs.agents }}; do
             if [ -f "agents/examples/${agent}/pyproject.toml" ]; then
               echo "── test: agents/examples/${agent}"
               cd "agents/examples/${agent}"

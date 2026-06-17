@@ -16,8 +16,9 @@
 #   dco → changes → lint-go → build-images  (pre-merge image gate — ADR-027, #1118;
 #                                            PRs only, when docker == 'true')
 #
-# When adding a service/adapter/agent update SERVICE_LIST, GO_ADAPTER_LIST,
-# AGENT_LIST — and the build-images matrix if it ships as a container image.
+# When adding a service/adapter update SERVICE_LIST, GO_ADAPTER_LIST — and the
+# build-images matrix if it ships as a container image. Example agents under
+# agents/examples/* are auto-discovered (glob on pyproject.toml) — no list to edit.
 
 name: CI
 
@@ -47,7 +48,6 @@ defaults:
 env:
   SERVICE_LIST: "agent-registry task-broker api-gateway workflow-compiler engine-adapter"
   GO_ADAPTER_LIST: "http git"
-  AGENT_LIST: ""
   GOPROXY: "https://proxy.golang.org,direct"
   GONOSUMDB: "*"
 
@@ -470,6 +470,15 @@ jobs:
         run: |
           count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
           echo "has_py=$count" >> "$GITHUB_OUTPUT"
+          # Auto-discover example agents from agents/examples/*/pyproject.toml
+          # (mirrors the Makefile AGENTS glob — no manual list to maintain).
+          agents=""
+          for dir in agents/examples/*/; do
+            [ -f "${dir}pyproject.toml" ] && agents="$agents $(basename "$dir")"
+          done
+          agents=$(echo "$agents" | tr ' ' '\n' | sort | tr '\n' ' ')
+          echo "agents=$agents" >> "$GITHUB_OUTPUT"
+          echo "Discovered example agents: ${agents:-<none>}"
 
       - name: ruff + mypy (SDK + all Python agents)
         if: steps.py-detect.outputs.has_py != '0'
@@ -484,7 +493,7 @@ jobs:
             cd ../..
           fi
 
-          for agent in ${{ env.AGENT_LIST }}; do
+          for agent in ${{ steps.py-detect.outputs.agents }}; do
             if [ -f "agents/examples/${agent}/pyproject.toml" ]; then
               echo "── lint: agents/examples/${agent}"
               cd "agents/examples/${agent}"
@@ -648,6 +657,15 @@ jobs:
         run: |
           count=$(find agents/ -name "*.py" 2>/dev/null | wc -l)
           echo "has_py=$count" >> "$GITHUB_OUTPUT"
+          # Auto-discover example agents from agents/examples/*/pyproject.toml
+          # (mirrors the Makefile AGENTS glob — no manual list to maintain).
+          agents=""
+          for dir in agents/examples/*/; do
+            [ -f "${dir}pyproject.toml" ] && agents="$agents $(basename "$dir")"
+          done
+          agents=$(echo "$agents" | tr ' ' '\n' | sort | tr '\n' ' ')
+          echo "agents=$agents" >> "$GITHUB_OUTPUT"
+          echo "Discovered example agents: ${agents:-<none>}"
 
       - name: bandit + pip-audit (SDK + all Python agents)
         if: steps.py-detect.outputs.has_py != '0' && needs.changes.outputs.python == 'true'
@@ -667,7 +685,7 @@ jobs:
             cd ../..
           fi
 
-          for agent in ${{ env.AGENT_LIST }}; do
+          for agent in ${{ steps.py-detect.outputs.agents }}; do
             if [ -f "agents/examples/${agent}/pyproject.toml" ]; then
               echo "── bandit: agents/examples/${agent}"
               cd "agents/examples/${agent}"
