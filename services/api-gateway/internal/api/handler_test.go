@@ -81,7 +81,7 @@ func newServerWithRegistry(c domain.CompilerPort, e domain.EnginePort, r domain.
 }
 
 func newServerWithAuth(c domain.CompilerPort, e domain.EnginePort, r domain.RegistryPort, apiKey string) *httptest.Server {
-	svc := domain.NewApplyService(c, e, r)
+	svc := domain.NewApplyService(c, e, r, nil)
 	h := api.NewHandler(svc, apiKey)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -431,7 +431,7 @@ func TestHandler_WorkflowLogs_NotFound_Returns404(t *testing.T) {
 // ── X-Request-ID middleware ───────────────────────────────────────────────
 
 func newServerWithRequestID(c domain.CompilerPort, e domain.EnginePort) *httptest.Server {
-	svc := domain.NewApplyService(c, e, &stubRegistry{})
+	svc := domain.NewApplyService(c, e, &stubRegistry{}, nil)
 	h := api.NewHandler(svc, "")
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -78,11 +79,14 @@ type ApplyService struct {
 	compiler CompilerPort
 	engine   EnginePort
 	registry RegistryPort
+	eventbus EventBusPort // optional; nil falls back to engine-history-only logs
 }
 
-// NewApplyService constructs an ApplyService with the given ports.
-func NewApplyService(compiler CompilerPort, engine EnginePort, registry RegistryPort) *ApplyService {
-	return &ApplyService{compiler: compiler, engine: engine, registry: registry}
+// NewApplyService constructs an ApplyService with the given ports. eventbus may
+// be nil, in which case WatchWorkflowLogs streams engine history only (no
+// capability events are merged).
+func NewApplyService(compiler CompilerPort, engine EnginePort, registry RegistryPort, eventbus EventBusPort) *ApplyService {
+	return &ApplyService{compiler: compiler, engine: engine, registry: registry, eventbus: eventbus}
 }
 
 // ApplyWorkflow compiles a Workflow manifest and, unless dry_run, submits it
@@ -160,11 +164,62 @@ func (s *ApplyService) CancelWorkflow(ctx context.Context, runID string) error {
 	return nil
 }
 
-// WatchWorkflowLogs streams lifecycle events for runID, calling send for each event.
-// Returns when the stream closes, ctx is cancelled, or send returns an error.
+// WatchWorkflowLogs streams a run's logs by merging two sources into a single
+// chronological stream (EPIC L step 3 / #1182):
+//
+//   - the engine's state-transition history (EnginePort.WatchWorkflow), and
+//   - workflow-scoped capability CloudEvents (EventBusPort.SubscribeWorkflowEvents).
+//
+// Both upstreams run concurrently; their events are serialised through a single
+// mutex-guarded send so the HTTP handler never sees interleaved writes. The
+// engine history stream is authoritative for stream lifetime: once it ends
+// (terminal workflow state) the event subscription is cancelled and the call
+// returns. Returns when the engine stream closes, ctx is cancelled, or send
+// returns an error.
+//
+// When no event-bus port is configured (eventbus == nil) the method streams the
+// engine history only, preserving the prior behaviour.
 func (s *ApplyService) WatchWorkflowLogs(ctx context.Context, runID string, send func(WatchEvent) error) error {
-	if err := s.engine.WatchWorkflow(ctx, runID, send); err != nil {
-		return fmt.Errorf("api-gateway: %w", err)
+	if s.eventbus == nil {
+		if err := s.engine.WatchWorkflow(ctx, runID, send); err != nil {
+			return fmt.Errorf("api-gateway: %w", err)
+		}
+		return nil
+	}
+
+	// Resolve the workflow_id used to scope the event subscription. A failure
+	// here (e.g. the run is unknown) is surfaced via the engine watch below, so
+	// fall back to engine-history-only rather than dropping the whole stream.
+	workflowID := runID
+	if run, err := s.engine.GetWorkflowStatus(ctx, runID); err == nil && run.WorkflowID != "" {
+		workflowID = run.WorkflowID
+	}
+
+	subCtx, cancelSub := context.WithCancel(ctx)
+	defer cancelSub()
+
+	var mu sync.Mutex
+	safeSend := func(ev WatchEvent) error {
+		mu.Lock()
+		defer mu.Unlock()
+		return send(ev)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Best-effort: a capability-event subscription error must not abort the
+		// authoritative engine history stream. Cancellation on engine-stream
+		// completion surfaces here as a context error and is ignored.
+		_ = s.eventbus.SubscribeWorkflowEvents(subCtx, workflowID, safeSend)
+	}()
+
+	engErr := s.engine.WatchWorkflow(ctx, runID, safeSend)
+	cancelSub() // engine history ended (terminal) — stop the event subscription
+	wg.Wait()
+	if engErr != nil {
+		return fmt.Errorf("api-gateway: %w", engErr)
 	}
 	return nil
 }

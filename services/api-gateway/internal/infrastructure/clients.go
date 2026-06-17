@@ -29,9 +29,15 @@ type GatewayClients struct {
 	compiler    zynaxv1.WorkflowCompilerServiceClient
 	engine      zynaxv1.EngineAdapterServiceClient
 	registry    zynaxv1.AgentRegistryServiceClient
+	eventbus    zynaxv1.EventBusServiceClient
 	conns       []*grpc.ClientConn
 	callTimeout time.Duration
 }
+
+// capabilityEventPattern matches every CloudEvent type so the streaming /logs
+// endpoint receives all capability events for a workflow. The event-bus filters
+// further by the workflow_id scope passed on the SubscribeRequest.
+const capabilityEventPattern = "**"
 
 // ConnectionsReady returns false if any downstream gRPC connection is in
 // TRANSIENT_FAILURE or SHUTDOWN state. Used by the /readyz probe handler.
@@ -50,7 +56,7 @@ func (c *GatewayClients) ConnectionsReady() bool {
 // tlsCertFile, tlsKeyFile, tlsCAFile are paths to PEM files for mTLS; pass empty
 // strings to fall back to insecure credentials (dev/test).
 // The returned cleanup function closes all connections and must be deferred by the caller.
-func NewGatewayClients(compilerAddr, engineAddr, registryAddr string, callTimeout time.Duration, tlsCertFile, tlsKeyFile, tlsCAFile string) (*GatewayClients, func(), error) {
+func NewGatewayClients(compilerAddr, engineAddr, registryAddr, eventBusAddr string, callTimeout time.Duration, tlsCertFile, tlsKeyFile, tlsCAFile string) (*GatewayClients, func(), error) {
 	creds, err := tlsCreds(tlsCertFile, tlsKeyFile, tlsCAFile)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("api-gateway: tls credentials: %w", err)
@@ -77,14 +83,22 @@ func NewGatewayClients(compilerAddr, engineAddr, registryAddr string, callTimeou
 		_ = engConn.Close()
 		return nil, func() {}, fmt.Errorf("api-gateway: registry dial: %w", err)
 	}
+	busConn, err := grpc.NewClient(eventBusAddr, dialOpts...)
+	if err != nil {
+		_ = compConn.Close()
+		_ = engConn.Close()
+		_ = regConn.Close()
+		return nil, func() {}, fmt.Errorf("api-gateway: event-bus dial: %w", err)
+	}
 	c := &GatewayClients{
 		compiler:    zynaxv1.NewWorkflowCompilerServiceClient(compConn),
 		engine:      zynaxv1.NewEngineAdapterServiceClient(engConn),
 		registry:    zynaxv1.NewAgentRegistryServiceClient(regConn),
-		conns:       []*grpc.ClientConn{compConn, engConn, regConn},
+		eventbus:    zynaxv1.NewEventBusServiceClient(busConn),
+		conns:       []*grpc.ClientConn{compConn, engConn, regConn, busConn},
 		callTimeout: callTimeout,
 	}
-	cleanup := func() { _ = compConn.Close(); _ = engConn.Close(); _ = regConn.Close() }
+	cleanup := func() { _ = compConn.Close(); _ = engConn.Close(); _ = regConn.Close(); _ = busConn.Close() }
 	return c, cleanup, nil
 }
 
@@ -180,6 +194,48 @@ func (c *GatewayClients) WatchWorkflow(ctx context.Context, runID string, send f
 			Payload:   string(ev.GetPayload()),
 		}
 		if ts := ev.GetTimestamp(); ts != nil {
+			we.Timestamp = ts.AsTime().Format(time.RFC3339)
+		}
+		if err := send(we); err != nil {
+			return err
+		}
+	}
+}
+
+// SubscribeWorkflowEvents implements domain.EventBusPort. It opens a
+// workflow-scoped EventBusService.Subscribe stream and bridges each delivered
+// CloudEvent to a domain.WatchEvent, keeping gRPC and proto types out of the
+// domain layer. The subscriber_id is derived from the workflow ID plus a
+// monotonic suffix so concurrent followers of the same run do not collide.
+func (c *GatewayClients) SubscribeWorkflowEvents(ctx context.Context, workflowID string, send func(domain.WatchEvent) error) error {
+	req := &zynaxv1.SubscribeRequest{
+		SubscriberId: fmt.Sprintf("api-gateway-logs-%s-%d", workflowID, time.Now().UnixNano()),
+		TypePattern:  capabilityEventPattern,
+		WorkflowId:   workflowID,
+	}
+	stream, err := c.eventbus.Subscribe(ctx, req)
+	if err != nil {
+		return mapEngineGRPCError(err)
+	}
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return mapEngineGRPCError(err)
+		}
+		ce := resp.GetEvent()
+		if ce == nil {
+			continue
+		}
+		we := domain.WatchEvent{
+			RunID:     ce.GetWorkflowId(),
+			EventType: ce.GetType(),
+			Status:    "capability_event",
+			Payload:   string(ce.GetData()),
+		}
+		if ts := ce.GetTime(); ts != nil {
 			we.Timestamp = ts.AsTime().Format(time.RFC3339)
 		}
 		if err := send(we); err != nil {

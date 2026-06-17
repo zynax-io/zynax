@@ -140,3 +140,15 @@ Feature: API Gateway
     Given the engine adapter does not know about run_id "ghost-log-run"
     When GET /api/v1/workflows/ghost-log-run/logs is called
     Then the HTTP status is 404
+
+  # ── GET /api/v1/workflows/{id}/logs — capability-event merge (EPIC L.3, #1182) ──
+
+  Scenario: GET /api/v1/workflows/{id}/logs merges engine history with capability events
+    Given a submitted workflow with run_id "merge-run-001"
+    And the engine adapter streams a state-entered event and then a completed event
+    And the event bus streams a capability event for the workflow
+    When GET /api/v1/workflows/merge-run-001/logs is called
+    Then the HTTP status is 200
+    And the Content-Type is "text/event-stream"
+    And the response body contains 3 SSE data lines
+    And the response body contains a capability event

@@ -5,7 +5,9 @@ package domain_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
@@ -70,11 +72,35 @@ func (s *stubRegistry) RegisterAgent(_ context.Context, _ []byte, _ string) (dom
 	return s.reg, s.err
 }
 
+// stubEventBus is a test double for EventBusPort. It emits its events then
+// blocks until ctx is cancelled, mirroring the real event-bus which holds the
+// subscription open until terminal workflow state.
+type stubEventBus struct {
+	events       []domain.WatchEvent
+	err          error
+	capturedWFID string
+}
+
+func (s *stubEventBus) SubscribeWorkflowEvents(ctx context.Context, workflowID string, send func(domain.WatchEvent) error) error {
+	s.capturedWFID = workflowID
+	if s.err != nil {
+		return s.err
+	}
+	for _, ev := range s.events {
+		if err := send(ev); err != nil {
+			return err
+		}
+	}
+	<-ctx.Done()
+	return fmt.Errorf("context: %w", ctx.Err())
+}
+
 func TestApplyService_ApplyWorkflow_Success(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir"), Warnings: []string{"w1"}}},
 		&stubEngine{submitID: "run-001"},
 		&stubRegistry{},
+		nil,
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
 		ManifestYAML: []byte("kind: Workflow"),
@@ -97,6 +123,7 @@ func TestApplyService_ApplyWorkflow_CompilationErrors(t *testing.T) {
 		}},
 		&stubEngine{},
 		&stubRegistry{},
+		nil,
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
 		ManifestYAML: []byte("bad yaml"),
@@ -120,6 +147,7 @@ func TestApplyService_ApplyWorkflow_DryRun_NoSubmit(t *testing.T) {
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir"), Warnings: []string{"w"}}},
 		engine,
 		&stubRegistry{},
+		nil,
 	)
 	engine.submitErr = nil // reset — test checks RunID is empty, not that submit errors
 
@@ -141,6 +169,7 @@ func TestApplyService_ApplyWorkflow_CompilerError_Propagates(t *testing.T) {
 		&stubCompiler{err: domain.ErrEngineUnavailable},
 		&stubEngine{},
 		&stubRegistry{},
+		nil,
 	)
 	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: []byte("y")})
 	if !errors.Is(err, domain.ErrEngineUnavailable) {
@@ -153,6 +182,7 @@ func TestApplyService_ApplyWorkflow_EngineUnavailable(t *testing.T) {
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
 		&stubEngine{submitErr: domain.ErrEngineUnavailable},
 		&stubRegistry{},
+		nil,
 	)
 	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: []byte("y")})
 	if !errors.Is(err, domain.ErrEngineUnavailable) {
@@ -164,7 +194,7 @@ func TestApplyService_GetWorkflowStatus_Success(t *testing.T) {
 	want := domain.WorkflowRunSummary{
 		RunID: "r1", WorkflowID: "w1", Status: "RUNNING", CurrentState: "review",
 	}
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusRun: want}, &stubRegistry{})
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusRun: want}, &stubRegistry{}, nil)
 	got, err := svc.GetWorkflowStatus(context.Background(), "r1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -175,7 +205,7 @@ func TestApplyService_GetWorkflowStatus_Success(t *testing.T) {
 }
 
 func TestApplyService_GetWorkflowStatus_NotFound(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusErr: domain.ErrNotFound}, &stubRegistry{})
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusErr: domain.ErrNotFound}, &stubRegistry{}, nil)
 	_, err := svc.GetWorkflowStatus(context.Background(), "unknown")
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
@@ -187,6 +217,7 @@ func TestApplyService_ApplyAgentDef_Success(t *testing.T) {
 		&stubCompiler{},
 		&stubEngine{},
 		&stubRegistry{reg: domain.AgentRegistration{AgentID: "agent-001"}},
+		nil,
 	)
 	result, err := svc.ApplyAgentDef(context.Background(), domain.ApplyRequest{
 		ManifestYAML: []byte("kind: AgentDef\n"),
@@ -204,6 +235,7 @@ func TestApplyService_ApplyAgentDef_AlreadyExists(t *testing.T) {
 		&stubCompiler{},
 		&stubEngine{},
 		&stubRegistry{err: domain.ErrAgentAlreadyExists},
+		nil,
 	)
 	_, err := svc.ApplyAgentDef(context.Background(), domain.ApplyRequest{
 		ManifestYAML: []byte("kind: AgentDef\n"),
@@ -218,7 +250,7 @@ func TestApplyService_WatchWorkflowLogs_DeliversEvents(t *testing.T) {
 		{RunID: "r1", EventType: "state.entered", ToState: "review", Status: "WORKFLOW_STATUS_RUNNING"},
 		{RunID: "r1", EventType: "workflow.completed", Status: "WORKFLOW_STATUS_COMPLETED"},
 	}
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{watchEvents: events}, &stubRegistry{})
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{watchEvents: events}, &stubRegistry{}, nil)
 
 	var got []domain.WatchEvent
 	err := svc.WatchWorkflowLogs(context.Background(), "r1", func(ev domain.WatchEvent) error {
@@ -240,7 +272,75 @@ func TestApplyService_WatchWorkflowLogs_DeliversEvents(t *testing.T) {
 }
 
 func TestApplyService_WatchWorkflowLogs_NotFound(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{watchErr: domain.ErrNotFound}, &stubRegistry{})
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{watchErr: domain.ErrNotFound}, &stubRegistry{}, nil)
+	err := svc.WatchWorkflowLogs(context.Background(), "ghost", func(_ domain.WatchEvent) error { return nil })
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("got %v, want ErrNotFound", err)
+	}
+}
+
+func TestApplyService_WatchWorkflowLogs_MergesHistoryAndEvents(t *testing.T) {
+	engine := &stubEngine{
+		statusRun:   domain.WorkflowRunSummary{RunID: "r1", WorkflowID: "wf-abc"},
+		watchEvents: []domain.WatchEvent{{RunID: "r1", EventType: "state.entered", Status: "WORKFLOW_STATUS_RUNNING"}},
+	}
+	bus := &stubEventBus{events: []domain.WatchEvent{{RunID: "wf-abc", EventType: "zynax.task.completed", Status: "capability_event"}}}
+	svc := domain.NewApplyService(&stubCompiler{}, engine, &stubRegistry{}, bus)
+
+	var (
+		mu  sync.Mutex
+		got []domain.WatchEvent
+	)
+	err := svc.WatchWorkflowLogs(context.Background(), "r1", func(ev domain.WatchEvent) error {
+		mu.Lock()
+		defer mu.Unlock()
+		got = append(got, ev)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if bus.capturedWFID != "wf-abc" {
+		t.Errorf("event subscription scope: got %q, want wf-abc", bus.capturedWFID)
+	}
+	var sawHistory, sawCapability bool
+	for _, ev := range got {
+		switch ev.Status {
+		case "WORKFLOW_STATUS_RUNNING":
+			sawHistory = true
+		case "capability_event":
+			sawCapability = true
+		}
+	}
+	if !sawHistory || !sawCapability {
+		t.Fatalf("expected both history and capability events, got %+v", got)
+	}
+}
+
+func TestApplyService_WatchWorkflowLogs_EventBusErrorDoesNotAbortEngine(t *testing.T) {
+	engine := &stubEngine{
+		watchEvents: []domain.WatchEvent{{RunID: "r1", EventType: "state.entered", Status: "WORKFLOW_STATUS_RUNNING"}},
+	}
+	bus := &stubEventBus{err: errors.New("bus down")}
+	svc := domain.NewApplyService(&stubCompiler{}, engine, &stubRegistry{}, bus)
+
+	var count int
+	err := svc.WatchWorkflowLogs(context.Background(), "r1", func(_ domain.WatchEvent) error {
+		count++
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("event-bus failure must not abort engine stream, got %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 engine event delivered, got %d", count)
+	}
+}
+
+func TestApplyService_WatchWorkflowLogs_EngineErrorWithEventBus(t *testing.T) {
+	engine := &stubEngine{watchErr: domain.ErrNotFound}
+	bus := &stubEventBus{}
+	svc := domain.NewApplyService(&stubCompiler{}, engine, &stubRegistry{}, bus)
 	err := svc.WatchWorkflowLogs(context.Background(), "ghost", func(_ domain.WatchEvent) error { return nil })
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
@@ -250,14 +350,14 @@ func TestApplyService_WatchWorkflowLogs_NotFound(t *testing.T) {
 // ── CancelWorkflow ───────────────────────────────────────────────────────────
 
 func TestApplyService_CancelWorkflow_Success(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{})
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, nil)
 	if err := svc.CancelWorkflow(context.Background(), "r1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestApplyService_CancelWorkflow_NotFound(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{cancelErr: domain.ErrNotFound}, &stubRegistry{})
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{cancelErr: domain.ErrNotFound}, &stubRegistry{}, nil)
 	err := svc.CancelWorkflow(context.Background(), "ghost")
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
@@ -314,6 +414,7 @@ func TestApplyService_ApplyWorkflow_Idempotent_Running_ReturnsExisting(t *testin
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
 		engine,
 		&stubRegistry{},
+		nil,
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: yaml})
 	if err != nil {
@@ -341,6 +442,7 @@ func TestApplyService_ApplyWorkflow_Idempotent_Completed_StartsRerun(t *testing.
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
 		engine,
 		&stubRegistry{},
+		nil,
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: yaml})
 	if err != nil {
@@ -365,6 +467,7 @@ func TestApplyService_ApplyWorkflow_New_UsesHashID(t *testing.T) {
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
 		engine,
 		&stubRegistry{},
+		nil,
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: yaml})
 	if err != nil {
@@ -393,6 +496,7 @@ func TestApplyService_ApplyWorkflow_NamespacePropagatedToEngine(t *testing.T) {
 		}},
 		engine,
 		&stubRegistry{},
+		nil,
 	)
 	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: manifest})
 	if err != nil {
@@ -417,6 +521,7 @@ func TestApplyService_ApplyWorkflow_CompiledNamespaceWins(t *testing.T) {
 		}},
 		engine,
 		&stubRegistry{},
+		nil,
 	)
 	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
 		ManifestYAML: []byte("kind: Workflow\nmetadata:\n  name: x\n"),

@@ -62,8 +62,10 @@ const (
 )
 
 type fakeEngine struct {
-	mode  engineMode
-	runID string
+	mode          engineMode
+	runID         string
+	watchEvents   []domain.WatchEvent
+	watchNotFound bool
 }
 
 func (f *fakeEngine) SubmitWorkflow(_ context.Context, _ []byte, _, _, _ string) (string, error) {
@@ -88,8 +90,33 @@ func (f *fakeEngine) GetWorkflowStatus(_ context.Context, runID string) (domain.
 
 func (f *fakeEngine) CancelWorkflow(_ context.Context, _ string) error { return nil }
 
-func (f *fakeEngine) WatchWorkflow(_ context.Context, _ string, _ func(domain.WatchEvent) error) error {
+func (f *fakeEngine) WatchWorkflow(_ context.Context, runID string, send func(domain.WatchEvent) error) error {
+	if f.watchNotFound {
+		return domain.ErrNotFound
+	}
+	for _, ev := range f.watchEvents {
+		ev.RunID = runID
+		if err := send(ev); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// ── fake EventBusPort ─────────────────────────────────────────────────────────
+
+type fakeEventBus struct{ events []domain.WatchEvent }
+
+func (f *fakeEventBus) SubscribeWorkflowEvents(ctx context.Context, _ string, send func(domain.WatchEvent) error) error {
+	for _, ev := range f.events {
+		if err := send(ev); err != nil {
+			return err
+		}
+	}
+	// Block until the engine stream completes and cancels us, mirroring the
+	// real event-bus which keeps the subscription open until terminal state.
+	<-ctx.Done()
+	return fmt.Errorf("context: %w", ctx.Err())
 }
 
 // ── fake RegistryPort ─────────────────────────────────────────────────────────
@@ -109,6 +136,7 @@ type testEnv struct {
 	compiler *fakeCompiler
 	engine   *fakeEngine
 	registry *fakeRegistry
+	eventbus *fakeEventBus
 	server   *httptest.Server
 	apiKey   string
 	lastResp *http.Response
@@ -119,8 +147,9 @@ func (e *testEnv) setup() {
 	e.compiler = &fakeCompiler{}
 	e.engine = &fakeEngine{}
 	e.registry = &fakeRegistry{}
+	e.eventbus = &fakeEventBus{}
 	e.apiKey = "test-api-key"
-	svc := domain.NewApplyService(e.compiler, e.engine, e.registry)
+	svc := domain.NewApplyService(e.compiler, e.engine, e.registry, e.eventbus)
 	h := api.NewHandler(svc, e.apiKey)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -214,10 +243,51 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^the upstream service returns a gRPC INTERNAL error$`, pending)
 			sc.Step(`^the corresponding REST endpoint is called$`, pending)
 			sc.Step(`^the response message is exactly "internal error"$`, pending)
-			sc.Step(`^the engine adapter streams .+$`, pending) // SSE streaming
-			sc.Step(`^GET /api/v1/workflows/([^ ]+)/logs is called$`, pendingStr)
-			sc.Step(`^the Content-Type is "([^"]*)"$`, pendingStr)
-			sc.Step(`^the response body contains \d+ SSE data lines$`, pendingInt)
+
+			// ── GET /api/v1/workflows/{id}/logs — SSE streaming (#318, #1182) ──
+			sc.Step(`^the engine adapter streams a state-entered event and then a completed event$`,
+				func(ctx context.Context) (context.Context, error) {
+					env.engine.mode = engineRunning
+					env.engine.watchEvents = []domain.WatchEvent{
+						{EventType: "STATE_ENTERED", ToState: "running", Status: "WORKFLOW_STATUS_RUNNING"},
+						{EventType: "WORKFLOW_COMPLETED", Status: "WORKFLOW_STATUS_COMPLETED"},
+					}
+					return ctx, nil
+				})
+			sc.Step(`^the event bus streams a capability event for the workflow$`,
+				func(ctx context.Context) (context.Context, error) {
+					env.eventbus.events = []domain.WatchEvent{
+						{EventType: "zynax.task.completed", Status: "capability_event", Payload: `{"ok":true}`},
+					}
+					return ctx, nil
+				})
+			sc.Step(`^GET /api/v1/workflows/([^ ]+)/logs is called$`,
+				func(ctx context.Context, runID string) (context.Context, error) {
+					return ctx, env.do(http.MethodGet, "/api/v1/workflows/"+runID+"/logs", nil, "")
+				})
+			sc.Step(`^the Content-Type is "([^"]*)"$`,
+				func(ctx context.Context, want string) (context.Context, error) {
+					got := env.lastResp.Header.Get("Content-Type")
+					if !strings.HasPrefix(got, want) {
+						return ctx, fmt.Errorf("expected Content-Type %q, got %q", want, got)
+					}
+					return ctx, nil
+				})
+			sc.Step(`^the response body contains (\d+) SSE data lines$`,
+				func(ctx context.Context, want int) (context.Context, error) {
+					got := strings.Count(string(env.lastBody), "data: ")
+					if got != want {
+						return ctx, fmt.Errorf("expected %d SSE data lines, got %d (body: %s)", want, got, env.lastBody)
+					}
+					return ctx, nil
+				})
+			sc.Step(`^the response body contains a capability event$`,
+				func(ctx context.Context) (context.Context, error) {
+					if !strings.Contains(string(env.lastBody), "capability_event") {
+						return ctx, fmt.Errorf("body missing capability event: %s", env.lastBody)
+					}
+					return ctx, nil
+				})
 
 			// ── Auth ──────────────────────────────────────────────────────────
 			sc.Step(`^any API endpoint is called without Authorization header$`,
@@ -373,7 +443,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^the engine adapter does not know about run_id "([^"]*)"$`,
 				func(ctx context.Context, _ string) (context.Context, error) {
 					env.engine.mode = engineAccept
-					return ctx, nil // GetWorkflowStatus will return ErrNotFound
+					env.engine.watchNotFound = true
+					return ctx, nil // GetWorkflowStatus and WatchWorkflow return ErrNotFound
 				})
 			sc.Step(`^the response contains a status field$`,
 				func(ctx context.Context) (context.Context, error) {
@@ -421,9 +492,8 @@ func TestFeatures(t *testing.T) {
 
 var errPending = godog.ErrPending
 
-func pending(ctx context.Context) (context.Context, error)              { return ctx, errPending }
-func pendingStr(ctx context.Context, _ string) (context.Context, error) { return ctx, errPending }
-func pendingInt(ctx context.Context, _ int) (context.Context, error)    { return ctx, errPending }
+func pending(ctx context.Context) (context.Context, error)           { return ctx, errPending }
+func pendingInt(ctx context.Context, _ int) (context.Context, error) { return ctx, errPending }
 
 // Ensure domain errors package is used (imported via fake ports above).
 var _ = errors.Is
