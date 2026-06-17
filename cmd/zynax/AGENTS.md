@@ -25,6 +25,10 @@ cmd/zynax/
     delete.go       zynax delete workflow <run-id>
     status.go       zynax status workflow <run-id>   (exit 0 = terminal, 2 = running)
     logs.go         zynax logs <run-id> [--format text|json]
+    validate.go      zynax validate <file> [--schema-dir] [--format]  (local: schema + data-flow)
+  validate/
+    manifest.go     JSON Schema validation (validate.Manifest) + combined pipeline (validate.File)
+    dataflow.go     Workflow state-machine checks (initial_state + transition goto targets)
   client/
     gateway.go      HTTP client for all api-gateway endpoints
     gateway_test.go unit tests (no network — uses httptest.Server)

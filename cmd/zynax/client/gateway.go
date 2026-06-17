@@ -26,6 +26,9 @@ type WorkflowStatus struct {
 	WorkflowID   string `json:"workflow_id"`
 	Status       string `json:"status"`
 	CurrentState string `json:"current_state"`
+	// Version is the manifest's metadata.version (SemVer) when set. Optional and
+	// backward-compatible: older gateways omit it and the CLI hides it then.
+	Version string `json:"version,omitempty"`
 }
 
 // CompileError is a single diagnostic from the workflow compiler.

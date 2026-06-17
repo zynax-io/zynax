@@ -91,6 +91,25 @@ func Manifest(filePath, schemaDir string) ([]ValidationError, error) {
 	return nil, nil
 }
 
+// File runs the full local validation pipeline over the manifest at filePath:
+// JSON Schema validation (Manifest) followed by state-machine data-flow checks
+// (DataFlow) for Workflow manifests. It returns the combined list of errors.
+//
+// Returns (nil, nil) when the manifest is valid; ([errors…], nil) on schema or
+// data-flow violations; (nil, err) on I/O or structural failures.
+func File(filePath, schemaDir string) ([]ValidationError, error) {
+	schemaErrs, err := Manifest(filePath, schemaDir)
+	if err != nil {
+		return nil, err
+	}
+	flowErrs, err := DataFlow(filePath)
+	if err != nil {
+		return nil, err
+	}
+	combined := append(schemaErrs, flowErrs...) //nolint:gocritic // intentional new slice
+	return combined, nil
+}
+
 // compileSchema compiles a JSON Schema from an absolute file path.
 func compileSchema(absPath string) (*jsonschema.Schema, error) {
 	c := jsonschema.NewCompiler()

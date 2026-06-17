@@ -11,8 +11,20 @@ import (
 )
 
 var validateCmd = &cobra.Command{
-	Use:   "validate",
-	Short: "Validate manifests, Canvases, and JSON Schemas",
+	Use:   "validate <file>",
+	Short: "Validate a manifest locally for schema and data-flow errors",
+	Long: `Validate <file> locally against its JSON Schema and (for Workflow
+manifests) its state-machine data-flow.
+
+The kind is read from the 'kind:' field in the YAML. The matching schema is
+loaded from <schema-dir>/<kind>.schema.json. Supported kinds: Workflow, AgentDef,
+Policy. For Workflow manifests, data-flow checks also verify that initial_state
+and every transition 'goto' reference a defined state.
+
+Runs entirely locally — no api-gateway connection required.
+Exits 0 on success, 1 on any validation error.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runValidate,
 }
 
 var (
@@ -20,31 +32,28 @@ var (
 	validateFormat    string
 )
 
+// validateManifestCmd is the explicit 'validate manifest <file>' form, kept as a
+// subcommand for backward compatibility. It is equivalent to 'validate <file>'.
 var validateManifestCmd = &cobra.Command{
-	Use:   "manifest <file>",
-	Short: "Validate a YAML manifest against its JSON schema",
-	Long: `Validate <file> against the JSON Schema for its kind.
-
-The kind is read from the 'kind:' field in the YAML. The matching schema is
-loaded from <schema-dir>/<kind>.schema.json. Supported kinds: Workflow, AgentDef, Policy.
-
-Exits 0 on success, 1 on any validation error.`,
-	Args: cobra.ExactArgs(1),
-	RunE: runValidateManifest,
+	Use:    "manifest <file>",
+	Short:  "Validate a YAML manifest (alias for 'validate <file>')",
+	Args:   cobra.ExactArgs(1),
+	RunE:   runValidate,
+	Hidden: true,
 }
 
 func init() {
-	validateManifestCmd.Flags().StringVar(&validateSchemaDir, "schema-dir", "spec/schemas",
+	validateCmd.PersistentFlags().StringVar(&validateSchemaDir, "schema-dir", "spec/schemas",
 		"directory containing <kind>.schema.json files")
-	validateManifestCmd.Flags().StringVar(&validateFormat, "format", "text",
+	validateCmd.PersistentFlags().StringVar(&validateFormat, "format", "text",
 		"output format: text or json")
 	validateCmd.AddCommand(validateManifestCmd)
 	rootCmd.AddCommand(validateCmd)
 }
 
-func runValidateManifest(cmd *cobra.Command, args []string) error {
+func runValidate(cmd *cobra.Command, args []string) error {
 	file := args[0]
-	errs, err := validate.Manifest(file, validateSchemaDir)
+	errs, err := validate.File(file, validateSchemaDir)
 	if err != nil {
 		return err
 	}

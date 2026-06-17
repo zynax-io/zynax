@@ -32,6 +32,9 @@ var statusWorkflowCmd = &cobra.Command{
 			return err
 		}
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n", run.Status)
+		if run.Version != "" {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "version: %s\n", run.Version)
+		}
 		if !terminalStatuses[run.Status] {
 			os.Exit(2)
 		}

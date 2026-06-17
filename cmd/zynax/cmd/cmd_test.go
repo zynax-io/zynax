@@ -72,7 +72,7 @@ func TestRunValidateManifest_ValidFile(t *testing.T) {
 
 	cmd := fakeCmd(t)
 	fixture := filepath.Join(root, "spec/workflows/examples/code-review.yaml")
-	if err := runValidateManifest(cmd, []string{fixture}); err != nil {
+	if err := runValidate(cmd, []string{fixture}); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -87,7 +87,7 @@ func TestRunValidateManifest_UnknownKind_TextFormat(t *testing.T) {
 	_ = os.WriteFile(f, []byte("kind: Unknown\n"), 0o600)
 
 	cmd := fakeCmd(t)
-	if err := runValidateManifest(cmd, []string{f}); err == nil {
+	if err := runValidate(cmd, []string{f}); err == nil {
 		t.Error("expected error for unknown kind")
 	}
 }
@@ -102,7 +102,7 @@ func TestRunValidateManifest_JSONFormat_Valid(t *testing.T) {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	fixture := filepath.Join(root, "spec/workflows/examples/code-review.yaml")
-	_ = runValidateManifest(cmd, []string{fixture})
+	_ = runValidate(cmd, []string{fixture})
 
 	var decoded interface{}
 	if err := json.Unmarshal(out.Bytes(), &decoded); err != nil {
@@ -123,7 +123,7 @@ func TestRunValidateManifest_JSONFormat_Errors(t *testing.T) {
 	cmd := fakeCmd(t)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
-	_ = runValidateManifest(cmd, []string{f})
+	_ = runValidate(cmd, []string{f})
 
 	var decoded interface{}
 	if err := json.Unmarshal(out.Bytes(), &decoded); err != nil {
@@ -137,8 +137,26 @@ func TestRunValidateManifest_FileNotFound(t *testing.T) {
 	validateFormat = formatText
 
 	cmd := fakeCmd(t)
-	if err := runValidateManifest(cmd, []string{"/nonexistent/manifest.yaml"}); err == nil {
+	if err := runValidate(cmd, []string{"/nonexistent/manifest.yaml"}); err == nil {
 		t.Error("expected error for missing file")
+	}
+}
+
+func TestRunValidate_DataFlowError(t *testing.T) {
+	root := repoRoot(t)
+	validateSchemaDir = filepath.Join(root, "spec/schemas")
+	validateFormat = formatText
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "wf.yaml")
+	// Schema-valid Workflow whose initial_state references an undefined state.
+	body := "kind: Workflow\napiVersion: zynax.io/v1\nmetadata:\n  name: wf\n" +
+		"spec:\n  initial_state: ghost\n  states:\n    start:\n      type: terminal\n"
+	_ = os.WriteFile(f, []byte(body), 0o600)
+
+	cmd := fakeCmd(t)
+	if err := runValidate(cmd, []string{f}); err == nil {
+		t.Error("expected data-flow error for undefined initial_state")
 	}
 }
 
@@ -235,6 +253,47 @@ func TestGetWorkflow_OK(t *testing.T) {
 	}
 	if run.Status != "WORKFLOW_STATUS_RUNNING" {
 		t.Errorf("status = %q", run.Status)
+	}
+}
+
+func TestGetWorkflowCmd_SurfacesVersion(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"run_id": "run-1", "status": "WORKFLOW_STATUS_COMPLETED", "version": "1.2.3",
+		})
+	}))
+	defer srv.Close()
+	apiURL = srv.URL
+
+	var out bytes.Buffer
+	getWorkflowCmd.SetOut(&out)
+	getWorkflowCmd.SetContext(context.Background())
+	if err := getWorkflowCmd.RunE(getWorkflowCmd, []string{"run-1"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Contains(out.Bytes(), []byte("version:       1.2.3")) {
+		t.Errorf("expected version in output, got:\n%s", out.String())
+	}
+}
+
+func TestStatusCmd_TerminalSurfacesVersion(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"run_id": "run-1", "status": "WORKFLOW_STATUS_COMPLETED", "version": "2.0.0",
+		})
+	}))
+	defer srv.Close()
+	apiURL = srv.URL
+
+	var out bytes.Buffer
+	statusWorkflowCmd.SetOut(&out)
+	statusWorkflowCmd.SetContext(context.Background())
+	// Terminal status returns without os.Exit(2).
+	if err := statusWorkflowCmd.RunE(statusWorkflowCmd, []string{"run-1"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Contains(out.Bytes(), []byte("version: 2.0.0")) {
+		t.Errorf("expected version in status output, got:\n%s", out.String())
 	}
 }
 
