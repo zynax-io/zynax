@@ -27,8 +27,8 @@ make bootstrap    # one-time: pulls ghcr.io/zynax-io/zynax/tools:latest from GHC
 
 ## 2. Install the `zynax` CLI
 
-The CLI talks to the api-gateway over HTTP REST. Build it from source (requires Go
-1.26.3) or grab a release binary:
+The CLI talks to the api-gateway over HTTP REST. Build it from source (requires the
+Go toolchain pinned in [go.work](../go.work)) or grab a release binary:
 
 ```bash
 make install-cli                       # builds → ~/bin/zynax (ensure ~/bin is on PATH)

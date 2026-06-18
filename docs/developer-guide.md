@@ -14,7 +14,7 @@ Engine + the Compose plugin). `make help` lists every target.
 git clone https://github.com/zynax-io/zynax.git
 cd zynax
 make bootstrap      # pulls ghcr.io/zynax-io/zynax/tools:latest from GHCR — run once
-make install-cli    # builds the zynax CLI → ~/bin/zynax (requires Go 1.26.3)
+make install-cli    # builds the zynax CLI → ~/bin/zynax (requires the Go toolchain pinned in go.work)
 ```
 
 ---

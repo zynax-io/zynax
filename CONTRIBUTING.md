@@ -113,7 +113,7 @@ The `zynax` CLI is a standalone module under `cmd/zynax/`. To test it against th
 running platform:
 
 ```bash
-# 1. Install the CLI (requires Go 1.26 locally, or download from GitHub Releases)
+# 1. Install the CLI (requires the Go toolchain pinned in go.work, or download from GitHub Releases)
 make install-cli            # builds cmd/zynax and installs to ~/bin/zynax
 
 # 2. Start the local stack
