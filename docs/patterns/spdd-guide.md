@@ -262,4 +262,4 @@ git commit -S -s -m "docs: SPDD Canvas for M3 Temporal Execution — aligned (#2
 
 ---
 
-*See also:* `docs/adr/ADR-019-spdd-prompt-governance.md` · `docs/spdd/CANVAS_TEMPLATE.md` · `docs/spdd/README.md`
+*See also:* `docs/adr/ADR-019-spdd-prompt-governance.md` · `docs/spdd/CANVAS_TEMPLATE.md` · `docs/spdd/README.md` · `docs/contributing/human-validation-guide.md` (how user-visible canvas acceptance criteria become a human-runnable validation guide)
