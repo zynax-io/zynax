@@ -119,6 +119,10 @@ func (f *fakeEventBus) SubscribeWorkflowEvents(ctx context.Context, _ string, se
 	return fmt.Errorf("context: %w", ctx.Err())
 }
 
+func (f *fakeEventBus) PublishEvent(_ context.Context, _ domain.EventPublish) (string, error) {
+	return "evt-fake", nil
+}
+
 // ── fake RegistryPort ─────────────────────────────────────────────────────────
 
 type fakeRegistry struct{ alreadyExists bool }

@@ -42,6 +42,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	applyHandler := rl.Middleware(http.HandlerFunc(requireBearer(h.apiKey, h.handleApply)))
 	mux.Handle("POST /api/v1/apply", applyHandler)
 	mux.HandleFunc("GET /api/v1/workflows/{id}/logs", h.handleWorkflowLogs)
+	mux.HandleFunc("POST /api/v1/workflows/{id}/events", requireBearer(h.apiKey, h.handlePublishEvent))
 	mux.HandleFunc("GET /api/v1/workflows/{id}", h.handleGetWorkflow)
 	mux.HandleFunc("DELETE /api/v1/workflows/{id}", requireBearer(h.apiKey, h.handleDeleteWorkflow))
 }
@@ -201,6 +202,41 @@ func (h *Handler) handleDeleteWorkflow(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handlePublishEvent injects a business/lifecycle event into a workflow run so
+// an event-driven workflow can advance. Body: {"event_type": "...", "data": {...}}.
+// The optional data object is forwarded verbatim as the CloudEvent payload.
+func (h *Handler) handlePublishEvent(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "run_id is required", "INVALID_ARGUMENT")
+		return
+	}
+	body, ok := readBody(w, r)
+	if !ok {
+		return
+	}
+	var req publishEventReq
+	if err := json.Unmarshal(body, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body", "INVALID_JSON")
+		return
+	}
+	eventID, err := h.svc.PublishEvent(r.Context(), domain.EventPublish{
+		RunID: id,
+		Type:  req.EventType,
+		Data:  req.Data,
+	})
+	switch {
+	case errors.Is(err, domain.ErrInvalidEvent):
+		writeError(w, http.StatusBadRequest, err.Error(), "INVALID_ARGUMENT")
+	case errors.Is(err, domain.ErrEngineUnavailable):
+		writeError(w, http.StatusServiceUnavailable, "event bus unavailable", "EVENT_BUS_UNAVAILABLE")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal error", "INTERNAL")
+	default:
+		writeJSON(w, http.StatusAccepted, publishEventResp{EventID: eventID})
+	}
+}
+
 // ── response types ────────────────────────────────────────────────────────
 
 type errResp struct {
@@ -231,6 +267,15 @@ type compileErrsResp struct {
 
 type agentDefResp struct {
 	AgentID string `json:"agent_id"`
+}
+
+type publishEventReq struct {
+	EventType string          `json:"event_type"`
+	Data      json.RawMessage `json:"data,omitempty"`
+}
+
+type publishEventResp struct {
+	EventID string `json:"event_id,omitempty"`
 }
 
 type workflowStatusResp struct {

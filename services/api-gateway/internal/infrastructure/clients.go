@@ -11,6 +11,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
@@ -20,6 +21,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
 )
 
@@ -242,6 +244,39 @@ func (c *GatewayClients) SubscribeWorkflowEvents(ctx context.Context, workflowID
 			return err
 		}
 	}
+}
+
+// eventSource is the CloudEvent `source` attribute stamped on every event the
+// gateway injects on behalf of a CLI caller (CloudEvents spec: a URI-reference
+// identifying the producer).
+const eventSource = "/zynax/api-gateway/cli"
+
+// cloudEventSpecVersion is the CloudEvents spec version the gateway emits.
+const cloudEventSpecVersion = "1.0"
+
+// PublishEvent implements domain.EventBusPort. It wraps the domain event in a
+// CloudEvent envelope — filling the bus-required id, source, specversion, and
+// time attributes — and calls EventBusService.Publish. The bus-assigned
+// event_id is returned to the caller.
+func (c *GatewayClients) PublishEvent(ctx context.Context, ev domain.EventPublish) (string, error) {
+	callCtx, cancel := context.WithTimeout(ctx, c.callTimeout)
+	defer cancel()
+	resp, err := c.eventbus.Publish(callCtx, &zynaxv1.PublishRequest{
+		Event: &zynaxv1.CloudEvent{
+			Id:          uuid.NewString(),
+			Source:      eventSource,
+			Specversion: cloudEventSpecVersion,
+			Type:        ev.Type,
+			Time:        timestamppb.Now(),
+			Data:        ev.Data,
+			WorkflowId:  ev.RunID,
+			RunId:       ev.RunID,
+		},
+	})
+	if err != nil {
+		return "", mapEngineGRPCError(err)
+	}
+	return resp.GetEventId(), nil
 }
 
 // RegisterAgent implements domain.RegistryPort.
