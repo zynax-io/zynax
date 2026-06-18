@@ -21,6 +21,27 @@ _The engine-portability layer for agentic automation._
 
 ---
 
+## See it run — one command
+
+```bash
+make demo
+```
+
+`make demo` boots the minimal stack with a zero-secret local-LLM ([Ollama](https://ollama.com)) overlay
+and runs the hero code-review workflow end-to-end — a real model reviews a git diff and prints its
+verdict, straight from the CLI. The only prerequisites are Docker and pulling the demo model once
+(`ollama pull qwen2.5-coder:3b`). Tear it down with `make demo-clean`.
+
+<!-- asciinema cast — record locally with `make demo` and `asciinema rec docs/casts/make-demo.cast`.
+     See docs/casts/README.md. Once recorded, replace the placeholder below with the upload embed. -->
+[![asciicast — make demo](https://asciinema.org/a/PLACEHOLDER.svg)](https://asciinema.org/a/PLACEHOLDER)
+
+> The cast above is a placeholder until a maintainer records `docs/casts/make-demo.cast` from a live
+> `make demo` run — see [docs/casts/README.md](docs/casts/README.md). New here? Jump to the
+> [Quickstart](#-quickstart).
+
+---
+
 ## What is Zynax?
 
 > **Define an AI agent workflow once, as a YAML manifest, and run it on whichever engine your org
