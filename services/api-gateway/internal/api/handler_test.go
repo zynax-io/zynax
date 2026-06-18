@@ -726,3 +726,38 @@ func TestHandler_PublishEvent_NoEventBus_Returns503(t *testing.T) {
 		t.Errorf("status: got %d, want 503", resp.StatusCode)
 	}
 }
+
+func TestHandler_PublishEvent_RateLimited_Returns429PastBurst(t *testing.T) {
+	// burst=1 so the second request from the same client must be rejected.
+	// Env is read once when RegisterRoutes builds the limiter, so set it first.
+	t.Setenv("RATE_LIMIT_RPS", "0.001")
+	t.Setenv("RATE_LIMIT_BURST", "1")
+	srv := newServerWithEventBus(&stubEventBus{publishID: "evt-rl"})
+	defer srv.Close()
+
+	body := `{"event_type":"review.approved"}`
+
+	// First request consumes the single token.
+	resp1, err := http.Post(srv.URL+"/api/v1/workflows/run-7/events", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp1.Body.Close() }()
+	if resp1.StatusCode != http.StatusAccepted {
+		t.Fatalf("first request: got %d, want 202", resp1.StatusCode)
+	}
+
+	// Second request from the same client must be rate-limited.
+	resp2, err := http.Post(srv.URL+"/api/v1/workflows/run-7/events", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp2.Body.Close() }()
+	if resp2.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("second request: got %d, want 429", resp2.StatusCode)
+	}
+	m := decodeBody(t, resp2)
+	if m["code"] != "RATE_LIMITED" {
+		t.Errorf("code: got %v, want RATE_LIMITED", m["code"])
+	}
+}
