@@ -379,9 +379,8 @@ clean-all: clean dev-down clean-tools ## ⚠ Remove everything
 # ── Spec validation ───────────────────────────────────────────────────────────
 .PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema check-expert-mapping validate-canvas validate-milestone-state dry-run
 
-validate-milestone-state: ensure-tools ## Validate state/milestone.yaml against state/milestone.schema.json (Docker)
-	$(TOOLS_RUN) uv run --no-project --quiet --with pyyaml --with jsonschema \
-	  python3 scripts/validate_milestone_state.py
+validate-milestone-state: ## Validate state/milestone.yaml against state/milestone.schema.json
+	cd cmd/zynax-ci && GOWORK=off go run . validate milestone --root "$(CURDIR)"
 	@echo "✅ Milestone state valid"
 
 validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema validate-policy-schema check-expert-mapping ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def + policy manifests + expert mapping)

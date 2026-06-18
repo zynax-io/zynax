@@ -345,6 +345,11 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     continue-on-error: true
+    # go run needs a working module proxy — the ci-runner image ships GOPROXY=off
+    # for hermetic baked-binary use, so set it here (parity with ci.yml).
+    env:
+      GOPROXY: https://proxy.golang.org,direct
+      GONOSUMDB: "*"
     container:
       image: ghcr.io/zynax-io/zynax/ci-runner@sha256:490c2c1ab65aee2154a46e96d8a685a40ae4b747e5aceda4168bac45f310293c
       options: --user root
@@ -352,9 +357,10 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Validate state/milestone.yaml against schema
+        # Built from source until the ci-runner image carries the verb (parity
+        # with images sync/meta); the container ships the Go toolchain.
         run: |
-          uv run --no-project --quiet --with pyyaml --with jsonschema \
-            python3 scripts/validate_milestone_state.py
+          cd cmd/zynax-ci && GOWORK=off go run . validate milestone --root "$GITHUB_WORKSPACE"
 
 # ── Secret Scan (gitleaks) ────────────────────────────────────────────────────
   gitleaks-scan:
