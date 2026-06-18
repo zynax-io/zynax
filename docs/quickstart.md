@@ -9,10 +9,15 @@ Docker — the only prerequisite is Docker Desktop (or Docker Engine + the Compo
 
 By the end you will have:
 
-1. The local platform stack running (`docker compose up` via `make run-local`).
-2. A real workflow applied with `zynax apply`.
-3. The run watched live with `zynax status` and `zynax logs --follow`.
+1. A zero-secret local-LLM stack running (the base stack + the Ollama overlay).
+2. The hero `code-review-ollama` workflow applied with `zynax apply`.
+3. The run watched live with `zynax logs --follow` and its review printed with `zynax result`.
 4. (Optional) The trace and logs for that run visible in the Uptrace UI.
+
+Every command shown below maps to a real `zynax` subcommand — see
+[Command reference](#command-reference) at the end for the full list and how each was
+verified against the CLI source. Prefer watching it run first? See the recorded
+walkthroughs in [docs/casts/](casts/).
 
 ---
 
@@ -47,14 +52,44 @@ zynax --version
 
 ---
 
-## 3. Start the local stack
+## 3. Start the stack with the zero-secret Ollama overlay
 
-A single command builds the images and starts the api-gateway, engine-adapter,
-workflow-compiler, Temporal, and NATS:
+The fastest runnable path needs **no API keys and no cloud LLM**. A small Compose
+overlay ([docker-compose.ollama.yml](../infra/docker-compose/docker-compose.ollama.yml))
+adds an `ollama` service inside the network and repoints the llm-adapter at it via
+[ollama/llm-adapter.config.yaml](../infra/docker-compose/ollama/llm-adapter.config.yaml) —
+which registers a `codereview` capability against a local model. Pull the demo model
+once on the host (the overlay reuses host-pulled models read-only — nothing is
+re-downloaded), then layer the overlay on the base stack:
 
 ```bash
-make run-local    # docker compose up -d --build
+ollama pull qwen2.5-coder:3b               # default model (see override note below)
+
+docker compose \
+  -f infra/docker-compose/docker-compose.yml \
+  -f infra/docker-compose/docker-compose.ollama.yml \
+  up -d --wait
 ```
+
+This starts the api-gateway, engine-adapter, workflow-compiler, Temporal, NATS, the
+`ollama` service, and the llm-adapter — all locally, with no secrets.
+
+**Model / host-path overrides** (both optional):
+
+- The model lives in one line of `ollama/llm-adapter.config.yaml`
+  (`model: qwen2.5-coder:3b`). To switch, edit that line (e.g. `model: llama3.2:3b`) and
+  pull the new model on the host.
+- The overlay bind-mounts the host models dir read-only, defaulting to a systemd
+  install path. Override it for other setups:
+
+  ```bash
+  OLLAMA_HOST_MODELS=$HOME/.ollama/models docker compose \
+    -f infra/docker-compose/docker-compose.yml \
+    -f infra/docker-compose/docker-compose.ollama.yml up -d --wait
+  ```
+
+> **Cloud LLM instead?** Drop the `-f docker-compose.ollama.yml` overlay and run plain
+> `make run-local`; the baked llm-adapter config then expects an OpenAI key.
 
 When it finishes, the api-gateway is reachable on port `7080`. The CLI defaults to
 `http://localhost:8080`, so point it at the local gateway:
@@ -63,7 +98,7 @@ When it finishes, the api-gateway is reachable on port `7080`. The CLI defaults 
 export ZYNAX_API_URL=http://localhost:7080
 ```
 
-Verify the stack is healthy:
+Verify the stack is healthy — `/healthz` returns a small JSON status body:
 
 ```bash
 curl http://localhost:7080/healthz
@@ -108,21 +143,24 @@ The Uptrace login UI is at `http://localhost:7020` (use the login/token you set 
 
 ---
 
-## 5. Apply a real workflow
+## 5. Apply the runnable workflow
 
-Three real, runnable reference workflows ship under
-[spec/workflows/examples/](../spec/workflows/examples/). Validate one before applying:
-
-```bash
-zynax validate spec/workflows/examples/code-review.yaml      # static + data-flow checks
-zynax apply --dry-run spec/workflows/examples/code-review.yaml   # compile without submitting
-```
-
-Then submit it:
+The hero example is
+[code-review-ollama.yaml](../spec/workflows/examples/code-review-ollama.yaml) — it runs
+to completion from the CLI alone: its initial state dispatches the `codereview`
+capability (served by the llm-adapter pointed at your local Ollama model) over a real git
+diff, then transitions to a terminal state. Validate it, then submit:
 
 ```bash
-zynax apply spec/workflows/examples/code-review.yaml
+zynax validate spec/workflows/examples/code-review-ollama.yaml      # static + data-flow checks
+zynax apply --dry-run spec/workflows/examples/code-review-ollama.yaml   # compile without submitting
+zynax apply spec/workflows/examples/code-review-ollama.yaml         # submit
 ```
+
+> Other examples under [spec/workflows/examples/](../spec/workflows/examples/) (e.g.
+> `code-review.yaml`) are **reference specs** that wait on external GitHub/review events —
+> use them to learn the data-flow patterns, but they do not run to completion from the CLI
+> alone.
 
 `apply` prints the run identifier:
 
@@ -147,16 +185,30 @@ zynax status workflow <run-id>
 ```
 
 Tail the run live — the command follows lifecycle events (state transitions and
-capability events) and exits once the workflow reaches a terminal state:
+capability events) and exits once the workflow reaches a terminal state (`-f` is the
+short flag; `--format json` emits one JSON object per event):
 
 ```bash
 zynax logs <run-id> --follow
+```
+
+Print just the capability output — the model's review text — straight from the CLI:
+
+```bash
+zynax result <run-id>
 ```
 
 For a full snapshot of a run (id, workflow, status, current state, version):
 
 ```bash
 zynax get workflow <run-id>
+```
+
+For event-driven workflows (the reference `code-review.yaml` waits on review events),
+inject an event from the CLI to drive the run forward:
+
+```bash
+zynax events publish <run-id> review.approved --data reviewer=alice
 ```
 
 ---
@@ -172,9 +224,33 @@ from a span to the matching log records for the same run.
 ## 8. Tear down
 
 ```bash
-make stop-local    # stop and remove the platform stack
-make obs-down      # stop the observability stack (if started)
+docker compose \
+  -f infra/docker-compose/docker-compose.yml \
+  -f infra/docker-compose/docker-compose.ollama.yml \
+  down --remove-orphans      # or: make demo-clean
+
+make obs-down                # stop the observability stack (if started)
 ```
+
+---
+
+## Command reference
+
+Every command this guide shows is a real `zynax` subcommand. Verify the surface yourself
+with `zynax --help` (and `zynax <cmd> --help`); the source of record is
+[cmd/zynax/cmd/](../cmd/zynax/cmd/).
+
+| Command | Purpose | Key flags |
+|---------|---------|-----------|
+| `zynax validate <file>` | Local schema + data-flow checks (no gateway) | `--schema-dir`, `--format text\|json` |
+| `zynax init workflow\|expert [name]` | Scaffold a manifest from a template | `-o/--output`, `--template-dir` |
+| `zynax apply <file>` | Submit a manifest to the gateway | `--dry-run`, `--engine` |
+| `zynax status workflow <run-id>` | Status (exit 0 terminal, 2 running) | — |
+| `zynax logs <run-id>` | Stream lifecycle events | `--follow/-f`, `--format text\|json` |
+| `zynax result <run-id>` | Print the capability output (review text) | — |
+| `zynax get workflow <run-id>` | Full run snapshot | — |
+| `zynax delete workflow <run-id>` | Cancel/remove a run | — |
+| `zynax events publish <run-id> <event-type>` | Inject an event into a running workflow | `--data key=value` (repeatable) |
 
 ---
 
@@ -182,7 +258,8 @@ make obs-down      # stop the observability stack (if started)
 
 - **[Developer Guide](developer-guide.md)** — the Make targets and daily workflow.
 - **[Local Development Guide](local-dev.md)** — CLI install options and persona paths.
-- **[spec/workflows/examples/](../spec/workflows/examples/)** — the three reference
-  workflows and their data-flow patterns.
-</content>
-</invoke>
+- **[Human-validation guide](contributing/human-validation-guide.md)** — how to validate a
+  change actually runs (the standard the demo path is checked against).
+- **[docs/casts/](casts/)** — recorded terminal walkthroughs of these flows.
+- **[spec/workflows/examples/](../spec/workflows/examples/)** — the reference workflows and
+  their data-flow patterns.
