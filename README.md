@@ -104,7 +104,7 @@ Download from the [latest GitHub Release](https://github.com/zynax-io/zynax/rele
 | Linux (amd64) | `curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_amd64.tar.gz \| tar xz && sudo mv zynax /usr/local/bin/` |
 | Linux (arm64) | `curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax_linux_arm64.tar.gz \| tar xz && sudo mv zynax /usr/local/bin/` |
 
-**From source** (requires Go 1.26.3): `cd cmd/zynax && GOWORK=off go build -o ~/bin/zynax .`
+**From source** (requires the Go toolchain pinned in [`go.work`](go.work)): `cd cmd/zynax && GOWORK=off go build -o ~/bin/zynax .`
 **Makefile shortcut:** `make install-cli`
 
 Verify: `zynax --version`
@@ -133,7 +133,7 @@ curl -fsSL https://github.com/zynax-io/zynax/releases/latest/download/zynax-ci-d
   -o ~/bin/zynax-ci && chmod +x ~/bin/zynax-ci
 ```
 
-**From source** (requires Go 1.26.3): `cd cmd/zynax-ci && GOWORK=off go build -o ~/bin/zynax-ci .`
+**From source** (requires the Go toolchain pinned in [`go.work`](go.work)): `cd cmd/zynax-ci && GOWORK=off go build -o ~/bin/zynax-ci .`
 **Makefile shortcut:** `make install-ci-tools`
 
 ---
