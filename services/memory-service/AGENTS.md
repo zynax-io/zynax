@@ -1,6 +1,6 @@
 # services/memory-service — AGENTS.md
 
-> Go 1.22+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
+> Go toolchain pinned in the workspace [`go.work`](../../go.work). Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
 > **Status: M6+ (not yet implemented).** BDD contract tests exist in `protos/tests/`.
 
 ---

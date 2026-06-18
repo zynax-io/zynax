@@ -1,6 +1,6 @@
 # services/api-gateway — AGENTS.md
 
-> Go 1.26.3+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
+> Go toolchain pinned in the workspace [`go.work`](../../go.work). Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
 > **Status: M5 Complete** — HTTP REST layer, bearer-token auth (constant-time), ReadHeaderTimeout, X-Request-ID middleware, gRPC deadlines all implemented. Rate limiting deferred to M6 (#580).
 
 ---

@@ -90,7 +90,7 @@ jobs:
 ```
 
 Use the `ci-runner` container image (built from `infra/docker/Dockerfile.ci-runner`) for
-all Go + Python CI jobs. It bakes in every tool (Go 1.26.3, golangci-lint, buf, uv, ruff,
+all Go + Python CI jobs. It bakes in every tool (the pinned Go toolchain, golangci-lint, buf, uv, ruff,
 mypy, bandit, zynax-ci) so no step downloads tooling at runtime. Built in #551/#552.
 
 ---

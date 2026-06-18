@@ -1,6 +1,6 @@
 # services/engine-adapter — AGENTS.md
 
-> Go 1.26.3+. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
+> Go toolchain pinned in the workspace [`go.work`](../../go.work). Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
 > **Status: M5 Complete.** Temporal backend fully implemented; cel-go guard evaluation live (#538); explicit RetryPolicy on `DispatchCapabilityActivity` (#569). LangGraph/Argo `WorkflowEngine` backends deferred to M6+.
 
 ---
