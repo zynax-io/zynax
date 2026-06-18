@@ -17,11 +17,20 @@ Read the feature description or GitHub issue provided in $ARGUMENTS.
    - **E**stimable: can be sized relatively
    - **S**mall: fits in one PR (≤ 400 lines excluding generated code)
    - **T**estable: has clear, verifiable acceptance criteria
-5. After presenting the stories, create one GitHub issue per story using `gh issue create`.
+5. **Idempotency guard — never create duplicate stories.** Before creating anything,
+   check whether the parent epic already has child issues (an epic created via
+   `/spdd-analysis`→issue-filing, or a re-run of this command, often already has them):
+   - `gh issue list --search "<parent-#> in:body" --state all` and read the epic body's
+     task-list / checklist for existing `#refs`.
+   - If children already exist, **do NOT create new issues.** Instead: validate each
+     existing child against INVEST, map it to an Operations step, ensure it carries the
+     right labels + milestone + a canvas link, and report the reconciled set. Only create
+     issues for genuinely missing stories.
+6. After presenting the stories, create one GitHub issue **per still-missing story** using `gh issue create`.
    - Title format: `feat(<scope>): <story title> (#<parent-issue>, step <N>)`
    - Body includes: Story (as-a/I-want/so-that), Context (link to canvas if it exists), Scope, Acceptance criteria, Out of scope, Size estimate, Dependencies on other steps
    - End each body with: `Assisted-by: Claude/claude-sonnet-4-6`
-   - Report the created issue URL after each creation
+   - Report the created (or reconciled) issue URL after each step
 
 ## Output Format
 
