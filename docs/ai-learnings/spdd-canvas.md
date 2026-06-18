@@ -130,3 +130,13 @@ domain: spdd-canvas · two ADR-proposal stories (ADR-031 context propagation; AD
 - Rule: Before `/spdd-story` creates issues, check the epic for existing children and reconcile instead of duplicating; never reference a filename with a dotted `local`/`internal`/`corp` segment in a committed Canvas (gitleaks `internal-hostname` BLOCK) — rename the artifact.
   Category: structural-workaround
   Reason: Both traps silently break the SPDD ceremony; encoding them prevents the next run from hitting them.
+
+## Session — 2026-06-19 (EPIC #1370 — M7 awesome-quickstart cluster)
+
+### #1376 (chore: validated prototype copied from main)
+- When delivering a validated PROTOTYPE copied from the main checkout, treat its header/comment prose as unverified — cross-check capability and derived-event names against the source-of-truth registering config; fix only comment drift.
+- The underscore distinction is load-bearing (the compiler rejects an underscored `<cap>.completed`); a stale `code_review` comment vs the real `codereview` capability can mislead a future editor.
+
+### #1388 (docs: ground a process standard in a real path)
+- Ground a process standard in a real validated path (read the actual workflow/example) so its required sections are concrete.
+- Anchor it to the existing PR template's "Test plan & acceptance" matrix rather than inventing a new concept.
