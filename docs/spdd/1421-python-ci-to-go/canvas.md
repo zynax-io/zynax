@@ -9,7 +9,7 @@
 **Issue:** #1421
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-18
-**Status:** Draft
+**Status:** Aligned
 
 > Python counterpart to #1285 (M7.S — bash → zynax-ci, closed) and #1276 (llm-adapter
 > Python → Go, ADR-035). Same destination binary, same ADR-036 pattern.
