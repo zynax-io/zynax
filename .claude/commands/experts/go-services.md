@@ -91,7 +91,7 @@ HANDOFF to git-ops:
 
     Closes #<N>
 
-    Assisted-by: Claude/claude-sonnet-4-6
+    Assisted-by: Claude/<model>
   pr_title:     <title ≤ 72 chars>
   pr_body_file: /tmp/pr-body-<N>.md
   next_step:    COMMIT
@@ -324,7 +324,7 @@ git commit -s -m "<type>(<scope>): <subject>
 
 Closes #<story-issue-N>
 
-Assisted-by: Claude/claude-sonnet-4-6"
+Assisted-by: Claude/<model>"
 ```
 
 - `<type>`: feat / fix / refactor / test / chore / docs / ci — **never** spec/service/proto/make/adr

@@ -45,6 +45,10 @@ Given the feature or issue in $ARGUMENTS:
 ### Recommended Design Direction
 <2–3 sentences on the recommended approach before generating the Canvas>
 
+### Recommended Issue Type & Template
+- Conventional type: `<feat|fix|docs|test|refactor|ci|chore>` · Issue template: `.github/ISSUE_TEMPLATE/<…>.md`
+- Stories carry the **Story (INVEST)** block + canvas Operations-step link (filled by `/lib:spdd-story`).
+
 ## Input
 
 $ARGUMENTS — GitHub issue number, issue URL, or feature description

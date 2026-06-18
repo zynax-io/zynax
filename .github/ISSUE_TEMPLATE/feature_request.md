@@ -21,6 +21,18 @@ Before filing a feature request:
 
 ---
 
+## Story (INVEST)
+
+> The SPDD story spine. Keep it INVEST: **I**ndependent · **N**egotiable · **V**aluable ·
+> **E**stimable · **S**mall · **T**estable.
+
+- **As a** <role>, **I want** <capability>, **so that** <outcome>.
+- Size: **XS · S · M · L** (Small = one PR, ≤ 400 lines excluding generated code)
+- Canvas Operations step (if the parent epic has a canvas): `docs/spdd/<epic>-<slug>/canvas.md` → step N
+- Depends on: #… · Blocks: #…
+
+---
+
 ## Why it matters (product · adoption)
 
 - **For the Zynax user / adopter:** <the observable value this story delivers>
@@ -42,7 +54,7 @@ Be specific — avoid "it would be nice if...". Describe the pain point.
 
 - Parent epic: #…
 - Milestone:
-- REASONS Canvas (if the parent epic has one): `docs/spdd/<epic>-<slug>/canvas.md` — Operations step N
+- REASONS Canvas / Operations step: see **Story (INVEST)** above
 - RFC / ADR: 
 - Related docs / architecture:
 

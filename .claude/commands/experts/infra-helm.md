@@ -88,7 +88,7 @@ HANDOFF to git-ops:
 
     Closes #<N>
 
-    Assisted-by: Claude/claude-sonnet-4-6
+    Assisted-by: Claude/<model>
   pr_title:     <title ≤ 72 chars>
   pr_body_file: /tmp/pr-body-<N>.md
   next_step:    COMMIT
@@ -262,7 +262,7 @@ git commit -s -m "feat(infra): <subject>
 
 Closes #<story-issue-N>
 
-Assisted-by: Claude/claude-sonnet-4-6"
+Assisted-by: Claude/<model>"
 ```
 
 Infra commits use `feat(infra):`, `chore(infra):`, or `ci(infra):` — never `infra:` alone

@@ -99,7 +99,7 @@ git commit -s -m "$(cat <<'EOF'
 
 Closes #<story-issue-N>
 
-Assisted-by: Claude/claude-sonnet-4-6
+Assisted-by: Claude/<model>
 EOF
 )"
 ```

@@ -44,6 +44,21 @@ or CNCF/community credibility?
 
 ---
 
+## Acceptance criteria
+
+> How will we know the doc is fixed? Observable, checkable outcomes.
+
+- [ ]
+- [ ]
+
+---
+
+## Parent epic & links (if part of an epic)
+
+- Parent epic: #… · Milestone: · REASONS Canvas / Operations step: `docs/spdd/<epic>-<slug>/canvas.md` → step N
+
+---
+
 ## Related
 
 - Related code or feature: #
