@@ -104,8 +104,20 @@ OLLAMA_HOST_MODELS=/path/to/.ollama/models docker compose \
 ```
 
 The adapter config (`ollama/llm-adapter.config.yaml`) registers a `codereview`
-capability against `llama3.2:3b` — pull that model on the host (`ollama pull llama3.2:3b`)
-before bringing the overlay up.
+capability against the default reference model `qwen2.5-coder:3b` — a small, fast,
+code-focused local model chosen so the first-run demo is zero-cost and
+deterministic. Pull it on the host before bringing the overlay up:
+
+```bash
+ollama pull qwen2.5-coder:3b
+```
+
+**Switching model/provider (one-line override):** edit the `model:` line under
+`provider:` in `ollama/llm-adapter.config.yaml` (e.g. `model: llama3.2:3b`), or
+point `provider.name` / `provider.ollama_base_url` at a different provider. The
+model/provider is config-only and never travels in the workflow input payload
+(ADR-013 / ADR-035), so any workflow stays portable across models. A full
+human-validation guide standard is tracked in #1388.
 
 ## Not included
 
