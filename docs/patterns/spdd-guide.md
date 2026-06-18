@@ -4,6 +4,12 @@
 > Governed by ADR-019. Applies to all `feat:` PRs.
 > Canvas artifacts live in `docs/spdd/`. Templates in `docs/spdd/CANVAS_TEMPLATE.md`.
 
+> **You normally drive this pipeline through two verbs, not the steps directly.** `/plan` runs
+> analysis → story → canvas → security-review and aligns the Canvas; `/deliver` generates from an
+> Aligned Canvas one Operations step at a time. The `/lib:spdd-*` building blocks below are what
+> those verbs call — invoke them directly only when you want fine-grained control. Full command
+> map: [.claude/commands/README.md](../../.claude/commands/README.md).
+
 ---
 
 ## Why SPDD Exists
@@ -23,24 +29,24 @@ Every `feat:` issue follows this sequence. Steps 1–3 produce the Canvas; steps
 execute from it.
 
 ```
-1. /spdd-analysis   → research
-2. /spdd-story      → decompose
-3. /spdd-reasons-canvas → generate Canvas (Draft)
+1. /lib:spdd-analysis   → research
+2. /lib:spdd-story      → decompose
+3. /lib:spdd-canvas → generate Canvas (Draft)
          ↓
    human alignment review
          ↓
    Canvas status: Aligned
          ↓
-4. /spdd-generate   → implement one step at a time
-5. /spdd-security-review → before every Canvas commit
-6. /spdd-sync       → after refactors; /spdd-prompt-update for requirement changes
+4. /lib:spdd-generate   → implement one step at a time
+5. /lib:spdd-security-review → before every Canvas commit
+6. /lib:spdd-sync       → after refactors; /lib:spdd-prompt-update for requirement changes
 ```
 
-No code is written before the Canvas is `Aligned`. This is enforced by `/spdd-generate`.
+No code is written before the Canvas is `Aligned`. This is enforced by `/lib:spdd-generate`.
 
 ---
 
-## Step 1 — `/spdd-analysis <issue>`
+## Step 1 — `/lib:spdd-analysis <issue>`
 
 Scans the codebase and produces a structured analysis:
 
@@ -57,7 +63,7 @@ Canvas generation in step 3 draws from it.
 
 ---
 
-## Step 2 — `/spdd-story <issue>`
+## Step 2 — `/lib:spdd-story <issue>`
 
 Breaks the feature into 2–5 INVEST-compliant user stories and creates one GitHub
 issue per story as a child of the parent epic:
@@ -73,13 +79,13 @@ Each story maps to one Operations step in the Canvas. The recommended implementa
 order from this command feeds directly into Canvas section O.
 
 **GitHub issue creation (default behaviour):** after displaying the stories,
-`/spdd-story` opens one `gh issue` per story. Title format:
+`/lib:spdd-story` opens one `gh issue` per story. Title format:
 `feat(<scope>): <title> (#<parent>, step <N>)`. The Canvas O section must link
 to these issue numbers once they exist — update the canvas after running this command.
 
 ---
 
-## Step 3 — `/spdd-reasons-canvas <issue>`
+## Step 3 — `/lib:spdd-canvas <issue>`
 
 Generates `docs/spdd/<issue>-<slug>/canvas.md` from the analysis. The Canvas has seven
 sections (the REASONS acronym is the checklist):
@@ -94,7 +100,7 @@ sections (the REASONS acronym is the checklist):
 | **N** — Norms | Cross-cutting standards from AGENTS.md + layer contracts (commit hygiene, BDD, GOWORK=off) |
 | **S** — Safeguards | Non-negotiable constraints from ADRs + context security checklist (must be ✅ before commit) |
 
-After generating, the command automatically runs `/spdd-security-review` on the output.
+After generating, the command automatically runs `/lib:spdd-security-review` on the output.
 
 **Canvas status starts as `Draft`.** A human must review and change the status to
 `Aligned` before any code is generated.
@@ -108,13 +114,13 @@ Before marking `Aligned`, the reviewer confirms:
 1. **R** — Does the problem statement match what the issue actually asks for?
 2. **A** — Is the approach consistent with existing ADRs? Are the "will NOT" items correct?
 3. **O** — Is the Operations sequence feasible? Are steps independently testable?
-4. **S (Safeguards)** — Has `/spdd-security-review` passed? Are all checkboxes ticked?
+4. **S (Safeguards)** — Has `/lib:spdd-security-review` passed? Are all checkboxes ticked?
 
 Update the Canvas header: `**Status:** Aligned`. The Canvas is now the source of truth.
 
 ---
 
-## Step 4 — `/spdd-generate <path/to/canvas.md>`
+## Step 4 — `/lib:spdd-generate <path/to/canvas.md>`
 
 Executes one Operations step at a time. For each step it:
 
@@ -125,7 +131,7 @@ Executes one Operations step at a time. For each step it:
 5. Checks the output against: layer boundaries, no panic in production, GOWORK=off,
    BDD `.feature` file present if a gRPC boundary is touched
 
-After each step: review the output, commit it, then call `/spdd-generate` again for
+After each step: review the output, commit it, then call `/lib:spdd-generate` again for
 the next step. Never batch steps.
 
 **Safeguards that cause an automatic halt:**
@@ -136,7 +142,7 @@ the next step. Never batch steps.
 
 ---
 
-## Step 5 — `/spdd-security-review <path>`
+## Step 5 — `/lib:spdd-security-review <path>`
 
 Run before committing any Canvas or KB file. Checks four things:
 
@@ -156,7 +162,7 @@ until the review passes. Update the Safeguards checklist in the Canvas with the 
 
 Two scenarios after a Canvas is `Aligned`:
 
-**Requirements changed mid-sprint → `/spdd-prompt-update <canvas.md>`**
+**Requirements changed mid-sprint → `/lib:spdd-prompt-update <canvas.md>`**
 
 ```
 1. Describe the requirement change
@@ -168,7 +174,7 @@ Two scenarios after a Canvas is `Aligned`:
 
 Never update code first. The Canvas is always updated before the code.
 
-**Refactor with no logic change → `/spdd-sync <canvas.md>`**
+**Refactor with no logic change → `/lib:spdd-sync <canvas.md>`**
 
 ```
 1. Compares current implementation against Canvas O and S sections
@@ -212,32 +218,32 @@ Slug: issue title kebab-cased, first 4–6 words. Example: `214-temporal-executi
 
 ```bash
 # 1. Research
-/spdd-analysis 214
+/lib:spdd-analysis 214
 
 # 2. Decompose into stories
-/spdd-story 214
+/lib:spdd-story 214
 
 # 3. Generate Canvas → writes docs/spdd/214-temporal-execution/canvas.md
-/spdd-reasons-canvas 214
+/lib:spdd-canvas 214
 
 # 4. Security check (runs automatically, but can be re-run)
-/spdd-security-review docs/spdd/214-temporal-execution/canvas.md
+/lib:spdd-security-review docs/spdd/214-temporal-execution/canvas.md
 
 # 5. Human reviews Canvas, sets status: Aligned, commits it
 git add docs/spdd/214-temporal-execution/canvas.md
 git commit -S -s -m "docs: SPDD Canvas for M3 Temporal Execution — aligned (#214)"
 
 # 6. Execute step by step
-/spdd-generate docs/spdd/214-temporal-execution/canvas.md
+/lib:spdd-generate docs/spdd/214-temporal-execution/canvas.md
 # → asks which Operations step; generates only that step
 # Review, commit, repeat for each step
 
 # 7. After a refactor
-/spdd-sync docs/spdd/214-temporal-execution/canvas.md
+/lib:spdd-sync docs/spdd/214-temporal-execution/canvas.md
 
 # 8. If requirements change
-/spdd-prompt-update docs/spdd/214-temporal-execution/canvas.md
-# → update Canvas, re-align, then continue with /spdd-generate
+/lib:spdd-prompt-update docs/spdd/214-temporal-execution/canvas.md
+# → update Canvas, re-align, then continue with /lib:spdd-generate
 ```
 
 ---
@@ -246,13 +252,13 @@ git commit -S -s -m "docs: SPDD Canvas for M3 Temporal Execution — aligned (#2
 
 | Situation | Command |
 |-----------|---------|
-| Starting a new `feat:` issue | `/spdd-analysis` → `/spdd-story` → `/spdd-reasons-canvas` |
-| Before committing any Canvas | `/spdd-security-review` |
-| Ready to write code | `/spdd-generate` (Canvas must be Aligned) |
-| Need a BDD `.feature` file for a new gRPC method | `/spdd-api-test` |
-| Requirements changed | `/spdd-prompt-update` (Canvas first, code second) |
-| Just refactored, no logic change | `/spdd-sync` |
-| Checking what changed between Canvas and code | `/spdd-sync` (read-only diff mode) |
+| Starting a new `feat:` issue | `/lib:spdd-analysis` → `/lib:spdd-story` → `/lib:spdd-canvas` |
+| Before committing any Canvas | `/lib:spdd-security-review` |
+| Ready to write code | `/lib:spdd-generate` (Canvas must be Aligned) |
+| Need a BDD `.feature` file for a new gRPC method | `/lib:spdd-api-test` |
+| Requirements changed | `/lib:spdd-prompt-update` (Canvas first, code second) |
+| Just refactored, no logic change | `/lib:spdd-sync` |
+| Checking what changed between Canvas and code | `/lib:spdd-sync` (read-only diff mode) |
 
 ---
 

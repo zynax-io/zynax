@@ -83,20 +83,31 @@ Tiers (ADR-016): BDD at gRPC boundaries (`protos/tests/`), unit ≥ 90% on `inte
 ## SPDD — feat: PR Workflow
 
 Every `feat:` PR **requires a REASONS Canvas committed before any implementation code.**
-This is enforced by ADR-019 and `/spdd-generate` will refuse to run from an unaligned Canvas.
+This is enforced by ADR-019 and `/lib:spdd-generate` will refuse to run from an unaligned Canvas.
 
 **Prompt-first rule:** requirements change → update Canvas → then patch code. Never the reverse.
 
+You normally drive this through two verbs — `/plan` runs the whole pipeline and aligns the Canvas;
+`/deliver` generates from an Aligned Canvas one step at a time (full command map:
+`.claude/commands/README.md`):
+
 ```
-/spdd-analysis <issue>          → research: codebase scan, ADRs, risk table, Tier 2 flags
-/spdd-story <issue>             → decompose into INVEST stories (maps to Canvas O section)
-/spdd-reasons-canvas <issue>    → generate docs/spdd/<issue>-<slug>/canvas.md (status: Draft)
-/spdd-security-review <canvas>  → Tier 2 scan, injection check — must PASS before commit
+/plan <issue|epic|"prompt">   → analysis → story → canvas → security-review, then align + link issues↔canvas
 [human reviews and sets status: Aligned]
-/spdd-generate <canvas>         → implement one Operations step; stop; wait for review
-/spdd-prompt-update <canvas>    → requirements changed: update Canvas first, resets to Draft
-/spdd-sync <canvas>             → after a refactor: sync Canvas to implementation reality
-/spdd-api-test <canvas>         → generate BDD .feature file for a new gRPC boundary
+/deliver <issue|epic|canvas>  → implement one Operations step; PR → CI → squash-merge → post-merge verify
+```
+
+The `/lib:spdd-*` building blocks the verbs call (invoke directly only for fine-grained control):
+
+```
+/lib:spdd-analysis <issue>        → research: codebase scan, ADRs, risk table, Tier 2 flags
+/lib:spdd-story <issue>           → decompose into INVEST stories (maps to Canvas O section)
+/lib:spdd-canvas <issue>          → generate docs/spdd/<issue>-<slug>/canvas.md (status: Draft)
+/lib:spdd-security-review <canvas> → Tier 2 scan, injection check — must PASS before commit
+/lib:spdd-generate <canvas>       → implement one Operations step; stop; wait for review
+/lib:spdd-prompt-update <canvas>  → requirements changed: update Canvas first, resets to Draft
+/lib:spdd-sync <canvas>           → after a refactor: sync Canvas to implementation reality
+/lib:spdd-api-test <canvas>       → generate BDD .feature file for a new gRPC boundary
 ```
 
 Canvas is **Tier 1 only** (public-safe). Move sensitive context to `canvas.private.md` (gitignored).
