@@ -162,6 +162,22 @@ func (r *statusRecorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
+// Flush forwards to the underlying ResponseWriter's Flusher so streaming
+// endpoints (GET /workflows/{id}/logs SSE) still work behind this wrapper.
+// Without it, the wrapper hides the embedded Flusher and the logs handler's
+// w.(http.Flusher) assertion fails with HTTP 500 "streaming not supported".
+func (r *statusRecorder) Flush() {
+	if f, ok := r.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap exposes the wrapped ResponseWriter to http.ResponseController so the
+// logs handler can reset the write deadline for long-running streams.
+func (r *statusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}
+
 func maxBodyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB

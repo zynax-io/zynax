@@ -70,6 +70,33 @@ func TestMetricsHTTPMiddlewareRecordsRED(t *testing.T) {
 	}
 }
 
+// TestMetricsHTTPMiddlewarePreservesFlusher guards the fix for #1373: the
+// statusRecorder wrapper must forward http.Flusher so SSE streaming endpoints
+// behind this middleware keep working instead of 500-ing.
+func TestMetricsHTTPMiddlewarePreservesFlusher(t *testing.T) {
+	sawFlusher := false
+	mw := MetricsHTTPMiddleware("flush-svc", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		f, ok := w.(http.Flusher)
+		sawFlusher = ok
+		if ok {
+			w.WriteHeader(http.StatusOK)
+			f.Flush()
+		}
+	}))
+	srv := httptest.NewServer(mw)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/stream")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	_ = resp.Body.Close()
+
+	if !sawFlusher {
+		t.Error("handler behind MetricsHTTPMiddleware did not see an http.Flusher")
+	}
+}
+
 func TestMetricsExposesExemplarInOpenMetrics(t *testing.T) {
 	const trace32 = "fedcba9876543210fedcba9876543210"
 	interceptor := MetricsUnaryInterceptor("exemplar-svc")

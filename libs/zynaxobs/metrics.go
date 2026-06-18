@@ -207,3 +207,19 @@ func (s *statusRecorder) Write(b []byte) (int, error) {
 	//nolint:wrapcheck // transparent ResponseWriter passthrough; the error must reach the caller unwrapped
 	return s.ResponseWriter.Write(b)
 }
+
+// Flush forwards to the underlying ResponseWriter's Flusher so server-sent-event
+// streams (e.g. the api-gateway logs endpoint) keep working behind this RED-metrics
+// wrapper. Without it the embedded Flusher is hidden and a downstream
+// w.(http.Flusher) assertion fails.
+func (s *statusRecorder) Flush() {
+	if f, ok := s.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap exposes the wrapped ResponseWriter to http.ResponseController so callers
+// can adjust deadlines on streaming connections.
+func (s *statusRecorder) Unwrap() http.ResponseWriter {
+	return s.ResponseWriter
+}
