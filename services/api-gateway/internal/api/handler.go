@@ -34,15 +34,17 @@ func NewHandler(svc *domain.ApplyService, apiKey string) *Handler {
 // RegisterRoutes registers all HTTP routes on mux. Requires Go 1.22+ ServeMux.
 // Mutating endpoints (POST, DELETE) are protected by bearer-token auth when
 // ZYNAX_API_KEY is set; read-only endpoints (GET) are always open.
-// POST /api/v1/apply is additionally protected by a per-IP token-bucket rate
-// limiter (see ratelimit.go); parameters are configured via RATE_LIMIT_RPS and
+// The mutating POST endpoints /api/v1/apply and /api/v1/workflows/{id}/events
+// are additionally protected by a per-IP token-bucket rate limiter (see
+// ratelimit.go); parameters are configured via RATE_LIMIT_RPS and
 // RATE_LIMIT_BURST environment variables.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	rl := newIPRateLimiter()
 	applyHandler := rl.Middleware(http.HandlerFunc(requireBearer(h.apiKey, h.handleApply)))
 	mux.Handle("POST /api/v1/apply", applyHandler)
 	mux.HandleFunc("GET /api/v1/workflows/{id}/logs", h.handleWorkflowLogs)
-	mux.HandleFunc("POST /api/v1/workflows/{id}/events", requireBearer(h.apiKey, h.handlePublishEvent))
+	eventsHandler := rl.Middleware(http.HandlerFunc(requireBearer(h.apiKey, h.handlePublishEvent)))
+	mux.Handle("POST /api/v1/workflows/{id}/events", eventsHandler)
 	mux.HandleFunc("GET /api/v1/workflows/{id}", h.handleGetWorkflow)
 	mux.HandleFunc("DELETE /api/v1/workflows/{id}", requireBearer(h.apiKey, h.handleDeleteWorkflow))
 }
