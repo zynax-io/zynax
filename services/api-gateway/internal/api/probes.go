@@ -3,10 +3,15 @@
 package api
 
 import (
+	"io"
 	"net/http"
 	"sync/atomic"
 	"time"
 )
+
+// healthzBody is the JSON payload returned by /healthz on a 200 response so the
+// documented quickstart `curl` step shows a meaningful result.
+const healthzBody = `{"status":"ok"}`
 
 // Probes holds shared atomic state for the three K8s probe endpoints.
 // All methods are safe for concurrent use without additional locking.
@@ -67,12 +72,28 @@ func (p *Probes) HandleLivez(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// HandleHealthz is the backward-compatible /healthz endpoint. It applies the
+// same liveness semantics as HandleLivez (503 when work has gone stale) but, on
+// the 200 path, writes a small JSON body so the documented quickstart `curl`
+// step shows a meaningful result. Health semantics are unchanged — no new
+// dependency checks are performed.
+func (p *Probes) HandleHealthz(w http.ResponseWriter, _ *http.Request) {
+	last := p.lastWorkNs.Load()
+	if last != 0 && time.Now().UnixNano()-last > p.thresholdNs {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.WriteString(w, healthzBody)
+}
+
 // Register mounts the three probe handlers plus a backward-compatible /healthz
-// alias onto mux. All paths use method-scoped routing (GET only).
+// endpoint onto mux. All paths use method-scoped routing (GET only).
 func (p *Probes) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /startupz", p.HandleStartupz)
 	mux.HandleFunc("GET /readyz", p.HandleReadyz)
 	mux.HandleFunc("GET /livez", p.HandleLivez)
 	// /healthz retained for backward compatibility with existing orchestration.
-	mux.HandleFunc("GET /healthz", p.HandleLivez)
+	mux.HandleFunc("GET /healthz", p.HandleHealthz)
 }

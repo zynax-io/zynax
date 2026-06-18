@@ -81,3 +81,37 @@ func TestProbes_Livez_Stale_Work(t *testing.T) {
 		t.Fatalf("want 503, got %d", got)
 	}
 }
+
+// ── /healthz ──────────────────────────────────────────────────────────────────
+
+func TestProbes_Healthz_OK_Body(t *testing.T) {
+	p := api.NewProbes(60, alwaysReady)
+	rec := httptest.NewRecorder()
+	p.HandleHealthz(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("want Content-Type application/json, got %q", ct)
+	}
+	if body := rec.Body.String(); body != `{"status":"ok"}` {
+		t.Fatalf("want body %q, got %q", `{"status":"ok"}`, body)
+	}
+}
+
+func TestProbes_Healthz_Stale_Work(t *testing.T) {
+	// Health semantics unchanged: stale work still returns 503 with no body.
+	p := api.NewProbes(0, alwaysReady)
+	p.RecordWork()
+	time.Sleep(time.Millisecond)
+	rec := httptest.NewRecorder()
+	p.HandleHealthz(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("want 503, got %d", rec.Code)
+	}
+	if body := rec.Body.String(); body != "" {
+		t.Fatalf("want empty body on 503, got %q", body)
+	}
+}
