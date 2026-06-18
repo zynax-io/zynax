@@ -249,7 +249,10 @@ func buildTemporalEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.Clien
 		Interceptors: []interceptor.WorkerInterceptor{tracingInterceptor},
 	})
 	w.RegisterWorkflow(infrastructure.IRInterpreterWorkflow)
-	w.RegisterActivity(dispatcher.DispatchCapabilityActivity)
+	// Register the infrastructure wrapper, not the bare domain method, so a
+	// codes.NotFound dispatch failure (no agent for the capability) is reclassified
+	// as a non-retryable Temporal ApplicationError and fails the workflow fast (#1381).
+	w.RegisterActivity(infrastructure.NewDispatchActivity(dispatcher).DispatchCapabilityActivity)
 	w.RegisterActivity(activityWorker.PublishLifecycleEventActivity)
 
 	if err := w.Start(); err != nil {
