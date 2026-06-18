@@ -115,3 +115,18 @@ domain: spdd-canvas · two ADR-proposal stories (ADR-031 context propagation; AD
 ### Proposed expert prompt update
 - Rule: For ADR-proposal / docs issues, before claiming a branch or writing, glob `docs/adr/ADR-<N>*` AND grep the number in INDEX.md. If the file exists, diff its content against each acceptance-criterion clause: close as completed (with file+commit reference) if every AC is met; otherwise enhance only the gaps. Never create a second numbered ADR or a no-op PR.
   Category: domain
+
+## Session — 2026-06-18 (EPIC #1370 — SPDD pipeline run)
+
+### Effective patterns
+- **Don't duplicate stories.** When an epic already has child issues, `/spdd-story` must reconcile/validate them against INVEST and link the canvas — not create a second set. Guard added to the command (#1383).
+- Map every canvas Operations step 1:1 to an existing story issue (`#`) and back-link the canvas path + step into each issue, so the set is orchestrate-ready (`spdd: canvas` on the epic, `status: ready` on stories).
+
+### Edge cases discovered
+- The gitleaks `internal-hostname` rule BLOCKs a canvas commit that references a **filename** containing a dotted `local`/`internal`/`corp` label (a project artifact name, not a hostname). Rename the artifact to drop the segment at authoring time — moving it to `canvas.private.md` doesn't help because the artifact still ships. Guards added to spdd-reasons-canvas + spdd-security-review (#1383).
+- Re-applying the same manifest reuses the **same `run_id`** — deterministic `ManifestWorkflowID` (ADR-034), by design, not a bug. A closed run restarts under a fresh Temporal RunID with the same WorkflowID.
+
+### Proposed expert prompt update
+- Rule: Before `/spdd-story` creates issues, check the epic for existing children and reconcile instead of duplicating; never reference a filename with a dotted `local`/`internal`/`corp` segment in a committed Canvas (gitleaks `internal-hostname` BLOCK) — rename the artifact.
+  Category: structural-workaround
+  Reason: Both traps silently break the SPDD ceremony; encoding them prevents the next run from hitting them.

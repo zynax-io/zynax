@@ -144,3 +144,12 @@ Story: O.7 — local Uptrace docker-compose observability stack (Uptrace + Click
 - Rule: The shared OTEL package is `libs/zynaxobs`; the OTLP exporter endpoint env var is `ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT`. Any collector/OTLP wiring must match this name.
   Category: domain
   Reason: Permanent naming fact other observability stories (O.8 Helm chart, O.9 logs) will need.
+
+## Session — 2026-06-18 (EPIC #1370 — bundled local LLM for the quickstart)
+
+### Effective patterns
+- Zero-cost local LLM in compose: add an `ollama` service **inside** the compose network (never expose it on the host LAN), and reuse host-pulled models via a **read-only** bind mount of the models dir into `/root/.ollama/models` — no multi-GB re-download. Mount only the `models` subdir RO so the container keeps a writable `/root/.ollama` for its startup keypair. Parameterise the host path (`OLLAMA_HOST_MODELS`).
+- Reaching a host daemon bound to loopback from a container is undesirable (binding it to all interfaces exposes it to the LAN). Prefer bundling the dependency in-network over reconfiguring the host daemon.
+
+### Edge cases discovered
+- A fresh `make run-local` silently leaves git/ci/llm adapters `Exited(1)` for missing `GITHUB_TOKEN`/`OPENAI_API_KEY`; only the langgraph `echo` capability works out of the box (#1375). `zynax logs` streaming returns HTTP 500 `streaming not supported` against the compose api-gateway (#1373).
