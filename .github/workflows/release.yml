@@ -133,6 +133,16 @@ jobs:
         if: steps.pr.outputs.promote == 'true'
         uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
+      # zynax-ci performs the images.yaml digest upsert (replaces the former
+      # scripts/update_image_digest.py). Built from source — the retag job
+      # checks out main, so cmd/zynax-ci is present.
+      - name: Set up Go
+        if: steps.pr.outputs.promote == 'true'
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: cmd/zynax-ci/go.mod
+          cache-dependency-path: cmd/zynax-ci/go.sum
+
       # The promotion is RESTARTABLE end-to-end (P9): every phase derives its
       # state from the registry, never from a previous attempt's scratch
       # files. A single GHCR i/o timeout killed a 12-image promotion mid-loop
@@ -211,8 +221,9 @@ jobs:
           PR_SHA: ${{ steps.pr.outputs.pr_sha }}
         run: |
           set -euo pipefail
+          (cd cmd/zynax-ci && GOWORK=off go build -o "${RUNNER_TEMP}/zynax-ci" .)
           while read -r svc digest; do
-            python3 scripts/update_image_digest.py \
+            "${RUNNER_TEMP}/zynax-ci" images digest-update --root "${GITHUB_WORKSPACE}" \
               --name "${svc}" --ref "${IMAGE_PREFIX}/${svc}" --digest "${digest}"
           done < /tmp/promoted.txt
           if git diff --quiet -- images/images.yaml; then

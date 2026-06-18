@@ -288,8 +288,9 @@ jobs:
           DIGEST: ${{ steps.create-ci-runner-manifest.outputs.digest }}
         run: |
           set -euo pipefail
-          python3 scripts/update_image_digest.py --name ci-runner \
-            --ref ghcr.io/zynax-io/zynax/ci-runner --digest "${DIGEST}"
+          (cd cmd/zynax-ci && GOWORK=off go run . images digest-update \
+            --root "${GITHUB_WORKSPACE}" --name ci-runner \
+            --ref ghcr.io/zynax-io/zynax/ci-runner --digest "${DIGEST}")
           (cd cmd/zynax-ci && GOWORK=off go run . images sync --root "${GITHUB_WORKSPACE}")
           if git diff --quiet; then
             echo "✅ ci-runner digest already current — nothing to commit (idempotent re-run)."

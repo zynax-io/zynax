@@ -457,3 +457,52 @@ func TestRunImagesCheck_RealRepo(t *testing.T) {
 		t.Errorf("real repo should pass images check: %v", err)
 	}
 }
+
+func resetDigestFlags() {
+	imagesRoot = "."
+	digestName, digestRef, digestDigest = "", "", ""
+}
+
+func TestRunImagesDigestUpdate_UpdatesExisting(t *testing.T) {
+	root := writeImagesRepo(t, goodDigest+"\n")
+	imagesRoot, digestName, digestRef, digestDigest = root, "myimage", "", staleDigest
+	defer resetDigestFlags()
+	if err := runImagesDigestUpdate(fakeCmd(t), nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got, _ := os.ReadFile(filepath.Join(root, "images", "images.yaml")) //nolint:gosec
+	if !strings.Contains(string(got), staleDigest) {
+		t.Errorf("digest not updated:\n%s", got)
+	}
+}
+
+func TestRunImagesDigestUpdate_AddsNewEntry(t *testing.T) {
+	root := writeImagesRepo(t, goodDigest+"\n")
+	imagesRoot, digestName, digestRef, digestDigest = root, "newimage", "example.com/newimage", staleDigest
+	defer resetDigestFlags()
+	if err := runImagesDigestUpdate(fakeCmd(t), nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got, _ := os.ReadFile(filepath.Join(root, "images", "images.yaml")) //nolint:gosec
+	if !strings.Contains(string(got), "- name: newimage") {
+		t.Errorf("new entry not appended:\n%s", got)
+	}
+}
+
+func TestRunImagesDigestUpdate_InvalidDigest(t *testing.T) {
+	root := writeImagesRepo(t, goodDigest+"\n")
+	imagesRoot, digestName, digestRef, digestDigest = root, "myimage", "", "not-a-digest"
+	defer resetDigestFlags()
+	if err := runImagesDigestUpdate(fakeCmd(t), nil); err == nil {
+		t.Error("expected error for invalid digest")
+	}
+}
+
+func TestRunImagesDigestUpdate_NewEntryWithoutRef(t *testing.T) {
+	root := writeImagesRepo(t, goodDigest+"\n")
+	imagesRoot, digestName, digestRef, digestDigest = root, "newimage", "", staleDigest
+	defer resetDigestFlags()
+	if err := runImagesDigestUpdate(fakeCmd(t), nil); err == nil {
+		t.Error("expected error for new entry without --ref")
+	}
+}
