@@ -40,8 +40,16 @@ See `agent-def.yaml.example` for the full schema. Key fields:
 | `provider.ollama_base_url` | ✓ if ollama | — | Ollama REST base URL, e.g. `http://ollama:11434`. |
 | `provider.region` | ✓ if bedrock | — | AWS region for the Bedrock endpoint. |
 | `provider.max_tokens` | — | `4096` | Maximum token ceiling enforced before calling the provider. |
-| `endpoint` | ✓ | `:50070` | gRPC address the adapter's server binds to. |
+| `endpoint` | ✓ | `:50070` | gRPC address the adapter's server **binds** to (`net.Listen`). A hostless value like `:50070` binds all interfaces but is not routable. |
+| `advertise_endpoint` | ✓ if `endpoint` is hostless | falls back to `endpoint` | Routable gRPC address **advertised** to the registry and dialled by the task-broker, e.g. `llm-adapter:50070`. Mirrors the langgraph-adapter `ADAPTER_ENDPOINT` split. |
 | `registry_endpoint` | ✓ | — | agent-registry gRPC address, e.g. `agent-registry:50052`. |
+
+> **Bind vs advertise (issue #1371):** the address the server binds to and the
+> address advertised to the registry are distinct. A hostless `endpoint: :50070`
+> binds fine but, if advertised verbatim, makes the broker dial `localhost` and
+> fail. Always set `advertise_endpoint` to the service DNS name / pod IP in any
+> multi-container or K8s deployment. Config load fails fast if `endpoint` is
+> hostless and `advertise_endpoint` is unset.
 
 The API-key value is resolved at startup from the named env var and is never stored in
 config, repr, logs, or error messages.

@@ -9,7 +9,14 @@
 agent_id: llm-adapter
 name: LLM Adapter
 description: Wraps OpenAI / Bedrock / Ollama chat completions as Zynax capabilities.
+# endpoint is the address the gRPC server BINDS to (all interfaces on 50070).
 endpoint: :50070
+# advertise_endpoint is the ROUTABLE address the task-broker dials. It must
+# resolve from the broker's network (service DNS name / pod IP) — a hostless
+# bind address like ":50070" advertised verbatim makes the broker dial
+# localhost and fail (issue #1371). Defaults to endpoint only if endpoint
+# carries an explicit host.
+advertise_endpoint: llm-adapter:50070
 registry_endpoint: agent-registry:50052
 
 provider:
