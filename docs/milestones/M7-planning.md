@@ -3,7 +3,10 @@
 # Zynax M7 — Usable Workflows + Observability Planning
 
 > **Target version:** v0.6.0 · **GitHub milestone:** #7 (`Usable Workflows + Observability (M7)`)
-> **Status:** Active (opened 2026-06-15) · **Last updated:** 2026-06-17 (truth-pass: milestone renamed
+> **Status:** Active (opened 2026-06-15) · **Last updated:** 2026-06-19 (truth-pass: ~115 closed / ~10 open,
+> ~92% done; **EPIC #1370 M7.K — First-run UX cluster delivered** — 11 stories merged via PRs #1431–#1441,
+> canvas `docs/spdd/1370-awesome-quickstart/canvas.md` → Implemented (core path); remaining #1359→M-dx and
+> #1385/#1387 own-canvas, hero asciinema cast a human follow-up. Earlier 2026-06-17 pass: milestone renamed
 > "Full Observability" → "Usable Workflows + Observability", verified review `docs/reviews/06` committed,
 > all 12 EPIC canvases Aligned, EPIC-letter scheme reconciled #467→O/#469→R; see
 > [§4a Delivery Progress](#4a--delivery-progress-live-issue-state); the 2026-06-16 pass marked
@@ -279,7 +282,8 @@ Do **not** front-load O.7 #1190 / O.8 #1191 — they depend on O.2 #1185.
 
 ## 5 — EPIC Decomposition (M7)
 
-Ten EPICs. Three pre-exist on GitHub (#467/#468/#469) and are **absorbed/extended** rather than
+Ten original EPICs plus the **first-run UX closeout EPIC K** (#1370, added in the 2026-06-18 reframe).
+Three pre-exist on GitHub (#467/#468/#469) and are **absorbed/extended** rather than
 duplicated. New EPICs are created by this plan ([§10](#10--github-bootstrap)).
 
 | EPIC | Title | Type | GitHub issue | Primary area |
@@ -294,6 +298,7 @@ duplicated. New EPICs are created by this plan ([§10](#10--github-bootstrap)).
 | **R** | Test rigor: benchmarks, fuzz, integration/e2e gates | test | absorbs **#469** (+#553 #493 #1103) | ci, multiple |
 | **Q** | Quality & supply-chain fixes (audit closeout) | chore/ci | **#1172** (new) | ci, infra, docs |
 | **D** | Docs: quick-start + authoring + observability | docs | **#1173** (new) | docs |
+| **K** | First-run User Experience — zero-secret Ollama quickstart (✅ core path delivered) | feat | **#1370** (reframe 2026-06-18) | api-gateway, engine-adapter, adapters, cli, spec, infra, docs |
 
 > EPIC issues created 2026-06-15 (W/C/G/X/T/Q/D = #1167–#1173). Pre-existing #467/#468/#469
 > annotated to point at canvases O/L/R. Story issues are created per-EPIC via `/spdd-story`

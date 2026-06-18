@@ -3,7 +3,7 @@
 **Issue:** #1370
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-18
-**Status:** Aligned (v1.1 — reframed 2026-06-18)
+**Status:** Implemented (core path) — 14 of 17 Operations steps merged 2026-06-18/19 (PRs #1431–#1441); #1359 deferred to M-dx and #1385/#1387 require their own REASONS Canvas (ADR-019); hero asciinema cast is a human follow-up.
 **Aligned:** 2026-06-18 (maintainer-authorized; grounded in the 2026-06-18 live validation run)
 **Reframed:** 2026-06-18 — expanded from "awesome quickstart" into the canonical **first-run User
 Experience** epic per [docs/product/2026-06-18-ux-roadmap-realignment.md](../../product/2026-06-18-ux-roadmap-realignment.md).

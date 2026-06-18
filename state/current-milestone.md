@@ -38,7 +38,7 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 **Uptrace**), watches it execute state→state with **data-flow**, **streamed logs**, and a connected
 **distributed trace** in the Uptrace login UI — with green `make ci`.
 
-### EPICs (12) — one REASONS Canvas each under `docs/spdd/<letter>-<slug>/`
+### EPICs (13) — one REASONS Canvas each under `docs/spdd/<letter>-<slug>/`
 | EPIC | Title | Type | Canvas |
 |------|-------|------|--------|
 | W | Workflow data-flow (output/input bindings) — **keystone** | feat | [W](../docs/spdd/1167-workflow-data-flow/canvas.md) |
@@ -53,15 +53,27 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 | D | Docs — quick-start · authoring · observability | docs | [D](../docs/spdd/1173-docs/canvas.md) |
 | P | Port `llm-adapter` to Go (language-boundary cleanup, ADR-035) | refactor | [P](../docs/spdd/1276-llm-adapter-go/canvas.md) |
 | S | Consolidate CI bash into the `zynax-ci` Go CLI (ADR-036) | ci | [S](../docs/spdd/1285-ci-bash-to-go/canvas.md) |
+| K | First-run User Experience — zero-secret Ollama quickstart (clone → one command → result) | feat | [K](../docs/spdd/1370-awesome-quickstart/canvas.md) |
 
 Pre-existing M7 EPICs #467 (OTel) / #468 (history streaming) / #469 (test rigor) are **absorbed** into
 O / L / R respectively — and their issue titles were aligned to that scheme 2026-06-17
 (#467 → M7.O, #469 → M7.R, #553 backref) to resolve the duplicate `M7.C` label with #1168.
 New ADRs: ADR-029…034 (Proposed).
 
-**Delivery (as of 2026-06-17, mid-orchestration):** GitHub milestone #7 — **~57 closed / ~34 open**
-(active /milestone-orchestrate drain in progress). **EPICs O (#467), X (#1170), Q (#1172) COMPLETE
-and closed**; canvases Implemented. Delivered this session (2-agent batches after a host-OOM
+**Delivery (as of 2026-06-19):** GitHub milestone #7 — **~115 closed / ~10 open (~92% done)**.
+
+**EPIC #1370 (M7.K — First-run User Experience) cluster DELIVERED 2026-06-18/19:** 11 stories merged
+via PRs #1431–#1441 (foundation #1371/#1372/#1380 closed earlier) — api-gateway SSE-logs 500 fix,
+engine-adapter NotFound→non-retryable, zero-secret Ollama overlay, adapters graceful-degradation,
+runnable `code-review-ollama` example, `zynax events publish` + `zynax result` CLI, Qwen2.5-Coder 3B
+default, `make demo`, validation-guide standard, quickstart reconcile. Canvas
+`docs/spdd/1370-awesome-quickstart/canvas.md` → **Implemented (core path)** (14 of 17 O-steps merged).
+**Remaining in #1370:** #1359 (zero-Temporal Day-0 engine — **deferred to M-dx**, needs own canvas/ADR);
+#1385 + #1387 (declarative scenario/context manifests — need their **own** REASONS Canvas per ADR-019);
+the hero asciinema cast (human follow-up, `docs/casts/` placeholder).
+
+Earlier delivery (as of 2026-06-17, mid-orchestration): **EPICs O (#467), X (#1170), Q (#1172) COMPLETE
+and closed**; canvases Implemented. Delivered that session (2-agent batches after a host-OOM
 mitigation): W.4 #1178 (data-flow keystone), C.2 #1194, X.3 #1203 / X.4 #1204 / X.5 #1205,
 L.3 #1182 / L.4 #1183, T.1 #1206 / T.2 #1207 / T.4 #1209, G.3 #1199 / G.4 #1200 / G.5 #1260,
 O.5 #1188 / O.6 #1189 / O.9 #1192, R.2 #1210, P.2 #1278 / P.3 #1279, S.2 #1287, plus #1302.
