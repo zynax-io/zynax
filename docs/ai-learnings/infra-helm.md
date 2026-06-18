@@ -151,5 +151,20 @@ Story: O.7 — local Uptrace docker-compose observability stack (Uptrace + Click
 - Zero-cost local LLM in compose: add an `ollama` service **inside** the compose network (never expose it on the host LAN), and reuse host-pulled models via a **read-only** bind mount of the models dir into `/root/.ollama/models` — no multi-GB re-download. Mount only the `models` subdir RO so the container keeps a writable `/root/.ollama` for its startup keypair. Parameterise the host path (`OLLAMA_HOST_MODELS`).
 - Reaching a host daemon bound to loopback from a container is undesirable (binding it to all interfaces exposes it to the LAN). Prefer bundling the dependency in-network over reconfiguring the host daemon.
 
+## Session — 2026-06-19 (EPIC #1370 — M7 awesome-quickstart cluster)
+
+### #1374 (chore: validate a compose overlay)
+- Compose overlays are NOT covered by `make validate-spec` (which only runs AsyncAPI + capability/workflow/agent-def/policy + expert-mapping). Validate an overlay with `docker compose -f base.yml -f overlay.yml config` (exit 0 + rendered merge) and paste the merged service block as PR Evidence.
+- Keep third-party runtime images (ollama/postgres/nats) as direct refs — only first-party/base images go in `images/images.yaml`.
+
+### #1386 (fix: value inside a bind-mounted config file)
+- For a value living inside a BIND-MOUNTED config file (not a compose `environment:` entry), `docker compose config` will NOT surface it — it shows only the mount. Validate the merge AND `grep` the actual value out of the mounted file as separate evidence.
+- Do NOT add `${ENV:-default}` tokens inside a config file the consuming Go service reads literally (no shell interpolation) — document a one-line file edit instead.
+
+### #1360 (chore: one-command demo Make target)
+- For a one-command demo Make target, prefer `docker compose ... up -d --wait` (Compose-native health gating) over a hand-written poll loop.
+- Keep the apply → capture-`run_id` → result sequence in ONE backslash-continued recipe line with a leading `export ...;` — Make runs each recipe line in a fresh shell, so a captured `run_id` is lost across lines unless joined.
+- `make -n <target>` + `docker compose config` is host-safe validation for a target that would otherwise need a multi-GB live run.
+
 ### Edge cases discovered
 - A fresh `make run-local` silently leaves git/ci/llm adapters `Exited(1)` for missing `GITHUB_TOKEN`/`OPENAI_API_KEY`; only the langgraph `echo` capability works out of the box (#1375). `zynax logs` streaming returns HTTP 500 `streaming not supported` against the compose api-gateway (#1373).

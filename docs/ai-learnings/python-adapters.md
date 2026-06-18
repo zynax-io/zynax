@@ -118,3 +118,10 @@ ADR-proposal docs story with a security dimension (ADR-032 Git MCP shim + auth m
 
 ### Edge cases discovered
 - A `snake_case` capability name (mandated by `agents/adapters/AGENTS.md`) yields the engine-derived completion event `<name>.completed`, which the workflow-compiler **rejects** (event types must be dot-separated lowercase, no underscores). So a `summarize_feedback` capability's completion event can't be referenced in a transition. Filed as #1372.
+
+## Session — 2026-06-19 (EPIC #1370 — M7 awesome-quickstart cluster)
+
+### #1375 (fix: adapter graceful degradation on missing secret)
+- Adapters in `agents/adapters/*` are **Go**, not Python (`cmd/<name>/main.go` + `internal/config`) — build/test with `GOWORK=off go -C <moduledir>` (ADR-017). Don't assume a Python dispatch is Python; locate the module first.
+- For missing-secret graceful degradation: add a typed sentinel in the config package, `errors.Is`-branch in `main` to start + warn + skip registry registration + set health `NOT_SERVING` — keep non-sentinel errors fatal. This turns an `Exited(1)` crash-loop into a started-but-degraded adapter.
+- Pre-empt golangci-lint G706 (slog with config args) and G101 (env-var-NAME string literals) with `//nolint:gosec` matching the sibling adapters' existing suppressions.

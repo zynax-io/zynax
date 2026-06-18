@@ -637,3 +637,11 @@ Story: Q.4 — verify + document Go module consumption path (pkg.go.dev). PR #12
 - "CI runs/tests X" ACs: grep the workflow for the loop's SOURCE variable, not just the loop's presence. A `for x in ${{ env.LIST }}` over a hardcoded-empty `LIST` is a silently-inert gate (green but covers nothing — same class as a skipped required check). Fix with in-job discovery: an `id:` step writing `agents=<glob>` to `$GITHUB_OUTPUT`, consumed as `${{ steps.<id>.outputs.agents }}`, mirroring the Makefile's `$(shell find …)` glob so make and CI never diverge.
 - actionlint runs shellcheck and exits 1 on warnings; distinguish NEW from baseline by running against `git show origin/main:<file>`. Prefer a shell-glob `for dir in agents/examples/*/` over `find|xargs basename` (avoids SC2038).
 - A `.github/workflows/`-only PR does NOT trigger the python/go lint/test lanes (changes-filter path is `^agents/`), so they show "skipping" and the effect lands on the next matching PR — note this in the PR body.
+
+## Session — 2026-06-19 (EPIC #1370 — M7 awesome-quickstart cluster)
+
+### #1379 (docs: reconcile CLI claims with the live surface)
+- Before editing docs that claim a CLI command/flag does NOT exist, confirm against source twice: grep the cobra `Use:` strings AND run `GOWORK=off go -C cmd/zynax run . --help`. Issue bodies describing the CLI surface go stale fast as intervening PRs merge — reconcile to the live surface, do not blindly delete real commands.
+
+### Cross-cutting (structural)
+- On this repo's fast-moving main (up-to-date required, no merge queue), after the final rebase + force-push run `gh pr merge <PR> --squash --auto` rather than polling-then-merging — armed auto-merge fires the instant the branch is green AND current, avoiding the BEHIND race a manual merge keeps losing. (structural-workaround)

@@ -619,3 +619,15 @@ Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicaliza
 
 ### #1372 (fix: workflow-compiler underscore in event-type)
 - When widening a domain validation regex, first grep the same file for a sibling identifier regex (e.g. `capabilityNameRe`) — Zynax encodes the underscore-surrounded-by-alphanumerics rule once as `(_[a-z0-9]+)*`; reuse that exact sub-pattern instead of `[a-z0-9_]+`, which would wrongly accept leading/trailing/double underscores. The pre-existing test case asserting the bug (`{"underscore", "review_approved", true}`) is the natural regression marker — flip it to `false`. (domain)
+
+## Session — 2026-06-19 (EPIC #1370 — M7 awesome-quickstart cluster)
+
+### #1373 (fix: SSE streaming 500 through middleware chain)
+- A status-capturing `http.ResponseWriter` wrapper (e.g. a `statusRecorder` for metrics/work-tracking) MUST forward `Flush()` (guarded `if f, ok := w.(http.Flusher); ok`) and expose `Unwrap() http.ResponseWriter`, or any SSE/streaming handler asserting `w.(http.Flusher)` 500s with "streaming not supported". Two such wrappers existed (`libs/zynaxobs` + `cmd/api-gateway`) — fix both. Tests must exercise the full middleware chain, not the bare mux: httptest's writer is already a Flusher and hides the bug. (domain)
+
+### #1381 (fix: non-retryable NotFound dispatch error in Temporal)
+- Make a gRPC `codes.NotFound` dispatch error non-retryable in Temporal by wrapping it at the INFRA activity boundary as `temporal.NewNonRetryableApplicationError(..., "ErrCapabilityNotFound", err)` — the RetryPolicy already listed that type in `NonRetryableErrorTypes` but nothing produced it. This keeps the domain layer Temporal-free (ADR-015). `//nolint:wrapcheck` the sentinel constructor — re-wrapping it breaks Temporal's `errors.As` classification. (domain)
+
+### #1377 / #1378 (chore: surface payload field in CLI; add domain port method)
+- Adding a method to an existing domain port interface breaks ALL its test doubles, including BDD `tests/steps_test.go` fakes — grep the module for implementers and add the method to every stub in the SAME commit, or the module fails to build with "does not implement <Port>". (domain)
+- For "surface X in the CLI" issues, trace the payload end-to-end first (producer → event/REST field → CLI struct); often no proto change is needed because the carrier is an opaque `CloudEvent.data []byte` — add a JSON field at the producer plus a render line at the CLI. (domain)
