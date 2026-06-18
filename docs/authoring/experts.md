@@ -183,7 +183,7 @@ for authors:
 
 ### Drift guard (CI)
 
-`automation/scripts/check_expert_mapping.py` enforces three ADR-033 rules:
+`zynax-ci check expert-mapping` enforces three ADR-033 rules:
 
 1. **Declared mapping is mandatory** — every authoring expert appears in the
    mapping file with a non-empty `runtime_mapping`.
