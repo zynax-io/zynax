@@ -5,6 +5,12 @@ labels: ["type: docs", "status: needs-triage"]
 assignees: ''
 ---
 
+## The one question this answers
+
+> _One sentence: what will a reader be able to understand or do once this doc is fixed?_
+
+---
+
 ## What document is affected?
 
 File path(s) or section:
@@ -30,9 +36,11 @@ If you are not sure, just describe the problem and let a maintainer fix it.
 
 ---
 
-## Why Does This Matter?
+## Why Does This Matter? (impact)
 
-Who is confused or blocked by this gap? What are they trying to accomplish?
+Who is confused or blocked by this gap? What are they trying to accomplish? Which adoption
+lever does fixing it move — a smoother first-run for users, an enterprise/operator unblock,
+or CNCF/community credibility?
 
 ---
 

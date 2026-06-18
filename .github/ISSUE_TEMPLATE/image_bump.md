@@ -19,6 +19,11 @@ image outside of the normal workflow.
 **New digest:** `sha256:<replace-me>`
 **Built by:** (workflow run URL)
 
+> **The one question this answers:** is the toolchain everyone builds against current and pinned?
+> **Why it matters:** a fresh, pinned digest keeps CI **reproducible** and the **supply chain**
+> current (ADR-024/025) — the boring-but-load-bearing trust signal for maintainers, enterprises,
+> and CNCF supply-chain review. Drift here silently breaks builds and erodes that trust.
+
 ---
 
 ## Steps

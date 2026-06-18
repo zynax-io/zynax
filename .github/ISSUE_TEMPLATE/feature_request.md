@@ -14,10 +14,37 @@ Before filing a feature request:
      to explore the idea before filing a formal issue.
 -->
 
+## The one question this story answers
+
+> _One sentence, in the reader's words — the job-to-be-done. A Zynax user should understand
+> the point without repository knowledge. (For a large multi-PR effort, use the **Epic** template.)_
+
+---
+
+## Why it matters (product · adoption)
+
+- **For the Zynax user / adopter:** <the observable value this story delivers>
+- **Adoption angle:** <which lever — individual users · enterprises · CNCF interest · community>
+- **Cost of not doing it:** <what stays broken / who stays blocked>
+
+---
+
 ## Problem / Motivation
 
 What problem are you trying to solve? Who has this problem and in what context?
 Be specific — avoid "it would be nice if...". Describe the pain point.
+
+---
+
+## Parent epic & links
+
+> Keep the chain linked both ways so nothing is orphaned.
+
+- Parent epic: #…
+- Milestone:
+- REASONS Canvas (if the parent epic has one): `docs/spdd/<epic>-<slug>/canvas.md` — Operations step N
+- RFC / ADR: 
+- Related docs / architecture:
 
 ---
 
@@ -47,17 +74,11 @@ Feature: <feature name>
 
 ---
 
-## Is This an Epic or a Story?
+## Story or Epic?
 
-- [ ] **Story** — single, implementable issue (one PR or a small chain of ≤ 3 PRs)
-- [ ] **Epic** — large feature spanning multiple issues and milestones
-  _(If epic: describe the breakdown into child stories below)_
-
-### Child Stories (if epic)
-
-- [ ] Story 1: ...
-- [ ] Story 2: ...
-- [ ] Story 3: ...
+- [ ] **Story** — single, implementable issue (one PR or a small chain of ≤ 3 PRs). Continue below.
+- [ ] **Epic** — large, multi-PR, multi-story effort → **use the Epic template instead** (it captures
+  child stories, the one-question, and adoption impact at the right altitude).
 
 ---
 
@@ -92,6 +113,17 @@ additional observable criteria here.)
 
 1.
 2.
+
+---
+
+## Manual validation (for user-visible stories)
+
+> A tester unfamiliar with Zynax should be able to execute this and confirm the value.
+> Follow the human-validation standard/template.
+
+- Commands to run / expected output:
+- Troubleshooting & rollback:
+- Feedback questions:
 
 ---
 

@@ -17,6 +17,14 @@ Use this template when:
 For early-stage exploration of an architectural idea, use GitHub Discussions first.
 -->
 
+## The one question this decision answers
+
+> _One sentence: which recurring design question does this settle, so the team stops re-litigating it?_
+> **Why it matters:** the downstream impact on users/operators/adopters and on adoption levers
+> (operability, enterprise trust, CNCF credibility). The full forces go in **Context** below.
+
+---
+
 ## Decision Title
 
 A short noun phrase describing the decision, e.g.:
