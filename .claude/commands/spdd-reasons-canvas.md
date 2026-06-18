@@ -10,6 +10,7 @@ Using the analysis context in the current session (or re-run /spdd-analysis if n
 2. For **N — Norms**: pull directly from the relevant AGENTS.md files (Go services: `docs/patterns/go-service-patterns.md`; Python agents: `docs/patterns/python-agent-guide.md`; etc.)
 3. For **S — Safeguards**: pull from ADRs, architecture invariants in root AGENTS.md, and layer constraints
 4. Every entity in **E** and every step in **O** must be Tier 1 (public-safe) — no internal hostnames, IPs, or credentials
+   - **Avoid `.local` / `.internal` / `.corp` substrings even in committed *filenames/paths*** you reference. The gitleaks `internal-hostname` rule reads a dotted label of the `host` `.` `local` form as a hostname and will BLOCK the canvas commit — so name an overlay `docker-compose.ollama.yml` (drop the `local` segment) and rename such artifacts at authoring time rather than moving them to `canvas.private.md`.
 5. After generating, immediately run /spdd-security-review on the output
 
 ## Canvas Template
