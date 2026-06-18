@@ -282,7 +282,7 @@ Updated:$(echo $COMPOSE_PINS_UPDATED $YAML_PINS_UPDATED | xargs).
 
 ${CLOSE_LINE}
 
-Assisted-by: Claude/claude-sonnet-4-6"
+Assisted-by: Claude/<model>"
 
 git push -u origin "$DIGEST_BRANCH"
 
@@ -293,7 +293,7 @@ DIGEST_PR=$(gh pr create \
   --body "Post-merge digest update triggered by PR #${PR_NUMBER}.
 Updated: $(echo $COMPOSE_PINS_UPDATED $YAML_PINS_UPDATED | xargs).
 Stale closed: ${STALE_ISSUES:-none}. Implements: ${IMPLEMENT_ISSUE:+#$IMPLEMENT_ISSUE}.
-Assisted-by: Claude/claude-sonnet-4-6" | tail -1)
+Assisted-by: Claude/<model>" | tail -1)
 
 gh pr merge "$DIGEST_PR" --squash --auto
 echo "Digest PR: $DIGEST_PR"

@@ -92,7 +92,7 @@ HANDOFF to git-ops:
 
     Closes #<N>
 
-    Assisted-by: Claude/claude-sonnet-4-6
+    Assisted-by: Claude/<model>
   pr_title:     <title ≤ 72 chars>
   pr_body_file: /tmp/pr-body-<N>.md
   next_step:    COMMIT

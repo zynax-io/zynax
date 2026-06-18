@@ -93,7 +93,7 @@ HANDOFF to git-ops:
 
     Closes #<N> (canvas work only; O-step stories tracked separately)
 
-    Assisted-by: Claude/claude-sonnet-4-6
+    Assisted-by: Claude/<model>
   pr_title:     docs(spdd): REASONS Canvas for EPIC #<N> — <slug>
   pr_body_file: /tmp/pr-body-<N>.md
   next_step:    COMMIT
