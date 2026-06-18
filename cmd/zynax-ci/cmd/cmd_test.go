@@ -546,3 +546,55 @@ func TestRunValidateMilestone_Invalid(t *testing.T) {
 		t.Errorf("expected FAIL output, got: %s", out.String())
 	}
 }
+
+// ── check expert-mapping ──────────────────────────────────────────────────────
+
+func TestRunCheckExpertMapping_RealRepo(t *testing.T) {
+	expertMappingRoot = repoRoot(t)
+	defer func() { expertMappingRoot = "." }()
+	if err := runCheckExpertMapping(fakeCmd(t), nil); err != nil {
+		t.Errorf("live repo expert mapping should reconcile: %v", err)
+	}
+}
+
+func TestRunCheckExpertMapping_Drift(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		p := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// "ghost" is declared in the mapping but has no .claude file and no ADR row.
+	write("automation/experts/runtime_mapping.yaml", "experts:\n  - authoring: ghost\n    runtime_mapping: authoring-only\n")
+	write("docs/adr/ADR-033-expert-agent-substrate.md", "# ADR-033\n(no table rows)\n")
+	if err := os.MkdirAll(filepath.Join(root, "agents", "examples"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".claude", "commands", "experts"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	expertMappingRoot = root
+	defer func() { expertMappingRoot = "." }()
+	var errBuf bytes.Buffer
+	cmd := fakeCmd(t)
+	cmd.SetErr(&errBuf)
+	if err := runCheckExpertMapping(cmd, nil); err == nil {
+		t.Error("expected a drift error")
+	}
+	if !strings.Contains(errBuf.String(), "FAILED (ADR-033)") {
+		t.Errorf("expected FAILED output, got: %s", errBuf.String())
+	}
+}
+
+func TestRunCheckExpertMapping_MissingFile(t *testing.T) {
+	expertMappingRoot = t.TempDir()
+	defer func() { expertMappingRoot = "." }()
+	if err := runCheckExpertMapping(fakeCmd(t), nil); err == nil {
+		t.Error("expected an operational error when the mapping file is absent")
+	}
+}

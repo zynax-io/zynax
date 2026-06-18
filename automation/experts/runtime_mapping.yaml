@@ -11,7 +11,7 @@
 #
 # This file lives OUTSIDE .claude/** on purpose: .claude/** is CODEOWNERS-gated,
 # so the machine-readable mapping is kept here where the drift-guard check
-# (automation/scripts/check_expert_mapping.py) can read every authoring expert
+# (`zynax-ci check expert-mapping`) can read every authoring expert
 # (read-only) and reconcile it against this file, ADR-033's table, and
 # agents/examples/.
 #

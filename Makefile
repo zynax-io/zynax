@@ -411,8 +411,8 @@ validate-policy-schema: ensure-tools ## Validate Policy manifests in spec/workfl
 	$(TOOLS_RUN) zynax-ci validate policies spec/workflows/examples/ --schema-dir spec/schemas
 	@echo "✅ Policy schemas valid"
 
-check-expert-mapping: ensure-tools ## Drift guard: authoring <-> runtime expert mapping (ADR-033)
-	$(TOOLS_RUN) python automation/scripts/check_expert_mapping.py
+check-expert-mapping: ## Drift guard: authoring <-> runtime expert mapping (ADR-033)
+	cd cmd/zynax-ci && GOWORK=off go run . check expert-mapping --root "$(CURDIR)"
 
 validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)
 	# renovate: datasource=docker depName=asyncapi/cli
