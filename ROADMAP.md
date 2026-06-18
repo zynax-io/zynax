@@ -53,8 +53,13 @@ Each roadmap milestone maps to a GitHub Milestone:
 | YAML System + CLI | M4 | v0.3.0 |
 | Adapter Library | M5 | v0.4.0 |
 | K8s Production | M6 | v0.5.0 |
-| Usable Workflows + Observability | M7 | v0.6.0 |
+| Usable Workflows + Observability | M7 (reframed — first-run UX closeout) | v0.6.0 |
+| User Experience | M-UX (forward UX program) | v0.7.0 |
+| Developer Experience | M-dx (contributor / SDK / AI tooling) | v0.8.0 |
 | CNCF Sandbox | M8 | v1.0.0 |
+
+> **UX program (2026-06-18):** the milestone program runs M7 → **M-UX** → M-dx → M8.
+> See [docs/product/2026-06-18-ux-roadmap-realignment.md](docs/product/2026-06-18-ux-roadmap-realignment.md).
 
 ---
 
@@ -209,6 +214,37 @@ distributed trace in the Uptrace UI — with green `make ci`. First of the M7 �
 - [ ] Quality & supply-chain fixes — audit closeout (#1172)
 - [ ] Test rigor — benchmarks, fuzz tests, request correlation (#469)
 - [ ] Quick-start, authoring, and observability docs (#1173)
+
+**First-run UX closeout (reframed 2026-06-18).** M7's remaining work is the **first-run User
+Experience**, owned by the canonical epic **#1370** — *clone (or no-clone) → one command → meaningful
+result → configure your own scenario declaratively (workflow + AgentDef + context injection)* on a
+local model (**Qwen2.5-Coder 3B** default). Absorbs #1359 (Day-0 engine) and #1360 (`make demo`)
+from M-dx. Stories: #1371–#1381, #1385–#1388. Map: [docs/product/2026-06-18-ux-roadmap-realignment.md](docs/product/2026-06-18-ux-roadmap-realignment.md).
+
+---
+
+## Milestone M-UX — User Experience 🆕
+
+**Goal:** The **forward** User-Experience program — experience Zynax's value with **no clone**, with
+intelligent context-loading at scale and a discoverable Documentation Portal.
+
+> Label: GitHub milestone "User Experience (M-UX)" (#10) · Target: v0.7.0
+
+- [ ] No-clone try-it / hosted playground path (epic #1389)
+- [ ] Intelligent context-loading architecture — metadata + required/optional/lazy policy (#1389)
+- [ ] Documentation Portal — Diátaxis restructure (epic #1390)
+
+---
+
+## Milestone M-dx — Developer Experience
+
+**Goal:** Make contributing and building on Zynax delightful — distinct from end-user UX.
+
+> Label: GitHub milestone "Developer Experience (M-dx)" (#9) · Target: v0.8.0
+
+- [ ] Contributor Experience — fast-lane, PR ergonomics, automation (epic #1391)
+- [ ] SDK & Adapter-Author Experience (epic #1392)
+- [ ] AI methodology / KB / technical-excellence (existing #205, #173, #148)
 
 ---
 

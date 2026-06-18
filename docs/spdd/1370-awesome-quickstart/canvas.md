@@ -3,8 +3,12 @@
 **Issue:** #1370
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-18
-**Status:** Aligned
+**Status:** Aligned (v1.1 — reframed 2026-06-18)
 **Aligned:** 2026-06-18 (maintainer-authorized; grounded in the 2026-06-18 live validation run)
+**Reframed:** 2026-06-18 — expanded from "awesome quickstart" into the canonical **first-run User
+Experience** epic per [docs/product/2026-06-18-ux-roadmap-realignment.md](../../product/2026-06-18-ux-roadmap-realignment.md).
+See the Reframe Addendum at the end of this file. New feat: stories #1385 and #1387 (cross a
+spec/gRPC boundary) require their **own** REASONS Canvas before implementation (ADR-019).
 
 ---
 
@@ -161,3 +165,32 @@ QuickstartOverlay ──configures──> Adapter(llm) + LocalModelRuntime
   prefer sanitising the derived name.
 - **Never** weaken authz on the new event-injection path — validate event-type + payload
   and route through EventBusService (ADR-022).
+
+---
+
+## Reframe Addendum (2026-06-18, v1.1)
+
+Per the [UX roadmap realignment](../../product/2026-06-18-ux-roadmap-realignment.md), this epic is
+reframed from "awesome quickstart" into the canonical **first-run User Experience** epic. The
+original R/E/A/S/O/N/S above are preserved; the scope is **expanded** (not replaced).
+
+### Expanded Requirements (added to R)
+- A user goes **clone (or no-clone) → one command → meaningful visible result → guided next actions**,
+  then configures their **own** scenario (workflow + AgentDef + context injection) **declaratively**,
+  with no repository knowledge required.
+- Default demo/validation model is **Qwen2.5-Coder 3B** (configurable).
+- Every user-visible story ships a **human-validation guide**.
+
+### Added Operations steps
+12. **#1360** — one-command `make demo` entry point (verify→prepare→launch→run→result→next→cleanup).
+13. **#1359** — zero-Temporal Day-0 evaluation engine for first contact.
+14. **#1385** — declarative demo-scenario manifest (workflow + AgentDef + context injection) — *own canvas required*.
+15. **#1386** — Qwen2.5-Coder 3B default reference model (configurable).
+16. **#1387** — declarative context-injection for demo scenarios — *own canvas required*.
+17. **#1388** — human-validation guide standard + template.
+
+### Added Safeguards
+- **Never** require a paid API key or any secret on the default first-run path.
+- **Never** accept provider/model/endpoint/URL from `input_payload` — declarative config only (ADR-013).
+- **Never** make the demo non-deterministic or environment-dependent without a documented override.
+
