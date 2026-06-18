@@ -278,7 +278,7 @@ nats, _ := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerR
 })
 ```
 
-*(Applied via /milestone-learn from #818 (Redis) + #828 (NATS).)*
+*(Applied via /learn from #818 (Redis) + #828 (NATS).)*
 
 ---
 

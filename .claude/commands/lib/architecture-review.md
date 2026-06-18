@@ -3,7 +3,7 @@ description: Generate a dated, scored architecture review document grounded in t
 argument-hint: "[--pr] [--since <prev-review-path>]   default: working draft, no PR"
 ---
 
-# /architecture-review — Architecture Review Document Generator
+# /lib:architecture-review — Architecture Review Document Generator
 
 Produce a principal-engineer-grade architecture review as a **dated document**, in the exact
 shape and home of the existing reviews under [docs/architecture/](docs/architecture/) (e.g.
@@ -82,9 +82,9 @@ SPDX header `<!-- SPDX-License-Identifier: Apache-2.0 -->` and use **repo-relati
    `partially-closed` / `open`, with the commit/PR/issue that closed it. (This is what makes the
    series valuable; cf. the post-M6 deltas in [docs/product/strategy.md](docs/product/strategy.md).)
 8. **Prioritized recommendations** — Critical / High, mapped to issues where they exist.
-9. **Gap analysis** — items not yet filed as issues (feed these to `/roadmap-plan`). Annotate
+9. **Gap analysis** — items not yet filed as issues (feed these to `/plan`). Annotate
    each row with **user type(s)** (developer/operator/maintainer/product-owner/zynax-user/
-   enterprise) and an **adoption lever** note, so `/roadmap-plan` files it with the right
+   enterprise) and an **adoption lever** note, so `/plan` files it with the right
    `product:` / `audience:` labels and a complete `## What for (user impact)` block.
 10. **Appendix** — score card table + key file references.
 
@@ -124,4 +124,4 @@ self-merged once CI is green — squash-only. Leave the merge to the human unles
 - **Read-only on the system under review.** Never edit code, ADRs, `AGENTS.md`, or `.feature` files.
 - **One dated doc per run.** Don't overwrite a prior review — the series is the value.
 - Commit (with `--pr`): `docs:` type, DCO `-s`, `Assisted-by: Claude/<model>`, squash-merge, signed; repo-relative links; no literal email; no skip-ci token.
-- Pairs with `/roadmap-plan`: this review's **gap analysis** is exactly the input `/roadmap-plan` mines into issues.
+- Pairs with `/plan`: this review's **gap analysis** is exactly the input `/plan` mines into issues.

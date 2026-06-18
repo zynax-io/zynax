@@ -3,7 +3,9 @@ description: Fully autonomous milestone story delivery — claims issue via GitH
 argument-hint: "<story-or-epic-issue-number>"
 ---
 
-# /issue-deliver — Autonomous Milestone Story Delivery
+# /lib:deliver-one — Autonomous single-story delivery (building block of /deliver)
+
+> **Building block** — invoked by `/deliver <#issue>`, not run directly.\n> **Scope contract:** milestone-agnostic; the caller may pass `--milestone M` as a filter.\n
 
 End-to-end, unattended delivery of a single story issue: claim → canvas (if feat:) → implement →
 local checks → push → PR → wait for CI → verify artifacts → squash-merge → cleanup → done.
@@ -12,8 +14,8 @@ local checks → push → PR → wait for CI → verify artifacts → squash-mer
 > PR-size limits, hexagonal layout, coverage gates, and the SPDD workflow all live in **`AGENTS.md`**
 > and **`CLAUDE.md`**. Read them before starting. This file is the *execution loop only*.
 
-> **Canvas auto-alignment policy.** For `feat:` issues this skill auto-runs `/spdd-analysis`,
-> `/spdd-reasons-canvas`, and `/spdd-security-review`. If the security review PASSes, Status is set
+> **Canvas auto-alignment policy.** For `feat:` issues this skill auto-runs `/lib:spdd-analysis`,
+> `/lib:spdd-canvas`, and `/lib:spdd-security-review`. If the security review PASSes, Status is set
 > to `Aligned` automatically and implementation proceeds. If it **FAILs** (Tier 2 findings that
 > cannot be resolved inline), the skill stops and reports — do not proceed from a failed review.
 
@@ -24,7 +26,7 @@ local checks → push → PR → wait for CI → verify artifacts → squash-mer
 Two layers prevent duplicate work across concurrent sessions on any machine:
 
 1. **Soft claim** — add `status: in-progress` label + self-assign the issue on GitHub (visible
-   immediately to all sessions and to `/milestone-plan`). This is a *signal*, not a lock.
+   immediately to all sessions and to `/deliver`). This is a *signal*, not a lock.
 2. **Hard claim** — push an empty branch to GitHub before writing any code. Only one `git push -u
    origin $BRANCH` wins when two sessions race. A rejected push means the story is taken → stop.
 
@@ -37,7 +39,7 @@ Always check both before starting. Never assume an issue is free just because yo
 ```bash
 # ── Active-milestone config (SSoT: state/milestone.yaml) ────────────────────
 # Loaded at runtime; no milestone name, number, or label is hardcoded in this
-# file. Updated only by /milestone-close and /milestone-new.
+# file. Updated only by /milestone close and /milestone open.
 CFG=state/milestone.yaml
 MILESTONE_NAME=$(awk '/^active:/{f=1} f && /^  name:/{print $2; exit}' "$CFG")
 MILESTONE_TITLE=$(awk -F'"' '/^active:/{f=1} f && /^  title:/{print $2; exit}' "$CFG")
@@ -165,7 +167,7 @@ Go to **STEP 3-EPIC**. Otherwise skip to **STEP 3.5**.
 
 ## STEP 3.5 — Identify expert persona and start activity log
 
-Determine which expert persona applies to this issue (same routing table as `/milestone-orchestrate`):
+Determine which expert persona applies to this issue (same routing table as `/deliver`):
 
 ```bash
 EXPERT_TAG="general"
@@ -300,16 +302,16 @@ if [ -z "$CANVAS_DIR" ] || [ "$CANVAS_STATUS" != "Aligned" ]; then
   echo "Running SPDD pipeline for EPIC #$EPIC_N..."
 
   # Analysis — understand codebase impact, ADR constraints, Tier 2 flags
-  /spdd-analysis "$EPIC_N"
+  /lib:spdd-analysis "$EPIC_N"
 
   # Generate canvas (Status: Draft)
-  /spdd-reasons-canvas "$EPIC_N"
+  /lib:spdd-canvas "$EPIC_N"
 
   CANVAS_DIR=$(ls docs/spdd/ | grep -E "^${EPIC_N}-" | head -1)
   CANVAS_PATH="docs/spdd/$CANVAS_DIR/canvas.md"
 
   # Security review — MUST PASS before auto-alignment
-  REVIEW_RESULT=$(/spdd-security-review "$CANVAS_PATH" 2>&1)
+  REVIEW_RESULT=$(/lib:spdd-security-review "$CANVAS_PATH" 2>&1)
   echo "$REVIEW_RESULT"
   if echo "$REVIEW_RESULT" | grep -qi "FAIL\|Tier 2 finding\|BLOCKED"; then
     echo "Security review FAILED — cannot auto-align. Resolve Tier 2 findings and re-run."
@@ -326,9 +328,9 @@ fi
 # Create story issues if not yet created for this EPIC
 STORY_COUNT=$(gh issue list --milestone "$GH_MILESTONE" --state all \
   --json body --jq "[.[] | select(.body | test(\"#${EPIC_N}\"))] | length")
-[ "$STORY_COUNT" -eq 0 ] && /spdd-story "$EPIC_N"
+[ "$STORY_COUNT" -eq 0 ] && /lib:spdd-story "$EPIC_N"
 
-# Locked decision (#1107): /spdd-story is milestone-agnostic — it applies NO
+# Locked decision (#1107): /lib:spdd-story is milestone-agnostic — it applies NO
 # milestone label. The CALLER (this command) injects the active milestone label
 # and GitHub milestone on every story it just created.
 for STORY in $(gh issue list --state open --limit 100 --json number,body \
@@ -348,7 +350,7 @@ echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CLAIM: creating branch + hard cl
 
 # Deterministic claim key (load-bearing). The branch ref pushed here is a PURE
 # function of the issue number — `<type>/<N>`, with NO slug. This is the SAME ref
-# `/milestone-orchestrate` derives for the same issue, so the two entry points share one
+# `/deliver` derives for the same issue, so the two entry points share one
 # mutex: when two sessions race the same story they push the identical ref and only
 # one `git push` wins. A title-derived slug must NOT be part of the claim key — two
 # sessions could otherwise derive two different branches and both win.
@@ -388,16 +390,16 @@ CURRENT_STEP="6-CODE"; check_ctx_budget
 echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CODE: implementing — reading issue scope and referenced files  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 ```
 
-For `feat:` issues with an Aligned canvas, use `/spdd-generate`:
+For `feat:` issues with an Aligned canvas, use `/lib:spdd-generate`:
 
 ```bash
 if [ "$NEEDS_CANVAS" = "true" ]; then
   CANVAS_PATH="docs/spdd/$CANVAS_DIR/canvas.md"
   # Identify which O-step this story covers (from story title "step N")
   STEP_N=$(echo "$ISSUE_TITLE" | grep -oP '(?<=step )\d+' | head -1)
-  echo "Implementing canvas O-step $STEP_N via /spdd-generate"
-  /spdd-generate "$CANVAS_PATH"
-  # /spdd-generate stops after one O-step — verify it generated the right step
+  echo "Implementing canvas O-step $STEP_N via /lib:spdd-generate"
+  /lib:spdd-generate "$CANVAS_PATH"
+  # /lib:spdd-generate stops after one O-step — verify it generated the right step
 fi
 ```
 
@@ -412,7 +414,7 @@ flags a stale milestone label) and compounds every iteration, so reconcile at de
    `Implemented`/COMPLETE if this was the last open O-step); refresh the "Last updated" line.
 2. `state/current-milestone.md` — update EPIC progress + the "as of" date.
 3. Canvas O-step — mark ✅. **If this issue closed the EPIC's last O-step, flip the canvas
-   `Status:` `Aligned`→`Implemented`.** Run `/spdd-sync <canvas>` if implementation diverged.
+   `Status:` `Aligned`→`Implemented`.** Run `/lib:spdd-sync <canvas>` if implementation diverged.
 4. **Cross-cutting human docs — only when an EPIC completes or a service's status changes:**
    the milestone tables in `README.md`, `ROADMAP.md`, `ARCHITECTURE.md`, `CLAUDE.md`, and the
    README per-service status table. Update the marker (📅 Planned → 🚧 Active → ✅ Complete)
@@ -527,10 +529,10 @@ Closes #${ISSUE_N}
 ### Engineering hygiene
 - [x] Planning-doc row ⬜→✅ in this diff
 - [x] `current-milestone.md` updated in this diff
-- [x] Canvas O-step ✅ (feat:); `/spdd-sync` run if impl diverged · Status Aligned
+- [x] Canvas O-step ✅ (feat:); `/lib:spdd-sync` run if impl diverged · Status Aligned
 - [x] Branched off fresh `origin/main` · PR ≤900 lines · DCO + `Assisted-by` on every commit
 
-<!-- feat: only --> **SPDD:** Canvas `docs/spdd/<EPIC_N>-<slug>/canvas.md` — Status: Aligned · `/spdd-security-review` PASS
+<!-- feat: only --> **SPDD:** Canvas `docs/spdd/<EPIC_N>-<slug>/canvas.md` — Status: Aligned · `/lib:spdd-security-review` PASS
 EOF
 
 # Fill in every <placeholder> with real evidence from STEP 7 output before committing the PR body.
@@ -580,7 +582,7 @@ CURRENT_STEP="10-CI"; check_ctx_budget
 echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CI_WAIT: PR #$PR_N — waiting for required checks  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
 ```
 
-Unlike `/resume-milestone`, this command waits for CI to complete before merging. This is intentional —
+Unlike `/deliver`, this command waits for CI to complete before merging. This is intentional —
 the command's contract is end-to-end autonomous delivery, not a fire-and-forget push.
 
 > **Foreground only — never end the turn here.** The CI wait MUST be a blocking foreground
@@ -774,7 +776,7 @@ PR:          #$PR_N — MERGED
 CI:          All required checks passed ✓
 Artifacts:   $([ "$TOUCHES_IMAGE" -gt 0 ] && echo "Docker images verified ✓" || echo "N/A (no image-touching files)")
 Issue state: CLOSED ✓
-Next:        Run /milestone-plan to see what to pick up next.
+Next:        Run /deliver to see what to pick up next.
 EOF
 
 # Remove the isolated worktree — all work is merged, nothing to keep

@@ -1,4 +1,4 @@
-# /spdd-api-test
+# /lib:spdd-api-test
 
 Generate functional test scripts for a feature based on its REASONS Canvas definition of done.
 

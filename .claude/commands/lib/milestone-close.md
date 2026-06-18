@@ -1,11 +1,11 @@
 ---
-description: Close the active milestone — verify EPICs done, truth-pass docs, signed version tag, GitHub Release, rotate state/milestone.yaml active→history. The only sanctioned writer of milestone.yaml besides /milestone-new.
+description: Close the active milestone — verify EPICs done, truth-pass docs, signed version tag, GitHub Release, rotate state/milestone.yaml active→history. The only sanctioned writer of milestone.yaml besides /milestone open.
 argument-hint: "[--dry-run]  verify + report only, change nothing"
 ---
 
-# /milestone-close — Milestone Lifecycle: Close
+# /milestone close — Milestone Lifecycle: Close
 
-Close the active milestone end-to-end. This command (with `/milestone-new`) is the ONLY
+Close the active milestone end-to-end. This command (with `/milestone open`) is the ONLY
 sanctioned writer of `state/milestone.yaml` — every other command reads it.
 
 > **Destructive surface:** pushes a signed version tag and creates a public GitHub Release.
@@ -54,7 +54,7 @@ If `--dry-run`: print the verification result and STOP here.
 
 ## STEP 2 — Truth-pass all doc surfaces
 
-Run `/repo-clean` (plans first, executes on approval) to reconcile every status surface
+Run `/reconcile` (plans first, executes on approval) to reconcile every status surface
 (README / ROADMAP / ARCHITECTURE / CLAUDE / state / planning doc / canvases) to live GitHub
 state. Do not proceed until its PR is merged.
 
@@ -88,15 +88,15 @@ gh api -X PATCH "repos/{owner}/{repo}/milestones/${MILESTONE_NUMBER}" -f state=c
 Edit `state/milestone.yaml` (this command is a sanctioned writer):
 1. Prepend the active block to `history:` with `released: <today YYYY-MM-DD>`.
 2. Leave `active:` EMPTY of milestone content except a placeholder comment —
-   `/milestone-new` fills it. (If the next milestone is already decided, run
-   `/milestone-new` immediately after and let it write the block.)
+   `/milestone open` fills it. (If the next milestone is already decided, run
+   `/milestone open` immediately after and let it write the block.)
 3. Clear `open_epics`.
 4. Run `make validate-milestone-state` — must pass before committing.
 
 ## STEP 7 — Update state/current-milestone.md header
 
 Mark the closed milestone Complete with its version; note that the next milestone is not
-yet open (or hand off to `/milestone-new`).
+yet open (or hand off to `/milestone open`).
 
 ## STEP 8 — Commit + PR (never direct to main — ADR-023)
 
@@ -123,5 +123,5 @@ gh pr merge --squash
 Release:   <version> — <release URL>
 Milestone: <GitHub milestone URL> (closed)
 Config:    state/milestone.yaml rotated (PR #N merged)
-Next:      run /milestone-new to scaffold the next milestone.
+Next:      run /milestone open to scaffold the next milestone.
 ```

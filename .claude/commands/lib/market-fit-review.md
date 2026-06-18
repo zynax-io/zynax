@@ -3,7 +3,7 @@ description: Generate a dated market-fit review document grounded in the repo + 
 argument-hint: "[--pr] [--since <prev-review-path>]   default: working draft, no PR"
 ---
 
-# /market-fit-review — Market-Fit Review Document Generator
+# /lib:market-fit-review — Market-Fit Review Document Generator
 
 Produce a point-in-time **product-market-fit** assessment as a dated document under
 [docs/product/](docs/product/), extending the competitive analysis in
@@ -66,7 +66,7 @@ Write `$OUT` (SPDX header; repo-relative links):
    targets in `strategy.md §7`. Honest baseline.
 7. **PMF verdict + score** — reconciled to the architect review's grounded basis; no invented number.
 8. **Recommendations (prioritized)** — each classified by **user type** + **adoption lever**, for
-   the `/roadmap-plan` handoff (`product:`/`audience:` labels + `## What for (user impact)` block).
+   the `/plan` handoff (`product:`/`audience:` labels + `## What for (user impact)` block).
 9. **Longitudinal delta vs `$PREV`** — what moved (positioning, competitors, metrics).
 10. **Appendix** — sources.
 
@@ -89,6 +89,6 @@ from [docs/contributing/pr-templates.md](docs/contributing/pr-templates.md), doc
   cautionary precedent: an earlier informal analysis did, and was wrong).
 - **Ground everything.** Cite positioning docs; pull adoption metrics live; no invented PMF score.
 - **Longitudinal.** Diff against the prior market-fit review / competitive-positioning doc.
-- **Recommendations carry user-type + adoption-lever annotations** (the `/roadmap-plan` handoff).
+- **Recommendations carry user-type + adoption-lever annotations** (the `/plan` handoff).
 - One dated doc per run; never overwrite a prior review.
-- Pairs with `/product-review` (internal product lens) and `/roadmap-plan` (recommendations → issues).
+- Pairs with `/lib:product-review` (internal product lens) and `/plan` (recommendations → issues).

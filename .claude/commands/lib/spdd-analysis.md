@@ -1,4 +1,4 @@
-# /spdd-analysis
+# /lib:spdd-analysis
 
 Scan the codebase for context relevant to a feature, extract domain keywords, surface risks, and produce a structured analysis ready for Canvas generation.
 

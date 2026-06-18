@@ -1,4 +1,4 @@
-# /spdd-prompt-update
+# /lib:spdd-prompt-update
 
 Incrementally update a REASONS Canvas when requirements change mid-implementation. Updates the Canvas before any code changes.
 
@@ -22,7 +22,7 @@ Read the Canvas at $ARGUMENTS. Then receive the requirement change description (
 
 5. Update Canvas status to `Draft` (it needs re-alignment after a requirements change)
 
-6. Run /spdd-security-review on the updated Canvas
+6. Run /lib:spdd-security-review on the updated Canvas
 
 ## Output Format
 

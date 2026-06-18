@@ -1,15 +1,15 @@
 ---
-description: Generate a dated security-posture review DOCUMENT grounded in the live repo — auth/mTLS/transport, input validation, supply-chain (SBOM/cosign/SLSA), dependency + code-scanning alerts, container hardening, CNCF security criteria — with severity-rated findings, tracked longitudinally. Public doc carries mitigations/status only; unfixed-vuln exploit detail goes to a gitignored .private.md. NOT a diff review (that is the built-in /security-review and /spdd-security-review).
+description: Generate a dated security-posture review DOCUMENT grounded in the live repo — auth/mTLS/transport, input validation, supply-chain (SBOM/cosign/SLSA), dependency + code-scanning alerts, container hardening, CNCF security criteria — with severity-rated findings, tracked longitudinally. Public doc carries mitigations/status only; unfixed-vuln exploit detail goes to a gitignored .private.md. NOT a diff review (that is the built-in /security-review and /lib:spdd-security-review).
 argument-hint: "[--pr] [--since <prev-review-path>]   default: working draft, no PR"
 ---
 
-# /security-review-doc — Security Posture Review Document Generator
+# /lib:security-review-doc — Security Posture Review Document Generator
 
 Produce a point-in-time **security posture review** as a dated document, in the shape of the
 security sections of [docs/architecture/2026-05-20-principal-architect-review.md](docs/architecture/2026-05-20-principal-architect-review.md).
 
 > **Not to be confused with:** the built-in `/security-review` (reviews the current diff) or
-> `/spdd-security-review` (Tier-2 canvas scan before a `feat:` commit). This command writes a
+> `/lib:spdd-security-review` (Tier-2 canvas scan before a `feat:` commit). This command writes a
 > standing **posture document** about the whole system, like an architecture review.
 
 > **Public-safe by construction (Tier 1).** The committed doc states **findings by severity,
@@ -78,7 +78,7 @@ Write `$OUT` (public, SPDX header, repo-relative links). Findings table is the c
 5. **CNCF security criteria** — met vs gap (from the review's §14-style table).
 6. **Longitudinal delta vs `$PREV`** — each prior finding → fixed / mitigated / still-open, with PR/issue.
 7. **Prioritized remediations** — Critical/High, annotated with **user type** (esp. operator /
-   enterprise) + adoption lever, so `/roadmap-plan` files them with the right `product:`/`audience:`
+   enterprise) + adoption lever, so `/plan` files them with the right `product:`/`audience:`
    labels + `## What for (user impact)` block. Map to existing issues where present.
 8. **Appendix** — sources.
 
@@ -109,5 +109,5 @@ git -C "$WT" add "$OUT"          # NEVER: git add -A  (would stage the private f
   open/mitigated/fixed honestly. No invented severities.
 - **Longitudinal.** Diff against the prior security review; record what was fixed.
 - **Read-only on the system.** One dated public doc (+ optional private sibling) per run.
-- Pairs with `/roadmap-plan` (remediations → issues), the built-in `/security-review` (diff), and
-  `/spdd-security-review` (canvas Tier-2 gate) — distinct, complementary tools.
+- Pairs with `/plan` (remediations → issues), the built-in `/security-review` (diff), and
+  `/lib:spdd-security-review` (canvas Tier-2 gate) — distinct, complementary tools.
