@@ -232,6 +232,48 @@ type LogEvent struct {
 	Payload   string `json:"payload,omitempty"`
 }
 
+// CompletionText extracts the capability result text from a log event's JSON
+// payload. Task-broker completion events carry the result under a nested
+// `result_payload` string whose value is itself JSON ({"completion": "..."});
+// this unwraps one level and returns the `completion` field. It also accepts a
+// bare {"completion": "..."} payload. Returns "" when no completion is present
+// or the payload is not JSON, so callers can skip empty results silently.
+func CompletionText(payload string) string {
+	if payload == "" {
+		return ""
+	}
+	var outer map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(payload), &outer); err != nil {
+		return ""
+	}
+	// Capability events wrap the executor output in a result_payload string.
+	if rp, ok := outer["result_payload"]; ok {
+		var inner string
+		if err := json.Unmarshal(rp, &inner); err == nil {
+			return completionField(inner)
+		}
+	}
+	if c, ok := outer["completion"]; ok {
+		var s string
+		if err := json.Unmarshal(c, &s); err == nil {
+			return s
+		}
+	}
+	return ""
+}
+
+// completionField parses a {"completion": "..."} JSON object and returns the
+// completion string, or "" when absent or unparseable.
+func completionField(s string) string {
+	var inner struct {
+		Completion string `json:"completion"`
+	}
+	if err := json.Unmarshal([]byte(s), &inner); err != nil {
+		return ""
+	}
+	return inner.Completion
+}
+
 // WatchWorkflowLogs streams SSE events from GET /api/v1/workflows/{id}/logs,
 // calling send for each event. Returns when the stream closes or ctx is cancelled.
 func (g *Gateway) WatchWorkflowLogs(ctx context.Context, runID string, send func(LogEvent) error) error {

@@ -553,6 +553,64 @@ func TestLogsCmd_NotFound(t *testing.T) {
 	}
 }
 
+// TestLogsCmd_RendersCompletionOutput verifies that a capability completion
+// event's nested result payload is surfaced as an indented output line (#1378).
+func TestLogsCmd_RendersCompletionOutput(t *testing.T) {
+	srv := sseServer(t, []map[string]any{
+		{"run_id": "r4", "event_type": "zynax.v1.task-broker.task.completed", "status": "capability_event",
+			"payload": `{"workflow_id":"r4","result_payload":"{\"completion\":\"LGTM, ship it\"}"}`},
+		{"run_id": "r4", "event_type": "workflow.completed", "status": "WORKFLOW_STATUS_COMPLETED"},
+	})
+	apiURL = srv.URL
+	logsFormat = formatText
+	logsFollow = false
+
+	out, err := runLogs(t, []string{"r4"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "output: LGTM, ship it") {
+		t.Errorf("expected completion text in logs output, got:\n%s", out)
+	}
+}
+
+func runResult(t *testing.T, args []string) (string, error) {
+	t.Helper()
+	cmd := fakeCmd(t)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	err := resultCmd.RunE(cmd, args)
+	return out.String(), err
+}
+
+func TestResultCmd_PrintsCompletion(t *testing.T) {
+	srv := sseServer(t, []map[string]any{
+		{"run_id": "r5", "event_type": "task.completed", "status": "capability_event",
+			"payload": `{"result_payload":"{\"completion\":\"the model review text\"}"}`},
+		{"run_id": "r5", "event_type": "workflow.completed", "status": "WORKFLOW_STATUS_COMPLETED"},
+	})
+	apiURL = srv.URL
+
+	out, err := runResult(t, []string{"r5"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.TrimSpace(out) != "the model review text" {
+		t.Errorf("result output = %q, want %q", strings.TrimSpace(out), "the model review text")
+	}
+}
+
+func TestResultCmd_NoResult_Errors(t *testing.T) {
+	srv := sseServer(t, []map[string]any{
+		{"run_id": "r6", "event_type": "workflow.failed", "status": "WORKFLOW_STATUS_FAILED"},
+	})
+	apiURL = srv.URL
+
+	if _, err := runResult(t, []string{"r6"}); err == nil {
+		t.Error("expected error when run finishes with no result payload")
+	}
+}
+
 // ── root Execute() ────────────────────────────────────────────────────────────
 
 func TestRootCmd_Version(t *testing.T) {
