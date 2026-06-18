@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+# Local Ollama overlay for the quickstart — a zero-cost, offline LLM path.
+#
+# Bundles an `ollama` service entirely inside the compose network (nothing is
+# exposed to the host LAN) and reuses models already pulled on the host via a
+# read-only bind mount, so no multi-GB re-download is needed. Repoints the
+# llm-adapter at it with an ollama provider config (no OpenAI key required).
+#
+# Usage (layered on top of the base stack):
+#   docker compose \
+#     -f infra/docker-compose/docker-compose.yml \
+#     -f infra/docker-compose/docker-compose.ollama.yml \
+#     up -d ollama llm-adapter
+#
+# Host models dir override (default assumes a systemd `ollama` install):
+#   OLLAMA_HOST_MODELS=/path/to/.ollama/models docker compose ... up -d
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      # Reuse host-pulled models read-only; the container keeps its own writable
+      # /root/.ollama for the runtime keypair it generates on startup.
+      - ${OLLAMA_HOST_MODELS:-/usr/share/ollama/.ollama/models}:/root/.ollama/models:ro
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  llm-adapter:
+    environment:
+      ZYNAX_LLM_CONFIG: /etc/llm-adapter/config.yaml
+    volumes:
+      - ./ollama/llm-adapter.config.yaml:/etc/llm-adapter/config.yaml:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+      agent-registry:
+        condition: service_healthy

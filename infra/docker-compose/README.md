@@ -10,6 +10,7 @@ All Compose files live in this directory:
 | `docker-compose.tools.yml` | Test-runner container for Python integration tests |
 | `docker-compose.test.yml` | CI overlay — disables persistent volumes for ephemeral test runs |
 | `docker-compose.observability.yml` | Local Uptrace stack — traces/metrics/logs/APM with a login UI |
+| `docker-compose.ollama.yml` | Zero-cost local LLM overlay — bundles `ollama` and repoints `llm-adapter` at it (no API key) |
 
 ## Local dev stack
 
@@ -77,6 +78,34 @@ exposed (canvas O.7 Safeguards). ClickHouse and Postgres have no host ports.
 Logs ship to Uptrace as OTLP log records through the collector `logs` pipeline,
 correlated to traces by `trace_id`/`span_id`. Span, metric, and log naming rules
 live in [docs/observability/naming-conventions.md](../../docs/observability/naming-conventions.md).
+
+## Local Ollama overlay (zero-cost, offline LLM)
+
+The shipped `llm-adapter` points at OpenAI/gpt-4o, which needs a paid key. This overlay
+bundles an `ollama` service inside the compose network (nothing exposed to the host LAN),
+reuses host-pulled models via a read-only bind mount, and repoints `llm-adapter` at it
+with an Ollama provider config — no API key, no cost.
+
+```bash
+docker compose \
+  -f infra/docker-compose/docker-compose.yml \
+  -f infra/docker-compose/docker-compose.ollama.yml \
+  up -d ollama llm-adapter
+```
+
+The overlay defaults the host models directory to a systemd `ollama` install
+(`/usr/share/ollama/.ollama/models`). Override it for a different install path:
+
+```bash
+OLLAMA_HOST_MODELS=/path/to/.ollama/models docker compose \
+  -f infra/docker-compose/docker-compose.yml \
+  -f infra/docker-compose/docker-compose.ollama.yml \
+  up -d ollama llm-adapter
+```
+
+The adapter config (`ollama/llm-adapter.config.yaml`) registers a `codereview`
+capability against `llama3.2:3b` — pull that model on the host (`ollama pull llama3.2:3b`)
+before bringing the overlay up.
 
 ## Not included
 
