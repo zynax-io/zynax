@@ -65,13 +65,21 @@ func (p *EventPublisher) PublishTaskEvent(ctx context.Context, task *domain.Task
 		p.warn(eventType, task, err)
 		return
 	}
-	data, err := json.Marshal(map[string]string{
+	fields := map[string]string{
 		"task_id":         task.TaskID,
 		"workflow_id":     task.WorkflowID,
 		"capability_name": task.CapabilityName,
 		"status":          task.Status.String(),
 		"dispatched_to":   task.DispatchedTo,
-	})
+	}
+	// Surface the capability output on completion so it is observable over the
+	// bus and reaches `zynax logs`/`zynax result` without a DB query (#1378).
+	// The payload is the executor's raw JSON (e.g. {"completion": "..."}); it is
+	// omitted for non-terminal/failed events that carry no result.
+	if len(task.ResultPayload) > 0 {
+		fields["result_payload"] = string(task.ResultPayload)
+	}
+	data, err := json.Marshal(fields)
 	if err != nil {
 		p.warn(eventType, task, err)
 		return

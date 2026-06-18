@@ -55,7 +55,10 @@ var logsCmd = &cobra.Command{
 
 // printLogEvent renders a single event in human-readable text form. State
 // transitions show a from→to arrow; capability/lifecycle events without a
-// transition show only the event type so progression reads cleanly.
+// transition show only the event type so progression reads cleanly. When a
+// capability event carries a result payload (e.g. the model's review text), the
+// completion is printed on an indented follow-up line so it is visible in the
+// CLI without a DB query (#1378).
 func printLogEvent(cmd *cobra.Command, ev client.LogEvent) {
 	ts := ev.Timestamp
 	if ts == "" {
@@ -68,6 +71,9 @@ func printLogEvent(cmd *cobra.Command, ev client.LogEvent) {
 		return
 	}
 	_, _ = fmt.Fprintf(out, "[%s] %-30s (%s)\n", ts, ev.EventType, ev.Status)
+	if text := client.CompletionText(ev.Payload); text != "" {
+		_, _ = fmt.Fprintf(out, "    output: %s\n", text)
+	}
 }
 
 func init() {

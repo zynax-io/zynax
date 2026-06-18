@@ -259,3 +259,25 @@ func TestPublishEvent_ServerError(t *testing.T) {
 		t.Fatal("expected error on 500, got nil")
 	}
 }
+
+func TestCompletionText(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload string
+		want    string
+	}{
+		{"empty", "", ""},
+		{"not json", "not json", ""},
+		{"wrapped result_payload", `{"workflow_id":"w","result_payload":"{\"completion\":\"hello world\"}"}`, "hello world"},
+		{"bare completion", `{"completion":"bare text"}`, "bare text"},
+		{"no completion field", `{"task_id":"t","status":"COMPLETED"}`, ""},
+		{"result_payload not json", `{"result_payload":"plain"}`, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := client.CompletionText(tt.payload); got != tt.want {
+				t.Errorf("CompletionText(%q) = %q, want %q", tt.payload, got, tt.want)
+			}
+		})
+	}
+}
