@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: Apache-2.0
+# llm-adapter config — local Ollama provider (no API key, zero cost).
+# Mounted over the baked openai default by docker-compose.ollama.yml.
+#
+# Registers a `code_review` capability so a workflow can dispatch a real LLM
+# code review against a locally-served model — the impressive quickstart path.
+
+agent_id: llm-adapter
+name: LLM Adapter (Ollama / local)
+description: Ollama-backed local LLM capabilities for the zero-cost quickstart.
+# Endpoint is used BOTH as the bind address AND the address advertised to the
+# registry (no bind/advertise split in the Go adapter). The shipped example's
+# ":50070" advertises an unreachable host — the broker then dials localhost and
+# gets connection refused. Use the resolvable compose service name instead.
+endpoint: llm-adapter:50070
+registry_endpoint: agent-registry:50052
+
+provider:
+  name: ollama
+  model: llama3.2:3b
+  ollama_base_url: http://ollama:11434
+  max_tokens: 600
+
+capabilities:
+  # NOTE: capability name has NO underscore on purpose — the engine derives the
+  # completion event as "<capability>.completed", and the workflow compiler
+  # rejects event types containing underscores (must be dot-separated lowercase).
+  - name: codereview
+    timeout_seconds: 300
+    description: Review a code diff and return concrete, actionable findings.
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["prompt"],
+        "properties": { "prompt": { "type": "string", "minLength": 1 } },
+        "additionalProperties": false
+      }
+    output_schema_json: |
+      {
+        "type": "object",
+        "properties": { "completion": { "type": "string" } }
+      }
