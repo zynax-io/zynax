@@ -21,8 +21,11 @@ import (
 var capabilityNameRe = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?/)?[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
 
 // eventNameRe matches dot-separated event names, e.g. "review.approved", "push".
-// Each segment is a lowercase identifier.
-var eventNameRe = regexp.MustCompile(`^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)*$`)
+// Each segment is a lowercase identifier that may contain underscores (e.g.
+// "code_review.completed", "summarize_feedback.completed"). Underscores must be
+// surrounded by alphanumerics, mirroring capabilityNameRe so that an engine-derived
+// "<capability>.completed" event for an underscore-named capability validates.
+var eventNameRe = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*(\.[a-z][a-z0-9]*(_[a-z0-9]+)*)*$`)
 
 // namespaceRe matches DNS-label-safe namespace values: lowercase alphanumeric,
 // hyphens allowed in the middle, ≤63 characters, no leading/trailing hyphen.
@@ -82,7 +85,7 @@ func (EventNameValidator) Validate(_ context.Context, g *domain.WorkflowGraph) [
 			if !eventNameRe.MatchString(t.EventType) {
 				errs = append(errs, domain.ParseError{
 					Code:      domain.ErrorCodeInvalidFieldValue,
-					Message:   fmt.Sprintf("state %q transition: event_type %q must be dot-separated lowercase (e.g. review.approved, push)", stateID, t.EventType),
+					Message:   fmt.Sprintf("state %q transition: event_type %q must be dot-separated lowercase, underscores allowed within segments (e.g. review.approved, push, code_review.completed)", stateID, t.EventType),
 					Line:      state.Line,
 					StateName: stateID,
 				})
