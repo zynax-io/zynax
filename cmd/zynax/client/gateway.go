@@ -183,6 +183,44 @@ func (g *Gateway) DeleteWorkflow(ctx context.Context, runID string) error {
 	}
 }
 
+// PublishEvent injects a business/lifecycle event into the run identified by
+// runID so an event-driven workflow can advance. data is forwarded verbatim as
+// the CloudEvent payload (may be nil). Returns the bus-assigned event_id.
+func (g *Gateway) PublishEvent(ctx context.Context, runID, eventType string, data map[string]string) (string, error) {
+	payload := struct {
+		EventType string            `json:"event_type"`
+		Data      map[string]string `json:"data,omitempty"`
+	}{EventType: eventType, Data: data}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("zynax: encode event: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.base+"/api/v1/workflows/"+runID+"/events", bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("zynax: build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("zynax: publish event: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	raw, _ := io.ReadAll(resp.Body)
+	switch resp.StatusCode {
+	case http.StatusAccepted, http.StatusOK:
+		var r struct {
+			EventID string `json:"event_id"`
+		}
+		_ = json.Unmarshal(raw, &r)
+		return r.EventID, nil
+	case http.StatusNotFound:
+		return "", ErrNotFound
+	default:
+		return "", fmt.Errorf("zynax: publish event: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	}
+}
+
 // LogEvent is a single workflow lifecycle event received from the SSE stream.
 type LogEvent struct {
 	RunID     string `json:"run_id"`

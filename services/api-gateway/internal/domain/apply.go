@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -162,6 +163,28 @@ func (s *ApplyService) CancelWorkflow(ctx context.Context, runID string) error {
 		return fmt.Errorf("api-gateway: %w", err)
 	}
 	return nil
+}
+
+// PublishEvent injects a business/lifecycle event into the run identified by
+// ev.RunID so an event-driven workflow can advance (e.g. review.approved →
+// merge). It validates that the run id and event type are non-empty
+// (ErrInvalidEvent otherwise) and returns the bus-assigned event id. Returns
+// ErrEngineUnavailable when no event-bus port is configured.
+func (s *ApplyService) PublishEvent(ctx context.Context, ev EventPublish) (string, error) {
+	if strings.TrimSpace(ev.RunID) == "" {
+		return "", fmt.Errorf("%w: run id is required", ErrInvalidEvent)
+	}
+	if strings.TrimSpace(ev.Type) == "" {
+		return "", fmt.Errorf("%w: event type is required", ErrInvalidEvent)
+	}
+	if s.eventbus == nil {
+		return "", fmt.Errorf("api-gateway: %w", ErrEngineUnavailable)
+	}
+	eventID, err := s.eventbus.PublishEvent(ctx, ev)
+	if err != nil {
+		return "", fmt.Errorf("api-gateway: %w", err)
+	}
+	return eventID, nil
 }
 
 // WatchWorkflowLogs streams a run's logs by merging two sources into a single

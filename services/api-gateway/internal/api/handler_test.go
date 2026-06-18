@@ -621,3 +621,108 @@ func TestHandler_Auth_GetNotProtected(t *testing.T) {
 		t.Errorf("status: got %d, want 200 (GET must not require auth)", resp.StatusCode)
 	}
 }
+
+// ── POST /api/v1/workflows/{id}/events ────────────────────────────────────
+
+type stubEventBus struct {
+	publishID     string
+	publishErr    error
+	capturedEvent domain.EventPublish
+}
+
+func (s *stubEventBus) SubscribeWorkflowEvents(_ context.Context, _ string, _ func(domain.WatchEvent) error) error {
+	return nil
+}
+
+func (s *stubEventBus) PublishEvent(_ context.Context, ev domain.EventPublish) (string, error) {
+	s.capturedEvent = ev
+	if s.publishErr != nil {
+		return "", s.publishErr
+	}
+	return s.publishID, nil
+}
+
+func newServerWithEventBus(b domain.EventBusPort) *httptest.Server {
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, b)
+	h := api.NewHandler(svc, "")
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+	return httptest.NewServer(mux)
+}
+
+func TestHandler_PublishEvent_Returns202AndEventID(t *testing.T) {
+	bus := &stubEventBus{publishID: "evt-77"}
+	srv := newServerWithEventBus(bus)
+	defer srv.Close()
+
+	body := `{"event_type":"review.approved","data":{"by":"alice"}}`
+	resp, err := http.Post(srv.URL+"/api/v1/workflows/run-7/events", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusAccepted {
+		t.Errorf("status: got %d, want 202", resp.StatusCode)
+	}
+	m := decodeBody(t, resp)
+	if m["event_id"] != "evt-77" {
+		t.Errorf("event_id: got %v, want evt-77", m["event_id"])
+	}
+	if bus.capturedEvent.RunID != "run-7" {
+		t.Errorf("run id: got %q, want run-7 (from path)", bus.capturedEvent.RunID)
+	}
+	if bus.capturedEvent.Type != "review.approved" {
+		t.Errorf("type: got %q, want review.approved", bus.capturedEvent.Type)
+	}
+	if !strings.Contains(string(bus.capturedEvent.Data), `"by":"alice"`) {
+		t.Errorf("data forwarded verbatim: got %q", bus.capturedEvent.Data)
+	}
+}
+
+func TestHandler_PublishEvent_MissingType_Returns400(t *testing.T) {
+	srv := newServerWithEventBus(&stubEventBus{})
+	defer srv.Close()
+
+	resp, err := http.Post(srv.URL+"/api/v1/workflows/run-7/events", "application/json", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status: got %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestHandler_PublishEvent_InvalidJSON_Returns400(t *testing.T) {
+	srv := newServerWithEventBus(&stubEventBus{})
+	defer srv.Close()
+
+	resp, err := http.Post(srv.URL+"/api/v1/workflows/run-7/events", "application/json", strings.NewReader(`{not json`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status: got %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestHandler_PublishEvent_NoEventBus_Returns503(t *testing.T) {
+	// nil event bus → service returns ErrEngineUnavailable → 503.
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, nil)
+	h := api.NewHandler(svc, "")
+	mux := http.NewServeMux()
+	h.RegisterRoutes(mux)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	resp, err := http.Post(srv.URL+"/api/v1/workflows/run-7/events", "application/json", strings.NewReader(`{"event_type":"x"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("status: got %d, want 503", resp.StatusCode)
+	}
+}

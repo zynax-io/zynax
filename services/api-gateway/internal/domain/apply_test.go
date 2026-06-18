@@ -76,9 +76,20 @@ func (s *stubRegistry) RegisterAgent(_ context.Context, _ []byte, _ string) (dom
 // blocks until ctx is cancelled, mirroring the real event-bus which holds the
 // subscription open until terminal workflow state.
 type stubEventBus struct {
-	events       []domain.WatchEvent
-	err          error
-	capturedWFID string
+	events        []domain.WatchEvent
+	err           error
+	capturedWFID  string
+	publishID     string
+	publishErr    error
+	capturedEvent domain.EventPublish
+}
+
+func (s *stubEventBus) PublishEvent(_ context.Context, ev domain.EventPublish) (string, error) {
+	s.capturedEvent = ev
+	if s.publishErr != nil {
+		return "", s.publishErr
+	}
+	return s.publishID, nil
 }
 
 func (s *stubEventBus) SubscribeWorkflowEvents(ctx context.Context, workflowID string, send func(domain.WatchEvent) error) error {
@@ -532,5 +543,58 @@ func TestApplyService_ApplyWorkflow_CompiledNamespaceWins(t *testing.T) {
 	}
 	if engine.capturedNamespace != "ns-b" {
 		t.Errorf("engine received namespace %q, want ns-b (compiled IR namespace)", engine.capturedNamespace)
+	}
+}
+
+func TestApplyService_PublishEvent_Success(t *testing.T) {
+	bus := &stubEventBus{publishID: "evt-1"}
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, bus)
+	id, err := svc.PublishEvent(context.Background(), domain.EventPublish{
+		RunID: "run-7", Type: "review.approved", Data: []byte(`{"by":"alice"}`),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "evt-1" {
+		t.Errorf("event id = %q; want evt-1", id)
+	}
+	if bus.capturedEvent.RunID != "run-7" || bus.capturedEvent.Type != "review.approved" {
+		t.Errorf("captured event = %+v; want run-7/review.approved", bus.capturedEvent)
+	}
+	if string(bus.capturedEvent.Data) != `{"by":"alice"}` {
+		t.Errorf("captured data = %q", bus.capturedEvent.Data)
+	}
+}
+
+func TestApplyService_PublishEvent_MissingRunID(t *testing.T) {
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, &stubEventBus{})
+	_, err := svc.PublishEvent(context.Background(), domain.EventPublish{Type: "review.approved"})
+	if !errors.Is(err, domain.ErrInvalidEvent) {
+		t.Errorf("expected ErrInvalidEvent, got %v", err)
+	}
+}
+
+func TestApplyService_PublishEvent_MissingType(t *testing.T) {
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, &stubEventBus{})
+	_, err := svc.PublishEvent(context.Background(), domain.EventPublish{RunID: "run-7", Type: "  "})
+	if !errors.Is(err, domain.ErrInvalidEvent) {
+		t.Errorf("expected ErrInvalidEvent, got %v", err)
+	}
+}
+
+func TestApplyService_PublishEvent_NoEventBusConfigured(t *testing.T) {
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, nil)
+	_, err := svc.PublishEvent(context.Background(), domain.EventPublish{RunID: "run-7", Type: "review.approved"})
+	if !errors.Is(err, domain.ErrEngineUnavailable) {
+		t.Errorf("expected ErrEngineUnavailable, got %v", err)
+	}
+}
+
+func TestApplyService_PublishEvent_BusError(t *testing.T) {
+	bus := &stubEventBus{publishErr: errors.New("bus down")}
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, bus)
+	_, err := svc.PublishEvent(context.Background(), domain.EventPublish{RunID: "run-7", Type: "review.approved"})
+	if err == nil {
+		t.Fatal("expected error from bus, got nil")
 	}
 }

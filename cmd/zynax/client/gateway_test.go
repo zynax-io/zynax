@@ -202,3 +202,60 @@ func TestWatchWorkflowLogs_NotFound(t *testing.T) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
+
+func TestPublishEvent_Returns202(t *testing.T) {
+	var gotPath, gotMethod, gotType string
+	var gotBody struct {
+		EventType string            `json:"event_type"`
+		Data      map[string]string `json:"data"`
+	}
+	gw := newGW(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotMethod = r.URL.Path, r.Method
+		gotType = r.Header.Get("Content-Type")
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(map[string]string{"event_id": "evt-42"})
+	})
+	eventID, err := gw.PublishEvent(context.Background(), "run-7", "review.approved", map[string]string{"by": "alice"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if eventID != "evt-42" {
+		t.Errorf("event_id = %q; want evt-42", eventID)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %q; want POST", gotMethod)
+	}
+	if gotPath != "/api/v1/workflows/run-7/events" {
+		t.Errorf("path = %q; want /api/v1/workflows/run-7/events", gotPath)
+	}
+	if gotType != "application/json" {
+		t.Errorf("content-type = %q; want application/json", gotType)
+	}
+	if gotBody.EventType != "review.approved" {
+		t.Errorf("event_type = %q; want review.approved", gotBody.EventType)
+	}
+	if gotBody.Data["by"] != "alice" {
+		t.Errorf("data[by] = %q; want alice", gotBody.Data["by"])
+	}
+}
+
+func TestPublishEvent_NotFound(t *testing.T) {
+	gw := newGW(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	_, err := gw.PublishEvent(context.Background(), "ghost", "review.approved", nil)
+	if !errors.Is(err, client.ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestPublishEvent_ServerError(t *testing.T) {
+	gw := newGW(t, func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	})
+	_, err := gw.PublishEvent(context.Background(), "run-7", "review.approved", nil)
+	if err == nil {
+		t.Fatal("expected error on 500, got nil")
+	}
+}
