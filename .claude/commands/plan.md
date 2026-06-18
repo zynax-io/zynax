@@ -16,8 +16,8 @@ composes the `lib:spdd-*` building blocks so you don't run them by hand.
 ## Parse `$ARGUMENTS`
 
 - **free-text prompt** (e.g. `/plan "let users try Zynax with no clone"`) → a NEW idea. Draft an epic
-  from it (use the Epic issue template framing: *the one question this answers* + product/adoption
-  impact), then run the pipeline below.
+  by **filling `.github/ISSUE_TEMPLATE/epic.md`** (*the one question this answers* + product/adoption
+  impact + child stories), then run the pipeline below.
 - **`#<number>`** → an existing issue/epic. Run the pipeline for it.
 - **no argument** → **infer** unfiled/ready work from the repo (delegate to `/lib:plan-infer`) and
   propose canvases for the highest-value gaps. PLAN only unless `--execute`.
@@ -52,6 +52,9 @@ Canvas, which resets it to Draft and re-runs the security review — never patch
   and the exact `/deliver` command to run next.
 
 ## Norms
-Conventional commits (feat/fix/refactor/docs/test/ci/chore) · DCO `Signed-off-by` + `Assisted-by:
-Claude/<model>` (never `Co-Authored-By` for AI) · canvas committed before any implementation code
-(ADR-019) · new `.claude/commands` files need `git add -f`. Full guide: `.claude/commands/README.md`.
+**Every created issue is populated from the matching `.github/ISSUE_TEMPLATE/` template** (`epic.md` /
+`feature_request.md` / `documentation.md` / …) and carries the **SPDD Story (INVEST)** block + a canvas
+Operations-step link; labels per [docs/labels.md](../../docs/labels.md). Conventional commits
+(feat/fix/refactor/docs/test/ci/chore) · DCO `Signed-off-by` + `Assisted-by: Claude/<model>` (never
+`Co-Authored-By` for AI) · canvas committed before any implementation code (ADR-019) · new
+`.claude/commands` files need `git add -f`. Full guide: `.claude/commands/README.md`.

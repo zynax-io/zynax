@@ -1,7 +1,8 @@
 # /lib:spdd-story
 
-Break a raw feature description or GitHub issue into INVEST-compliant user stories,
-then create one GitHub issue per story as a child of the parent epic.
+Break a raw feature description or GitHub issue into INVEST-compliant user stories, then create one
+GitHub issue per story — each **populated from the canonical `.github/ISSUE_TEMPLATE/`** template,
+never an ad-hoc body — as a child of the parent epic.
 
 ## Instructions
 
@@ -27,10 +28,19 @@ Read the feature description or GitHub issue provided in $ARGUMENTS.
      right labels + milestone + a canvas link, and report the reconciled set. Only create
      issues for genuinely missing stories.
 6. After presenting the stories, create one GitHub issue **per still-missing story** using `gh issue create`.
-   - Title format: `feat(<scope>): <story title> (#<parent-issue>, step <N>)`
-   - Body includes: Story (as-a/I-want/so-that), Context (link to canvas if it exists), Scope, Acceptance criteria, Out of scope, Size estimate, Dependencies on other steps
-   - End each body with: `Assisted-by: Claude/claude-sonnet-4-6`
-   - Report the created (or reconciled) issue URL after each step
+   - **Populate the matching canonical template** from `.github/ISSUE_TEMPLATE/` — do NOT invent an ad-hoc body:
+     a capability/story → `feature_request.md`; a docs deliverable → `documentation.md`; a bug → `bug_report.md`;
+     an ADR → `adr_proposal.md`. (An **epic** uses `epic.md` via `/plan`, not this command.)
+   - Fill the template's **Story (INVEST)** block: `As a … I want … so that …`, size (XS/S/M/L), the canvas
+     Operations-step link (`docs/spdd/<epic>-<slug>/canvas.md` → step N), and Depends-on / Blocks.
+   - Express the happy-path + error acceptance as **Gherkin** in the template's *Proposed Capability* block —
+     this becomes the `.feature` file when implementation begins (ADR-016).
+   - Title: `<type>(<scope>): <story title> (#<parent-issue>, step <N>)` where `<type>` is the **correct
+     conventional type** for the work (`feat` for new capability, else `fix|docs|test|refactor|ci|chore`).
+   - Labels per [docs/labels.md](../../../docs/labels.md): `type: …` plus relevant `area: …` / `audience: …` /
+     `product: …` (the `/plan` align step adds `status: ready` and the milestone).
+   - End each body with: `Assisted-by: Claude/<model>` (use the running model; **never** `Co-Authored-By` for AI).
+   - Report the created (or reconciled) issue URL after each step.
 
 ## Output Format
 

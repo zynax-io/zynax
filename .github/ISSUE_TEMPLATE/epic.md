@@ -67,7 +67,8 @@ Keep child stories small, independent, testable, and individually valuable.
 
 ## Child stories
 
-> Small, independent, testable, individually valuable. Each links back here.
+> Small, independent, testable, individually valuable. Each links back here and uses the Feature
+> template's **Story (INVEST)** block (as-a/I-want/so-that · size · canvas Operations-step · deps).
 
 - [ ] #… — <story>
 - [ ] #… — <story>
