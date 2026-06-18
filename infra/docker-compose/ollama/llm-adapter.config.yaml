@@ -17,7 +17,12 @@ registry_endpoint: agent-registry:50052
 
 provider:
   name: ollama
-  model: llama3.2:3b
+  # Default reference model for demos/UX-validation: Qwen2.5-Coder 3B — a small,
+  # fast, code-focused local model that makes the first-run experience zero-cost
+  # and deterministic. To switch model/provider, edit this one line (e.g.
+  # `model: llama3.2:3b`, or point `name`/`ollama_base_url` at another provider).
+  # Pull it first on the host: `ollama pull qwen2.5-coder:3b`.
+  model: qwen2.5-coder:3b
   ollama_base_url: http://ollama:11434
   max_tokens: 600
 
