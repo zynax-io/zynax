@@ -6,12 +6,20 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
+
+// ErrCredentialMissing is returned when a required credential env var (the PAT
+// auth token, or a GitHub App identity value) is unset or empty. The bootstrap
+// layer distinguishes this from a malformed config so it can degrade gracefully
+// (start, warn, skip registration) instead of crash-looping when no secret is
+// provided (issue #1375).
+var ErrCredentialMissing = errors.New("config: credential env var is not set")
 
 // AdapterConfig is the top-level YAML struct parsed from the file at startup.
 // Path is read from the ADAPTER_CONFIG env var by the bootstrap layer.
@@ -158,7 +166,7 @@ func (c *AdapterConfig) UsesApp() bool {
 func ResolveToken(cfg *AdapterConfig) (string, error) {
 	token := os.Getenv(cfg.Git.AuthEnv)
 	if token == "" {
-		return "", fmt.Errorf("config: env var %s is required but not set", cfg.Git.AuthEnv)
+		return "", fmt.Errorf("env var %s is required but not set: %w", cfg.Git.AuthEnv, ErrCredentialMissing)
 	}
 	return token, nil
 }
@@ -190,7 +198,7 @@ func ResolveAppCredentials(cfg *AdapterConfig) (AppCredentialInputs, error) {
 	}
 	keyPEM := os.Getenv(app.PrivateKeyEnv)
 	if keyPEM == "" {
-		return AppCredentialInputs{}, fmt.Errorf("config: env var %s is required but not set", app.PrivateKeyEnv)
+		return AppCredentialInputs{}, fmt.Errorf("env var %s is required but not set: %w", app.PrivateKeyEnv, ErrCredentialMissing)
 	}
 	return AppCredentialInputs{
 		AppID:          appID,
@@ -203,7 +211,7 @@ func ResolveAppCredentials(cfg *AdapterConfig) (AppCredentialInputs, error) {
 func envInt64(name string) (int64, error) {
 	raw := os.Getenv(name)
 	if raw == "" {
-		return 0, fmt.Errorf("config: env var %s is required but not set", name)
+		return 0, fmt.Errorf("env var %s is required but not set: %w", name, ErrCredentialMissing)
 	}
 	v, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {

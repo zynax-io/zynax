@@ -6,11 +6,18 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"gopkg.in/yaml.v3"
 )
+
+// ErrTokenMissing is returned by ResolveToken when the configured auth-token env
+// var is unset or empty. The bootstrap layer distinguishes this from a malformed
+// config so it can degrade gracefully (start, warn, skip registration) instead of
+// crash-looping when no secret is provided (issue #1375).
+var ErrTokenMissing = errors.New("config: auth token env var is not set")
 
 // AdapterConfig is the top-level YAML struct parsed from the file at startup.
 // Path is read from the ADAPTER_CONFIG env var by the bootstrap layer.
@@ -138,7 +145,7 @@ func validate(cfg *AdapterConfig) error {
 func ResolveToken(cfg *AdapterConfig) (string, error) {
 	token := os.Getenv(cfg.CI.TokenEnv)
 	if token == "" {
-		return "", fmt.Errorf("config: env var %s is required but not set", cfg.CI.TokenEnv)
+		return "", fmt.Errorf("env var %s is required but not set: %w", cfg.CI.TokenEnv, ErrTokenMissing)
 	}
 	return token, nil
 }

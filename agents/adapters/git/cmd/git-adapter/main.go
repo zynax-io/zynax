@@ -55,25 +55,37 @@ func run() error {
 	// token used to seed the egress redactor (empty for App mode — its token is
 	// minted lazily and never reaches a payload thanks to per-request Bearer
 	// isolation). No secret value is logged at any point.
+	// Graceful degradation (issue #1375): a missing credential (PAT token or App
+	// identity) must not crash the adapter at boot. Without it the adapter starts,
+	// logs a clear warning, and runs degraded — it skips the scope gate, does NOT
+	// register its capabilities, and reports NOT_SERVING so readiness reflects the
+	// unavailable state. Any other resolution failure is still fatal.
 	src, seedToken, err := resolveCredentialSource(cfg)
+	degraded := false
 	if err != nil {
-		return err
+		if !errors.Is(err, config.ErrCredentialMissing) {
+			return err
+		}
+		degraded = true
+		slog.Warn("git-adapter starting in degraded mode: credential not set; capabilities will NOT be registered and readiness is NOT_SERVING") //nolint:gosec
 	}
 
-	// Least-privilege gate (G.5 / #1260): verify the credential cannot reach repos
-	// beyond the configured owner/repo before it is ever used. App installation
-	// tokens carry no X-OAuth-Scopes header and are least-privilege by construction;
-	// the probe classifies them as such. The token value is never logged — only
-	// scope/class metadata.
-	if err := runScopeGate(context.Background(), src); err != nil {
-		return err
-	}
+	if !degraded {
+		// Least-privilege gate (G.5 / #1260): verify the credential cannot reach repos
+		// beyond the configured owner/repo before it is ever used. App installation
+		// tokens carry no X-OAuth-Scopes header and are least-privilege by construction;
+		// the probe classifies them as such. The token value is never logged — only
+		// scope/class metadata.
+		if err := runScopeGate(context.Background(), src); err != nil {
+			return err
+		}
 
-	// `git-adapter mcp` runs the thin MCP stdio shim over the same handlers
-	// instead of the runtime gRPC server (ADR-032 — one implementation, two
-	// surfaces). It needs no registry and binds no port.
-	if len(os.Args) > 1 && os.Args[1] == "mcp" {
-		return serveMCP(cfg, src, seedToken, os.Stdin, os.Stdout)
+		// `git-adapter mcp` runs the thin MCP stdio shim over the same handlers
+		// instead of the runtime gRPC server (ADR-032 — one implementation, two
+		// surfaces). It needs no registry and binds no port.
+		if len(os.Args) > 1 && os.Args[1] == "mcp" {
+			return serveMCP(cfg, src, seedToken, os.Stdin, os.Stdout)
+		}
 	}
 
 	regClient, cleanup, err := dialRegistry(cfg.RegistryEndpoint)
@@ -85,7 +97,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	return serve(ctx, cfg, src, seedToken, regClient)
+	return serve(ctx, cfg, src, seedToken, degraded, regClient)
 }
 
 // resolveCredentialSource builds the credential.Source for the configured mode.
@@ -201,16 +213,27 @@ func dialRegistry(endpoint string) (zynaxv1.AgentRegistryServiceClient, func(), 
 	return zynaxv1.NewAgentRegistryServiceClient(conn), func() { _ = conn.Close() }, nil
 }
 
-func serve(ctx context.Context, cfg *config.AdapterConfig, src credential.Source, seedToken string, regClient zynaxv1.AgentRegistryServiceClient) error {
+func serve(ctx context.Context, cfg *config.AdapterConfig, src credential.Source, seedToken string, degraded bool, regClient zynaxv1.AgentRegistryServiceClient) error {
 	lis, err := net.Listen("tcp", cfg.Endpoint)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", cfg.Endpoint, err)
 	}
 
 	grpcSrv := grpc.NewServer()
-	zynaxv1.RegisterAgentServiceServer(grpcSrv, adapter.NewAgentServerWithSource(cfg, src, seedToken))
+	if !degraded {
+		zynaxv1.RegisterAgentServiceServer(grpcSrv, adapter.NewAgentServerWithSource(cfg, src, seedToken))
+	}
 	healthSrv := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcSrv, healthSrv)
+
+	// Degraded mode (issue #1375): no credential resolved, so the adapter does not
+	// register its capabilities and reports NOT_SERVING. The gRPC + health servers
+	// still run so the process stays alive and observable instead of crash-looping.
+	if degraded {
+		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+		slog.Warn("git-adapter serving DEGRADED (capabilities not registered)", "endpoint", cfg.Endpoint) //nolint:gosec
+		return runDegraded(ctx, grpcSrv, lis)
+	}
 
 	def := registry.BuildAgentDef(cfg)
 	if err := registry.RegisterAgent(ctx, regClient, def); err != nil {
@@ -233,6 +256,24 @@ func serve(ctx context.Context, cfg *config.AdapterConfig, src credential.Source
 	deregCtx := context.Background()
 	if err := registry.DeregisterAgent(deregCtx, regClient, cfg.AgentID); err != nil { //nolint:contextcheck // signal ctx already cancelled; fresh ctx for cleanup is intentional
 		slog.Warn("deregister failed", "err", err)
+	}
+	grpcSrv.GracefulStop()
+	slog.Info("git-adapter stopped")
+	return nil
+}
+
+// runDegraded serves gRPC until the context is cancelled or the server errors.
+// The degraded path (issue #1375) registers no AgentService and no registry
+// entry, so it just keeps the process alive and drains on shutdown.
+func runDegraded(ctx context.Context, grpcSrv *grpc.Server, lis net.Listener) error {
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- grpcSrv.Serve(lis) }()
+
+	select {
+	case <-ctx.Done():
+		slog.Info("shutdown signal received")
+	case err := <-serveErr:
+		return fmt.Errorf("grpc serve: %w", err)
 	}
 	grpcSrv.GracefulStop()
 	slog.Info("git-adapter stopped")

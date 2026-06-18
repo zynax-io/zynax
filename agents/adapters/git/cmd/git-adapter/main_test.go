@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -19,6 +20,8 @@ import (
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
 
@@ -69,25 +72,18 @@ func TestRun_MissingRequiredFields(t *testing.T) {
 	}
 }
 
-// TestRun_MissingToken verifies that run() returns an error when the auth
-// token env var referenced in git.auth_env is not set.
-func TestRun_MissingToken(t *testing.T) {
-	f, err := os.CreateTemp(t.TempDir(), "git-adapter-*.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Valid full config, but GIT_TOKEN_UNSET_XYZ is not in the environment.
-	_, _ = fmt.Fprintf(f,
-		"agent_id: git-test\nname: Git Test\n"+
-			"endpoint: \":50060\"\nregistry_endpoint: \"localhost:50052\"\n"+
-			"git:\n  provider: github\n  auth_env: GIT_TOKEN_UNSET_XYZ_717\n"+
-			"capabilities:\n  - name: open_pr\n    owner: o\n    repo: r\n",
-	)
-	_ = f.Close()
-	t.Setenv("ADAPTER_CONFIG", f.Name())
-	os.Unsetenv("GIT_TOKEN_UNSET_XYZ_717") //nolint:errcheck // test cleanup
-	if err := run(); err == nil {
+// TestResolveCredentialSource_MissingTokenIsSentinel proves a missing PAT
+// surfaces the typed config.ErrCredentialMissing sentinel so the bootstrap layer
+// degrades gracefully instead of crash-looping (issue #1375).
+func TestResolveCredentialSource_MissingTokenIsSentinel(t *testing.T) {
+	os.Unsetenv("GIT_TOKEN_UNSET_XYZ_717")                                                                      //nolint:errcheck // test cleanup
+	cfg := &config.AdapterConfig{Git: config.GitConfig{Provider: "github", AuthEnv: "GIT_TOKEN_UNSET_XYZ_717"}} //nolint:gosec // G101: env-var NAME, not a credential value
+	_, _, err := resolveCredentialSource(cfg)
+	if err == nil {
 		t.Fatal("expected error when auth token env var is not set")
+	}
+	if !errors.Is(err, config.ErrCredentialMissing) {
+		t.Fatalf("expected ErrCredentialMissing sentinel, got: %v", err)
 	}
 }
 
@@ -211,7 +207,7 @@ func TestServe_GracefulShutdown(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- serve(ctx, cfg, credential.NewStaticSource("fake-token"), "fake-token", client)
+		done <- serve(ctx, cfg, credential.NewStaticSource("fake-token"), "fake-token", false, client)
 	}()
 
 	// Give serve() time to start up (register + begin listening).
@@ -225,5 +221,64 @@ func TestServe_GracefulShutdown(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("serve() did not return within 5s after cancel")
+	}
+}
+
+// failRegisterClient errors on RegisterAgent. The degraded path must never call
+// it, so serve must still return nil with this client wired in (issue #1375).
+type failRegisterClient struct{ successRegistryClient }
+
+func (c *failRegisterClient) RegisterAgent(_ context.Context, _ *zynaxv1.RegisterAgentRequest, _ ...grpc.CallOption) (*zynaxv1.RegisterAgentResponse, error) {
+	return nil, status.Error(codes.Internal, "registry must not be called in degraded mode")
+}
+
+// TestServe_DegradedNoCredential proves the core fix (issue #1375): with no
+// credential the adapter serves, reports NOT_SERVING readiness, does NOT register
+// its capabilities, and shuts down cleanly on context cancel — it does not crash.
+func TestServe_DegradedNoCredential(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := lis.Addr().String()
+	_ = lis.Close()
+
+	cfg := &config.AdapterConfig{
+		AgentID:          "git-test",
+		Name:             "Git Test",
+		Endpoint:         addr,
+		RegistryEndpoint: "127.0.0.1:0",
+		Git:              config.GitConfig{Provider: "github", AuthEnv: "IGNORED"},
+		Capabilities:     []config.GitCapabilityConfig{{Name: "open_pr", Owner: "o", Repo: "r"}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	// degraded=true, nil source, and a registry client that errors on register:
+	// if the degraded path tried to register, serve would surface that error.
+	go func() { done <- serve(ctx, cfg, nil, "", true, &failRegisterClient{}) }()
+
+	time.Sleep(100 * time.Millisecond)
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial degraded adapter: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+	resp, err := grpc_health_v1.NewHealthClient(conn).Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
+	if err != nil {
+		t.Fatalf("health check: %v", err)
+	}
+	if resp.GetStatus() != grpc_health_v1.HealthCheckResponse_NOT_SERVING {
+		t.Fatalf("expected NOT_SERVING in degraded mode, got: %v", resp.GetStatus())
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("degraded serve must not error (no crash), got: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("degraded serve() did not return within 5s after cancel")
 	}
 }
