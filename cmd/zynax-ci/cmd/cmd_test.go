@@ -506,3 +506,43 @@ func TestRunImagesDigestUpdate_NewEntryWithoutRef(t *testing.T) {
 		t.Error("expected error for new entry without --ref")
 	}
 }
+
+// ── validate milestone ────────────────────────────────────────────────────────
+
+func TestRunValidateMilestone_RealRepo(t *testing.T) {
+	milestoneRoot = repoRoot(t)
+	defer func() { milestoneRoot = "." }()
+	cmd := fakeCmd(t)
+	if err := runValidateMilestone(cmd, nil); err != nil {
+		t.Errorf("real state/milestone.yaml should conform: %v", err)
+	}
+}
+
+func TestRunValidateMilestone_Invalid(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "state"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	// Copy the real schema, pair it with a non-conforming state file.
+	schema, err := os.ReadFile(filepath.Join(repoRoot(t), milestoneSchemaName)) //nolint:gosec
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, milestoneSchemaName), schema, 0o600); err != nil { //nolint:gosec // root is t.TempDir()
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, milestoneStateName), []byte("active: not-an-object\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	milestoneRoot = root
+	defer func() { milestoneRoot = "." }()
+	var out bytes.Buffer
+	cmd := fakeCmd(t)
+	cmd.SetOut(&out)
+	if err := runValidateMilestone(cmd, nil); err == nil {
+		t.Error("expected a non-conformance error")
+	}
+	if !strings.Contains(out.String(), "FAIL "+milestoneStateName) {
+		t.Errorf("expected FAIL output, got: %s", out.String())
+	}
+}
