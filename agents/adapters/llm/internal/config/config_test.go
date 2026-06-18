@@ -27,6 +27,7 @@ agent_id: llm-adapter-test
 name: LLM Adapter Test
 description: test
 endpoint: :50070
+advertise_endpoint: llm-adapter:50070
 registry_endpoint: localhost:50052
 capabilities:
   - name: chat_completion
@@ -66,6 +67,7 @@ func TestLoad_ValidOllama(t *testing.T) {
 	body := `
 agent_id: llm-ollama
 endpoint: :50070
+advertise_endpoint: llm-adapter:50070
 registry_endpoint: localhost:50052
 capabilities:
   - name: chat_completion
@@ -142,6 +144,7 @@ func TestLoad_BedrockRequiresRegion(t *testing.T) {
 	body := `
 agent_id: llm-bedrock
 endpoint: :50070
+advertise_endpoint: llm-adapter:50070
 registry_endpoint: localhost:50052
 capabilities:
   - name: chat_completion
@@ -153,6 +156,64 @@ provider:
 	_, err := config.Load(writeYAML(t, body))
 	if err == nil || !strings.Contains(err.Error(), "region") {
 		t.Fatalf("expected region-required error, got: %v", err)
+	}
+}
+
+// TestLoad_HostlessEndpointRequiresAdvertise asserts a hostless bind endpoint
+// with no advertise_endpoint is rejected at load time — the regression guard for
+// issue #1371, where a verbatim ":50070" made the broker dial localhost.
+func TestLoad_HostlessEndpointRequiresAdvertise(t *testing.T) {
+	t.Parallel()
+	body := strings.Replace(validOpenAI, "advertise_endpoint: llm-adapter:50070\n", "", 1)
+	_, err := config.Load(writeYAML(t, body))
+	if err == nil {
+		t.Fatal("expected error for hostless endpoint without advertise_endpoint")
+	}
+	if !strings.Contains(err.Error(), "advertise_endpoint") {
+		t.Errorf("error %q should mention advertise_endpoint", err.Error())
+	}
+}
+
+// TestLoad_ExplicitHostEndpointNeedsNoAdvertise asserts the fallback path: when
+// the bind endpoint already carries an explicit host, advertise_endpoint may be
+// omitted and AdvertisedEndpoint() returns the bind endpoint verbatim.
+func TestLoad_ExplicitHostEndpointNeedsNoAdvertise(t *testing.T) {
+	t.Parallel()
+	body := strings.Replace(validOpenAI,
+		"endpoint: :50070\nadvertise_endpoint: llm-adapter:50070\n",
+		"endpoint: 0.0.0.0:50070\n", 1)
+	cfg, err := config.Load(writeYAML(t, body))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := cfg.AdvertisedEndpoint(); got != "0.0.0.0:50070" {
+		t.Errorf("AdvertisedEndpoint() = %q, want 0.0.0.0:50070", got)
+	}
+}
+
+// TestAdvertisedEndpoint asserts the resolver never returns a hostless address:
+// it prefers advertise_endpoint and otherwise falls back to a host-bearing bind
+// endpoint. This is the core invariant guarding issue #1371.
+func TestAdvertisedEndpoint(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		endpoint  string
+		advertise string
+		want      string
+	}{
+		{"explicit advertise wins over hostless bind", ":50070", "llm-adapter:50070", "llm-adapter:50070"},
+		{"explicit advertise wins over host bind", "0.0.0.0:50070", "llm-adapter:50070", "llm-adapter:50070"},
+		{"falls back to host-bearing bind", "0.0.0.0:50070", "", "0.0.0.0:50070"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := &config.AdapterConfig{Endpoint: tt.endpoint, AdvertiseEndpoint: tt.advertise}
+			if got := cfg.AdvertisedEndpoint(); got != tt.want {
+				t.Errorf("AdvertisedEndpoint() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -187,6 +248,7 @@ func TestResolveSecret_NoEnvDeclared(t *testing.T) {
 	cfg, err := config.Load(writeYAML(t, `
 agent_id: llm-ollama
 endpoint: :50070
+advertise_endpoint: llm-adapter:50070
 registry_endpoint: localhost:50052
 capabilities:
   - name: chat_completion

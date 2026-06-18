@@ -5,6 +5,7 @@ package registry_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/zynax-io/zynax/agents/adapters/llm/internal/config"
@@ -191,5 +192,25 @@ func TestBuildAgentDef(t *testing.T) {
 	}
 	if string(def.Capabilities[0].OutputSchema) != `{"type":"string"}` {
 		t.Errorf("output_schema = %s", def.Capabilities[0].OutputSchema)
+	}
+}
+
+// TestBuildAgentDef_AdvertisesRoutableEndpoint guards issue #1371: the address
+// registered with the registry must NOT be the hostless bind endpoint, otherwise
+// the broker dials localhost. With a bind-only ":50070" and an explicit
+// advertise_endpoint, the def must carry the advertised (routable) address.
+func TestBuildAgentDef_AdvertisesRoutableEndpoint(t *testing.T) {
+	cfg := &config.AdapterConfig{
+		AgentID:           "llm-adapter",
+		Endpoint:          ":50070", // hostless bind address
+		AdvertiseEndpoint: "llm-adapter:50070",
+		Capabilities:      []config.CapabilityConfig{{Name: "chat_completion"}},
+	}
+	def := registry.BuildAgentDef(cfg)
+	if def.Endpoint != "llm-adapter:50070" {
+		t.Errorf("advertised endpoint = %q, want routable llm-adapter:50070", def.Endpoint)
+	}
+	if strings.HasPrefix(def.Endpoint, ":") {
+		t.Errorf("advertised endpoint %q is hostless — broker would dial localhost (#1371)", def.Endpoint)
 	}
 }
