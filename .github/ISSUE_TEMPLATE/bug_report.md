@@ -14,6 +14,15 @@ Before filing a bug:
   3. Reproduce with the latest main or the latest release.
 -->
 
+## The one question this fix answers
+
+> _One sentence: what does a Zynax user/operator get back when this is fixed?_
+> **Why it matters:** who is blocked or losing trust while it's broken — and the
+> adoption cost (a broken first-run, an enterprise blocker, a CNCF-credibility dent)?
+> (Severity is captured in **Impact** below.)
+
+---
+
 ## Which feature is broken?
 
 Link to the `.feature` file and scenario that defines the expected behaviour:
