@@ -605,3 +605,17 @@ Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicaliza
 - Sentinel error from an SSE callback (`errFollowDone`) + `errors.Is` swallow at the command boundary cleanly stops a stream loop early without treating "done" as an error; keeps --follow and default(drain) on one path.
 - gh `projectCards` deprecation: `gh issue view N` (no --json) and `gh pr edit --add-label` fail with a Projects-classic GraphQL error. Read with `gh issue/pr view N --json <fields>` (omit projects); label via `gh api -X POST repos/<o>/<r>/issues/N/labels -f 'labels[]=<label>'`.
 - In an isolated worktree, always Read the WORKTREE copy of a file before Edit (not the source-tree copy) or the Edit fails "modified since read".
+
+## Session — 2026-06-18 (batch: #1371, #1372, #1380 — M7.K quickstart fixes)
+
+### #1380 (chore: api-gateway /healthz JSON body)
+- The api-gateway ≥90% coverage gate is scoped to `internal/domain/` only — `internal/api` (handlers/probes) can sit below 90% because route-mounting helpers like `Register` are covered by integration tests, not unit tests. Verify a new handler hits 100% via `go tool cover -func`; don't try to lift the whole `internal/api` package over 90%. (domain)
+- `/healthz` was an alias to the shared `HandleLivez`. Adding a dedicated `HandleHealthz` (copy the liveness check, add only the JSON body) keeps `/livez`/`/readyz`/`/startupz` byte-for-byte unchanged — the clean way to satisfy a "don't change shared probe semantics" boundary. Assert both happy-path (200 + JSON body + content-type) AND that the failure path (stale → 503, empty body) is preserved.
+
+### #1371 (fix: llm-adapter advertise vs bind address)
+- A single config field used for both `net.Listen` and the registry-advertised address is the recurring root cause of "broker dials localhost". Fix shape: add `advertise_endpoint` + an `AdvertisedEndpoint()` resolver + fail-fast validation rejecting a hostless bind endpoint when no advertise is set. `net.SplitHostPort` classifies hostless (`:port` → empty host) vs routable. Mirror langgraph-adapter's split. (domain)
+- The example YAML is baked into the container as the default config (`COPY agent-def.yaml.example /etc/.../config.yaml`), so updating the example also fixes the shipped runtime default + the docker-compose service in one edit. Audit existing config-test fixtures before tightening validation (hostless fixtures break).
+- golangci-lint cannot be invoked with an absolute package path under the no-`cd` sandbox (it resolves the module from CWD). Rely on the pre-commit golangci-lint hook; use `go -C <moduledir> vet/build/test` + `gofmt -l <files>` with `GOWORK=off` for the other gates. Also: py-adapter dispatch may land on a Go module (ADR-035 ports) — locate the service before assuming Python, switch to go-services discipline when it is Go. (structural-workaround)
+
+### #1372 (fix: workflow-compiler underscore in event-type)
+- When widening a domain validation regex, first grep the same file for a sibling identifier regex (e.g. `capabilityNameRe`) — Zynax encodes the underscore-surrounded-by-alphanumerics rule once as `(_[a-z0-9]+)*`; reuse that exact sub-pattern instead of `[a-z0-9_]+`, which would wrongly accept leading/trailing/double underscores. The pre-existing test case asserting the bug (`{"underscore", "review_approved", true}`) is the natural regression marker — flip it to `false`. (domain)
