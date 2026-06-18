@@ -19,6 +19,7 @@ BENCH_BASELINE := tools/bench-baseline.txt
 # Auto-discovered from agents/examples/*/pyproject.toml — no manual update needed when adding a new agent.
 AGENTS        := $(shell find agents/examples -maxdepth 2 -name pyproject.toml -exec dirname {} \; 2>/dev/null | xargs -rI{} basename {} | sort)
 COMPOSE          := docker compose -f infra/docker-compose/docker-compose.yml
+COMPOSE_DEMO     := docker compose -f infra/docker-compose/docker-compose.yml -f infra/docker-compose/docker-compose.ollama.yml
 COMPOSE_SERVICES := docker compose -f infra/docker-compose/docker-compose.services.yml
 COMPOSE_TOOLS    := docker compose -f infra/docker-compose/docker-compose.tools.yml
 COMPOSE_OBS      := docker compose --env-file infra/docker-compose/observability/.env.observability -f infra/docker-compose/docker-compose.observability.yml
@@ -118,6 +119,41 @@ stop-local: ## Stop and remove local stack containers
 
 logs-local: ## Tail all local stack logs
 	$(COMPOSE) logs -f
+
+# ── One-command demo ────────────────────────────────────────────────────────
+# Boots the minimal stack + the zero-secret Ollama overlay, runs the hero
+# code-review workflow to a terminal state, and prints the model's review.
+# Prereq: pull the demo model once on the host — `ollama pull qwen2.5-coder:3b`
+# (the overlay reuses host-pulled models read-only; nothing is auto-downloaded).
+.PHONY: demo demo-clean
+DEMO_WORKFLOW ?= spec/workflows/examples/code-review-ollama.yaml
+ZYNAX        ?= zynax
+
+demo: check-docker ## ★ One command: boot the Ollama stack + run the hero code-review workflow
+	@command -v $(ZYNAX) >/dev/null 2>&1 || \
+	  (echo "❌ zynax CLI not found — run 'make install-cli' and ensure ~/bin is on your PATH" && exit 1)
+	@echo "🧠 Demo model: qwen2.5-coder:3b — pull it once on the host if you have not:"
+	@echo "     ollama pull qwen2.5-coder:3b"
+	@echo "🚀 Booting the minimal stack + Ollama overlay (waiting for health)..."
+	$(COMPOSE_DEMO) up -d --wait
+	@export ZYNAX_API_URL=http://localhost:7080; \
+	  echo "▶  zynax apply $(DEMO_WORKFLOW)"; \
+	  run_id=$$($(ZYNAX) apply $(DEMO_WORKFLOW) | sed -n 's/^run_id: //p'); \
+	  test -n "$$run_id" || (echo "❌ apply did not return a run_id" && exit 1); \
+	  echo "   run_id: $$run_id"; \
+	  echo "⏳ Streaming to terminal + printing the model's review..."; \
+	  echo "── review ──────────────────────────────────────────────"; \
+	  $(ZYNAX) result "$$run_id"; \
+	  echo "────────────────────────────────────────────────────────"
+	@echo ""
+	@echo "✅ Demo complete. Next steps:"
+	@echo "   • Inspect logs:    ZYNAX_API_URL=http://localhost:7080 zynax logs <run-id> --follow"
+	@echo "   • Author your own: cp $(DEMO_WORKFLOW) my-workflow.yaml  (see docs/quickstart.md)"
+	@echo "   • Tear it all down: make demo-clean"
+
+demo-clean: ## Stop and remove the demo stack (base + Ollama overlay)
+	$(COMPOSE_DEMO) down --remove-orphans
+	@echo "✅ Demo stack removed"
 
 install-cli: ## Build and install zynax CLI to ~/bin/zynax (requires Go 1.26.3)
 	cd cmd/zynax && GOWORK=off go build -trimpath -o ~/bin/zynax .
