@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: Apache-2.0
+# Runnable code-review workflow — backed by a local Ollama model.
+#
+# Unlike code-review.yaml (an event-driven REFERENCE spec that waits on external
+# GitHub/review events), this workflow runs to completion from the CLI alone:
+# its initial state dispatches the `codereview` capability — served by the
+# llm-adapter pointed at a local Ollama model — over a real git diff, then
+# transitions to a terminal state on completion.
+#
+# Prereqs:
+#   docker compose -f infra/docker-compose/docker-compose.yml \
+#     -f infra/docker-compose/docker-compose.ollama.yml up -d
+#
+# Run:
+#   zynax apply spec/workflows/examples/code-review-ollama.yaml
+#   zynax logs <run-id> --follow
+
+kind: Workflow
+apiVersion: zynax.io/v1
+
+metadata:
+  name: code-review-ollama
+  namespace: demo
+  version: "1.0.0"
+  annotations:
+    description: "Real LLM code review of a git diff via local Ollama."
+
+spec:
+  initial_state: review
+
+  states:
+    review:
+      actions:
+        - capability: codereview
+          input:
+            prompt: |
+              You are a senior Go code reviewer. Review the following git diff and
+              reply with a short, numbered list of concrete issues (correctness,
+              security, edge cases). Be specific and cite the function name. If a
+              change looks risky, say why. End with an APPROVE or REQUEST-CHANGES verdict.
+
+              ```diff
+              diff --git a/payments.go b/payments.go
+              --- a/payments.go
+              +++ b/payments.go
+              @@ -7,5 +7,12 @@ func Charge(balanceCents, amountCents int) (int, error) {
+               	if amountCents < 0 {
+               		return balanceCents, errors.New("amount must be non-negative")
+               	}
+              -	return balanceCents - amountCents, nil
+              +	// Apply a 2% loyalty discount before charging.
+              +	discounted := amountCents - (amountCents / 50)
+              +	return balanceCents - discounted, nil
+              +}
+              +
+              +// Refund credits amountCents back to the account.
+              +func Refund(balanceCents, amountCents int) int {
+              +	return balanceCents + amountCents
+               }
+              ```
+      on:
+        - event: codereview.completed
+          goto: done
+
+    done:
+      type: terminal
