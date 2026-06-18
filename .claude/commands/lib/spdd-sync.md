@@ -1,4 +1,4 @@
-# /spdd-sync
+# /lib:spdd-sync
 
 Synchronise a REASONS Canvas with the current code after refactoring. Updates the Canvas to reflect implementation reality without changing logic.
 
@@ -14,11 +14,11 @@ Read the Canvas at $ARGUMENTS. Then read the implementation files listed in the 
 
 2. For each discrepancy, propose a Canvas update that documents the current reality
 
-3. Do NOT change R (Requirements), A (Approach), or S (Safeguards) — those reflect intent, not implementation details. If they need to change, use /spdd-prompt-update instead.
+3. Do NOT change R (Requirements), A (Approach), or S (Safeguards) — those reflect intent, not implementation details. If they need to change, use /lib:spdd-prompt-update instead.
 
 4. Update Canvas status to `Synced` when complete
 
-5. This command is ONLY for non-behavioural changes (refactoring). If the logic changed, use /spdd-prompt-update first.
+5. This command is ONLY for non-behavioural changes (refactoring). If the logic changed, use /lib:spdd-prompt-update first.
 
 ## Output Format
 

@@ -1,11 +1,13 @@
 ---
-description: Resume work on the active milestone (state/milestone.yaml) — one canvas per EPIC, /spdd-story creates all story issues in GitHub, /spdd-generate implements one O-step at a time, stop after the cluster is merged.
+description: Resume work on the active milestone (state/milestone.yaml) — one canvas per EPIC, /lib:spdd-story creates all story issues in GitHub, /lib:spdd-generate implements one O-step at a time, stop after the cluster is merged.
 argument-hint: "[optional: epic issue number or story issue number to prefer, e.g. 765 766]"
 ---
 
-# Resume Milestone — active milestone from state/milestone.yaml
+# /lib:deliver-resume — Resume an epic cluster (building block of /deliver)
 
-Pick the next ready EPIC, decompose it into story issues via `/spdd-story`, ship each story as its
+> **Building block** — invoked by `/deliver <#epic>` to resume a cluster, not run directly.\n> **Scope contract:** the caller provides scope; milestone is optional (`--milestone` filter).\n
+
+Pick the next ready EPIC, decompose it into story issues via `/lib:spdd-story`, ship each story as its
 own PR in O-step order, merge them in order, leave every state file consistent, then stop.
 
 > **Parallel-session safety.** Multiple sessions may run concurrently. Two mechanisms prevent
@@ -17,8 +19,8 @@ own PR in O-step order, merge them in order, leave every state file consistent, 
 
 **EPIC-canvas model:** every `feat:` EPIC has exactly **one** REASONS Canvas at
 `docs/spdd/<epic-issue>-<slug>/canvas.md`. That canvas's O steps map 1-to-1 to story PRs. Story
-issues are created in GitHub by `/spdd-story` — they reference the parent EPIC and carry full
-labels, milestone, and a test plan template. `/spdd-generate` always operates on the EPIC canvas,
+issues are created in GitHub by `/lib:spdd-story` — they reference the parent EPIC and carry full
+labels, milestone, and a test plan template. `/lib:spdd-generate` always operates on the EPIC canvas,
 not a per-story canvas.
 
 > **Rules are not restated here.** Commit/PR format, conventional types, DCO + `Assisted-by`
@@ -66,7 +68,7 @@ git fetch origin --prune && git checkout main && git pull --rebase origin main
 
 # ── Active-milestone config (SSoT: state/milestone.yaml) ────────────────────
 # Loaded at runtime; no milestone name, number, or label is hardcoded in this
-# file. Updated only by /milestone-close and /milestone-new.
+# file. Updated only by /milestone close and /milestone open.
 CFG=state/milestone.yaml
 MILESTONE_NAME=$(awk '/^active:/{f=1} f && /^  name:/{print $2; exit}' "$CFG")
 MILESTONE_TITLE=$(awk -F'"' '/^active:/{f=1} f && /^  title:/{print $2; exit}' "$CFG")
@@ -222,12 +224,12 @@ ls docs/spdd/ | grep -E "^<EPIC_N>-"   # check if EPIC canvas already exists
 Run in order, stopping between each step for inspection:
 
 ```bash
-/spdd-analysis <EPIC_N>
+/lib:spdd-analysis <EPIC_N>
 ```
 Review output: verify ADR constraints, tier classification, Tier 2 flags.
 
 ```bash
-/spdd-reasons-canvas <EPIC_N>
+/lib:spdd-canvas <EPIC_N>
 ```
 Canvas is written to `docs/spdd/<EPIC_N>-<slug>/canvas.md` (Status: Draft).
 
@@ -241,7 +243,7 @@ Canvas is written to `docs/spdd/<EPIC_N>-<slug>/canvas.md` (Status: Draft).
 - **S-Safeguards**: architecture invariants, state-minimization rule (where applicable)
 
 ```bash
-/spdd-security-review docs/spdd/<EPIC_N>-<slug>/canvas.md
+/lib:spdd-security-review docs/spdd/<EPIC_N>-<slug>/canvas.md
 ```
 Must PASS before committing. Any Tier 2 findings → move to `canvas.private.md`.
 
@@ -257,10 +259,10 @@ gh issue list --milestone "$GH_MILESTONE" --state all \
 
 If stories are missing, run:
 ```bash
-/spdd-story <EPIC_N>
+/lib:spdd-story <EPIC_N>
 ```
 
-`/spdd-story` will create one GitHub issue per O-step. **Each story issue MUST have:**
+`/lib:spdd-story` will create one GitHub issue per O-step. **Each story issue MUST have:**
 - Title: `feat(<scope>): <story-title> (#<EPIC_N>, step <N>)` — conventional-commit form
 - Labels: `type: feature`, `area: <area>`, `$MILESTONE_LABEL`, `size/<S|M|L>`, `spdd: canvas-step`
 - Milestone: `$GH_MILESTONE`
@@ -380,11 +382,11 @@ Missing `.feature` → write and commit it FIRST, in a separate commit on this b
 
 ---
 
-## STEP 5 — Implement via /spdd-generate
+## STEP 5 — Implement via /lib:spdd-generate
 
 For `feat:` O-steps with an Aligned epic canvas:
 ```bash
-/spdd-generate docs/spdd/<EPIC_N>-<slug>/canvas.md
+/lib:spdd-generate docs/spdd/<EPIC_N>-<slug>/canvas.md
 ```
 The skill reads the canvas, identifies the current O-step, generates the code for that step only,
 and stops. Review the output; if it would violate a safeguard, halt and report.
@@ -409,7 +411,7 @@ Capture all output — paste into PR body test plan checkboxes.
 Each story PR updates:
 1. `"$PLANNING_DOC"` — flip this story's row ⬜→✅; bump "Last updated"
 2. `state/current-milestone.md` — update EPIC progress; note if EPIC is now fully done
-3. Epic canvas O-step — mark it ✅; run `/spdd-sync <canvas>` if implementation diverged
+3. Epic canvas O-step — mark it ✅; run `/lib:spdd-sync <canvas>` if implementation diverged
 4. `services/<svc>/AGENTS.md` — only if a new gRPC method, K8s resource type, or env var was added
 
 ---
@@ -521,7 +523,7 @@ Mark the EPIC canvas `Status: Implemented` (small docs: commit). Post the sessio
 | EPIC has canvas Aligned but no story issues | STEP 3B: create stories, then STEP 4 |
 | EPIC has no canvas | STEP 3A: full pipeline |
 | EPIC is BLOCKED (#764 for EPIC I, #626 for EPIC J, #626+#772 for DevAuto.8 #881) | Pick next unblocked EPIC |
-| All EPICs exhausted | Report milestone exit-criteria; recommend /milestone-close |
+| All EPICs exhausted | Report milestone exit-criteria; recommend /milestone close |
 
 ---
 
@@ -565,7 +567,7 @@ Mark the EPIC canvas `Status: Implemented` (small docs: commit). Post the sessio
 ### Engineering hygiene
 - [ ] **Planning-doc row ⬜→✅ in this diff** (mandatory)
 - [ ] **`current-milestone.md` updated in this diff** (mandatory)
-- [ ] Canvas O-step <N> marked ✅; `/spdd-sync` run if impl diverged
+- [ ] Canvas O-step <N> marked ✅; `/lib:spdd-sync` run if impl diverged
 - [ ] Branched from fresh `origin/main` · PR ≤900 lines · trailers on every commit
 - [ ] No out-of-scope edits · observability (traces/dashboards) deferred to a later milestone
 ```

@@ -1,11 +1,11 @@
 ---
-description: Scaffold the next milestone — GitHub milestone, planning doc skeleton, state/milestone.yaml active block. The only sanctioned writer of milestone.yaml besides /milestone-close.
+description: Scaffold the next milestone — GitHub milestone, planning doc skeleton, state/milestone.yaml active block. The only sanctioned writer of milestone.yaml besides /milestone close.
 argument-hint: "<name> <version> \"<title>\"  (next milestone per ROADMAP.md)"
 ---
 
-# /milestone-new — Milestone Lifecycle: Open
+# /milestone open — Milestone Lifecycle: Open
 
-Scaffold the next milestone. This command (with `/milestone-close`) is the ONLY sanctioned
+Scaffold the next milestone. This command (with `/milestone close`) is the ONLY sanctioned
 writer of `state/milestone.yaml` — every other command reads it.
 
 Inputs (from arguments; ask the operator if missing): short name (e.g. the next sequential
@@ -21,7 +21,7 @@ git fetch origin --prune && git checkout main && git pull --rebase origin main
 [ -z "$(git status --porcelain)" ] || { echo "dirty tree — STOP"; exit 1; }
 
 # The previous milestone must be rotated to history (active block empty/placeholder).
-# If /milestone-close has not run, STOP and run it first.
+# If /milestone close has not run, STOP and run it first.
 grep -A2 '^active:' state/milestone.yaml
 ```
 
@@ -100,5 +100,5 @@ gh pr merge --squash
 GitHub:   milestone #<number> + label "milestone: <name>"
 Planning: docs/milestones/<name>-planning.md (skeleton — fill EPIC table next)
 Config:   state/milestone.yaml active block written (PR #N merged)
-Next:     create EPIC issues, then /milestone-plan.
+Next:     create EPIC issues, then /deliver.
 ```

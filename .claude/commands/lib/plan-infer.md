@@ -3,31 +3,33 @@ description: SPDD-native roadmap planner — reads the whole repo (ROADMAP, arch
 argument-hint: "[--execute] [--area <scope>] [--max N]   default: PLAN only"
 ---
 
-# /roadmap-plan — SPDD-Native Roadmap Planner & Orchestration-Readiness Pass
+# /lib:plan-infer — Roadmap inference (building block of /plan)
 
-Answer the question **/milestone-plan cannot**: *what stories and fixes SHOULD exist for the
+> **Building block** — invoked by `/plan` (no-arg) to infer unfiled work, not run directly.\n> **Scope contract:** repo-wide by default; `--milestone M` filters.\n
+
+Answer the question **/deliver cannot**: *what stories and fixes SHOULD exist for the
 active milestone that don't yet* — then create them the SPDD way and leave the repo ready for
-`/milestone-orchestrate`.
+`/deliver`.
 
 ```
-/roadmap-plan  →  infer stories + fixes from the whole repo (this command)
-/milestone-plan        →  sequence the EXISTING issues into parallel batches
-/milestone-orchestrate →  deliver batches via expert subagents
-/milestone-learn       →  synthesize session learnings into expert guides
-/repo-clean            →  reconcile status surfaces to live state
-/milestone-close + /milestone-new →  advance to the next milestone
+/plan  →  infer stories + fixes from the whole repo (this command)
+/deliver        →  sequence the EXISTING issues into parallel batches
+/deliver →  deliver batches via expert subagents
+/learn       →  synthesize session learnings into expert guides
+/reconcile            →  reconcile status surfaces to live state
+/milestone close + /milestone open →  advance to the next milestone
 ```
 
-`/milestone-plan` sequences issues that already exist. **`/roadmap-plan` is the step before
+`/deliver` sequences issues that already exist. **`/plan` is the step before
 it** — it mines the repo for work that is implied but unfiled, files it correctly (SPDD for
 `feat:`), aligns the active milestone's canvases to their EPICs and issues, and runs a
-`/repo-clean` reconcile so the next `/milestone-orchestrate` starts from a true, complete state.
+`/reconcile` reconcile so the next `/deliver` starts from a true, complete state.
 
 > **This command is PLAN-by-default and read-mostly.** It prints a traceable plan and **stops**.
 > It mutates GitHub (creates issues, runs SPDD canvases/security-reviews, cross-links,
 > reconciles) **only** with `--execute` or an explicit "go" after the plan. It never edits
 > `AGENTS.md`, ADRs, or any `.claude/commands/**` file — refinements to those are *proposed*
-> into the human-gated `/milestone-learn` + `/repo-clean` loop (STEP 6).
+> into the human-gated `/learn` + `/reconcile` loop (STEP 6).
 
 > **Rules are not restated.** Domain + contribution rules live in [AGENTS.md](AGENTS.md),
 > [CLAUDE.md](CLAUDE.md), [docs/git-workflow.md](docs/git-workflow.md), and the SPDD guide
@@ -44,7 +46,7 @@ it** — it mines the repo for work that is implied but unfiled, files it correc
 - **Live GitHub state is the source of truth** — never memory, never a stale doc. Every decision
   is driven by `gh issue list` / `gh pr list` / `gh api .../milestones` and the files read fresh.
 - **SPDD for every `feat:`.** Inferred *capabilities* are never filed as bare issues. They go
-  through `/spdd-analysis` → `/spdd-story` → `/spdd-reasons-canvas` → `/spdd-security-review` →
+  through `/lib:spdd-analysis` → `/lib:spdd-story` → `/lib:spdd-canvas` → `/lib:spdd-security-review` →
   human aligns the canvas. `fix:` / `refactor:` / `docs:` / `test:` / `ci:` / `chore:` are
   SPDD-exempt and may be filed directly.
 - **Two phases.** PLAN (default) computes and prints; EXECUTE (`--execute` or "go") mutates.
@@ -56,7 +58,7 @@ it** — it mines the repo for work that is implied but unfiled, files it correc
   `Co-Authored-By` for AI); merge is **squash-only**; never disable signing; never push `main`
   directly; never write a literal `[skip ci]` token (write "skip-ci marker"). Use repo-relative
   paths in any committed markdown; never put a literal email in a `.claude/commands/**` file.
-- **Never writes `state/milestone.yaml`.** Only `/milestone-close` and `/milestone-new` may.
+- **Never writes `state/milestone.yaml`.** Only `/milestone close` and `/milestone open` may.
   When the active milestone is complete, this command *proposes* the transition and hands off.
 
 ---
@@ -69,8 +71,8 @@ Everything this command files follows the canonical shapes — no ad-hoc bodies.
   `feature_request.md` (`feat:`), `bug_report.md` (`fix:`/bug), `documentation.md` (`docs:`),
   `adr_proposal.md` (proposed ADR). Fill every template section; never freehand.
 - **PR body = [docs/contributing/pr-templates.md](docs/contributing/pr-templates.md)** (the
-  per-type skeleton), exactly as `/milestone-orchestrate` and `/issue-deliver` build it.
-- **Stories = `/spdd-story`** output (INVEST stories mapped to the Canvas O section) — never a
+  per-type skeleton), exactly as `/deliver` and `/deliver` build it.
+- **Stories = `/lib:spdd-story`** output (INVEST stories mapped to the Canvas O section) — never a
   bare issue for a `feat:` capability.
 - **Every issue, story, canvas, and PR carries a `## What for (user impact)` block** — see below.
 
@@ -109,14 +111,14 @@ Apply, in addition to `type:` / `area:` / `priority:` / `status:` / `milestone:`
 
 The full `product:` and `audience:` taxonomy lives in [docs/labels.md](docs/labels.md). In the
 EXECUTE phase, ensure each label exists before applying it (`gh label create … 2>/dev/null || true`,
-mirroring `/milestone-orchestrate` STEP 4).
+mirroring `/deliver` STEP 4).
 
 ---
 
 ## STEP 0 — Isolated worktree (leave the user's checkout untouched)
 
 Run all git/inference work in a throwaway worktree detached at `origin/main`, exactly like
-`/repo-clean` and `/milestone-orchestrate` do.
+`/reconcile` and `/deliver` do.
 
 ```bash
 RUN_ID="$(date +%s)-$$"
@@ -213,7 +215,7 @@ For every merged candidate:
    - Clearly a later milestone → label for that milestone (or leave milestone-less as backlog
      with a note). Never stuff out-of-scope work into the active milestone to pad it.
 4. **Attach to an EPIC.** If the active milestone organises work under EPICs, map each story to
-   its parent EPIC (so `/milestone-plan` can sequence it). A story with no EPIC for a milestone
+   its parent EPIC (so `/deliver` can sequence it). A story with no EPIC for a milestone
    that uses EPICs is itself a finding (propose an EPIC or a "misc" bucket).
 
 ---
@@ -235,13 +237,13 @@ done
 
 | Readiness check (per active-milestone EPIC) | Gap → action |
 |---|---|
-| A canvas exists at `docs/spdd/<N>-<slug>/canvas.md` | **missing** → `/spdd-reasons-canvas <N>` (EXECUTE phase) |
-| Canvas `Status:` reflects reality (`Draft`→`Aligned`→`Implemented`) | **stale** → fold into the `/repo-clean` reconcile (STEP 6) |
+| A canvas exists at `docs/spdd/<N>-<slug>/canvas.md` | **missing** → `/lib:spdd-canvas <N>` (EXECUTE phase) |
+| Canvas `Status:` reflects reality (`Draft`→`Aligned`→`Implemented`) | **stale** → fold into the `/reconcile` reconcile (STEP 6) |
 | Canvas **links to its GH issue** (`#<N>` in the canvas header) | **missing** → add the issue ref to the canvas |
 | GH issue **links back to the canvas** (`docs/spdd/<N>-…/canvas.md` in the issue body) | **missing** → `gh issue edit <N>` to add the canvas link |
-| A `docs/spdd/<N>-<slug>/SECURITY-REVIEW.md` exists and **PASSES** (feat EPICs) | **missing/FAIL** → `/spdd-security-review <canvas>` then resolve before align |
+| A `docs/spdd/<N>-<slug>/SECURITY-REVIEW.md` exists and **PASSES** (feat EPICs) | **missing/FAIL** → `/lib:spdd-security-review <canvas>` then resolve before align |
 | Canvas is `Aligned` before any implementation issue is `READY` | **not aligned** → human sets `Aligned` after security-review PASS |
-| Every EPIC O-step has a story issue | **missing** → `/spdd-story <N>` to decompose |
+| Every EPIC O-step has a story issue | **missing** → `/lib:spdd-story <N>` to decompose |
 
 The output of this step is the precise SPDD action list that makes the active milestone
 orchestrate-ready: which EPICs need a canvas, which need stories, which need a security-review,
@@ -254,7 +256,7 @@ which need cross-links, which need an align.
 Print one traceable plan and wait for "go" (unless `--execute`).
 
 ```
-## /roadmap-plan — <date>, active milestone <NAME> "<TITLE>" (#<num>, <version>)
+## /plan — <date>, active milestone <NAME> "<TITLE>" (#<num>, <version>)
 
 ### Milestone fill status
   EPICs: <done>/<total> complete · open EPICs without stories: #…, #…
@@ -264,7 +266,7 @@ Print one traceable plan and wait for "go" (unless `--execute`).
 ### Proposed stories (SPDD — feat:) — into <NAME>
 | candidate | EPIC | SPDD actions needed | evidence |
 |-----------|------|---------------------|----------|
-| feat(engine-adapter): … | #1167 | /spdd-story → /spdd-reasons-canvas → /spdd-security-review → align | review §16 G8 |
+| feat(engine-adapter): … | #1167 | /lib:spdd-story → /lib:spdd-canvas → /lib:spdd-security-review → align | review §16 G8 |
 
 ### Proposed issues (SPDD-exempt — fix/refactor/docs/test/ci/chore) — into <NAME>
 | # (new) | type(scope): title | evidence | labels |
@@ -281,7 +283,7 @@ Print one traceable plan and wait for "go" (unless `--execute`).
 |------|--------|-----------|-----------|-----------------|-------|--------|
 
 ### Repo-clean delta (run after the above)
-  <surfaces that will disagree once issues are created — handed to /repo-clean>
+  <surfaces that will disagree once issues are created — handed to /reconcile>
 
 ### Drift-prevention proposals (propose-only → APPLY_LOG.md / guardrails)
 | pattern | recurrence | proposed guardrail (CI gate / command-step / expert rule) |
@@ -291,7 +293,7 @@ Print one traceable plan and wait for "go" (unless `--execute`).
 | candidate | suggested milestone | why deferred |
 
 ### Handoff
-  After --execute: run /milestone-plan, then /milestone-orchestrate.
+  After --execute: run /deliver, then /deliver.
 ```
 
 ---
@@ -319,12 +321,12 @@ cross-link before align; reconcile last.
 2. **feat: stories — SPDD path only.** For each feat EPIC/story gap, invoke the SPDD skills
    (against the real checkout, not this `/tmp` worktree — they manage their own git):
    ```
-   /spdd-analysis <issue-or-epic>      # research, risk table, Tier-2 flags
-   /spdd-story <epic>                  # decompose into INVEST stories (→ Canvas O section)
-   /spdd-reasons-canvas <epic>         # create docs/spdd/<N>-<slug>/canvas.md (Status: Draft)
-   /spdd-security-review <canvas>      # Tier-2 scan — MUST PASS before align
+   /lib:spdd-analysis <issue-or-epic>      # research, risk table, Tier-2 flags
+   /lib:spdd-story <epic>                  # decompose into INVEST stories (→ Canvas O section)
+   /lib:spdd-canvas <epic>         # create docs/spdd/<N>-<slug>/canvas.md (Status: Draft)
+   /lib:spdd-security-review <canvas>      # Tier-2 scan — MUST PASS before align
    ```
-   Then **stop for the human to set `Status: Aligned`** — `/spdd-generate` refuses an unaligned
+   Then **stop for the human to set `Status: Aligned`** — `/lib:spdd-generate` refuses an unaligned
    canvas by design, and alignment is a human decision (CLAUDE.md SPDD rule).
 3. **Cross-link canvas ⇄ issue** for every gap from STEP 4:
    ```bash
@@ -335,19 +337,19 @@ cross-link before align; reconcile last.
    # canvas → issue: add the `Issue: #<N>` line to the canvas header (edit + commit in the PR below)
    ```
 4. **Security-review** any feat canvas missing a PASSing `SECURITY-REVIEW.md` (step 2's
-   `/spdd-security-review`); resolve findings before the canvas is aligned.
+   `/lib:spdd-security-review`); resolve findings before the canvas is aligned.
 5. **Drift-prevention + command/expert refinements — propose only.** Write each recurring-pattern
    guardrail and any milestone-command refinement as a **PENDING** row in
    [docs/ai-learnings/APPLY_LOG.md](docs/ai-learnings/APPLY_LOG.md) (category `domain` /
    `env-constraint`), and surface it in the report. **Never** auto-edit `experts/*`,
-   `milestone-*.md`, `AGENTS.md`, or ADRs — the human applies via `/milestone-learn --apply`
-   (expert files) or a deliberate command-file PR (CODEOWNERS-gated). This is how `/repo-clean`'s
+   `milestone-*.md`, `AGENTS.md`, or ADRs — the human applies via `/learn --apply`
+   (expert files) or a deliberate command-file PR (CODEOWNERS-gated). This is how `/reconcile`'s
    reconcile rules migrate into CI gates / command guardrails over time, so drift stops at the
-   source and `/repo-clean` is eventually needed only after big context-losing crashes.
-6. **Reconcile (`/repo-clean`).** Once issues exist and canvases are linked, the status surfaces
-   are stale by construction. Run `/repo-clean` to bring README/ROADMAP/ARCHITECTURE/CLAUDE/
+   source and `/reconcile` is eventually needed only after big context-losing crashes.
+6. **Reconcile (`/reconcile`).** Once issues exist and canvases are linked, the status surfaces
+   are stale by construction. Run `/reconcile` to bring README/ROADMAP/ARCHITECTURE/CLAUDE/
    state/planning/canvas surfaces back to live state and dedup-triage any `[AUTO]` noise — leaving
-   the repo "as repo-clean as possible". Let `/repo-clean` own its own PR; don't fold it here.
+   the repo "as repo-clean as possible". Let `/reconcile` own its own PR; don't fold it here.
 7. **Commit canvas/back-link edits** made in this worktree as one `docs:`/`chore:` PR (DCO `-s` +
    `Assisted-by`), squash-merge on the human's call.
 
@@ -359,19 +361,19 @@ After the fill pass, re-assess the active milestone against its exit criteria
 (`$PLANNING_DOC` + `state/current-milestone.md`):
 
 - **FILLING** (open EPICs, unmet exit criteria, or stories just created): report the
-  orchestrate-ready batch and recommend `/milestone-plan` → `/milestone-orchestrate`. Re-run
-  `/roadmap-plan` after the next delivery wave to keep filling.
+  orchestrate-ready batch and recommend `/deliver` → `/deliver`. Re-run
+  `/plan` after the next delivery wave to keep filling.
 - **COMPLETE** (all EPIC stories merged, exit criteria met, `gh` milestone has 0 open issues):
   do **not** create filler. **Propose the transition** (never execute it here):
   ```
   ## Active milestone <NAME> appears COMPLETE
     - Exit criteria: all met (cite each).
-    - Recommended: /milestone-close   (tag <version>, GitHub Release, rotate milestone.yaml)
-    - Then:        /milestone-new      (scaffold the next milestone + planning doc + active block)
+    - Recommended: /milestone close   (tag <version>, GitHub Release, rotate milestone.yaml)
+    - Then:        /milestone open      (scaffold the next milestone + planning doc + active block)
     - Next milestone candidates inferred from ROADMAP/backlog: <list with rationale>
   ```
-  `/milestone-close` and `/milestone-new` are the **only** sanctioned writers of
-  `state/milestone.yaml`. `/roadmap-plan` stops at the proposal.
+  `/milestone close` and `/milestone open` are the **only** sanctioned writers of
+  `state/milestone.yaml`. `/plan` stops at the proposal.
 
 ---
 
@@ -386,7 +388,7 @@ for c in docs/spdd/*/canvas.md; do grep -Hm1 -E 'Issue:|#[0-9]+' "$c"; done
 
 Report: stories created (via SPDD) + issues created (direct), with numbers; canvas/issue
 cross-links added; security-reviews run + status; drift/refinement proposals written to
-APPLY_LOG (count, PENDING); the `/repo-clean` result; and the milestone verdict (FILLING with
+APPLY_LOG (count, PENDING); the `/reconcile` result; and the milestone verdict (FILLING with
 the next orchestrate batch, or COMPLETE with the advance proposal).
 
 ```bash
@@ -415,10 +417,10 @@ cd "$REPO" && git worktree remove "$WT" --force 2>/dev/null || true
 
 | Stage | Command | This command's role |
 |-------|---------|---------------------|
-| Infer unfiled work | **`/roadmap-plan`** | mine repo → SPDD-file stories + fixes into active milestone |
-| Make orchestrate-ready | **`/roadmap-plan`** STEP 4–6 | canvas⇄issue⇄security-review align + `/repo-clean` |
-| Sequence existing issues | `/milestone-plan` | (downstream) parallel batches |
-| Deliver | `/milestone-orchestrate`, `/issue-deliver` | (downstream) |
-| Synthesize learnings | `/milestone-learn` | this command *proposes* refinements into its APPLY_LOG |
-| Reconcile surfaces | `/repo-clean` | invoked in STEP 6; this command feeds it guardrail proposals to make it eventually unnecessary |
-| Advance milestone | `/milestone-close` + `/milestone-new` | this command *proposes* the transition in STEP 7; never executes it |
+| Infer unfiled work | **`/plan`** | mine repo → SPDD-file stories + fixes into active milestone |
+| Make orchestrate-ready | **`/plan`** STEP 4–6 | canvas⇄issue⇄security-review align + `/reconcile` |
+| Sequence existing issues | `/deliver` | (downstream) parallel batches |
+| Deliver | `/deliver`, `/deliver` | (downstream) |
+| Synthesize learnings | `/learn` | this command *proposes* refinements into its APPLY_LOG |
+| Reconcile surfaces | `/reconcile` | invoked in STEP 6; this command feeds it guardrail proposals to make it eventually unnecessary |
+| Advance milestone | `/milestone close` + `/milestone open` | this command *proposes* the transition in STEP 7; never executes it |

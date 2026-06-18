@@ -3,19 +3,19 @@ description: Run the full review suite — architecture, security-posture, produ
 argument-hint: "[--pr] [--split] [--only architecture,security,product,market]   default: working drafts, one bundled PR with --pr"
 ---
 
-# /review-suite — Parallel Review Document Orchestrator
+# /review — Parallel Review Document Orchestrator
 
 Fan out all four review-document generators at once, each in its own isolated subagent, and
 collect their dated docs. Thin coordination layer: spawn → collect → deliver. The orchestrator
 itself reads no code — each review's grounding work happens in its subagent's isolated context
-(same discipline as `/milestone-orchestrate`).
+(same discipline as `/deliver`).
 
 ```
-/review-suite
-  ├─ /architecture-review   → docs/architecture/<date>-architecture-review.md
-  ├─ /security-review-doc   → docs/architecture/<date>-security-review.md (+ .private.md, gitignored)
-  ├─ /product-review        → docs/product/<date>-product-strategy-review.md
-  └─ /market-fit-review     → docs/product/<date>-market-fit-review.md
+/review
+  ├─ /lib:architecture-review   → docs/architecture/<date>-architecture-review.md
+  ├─ /lib:security-review-doc   → docs/architecture/<date>-security-review.md (+ .private.md, gitignored)
+  ├─ /lib:product-review        → docs/product/<date>-product-strategy-review.md
+  └─ /lib:market-fit-review     → docs/product/<date>-market-fit-review.md
 ```
 
 > **Read-mostly.** Subagents read the repo + live GitHub state and return their doc CONTENT;
@@ -23,8 +23,8 @@ itself reads no code — each review's grounding work happens in its subagent's 
 > or `AGENTS.md`. Each review keeps its own truth-pass discipline (grounded claims, longitudinal
 > delta, shipped/partial/aspirational split).
 
-> **Rules are not restated.** Each review command (`/architecture-review`, `/security-review-doc`,
-> `/product-review`, `/market-fit-review`) owns its own contract and guardrails. This file is the
+> **Rules are not restated.** Each review command (`/lib:architecture-review`, `/lib:security-review-doc`,
+> `/lib:product-review`, `/lib:market-fit-review`) owns its own contract and guardrails. This file is the
 > *parallel coordination loop* only.
 
 ---
@@ -71,7 +71,7 @@ Agent({
     Constraints:
     - Read-only. Ground every claim in a cited artifact (file:line / doc / gh result). No invented numbers.
     - Mark shipped / partial / aspirational. Include the longitudinal delta vs the prior review.
-    - Annotate recommendations/gaps with user type(s) + adoption lever (for the /roadmap-plan handoff).
+    - Annotate recommendations/gaps with user type(s) + adoption lever (for the /plan handoff).
     - Pull live signals (stars/forks/contributors/alerts/milestones) via gh yourself.
     - End with: a line `OUTPUT_PATH: <the dated path this review uses>` so the coordinator can place it.
   """
@@ -146,7 +146,7 @@ cd "$REPO" && git worktree remove "$COORD_WT" --force 2>/dev/null || true
 | market-fit   | docs/product/<date>-market-fit-review.md         | <verdict>           | <#1 rec> |
 
 PR: #<n> (bundled) or four PRs (--split).
-Next: feed the reviews' gap-analyses/recommendations to /roadmap-plan to file them as issues.
+Next: feed the reviews' gap-analyses/recommendations to /plan to file them as issues.
 ```
 
 ---
@@ -159,5 +159,5 @@ Next: feed the reviews' gap-analyses/recommendations to /roadmap-plan to file th
 - **One dated doc per review per run.** Never overwrite a prior dated review.
 - Each review keeps truth-pass discipline (grounded, longitudinal, shipped/partial/aspirational).
 - Commit (with `--pr`): `docs:` type, DCO `-s`, `Assisted-by`, signed, squash-merge; repo-relative links.
-- Pairs with `/roadmap-plan`: the suite produces the assessments; `/roadmap-plan` turns their
+- Pairs with `/plan`: the suite produces the assessments; `/plan` turns their
   gaps/recommendations into SPDD-filed, adoption-tagged issues for the active milestone.

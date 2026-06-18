@@ -1,9 +1,14 @@
 ---
 description: Truth-pass for the repo — reconcile every status surface (README/ROADMAP/ARCHITECTURE/CLAUDE/state/milestone-planning/SPDD canvases) to LIVE GitHub state, triage the pile of [AUTO] pipeline issues (digest-drift / smoke / size / security), close stale issues with traceable reasons, and prune merged/orphaned branches (local + remote) to keep the repo clean. Plans first, executes only on approval, delivers file changes via one signed PR.
-argument-hint: "[--execute] [--include-stale] [--milestone M6]   default: PLAN only, no --include-stale"
+argument-hint: "[--execute] [--include-stale] [--milestone M]   default: PLAN only, no --include-stale"
 ---
 
-# /repo-clean — Repository Truth-Pass & Clean Snapshot
+# /reconcile — Repository Truth-Pass & Clean Snapshot
+
+> **On-demand only.** Run this to **recover from a failed/interrupted run** (stalled or BEHIND PRs,
+> orphaned worktrees, half-finished deliveries) and to **clean the repo** (reconcile status surfaces,
+> triage [AUTO] issues, prune merged/orphaned branches). It is no longer auto-invoked by other
+> commands. Recovery: detect in-flight breakage and offer to rebase/finish/clean before the truth-pass.
 
 Bring every artifact the agents and humans rely on into agreement with the **actual** state of the
 repository — then leave it well-linked and traceable. This is a *truth-pass*, not a refactor.
@@ -20,7 +25,7 @@ repository — then leave it well-linked and traceable. This is a *truth-pass*, 
 
 > **Rules are not restated.** Domain and contribution rules live in [AGENTS.md](AGENTS.md),
 > [CLAUDE.md](CLAUDE.md), and [docs/git-workflow.md](docs/git-workflow.md). The reconcile logic
-> mirrors [.claude/commands/issue-deliver.md](.claude/commands/issue-deliver.md) STEP 6.
+> mirrors [.claude/commands/lib/deliver-one.md](.claude/commands/lib/deliver-one.md) STEP 6.
 > This file is the *cleanup loop* only.
 
 ---
@@ -36,7 +41,7 @@ repository — then leave it well-linked and traceable. This is a *truth-pass*, 
 - **File changes go through PRs (never `main` directly).** Branch protection requires SSH commit
   signing, DCO `Signed-off-by`, and **squash** merge. A pass produces up to **two** PRs, kept
   separate by concern: (1) the **truth-pass PR** — doc surfaces + `images.yaml`; (2) the
-  **expert-learnings PR** — opened by `/milestone-learn --apply` for `.claude/commands/experts/*`. Issue
+  **expert-learnings PR** — opened by `/learn --apply` for `.claude/commands/experts/*`. Issue
   closes happen directly via `gh` and **reference the truth-pass PR**.
 - **Hard constraints (from [AGENTS.md §Hard Constraints](AGENTS.md#hard-constraints) + repo memory):**
   - Commit type must be `docs:` for a pure doc reconcile, `ci:`/`chore:` if it only touches
@@ -141,13 +146,13 @@ Marker vocabulary: `📅 Planned → 🚧 Active → ✅ Complete` (milestones);
 > `Explore` subagent ("report every milestone/service/canvas marker that disagrees with this live
 > state: <paste STEP 1 summary>") so the main context stays lean. All edits stay in the main agent.
 
-### C. Knowledge drift — synthesize session learnings (`/milestone-learn`)
+### C. Knowledge drift — synthesize session learnings (`/learn`)
 The orchestrate/issue-generate flows append `## Session Learnings` blocks to
 [docs/ai-learnings/*.md](docs/ai-learnings/). A clean snapshot folds those into the expert guides.
 Invoke the synthesizer in its default (human-gated) mode:
 
 ```
-/milestone-learn
+/learn
 ```
 
 It clusters the accumulated learnings, dedupes against existing
@@ -156,7 +161,7 @@ It clusters the accumulated learnings, dedupes against existing
 auto-commits in synthesis mode**. Read back the new PENDING rows and fold their one-line summaries
 into the PLAN (STEP 3) so the human can approve/reject them in the same review.
 
-> **`/milestone-learn` owns its own git.** It commits expert-file changes on its own
+> **`/learn` owns its own git.** It commits expert-file changes on its own
 > `docs/expert-learnings-*` branch and opens a **separate** PR (different files, different concern —
 > expert prompts, not status surfaces). Do **not** fold expert-guide edits into the truth-pass doc
 > PR. Because it manages its own branch, invoke it as a skill against the real checkout, not inside
@@ -220,7 +225,7 @@ git rev-list --left-right --count "origin/main...origin/$b"   # behind <TAB> ahe
 Print one traceable plan. Stop here and wait for the human's "go" unless `--execute` was passed.
 
 ```
-## /repo-clean plan — <date>, active milestone <M?>, against main@<short-sha>
+## /reconcile plan — <date>, active milestone <M?>, against main@<short-sha>
 
 ### Issues to close (N)
 | # | family / kind | action | reason | reference |
@@ -239,11 +244,11 @@ Print one traceable plan. Stop here and wait for the human's "go" unless `--exec
 - images/images.yaml  (only if real drift)
 - README.md, ROADMAP.md, ... (list)
 
-### Proposed expert-guide learnings (separate /milestone-learn PR)
+### Proposed expert-guide learnings (separate /learn PR)
 | # | domain | proposed addition | sessions |
 |---|--------|-------------------|----------|
 | .. | ci-release | ... | ... |
-(PENDING in APPLY_LOG.md — human marks applied/rejected before /milestone-learn --apply)
+(PENDING in APPLY_LOG.md — human marks applied/rejected before /learn --apply)
 
 ### Branches to clean (local L / remote R)
 | branch | where | state | action | reason |
@@ -282,13 +287,13 @@ Print one traceable plan. Stop here and wait for the human's "go" unless `--exec
 4. **Close the planned issues**, each with a one-line reason **and a reference** so the trail is
    traceable:
    ```bash
-   gh issue close <N> --comment "Closed by /repo-clean truth-pass: <reason>. See PR #<new> / superseded by #<newest>."
+   gh issue close <N> --comment "Closed by /reconcile truth-pass: <reason>. See PR #<new> / superseded by #<newest>."
    ```
    Apply `duplicate` / `status: stale` / `wontfix` labels where they were proposed in the plan.
 5. **Apply approved learnings.** For every `APPLY_LOG.md` entry the human marked approved
    (`applied` / `pending-commit`), run:
    ```
-   /milestone-learn --apply
+   /learn --apply
    ```
    This edits the expert guides, marks the log entries `committed`, and opens its **own**
    `docs/expert-learnings-*` PR — kept separate from the truth-pass doc PR. If no entries were
@@ -346,6 +351,6 @@ cd "$REPO" && git worktree remove "$WT" --force 2>/dev/null || true
   --merged` (squash-merge hides merges from ancestry). FLAG unmerged orphans; never auto-delete them.
 - If `make check-images` / `make sync-images` can't run (no Docker), say so and fall back to
   dedup-close only for digest-drift — do not hand-edit digests.
-- One truth-pass = one doc PR + (optionally) one `/milestone-learn` PR. These two are separate **by
+- One truth-pass = one doc PR + (optionally) one `/learn` PR. These two are separate **by
   design** — status surfaces vs. expert prompts. Don't fold either into the other, and don't fold
   unrelated code fixes into either.

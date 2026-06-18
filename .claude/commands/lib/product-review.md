@@ -3,7 +3,7 @@ description: Generate a dated product-strategy review document grounded in the l
 argument-hint: "[--pr] [--since <prev-review-path>]   default: working draft, no PR"
 ---
 
-# /product-review — Product Strategy Review Document Generator
+# /lib:product-review — Product Strategy Review Document Generator
 
 Produce a point-in-time product-strategy review as a **dated document** under
 [docs/product/](docs/product/), building on the living
@@ -71,7 +71,7 @@ Write `$OUT` (SPDX header first; repo-relative links only):
 6. **Beachhead validation** — is the hero use case (agentic SW-engineering automation) holding?
    Evidence from shipped examples / real workflows.
 7. **Recommendations (prioritized)** — each classified by **user type** (developer/operator/
-   maintainer/product-owner/zynax-user/enterprise) and **adoption lever**, so `/roadmap-plan` can
+   maintainer/product-owner/zynax-user/enterprise) and **adoption lever**, so `/plan` can
    file them with the right `product:` / `audience:` labels + `## What for (user impact)` block.
 8. **Longitudinal delta** — prior recommendations → closed / open, with the PR/issue that moved them.
 9. **Appendix** — sources + glossary.
@@ -103,7 +103,7 @@ leave merge to the human unless they say "go".
 - **Ground everything; no invented numbers.** Mark shipped/partial/aspirational. Pull adoption
   metrics live from `gh`, not memory.
 - **Longitudinal.** Always diff against the prior review / `strategy.md`; record what moved.
-- **Recommendations carry user-type + adoption-lever annotations** (the `/roadmap-plan` handoff).
+- **Recommendations carry user-type + adoption-lever annotations** (the `/plan` handoff).
 - **Read-only on the product under review.** One dated doc per run; never overwrite a prior review.
 - Commit (with `--pr`): `docs:` type, DCO `-s`, `Assisted-by`, signed, squash-merge.
-- Pairs with `/roadmap-plan` (recommendations → issues) and `/market-fit-review` (competitive/TAM depth).
+- Pairs with `/plan` (recommendations → issues) and `/lib:market-fit-review` (competitive/TAM depth).

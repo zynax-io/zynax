@@ -3,22 +3,25 @@ description: Expert knowledge synthesizer — reads docs/ai-learnings/*.md, spaw
 argument-hint: "[--domain go-services|ci-release|...] [--apply]  default: synthesize all"
 ---
 
-# /milestone-learn — Expert Knowledge Synthesizer
+# /learn — Expert Knowledge Synthesizer
+
+> **Milestone-agnostic.** Synthesize learnings on demand from `docs/ai-learnings/*.md`; nothing here
+> depends on a milestone. `/deliver` and `/reconcile` append the raw session learnings this digests.
 
 Read accumulated session learnings → spawn synthesizer subagent → output proposed additions
 to expert prompt files → write pending entries to APPLY_LOG.md → stop for human review.
 
 Two modes:
-- **`/milestone-learn`** (default) — synthesize and write proposals to APPLY_LOG.md as PENDING.
-- **`/milestone-learn --apply`** — apply PENDING entries already approved by the human in APPLY_LOG.md,
+- **`/learn`** (default) — synthesize and write proposals to APPLY_LOG.md as PENDING.
+- **`/learn --apply`** — apply PENDING entries already approved by the human in APPLY_LOG.md,
   then commit expert files + log update together.
 
 > **This command never auto-commits in synthesis mode.** Human edits APPLY_LOG.md entries
-> (`pending` → `applied` / `rejected`) then runs `/milestone-learn --apply` to commit.
+> (`pending` → `applied` / `rejected`) then runs `/learn --apply` to commit.
 
 ---
 
-## APPLY mode (`/milestone-learn --apply`)
+## APPLY mode (`/learn --apply`)
 
 Check if any PENDING entries in APPLY_LOG.md were approved (`applied`) by the human.
 If yes: edit the expert files to add approved text, mark entries as `committed` in the log,
@@ -26,7 +29,7 @@ commit everything, open a PR, and stop.
 
 ```bash
 LOG="docs/ai-learnings/APPLY_LOG.md"
-[ ! -f "$LOG" ] && echo "No APPLY_LOG.md found — run /milestone-learn first." && exit 1
+[ ! -f "$LOG" ] && echo "No APPLY_LOG.md found — run /learn first." && exit 1
 
 # Find the most recent run with approved-but-not-yet-committed entries
 APPROVED=$(python3 - "$LOG" <<'PYEOF'
@@ -65,14 +68,14 @@ git checkout -b "$LEARN_BRANCH"
 git add .claude/commands/experts/ docs/ai-learnings/APPLY_LOG.md
 git commit -s -m "docs(automation): apply expert learnings — $(date +%Y-%m-%d)
 
-Synthesized from session learnings via /milestone-learn.
+Synthesized from session learnings via /learn.
 See docs/ai-learnings/APPLY_LOG.md for applied entries.
 
 Assisted-by: Claude/<model-id-of-this-session>"
 git push -u origin "$LEARN_BRANCH"
 gh pr create \
   --title "docs(automation): apply expert learnings — $(date +%Y-%m-%d)" \
-  --body "Applying approved /milestone-learn proposals. See APPLY_LOG.md for details." \
+  --body "Applying approved /learn proposals. See APPLY_LOG.md for details." \
   --label "type: docs" --label "$MILESTONE_LABEL"
 ```
 
@@ -189,7 +192,7 @@ Agent({
         These are REAL and must persist, but they belong in the **dispatch-prompt preamble of
         milestone-orchestrate.md / issue-deliver.md** (injected into every agent), NOT scattered
         into the expert guides. Do NOT auto-reject: surface as `pending` with a note that the
-        fix is a manual command-file edit (outside `/milestone-learn --apply`'s expert-file scope).
+        fix is a manual command-file edit (outside `/learn --apply`'s expert-file scope).
       - `domain` — genuine engineering knowledge (API shape, query planner behaviour, proto
         field name, test pattern, gRPC code mapping).
       Prefer the `Category:` line the session already emitted; if absent, infer it.
@@ -210,7 +213,7 @@ Agent({
       Seen in: #NNN, #NNN (N sessions). Recurrence: N.
     ```
 
-    Then, output a APPLY_LOG_ENTRY block (used by /milestone-learn to append to the log):
+    Then, output a APPLY_LOG_ENTRY block (used by /learn to append to the log):
 
     ```apply-log
     ## Run <YYYY-MM-DD HH:MM> — domains: <list>
@@ -279,10 +282,10 @@ echo "Run entry written to docs/ai-learnings/APPLY_LOG.md"
                then manually edit the target expert file to add the text
    - Reject:   change Status from "pending" to "rejected"
                leave Delta as "—"
-   - Defer:    leave Status as "pending" (will re-appear in next /milestone-learn run)
+   - Defer:    leave Status as "pending" (will re-appear in next /learn run)
 
 3. After editing expert file(s) and APPLY_LOG.md, run:
-   /milestone-learn --apply
+   /learn --apply
    This stages, commits, and opens a PR for the approved entries.
 
 === APPLY_LOG.md written to docs/ai-learnings/APPLY_LOG.md ===
@@ -293,13 +296,13 @@ echo "Run entry written to docs/ai-learnings/APPLY_LOG.md"
 ## Learning loop lifecycle
 
 ```
-/milestone-orchestrate
+/deliver
   → expert sessions run → ## Session Learnings blocks produced
   → orchestrator appends raw learnings to docs/ai-learnings/<domain>.md
   → opens docs: PR for the raw learnings
 
 After ≥3 new session blocks:
-/milestone-learn
+/learn
   → reads learnings + expert files + APPLY_LOG.md
   → synthesizer clusters patterns (recurrence ≥2, dedup vs applied)
   → prints proposals
@@ -309,7 +312,7 @@ Human reviews:
   → edits APPLY_LOG.md: pending → applied/rejected
   → manually edits expert files to add approved text
 
-/milestone-learn --apply
+/learn --apply
   → finds approved-but-not-committed entries in APPLY_LOG.md
   → updates log entries to committed
   → commits expert files + APPLY_LOG.md
@@ -323,8 +326,8 @@ Human reviews:
 ```markdown
 # Expert Learning Apply Log
 
-> Append-only. Each run of /milestone-learn adds one entry. Human edits Status column.
-> Delta column records what changed in the expert file (filled in by /milestone-learn --apply).
+> Append-only. Each run of /learn adds one entry. Human edits Status column.
+> Delta column records what changed in the expert file (filled in by /learn --apply).
 
 ---
 
@@ -346,10 +349,10 @@ Human reviews:
 > `env-constraint` rows (runtime/sandbox constraints worktree isolation does NOT fix — e.g.
 > background-subagent compound-Bash denial, non-persistent shell state) are NOT auto-rejected:
 > leave them `pending` and apply them by hand to the dispatch-prompt preamble in
-> `milestone-orchestrate.md` / `issue-deliver.md` — they are outside `/milestone-learn --apply`'s
+> `milestone-orchestrate.md` / `issue-deliver.md` — they are outside `/learn --apply`'s
 > expert-file scope, so `--apply` will not commit them.
 
-Status lifecycle: `pending` → `applied` (human sets) → `committed` (/milestone-learn --apply sets)
+Status lifecycle: `pending` → `applied` (human sets) → `committed` (/learn --apply sets)
 Or: `pending` → `rejected` (human sets, stays rejected)
 
 ---

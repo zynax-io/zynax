@@ -1,4 +1,4 @@
-# /spdd-security-review
+# /lib:spdd-security-review
 
 Review a REASONS Canvas (or any KB file) for publication safety before
 committing to the public repo. Applies semantic reasoning to catch Tier 2

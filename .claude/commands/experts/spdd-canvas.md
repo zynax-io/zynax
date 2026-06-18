@@ -25,7 +25,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `SECURITY` | Before running the security review on the canvas |
 | `FIX` | When applying security-review findings |
 | `ALIGN` | When setting `Status: Aligned` on the canvas |
-| `STORIES` | When creating story issues via `/spdd-story` |
+| `STORIES` | When creating story issues via `/lib:spdd-story` |
 | `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
 | `PR` | Before `gh pr create` — build the PR body from docs/contributing/pr-templates.md (your type variant) |
 | `CI_WAIT` | On entering the CI polling loop |
@@ -38,7 +38,7 @@ Example:
 [spdd #772 08:00:01] READ: loading AGENTS.md, ADR index, issue body  [ctx: ~14K | compress=0 | msgs=2]
 [spdd #772 08:03:10] ANALYSIS: scanning services/event-bus/, ADR-001/013/022 constraints  [ctx: ~17K | compress=0 | msgs=3]
 [spdd #772 08:06:40] CANVAS: writing docs/spdd/772-event-bus/canvas.md  [ctx: ~17K | compress=0 | msgs=4]
-[spdd #772 08:10:05] SECURITY: running /spdd-security-review  [ctx: ~18K | compress=0 | msgs=5]
+[spdd #772 08:10:05] SECURITY: running /lib:spdd-security-review  [ctx: ~18K | compress=0 | msgs=5]
 [spdd #772 08:10:20] FIX: removing inline email address from N section  [ctx: ~18K | compress=0 | msgs=6]
 [spdd #772 08:10:35] ALIGN: setting Status: Aligned  [ctx: ~18K | compress=0 | msgs=7]
 [spdd #772 08:10:36] STORIES: creating issues #823–#828 on GitHub  [ctx: ~19K | compress=0 | msgs=8]
@@ -183,7 +183,7 @@ and reference it with: `> Private context: see canvas.private.md (not committed)
 
 ## Security review gates
 
-The `/spdd-security-review` check FAILs if the canvas:
+The `/lib:spdd-security-review` check FAILs if the canvas:
 - Names internal hostnames or IPs
 - Contains tokens, passwords, or secrets
 - Describes attack surface without a mitigation

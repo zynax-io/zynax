@@ -1,4 +1,4 @@
-# /spdd-story
+# /lib:spdd-story
 
 Break a raw feature description or GitHub issue into INVEST-compliant user stories,
 then create one GitHub issue per story as a child of the parent epic.
@@ -19,7 +19,7 @@ Read the feature description or GitHub issue provided in $ARGUMENTS.
    - **T**estable: has clear, verifiable acceptance criteria
 5. **Idempotency guard — never create duplicate stories.** Before creating anything,
    check whether the parent epic already has child issues (an epic created via
-   `/spdd-analysis`→issue-filing, or a re-run of this command, often already has them):
+   `/lib:spdd-analysis`→issue-filing, or a re-run of this command, often already has them):
    - `gh issue list --search "<parent-#> in:body" --state all` and read the epic body's
      task-list / checklist for existing `#refs`.
    - If children already exist, **do NOT create new issues.** Instead: validate each

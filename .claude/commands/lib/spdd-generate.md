@@ -1,4 +1,4 @@
-# /spdd-generate
+# /lib:spdd-generate
 
 Execute Canvas Operations step-by-step, generating code that strictly follows the Canvas Structure, Norms, and Safeguards.
 

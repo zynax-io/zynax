@@ -1,12 +1,14 @@
 ---
-description: Milestone delivery planner — reads live GitHub + canvas state, computes dependency-aware parallel groups, and outputs /issue-deliver commands to run. Respects in-progress issues across all machines.
+description: Milestone delivery planner — reads live GitHub + canvas state, computes dependency-aware parallel groups, and outputs /deliver commands to run. Respects in-progress issues across all machines.
 argument-hint: "[--verbose]"
 ---
 
-# /milestone-plan — Milestone Delivery Planner
+# /lib:sequence — Dependency-aware delivery planner (building block of /deliver)
+
+> **Building block** — invoked by `/deliver` to sequence ready work, not run directly.\n> **Scope contract:** repo-wide `status: ready` work by default; `--milestone M` filters.\n
 
 Read the active milestone's live state, build a dependency graph, detect in-progress sessions on any machine,
-and output the next set of `/issue-deliver` commands to run — in parallel where safe,
+and output the next set of `/deliver` commands to run — in parallel where safe,
 sequentially where dependencies require it.
 
 > **This command is read-only.** It never writes code, creates branches, or modifies issues.
@@ -22,7 +24,7 @@ git checkout main && git pull --rebase origin main 2>/dev/null || true
 
 # ── Active-milestone config (SSoT: state/milestone.yaml) ────────────────────
 # Loaded at runtime; no milestone name, number, or label is hardcoded in this
-# file. Updated only by /milestone-close and /milestone-new.
+# file. Updated only by /milestone close and /milestone open.
 CFG=state/milestone.yaml
 MILESTONE_NAME=$(awk '/^active:/{f=1} f && /^  name:/{print $2; exit}' "$CFG")
 MILESTONE_TITLE=$(awk -F'"' '/^active:/{f=1} f && /^  title:/{print $2; exit}' "$CFG")
@@ -112,7 +114,7 @@ for CANVAS in docs/spdd/*/canvas.md; do
 done
 ```
 
-For EPICs with canvas `Status: Draft` or no canvas at all, `/issue-deliver` will run the SPDD
+For EPICs with canvas `Status: Draft` or no canvas at all, `/deliver` will run the SPDD
 pipeline automatically — but note them as "canvas work needed" in the plan output.
 
 ---
@@ -145,14 +147,14 @@ Produce output in this format:
   ...
 
 ## READY — Parallel batch 1 (run simultaneously in separate terminals)
-  Terminal 1:  /issue-deliver NNN   # <commit-type>(<scope>): <title>
-  Terminal 2:  /issue-deliver NNN   # <commit-type>(<scope>): <title>
-  Terminal 3:  /issue-deliver NNN   # <commit-type>(<scope>): <title>
+  Terminal 1:  /deliver NNN   # <commit-type>(<scope>): <title>
+  Terminal 2:  /deliver NNN   # <commit-type>(<scope>): <title>
+  Terminal 3:  /deliver NNN   # <commit-type>(<scope>): <title>
 
   Note: Batch 2 becomes available once Batch 1 issues are closed.
 
 ## READY — Parallel batch 2 (run after batch 1 completes)
-  /issue-deliver NNN   # depends on #NNN from batch 1
+  /deliver NNN   # depends on #NNN from batch 1
 
 ## BLOCKED — waiting on dependencies
   #NNN  <title>  [blocked by: #NNN (<title>)]
@@ -162,9 +164,9 @@ Produce output in this format:
   #NNN  <title>  [blocked by: <description of blocker>]
   ...
 
-## Canvas work needed (run before /issue-deliver for these EPICs)
-  EPIC #NNN: no canvas → /issue-deliver NNN will auto-create it
-  EPIC #NNN: canvas Status: Draft → /issue-deliver NNN will auto-align it
+## Canvas work needed (run before /deliver for these EPICs)
+  EPIC #NNN: no canvas → /deliver NNN will auto-create it
+  EPIC #NNN: canvas Status: Draft → /deliver NNN will auto-align it
   ...
 
 ## EPIC completion summary
@@ -217,28 +219,28 @@ Example output:
 ```
 ## Recommended next action
 Run the following in 3 parallel terminals (all independent):
-  Terminal 1:  /issue-deliver 859
-  Terminal 2:  /issue-deliver 868
-  Terminal 3:  /issue-deliver 874
+  Terminal 1:  /deliver 859
+  Terminal 2:  /deliver 868
+  Terminal 3:  /deliver 874
 
-Then: once #868 closes, run /issue-deliver 865 (GHCR hygiene chain).
+Then: once #868 closes, run /deliver 865 (GHCR hygiene chain).
 ```
 
 ---
 
-## Shared-state contract with /issue-deliver
+## Shared-state contract with /deliver
 
 | Event | Who updates | What changes |
 |-------|-------------|-------------|
-| Session starts on issue N | `/issue-deliver` | Adds `status: in-progress` label + self-assign |
-| Branch pushed (hard claim) | `/issue-deliver` | Remote branch `<type>/<N>-*` appears |
-| PR opened | `/issue-deliver` | Open PR with headRefName `<type>/<N>-*` |
-| CI completes + PR merged | `/issue-deliver` | PR closed, issue closed, branch deleted, label removed |
+| Session starts on issue N | `/deliver` | Adds `status: in-progress` label + self-assign |
+| Branch pushed (hard claim) | `/deliver` | Remote branch `<type>/<N>-*` appears |
+| PR opened | `/deliver` | Open PR with headRefName `<type>/<N>-*` |
+| CI completes + PR merged | `/deliver` | PR closed, issue closed, branch deleted, label removed |
 | Session crashes mid-run | Manual cleanup | Remove `status: in-progress` label; delete stale branch |
 
-`/milestone-plan` reads all three signals (label + branch + PR) to detect in-progress work. The **branch**
+`/deliver` reads all three signals (label + branch + PR) to detect in-progress work. The **branch**
 is the authoritative hard claim; the **label** is a soft signal visible before any branch push.
-Because label assignment is not atomic with branch push, `/milestone-plan` always cross-checks both.
+Because label assignment is not atomic with branch push, `/deliver` always cross-checks both.
 
 ---
 
