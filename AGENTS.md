@@ -21,6 +21,14 @@ It IS:
 
 It is NOT an LLM framework, a workflow engine, or a DevOps tool.
 
+**North-Star differentiator (lead with this, everywhere).** Of the four "IS" points, one is the
+wedge a Kubernetes-locked competitor cannot match: **engine portability — the same declarative
+workflow runs on Temporal _or_ Argo without a rewrite.** All user-facing copy (README, CLI help,
+docs, error strings, issue/PR titles) leads with this, never with the generic, contested "control
+plane for AI agents" framing. The full rule — the wedge, the "ruthless" discipline, the co-existence
+story, and the honesty guardrails — is in [docs/product/positioning.md](docs/product/positioning.md),
+the single source of truth that planning, review, execution, and docs all point to.
+
 ---
 
 ## The Three-Layer Separation (Non-Negotiable)
@@ -133,7 +141,7 @@ A feature is DONE when **all** are true:
 - Always rebase (`git rebase origin/main`), never merge main into feature branches
 - `Assisted-by: Claude/<model-id>` for AI — use the exact model ID from the current session (e.g. `claude-sonnet-4-6`); never `Co-Authored-By:` for AI
 - No `🤖 Generated with [Claude Code]` lines in commit messages
-- Every commit needs `Signed-off-by: Oscar Gómez Manresa <ogomezmanresa@gmail.com>`
+- Every commit needs a DCO `Signed-off-by:` trailer with your real name and email — set them in your git config; `git commit -s` adds the trailer automatically (no literal email in this file: the AI-context PII gate forbids it)
 
 **PR title (CI-enforced `conventional-commit` check):**
 - Format: `<type>: <subject>` · total ≤ 72 characters
@@ -215,6 +223,7 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 
 | What you need | Where to look |
 |--------------|---------------|
+| Positioning & messaging principle (the engine-portability wedge; lead with it everywhere) | `docs/product/positioning.md` |
 | Go service templates (bootstrap, domain, repo, API, Dockerfile) | `docs/patterns/go-service-patterns.md` |
 | Python agent options A–D, config, testing, BDD template | `docs/patterns/python-agent-guide.md` |
 | Multi-language proto consuming guide | `docs/patterns/proto-interop.md` |

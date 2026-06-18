@@ -58,3 +58,8 @@ Operations-step link; labels per [docs/labels.md](../../docs/labels.md). Convent
 (feat/fix/refactor/docs/test/ci/chore) · DCO `Signed-off-by` + `Assisted-by: Claude/<model>` (never
 `Co-Authored-By` for AI) · canvas committed before any implementation code (ADR-019) · new
 `.claude/commands` files need `git add -f`. Full guide: `.claude/commands/README.md`.
+
+**Positioning fit.** For any user-facing `feat:`/`docs:` work, the issue's "Positioning fit" line and
+the canvas A — Approach must state how it advances the **engine-portability wedge**, and any
+user-facing copy it introduces must lead with that wedge — never the generic "control plane for AI
+agents" framing. Canonical rule: [docs/product/positioning.md](../../docs/product/positioning.md).

@@ -64,7 +64,10 @@ Write `$OUT` (SPDX header first; repo-relative links only):
 
 1. **Header** — type, date, baseline diffed against.
 2. **Executive summary** — the single most important product finding this period.
-3. **Positioning check** — is the messaging still differentiated (esp. vs Kagent)? Drift from `strategy.md`?
+3. **Positioning check** — measured against the canonical principle in `docs/product/positioning.md`:
+   does every user-facing surface (README, CLI help, docs, error copy) **lead with the engine-portability
+   wedge**, or has any drifted back to the generic "control plane for AI agents" framing that competes
+   on the contested category? Flag each drift. Drift from `strategy.md`? Still differentiated vs Kagent?
 4. **Real vs aspirational** — shipped / partial / aspirational table, reconciled to milestone state.
 5. **Adoption funnel** — time-to-first-workflow, stars/forks/discussions, external adopters,
    contributors — **the numbers from STEP 1**, each with its source. Compare to the baseline.

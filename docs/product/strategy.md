@@ -7,6 +7,11 @@
 **Scope:** Tier 1 (public-safe). Where this doc makes strategic claims, it cites the
 repository artifact it is grounded in so nothing here drifts from shipped reality.
 
+> **Messaging principle:** the operational rule for *how* this positioning is expressed — lead with
+> the engine-portability wedge, ruthlessly and consistently, with the co-existence story — is the
+> single source of truth in [docs/product/positioning.md](positioning.md). This strategy doc is the
+> *why*; that doc is the *how we say it*.
+
 > **How to read this.** This is a rewrite and hardening of an earlier informal
 > competitive analysis. The earlier draft was directionally interesting but made
 > several claims that contradict Zynax's own decision record. This version replaces

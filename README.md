@@ -4,7 +4,9 @@
 
 # Zynax
 
-**The declarative control plane for AI agent workflows**
+**Write your agent workflow once — run it on Temporal or Argo without a rewrite.**
+
+_The engine-portability layer for agentic automation._
 
 [![CI](https://github.com/zynax-io/zynax/actions/workflows/ci.yml/badge.svg)](https://github.com/zynax-io/zynax/actions/workflows/ci.yml)
 [![AI Context Budget](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml/badge.svg)](https://github.com/zynax-io/zynax/actions/workflows/ai-context-budget.yml)
@@ -21,12 +23,19 @@
 
 ## What is Zynax?
 
-> Zynax is to AI workflows what Kubernetes is to containers — a control plane
-> that abstracts the execution layer behind a declarative, versionable API.
+> **Define an AI agent workflow once, as a YAML manifest, and run it on whichever engine your org
+> already operates — Temporal or Argo — without changing the workflow.** That portability is the
+> wedge: a Kubernetes-locked agent platform cannot move one workflow across engines.
 
-Zynax lets you define AI agent workflows as YAML manifests and execute them
-on any workflow engine (Temporal, LangGraph, Argo) without changing your
-workflow definition.
+Like Kubernetes for containers, Zynax is a control plane that abstracts the execution layer behind
+a declarative, versionable API — but the point you reach for it is **engine portability** and
+**adapter-first capabilities** (any gRPC service is a capability; no SDK required). It runs on
+Docker Compose **and** Kubernetes/Helm.
+
+**Already standardized on a K8s-native agent tool?** Keep it — those agents register as Zynax
+capabilities, so Zynax orchestrates across your engines rather than replacing them.
+
+> Positioning & messaging principle (lead with the wedge, everywhere): [docs/product/positioning.md](docs/product/positioning.md).
 
 ```yaml
 # code-review.yaml

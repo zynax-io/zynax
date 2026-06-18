@@ -42,6 +42,11 @@
 **We will NOT:**
 - <explicit out-of-scope item (defer to a future milestone or issue)>
 
+**Positioning fit (user-facing features):** <how this advances the engine-portability wedge, and
+the user-facing copy (CLI help, docs, error strings) it introduces — which must lead with the wedge,
+not the generic "control plane" framing. See [docs/product/positioning.md](../product/positioning.md).
+Omit only for purely internal changes with no user-facing surface.>
+
 **Governing ADRs:** ADR-NNN (<title>), ADR-NNN (<title>)
 
 ---
