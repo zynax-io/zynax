@@ -109,3 +109,12 @@ ADR-proposal docs story with a security dimension (ADR-032 Git MCP shim + auth m
 - OTLP **exporter** (`opentelemetry-exporter-otlp-proto-grpc`, all versions) caps `protobuf<7` via `opentelemetry-proto` — conflicts with the SDK's `protobuf>=7`. uv resolves extras in one universe, so even an optional-dependency extra fails. Omit the exporter entirely; run on `opentelemetry-api`/`-sdk`; import the exporter lazily with graceful degradation. Live OTLP export is a deployment-image concern.
 - OTel global `TracerProvider` is set-once per process; in tests patch module-level `trace.get_tracer` to return your own provider + `InMemorySpanExporter` (do NOT rely on `set_tracer_provider` — silently no-ops after first set → zero spans).
 - Pre-commit ruff fails on root-owned `.ruff_cache` left by Docker `make lint`; prefix `RUFF_CACHE_DIR=/tmp/ruff-cache-<N> git commit -s -F <file>` (bare single-assignment prefix is sandbox-permitted).
+
+## Session — 2026-06-18 (EPIC #1370 — live quickstart validation with Ollama)
+
+### Effective patterns
+- A capability adapter must register a **resolvable advertised address**, not a bind-only `:PORT`. The Go llm-adapter uses one `endpoint` field for *both* `net.Listen` and the registry advertise; shipping `:50070` (no host) makes the task-broker dial localhost and fail with `connection refused`. Set the advertised host to the resolvable service name, or split bind-vs-advertise like the langgraph-adapter's `ADAPTER_ENDPOINT`. Seen live; filed as #1371.
+- The ollama provider needs **no API key** (`ResolveSecret` returns empty when `api_key_env` is unset) — an ollama config boots the llm-adapter with zero secrets. The baked default is `provider: openai`, which crash-loops on a fresh `make run-local` for a missing key. Adapters should degrade gracefully when a secret is absent rather than `Exited(1)` (#1375).
+
+### Edge cases discovered
+- A `snake_case` capability name (mandated by `agents/adapters/AGENTS.md`) yields the engine-derived completion event `<name>.completed`, which the workflow-compiler **rejects** (event types must be dot-separated lowercase, no underscores). So a `summarize_feedback` capability's completion event can't be referenced in a transition. Filed as #1372.

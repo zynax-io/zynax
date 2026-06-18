@@ -88,3 +88,12 @@
 > in PR #1293 (dispatch preamble + STEP 7 crash-recovery), where they belong.
 
 **Summary:** 11 entries — 8 → expert guides (committed, #1275) · 3 cross-cutting → orchestrator commands (committed, #1293) · 0 rejected · 0 pending
+
+## Run 2026-06-18 16:42 — domains: spdd-canvas, go-services
+
+| # | Domain | Pattern | Category | Source sessions | Status | Delta |
+|---|--------|---------|----------|-----------------|--------|-------|
+| 1 | spdd-canvas | gitleaks internal-hostname blocks committed dotted filename; private.md no help | domain | #1383, #796 | pending | — |
+| 2 | go-services | gh projectCards deprecation: read via --json, label via REST API | domain | #1206, #1183 | pending | — |
+
+**Summary:** 2 proposed | 0 applied | 0 rejected (structural) | 2 pending
