@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -42,7 +43,7 @@ func main() {
 // lifecycle test-friendly: a non-transient registry error returns before the
 // blocking serve loop, exercising the bootstrap paths without a live signal.
 func run() error {
-	cfg, srv, err := build()
+	cfg, srv, degraded, err := build()
 	if err != nil {
 		return err
 	}
@@ -55,32 +56,43 @@ func run() error {
 	defer func() { _ = regConn.Close() }()
 	regClient := zynaxv1.NewAgentRegistryServiceClient(regConn)
 
-	return serve(cfg, srv, regClient)
+	return serve(cfg, srv, degraded, regClient)
 }
 
 // build loads config, resolves the credential, and constructs the provider and
 // AgentService server. The API-key Secret is bound into the provider and never
 // logged.
-func build() (*config.AdapterConfig, *server.AgentServer, error) {
+func build() (*config.AdapterConfig, *server.AgentServer, bool, error) {
 	cfgPath := os.Getenv(configEnvVar)
 	if cfgPath == "" {
-		return nil, nil, fmt.Errorf("%s env var is required", configEnvVar)
+		return nil, nil, false, fmt.Errorf("%s env var is required", configEnvVar)
 	}
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load config: %w", err)
+		return nil, nil, false, fmt.Errorf("load config: %w", err)
 	}
 	secret, err := cfg.ResolveSecret()
 	if err != nil {
-		return nil, nil, fmt.Errorf("resolve secret: %w", err)
+		// Graceful degradation (issue #1375): a missing API key must not crash the
+		// adapter at boot. Without it the adapter starts, logs a clear warning, and
+		// runs degraded — it does NOT build a provider/server, does NOT register its
+		// capabilities, and reports NOT_SERVING so readiness reflects unavailability.
+		// Any other resolution failure (malformed config) is still fatal.
+		if !errors.Is(err, config.ErrSecretMissing) {
+			return nil, nil, false, fmt.Errorf("resolve secret: %w", err)
+		}
+		//nolint:gosec // G706: api_key_env/provider are operator config (names), never the secret value or request input
+		slog.Warn("llm-adapter starting in degraded mode: API key not set; capabilities will NOT be registered and readiness is NOT_SERVING",
+			"api_key_env", cfg.Provider.APIKeyEnv, "provider", cfg.Provider.Name)
+		return cfg, nil, true, nil
 	}
 	prov, err := provider.New(cfg.Provider, secret)
 	if err != nil {
-		return nil, nil, fmt.Errorf("build provider: %w", err)
+		return nil, nil, false, fmt.Errorf("build provider: %w", err)
 	}
 	srv, err := server.NewAgentServer(cfg, prov)
 	if err != nil {
-		return nil, nil, fmt.Errorf("build server: %w", err)
+		return nil, nil, false, fmt.Errorf("build server: %w", err)
 	}
 	// Fields are operator-controlled config (not request input); the API-key
 	// Secret is never logged. //nolint:gosec — matches sibling adapters.
@@ -90,24 +102,35 @@ func build() (*config.AdapterConfig, *server.AgentServer, error) {
 		"endpoint", cfg.Endpoint,
 		"capabilities", len(cfg.Capabilities),
 	)
-	return cfg, srv, nil
+	return cfg, srv, false, nil
 }
 
 // serve binds the listener, registers the agent (backoff), serves gRPC with the
 // health service, and drains on SIGTERM: NOT_SERVING → deregister → GracefulStop.
-func serve(cfg *config.AdapterConfig, srv *server.AgentServer, regClient zynaxv1.AgentRegistryServiceClient) error {
+func serve(cfg *config.AdapterConfig, srv *server.AgentServer, degraded bool, regClient zynaxv1.AgentRegistryServiceClient) error {
 	lis, err := net.Listen("tcp", cfg.Endpoint)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", cfg.Endpoint, err)
 	}
 
 	grpcSrv := grpc.NewServer()
-	zynaxv1.RegisterAgentServiceServer(grpcSrv, srv)
+	if !degraded {
+		zynaxv1.RegisterAgentServiceServer(grpcSrv, srv)
+	}
 	healthSrv := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcSrv, healthSrv)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
+
+	// Degraded mode (issue #1375): no secret resolved, so the adapter does not
+	// register its capabilities and reports NOT_SERVING. The gRPC + health servers
+	// still run so the process stays alive and observable instead of crash-looping.
+	if degraded {
+		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+		slog.Warn("llm-adapter serving DEGRADED (capabilities not registered)", "endpoint", cfg.Endpoint) //nolint:gosec
+		return runDegraded(ctx, grpcSrv, lis)
+	}
 
 	def := registry.BuildAgentDef(cfg)
 	if err := registry.RegisterAgent(ctx, regClient, def); err != nil {
@@ -129,6 +152,24 @@ func serve(cfg *config.AdapterConfig, srv *server.AgentServer, regClient zynaxv1
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 	if err := registry.DeregisterAgent(context.Background(), regClient, cfg.AgentID); err != nil {
 		slog.Warn("deregister failed", "err", err)
+	}
+	grpcSrv.GracefulStop()
+	slog.Info("llm-adapter stopped")
+	return nil
+}
+
+// runDegraded serves gRPC until the context is cancelled or the server errors.
+// The degraded path (issue #1375) registers no AgentService and no registry
+// entry, so it just keeps the process alive and drains on shutdown.
+func runDegraded(ctx context.Context, grpcSrv *grpc.Server, lis net.Listener) error {
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- grpcSrv.Serve(lis) }()
+
+	select {
+	case <-ctx.Done():
+		slog.Info("shutdown signal received")
+	case err := <-serveErr:
+		return fmt.Errorf("grpc serve: %w", err)
 	}
 	grpcSrv.GracefulStop()
 	slog.Info("llm-adapter stopped")

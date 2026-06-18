@@ -18,6 +18,8 @@ import (
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
 
@@ -64,11 +66,24 @@ func TestRun_InvalidConfig(t *testing.T) {
 	}
 }
 
-func TestRun_UnsetSecret(t *testing.T) {
+// TestBuild_UnsetSecretDegrades proves the core fix (issue #1375): with the API
+// key env unset, build() does NOT error — it returns a degraded flag, a nil
+// server, and the loaded config so the adapter can start without crash-looping.
+func TestBuild_UnsetSecretDegrades(t *testing.T) {
 	t.Setenv(configEnvVar, writeConfig(t, validConfig))
 	t.Setenv("OPENAI_API_KEY", "")
-	if err := run(); err == nil {
-		t.Fatal("expected error when api key env unset")
+	cfg, srv, degraded, err := build()
+	if err != nil {
+		t.Fatalf("build must not error when api key unset, got: %v", err)
+	}
+	if !degraded {
+		t.Fatal("expected degraded=true when api key unset")
+	}
+	if srv != nil {
+		t.Fatal("expected nil server in degraded mode (no provider built)")
+	}
+	if cfg == nil {
+		t.Fatal("expected config to be returned in degraded mode")
 	}
 }
 
@@ -140,7 +155,7 @@ func TestServe_GracefulShutdown(t *testing.T) {
 	fake := &fakeRegistryClient{deregistered: make(chan string, 1)}
 
 	done := make(chan error, 1)
-	go func() { done <- serve(cfg, srv, fake) }()
+	go func() { done <- serve(cfg, srv, false, fake) }()
 
 	// Allow serve() to register and enter its select before signalling SIGTERM.
 	time.Sleep(200 * time.Millisecond)
@@ -164,6 +179,65 @@ func TestServe_GracefulShutdown(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for serve to return")
+	}
+}
+
+// failRegisterClient errors on RegisterAgent. The degraded path must never call
+// it, so serve must return nil even with this client wired in (issue #1375).
+type failRegisterClient struct {
+	zynaxv1.AgentRegistryServiceClient
+}
+
+func (f *failRegisterClient) RegisterAgent(_ context.Context, _ *zynaxv1.RegisterAgentRequest, _ ...grpc.CallOption) (*zynaxv1.RegisterAgentResponse, error) {
+	return nil, status.Error(codes.Internal, "registry must not be called in degraded mode")
+}
+
+// TestServe_DegradedNoSecret proves the core fix (issue #1375): with no secret
+// (nil server, degraded=true) the adapter serves, reports NOT_SERVING readiness,
+// does NOT register, and shuts down cleanly — it does not crash.
+func TestServe_DegradedNoSecret(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := lis.Addr().String()
+	_ = lis.Close()
+
+	cfg := &config.AdapterConfig{
+		AgentID:          "llm-adapter-test",
+		Endpoint:         addr,
+		RegistryEndpoint: "localhost:50052",
+		Capabilities:     []config.CapabilityConfig{{Name: "chat_completion"}},
+		Provider:         config.ProviderConfig{Name: "openai", Model: "gpt-4o", APIKeyEnv: "OPENAI_API_KEY"}, //nolint:gosec // G101: env-var NAME, not a credential value
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- serve(cfg, nil, true, &failRegisterClient{}) }()
+
+	time.Sleep(200 * time.Millisecond)
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial degraded adapter: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+	resp, err := grpc_health_v1.NewHealthClient(conn).Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
+	if err != nil {
+		t.Fatalf("health check: %v", err)
+	}
+	if resp.GetStatus() != grpc_health_v1.HealthCheckResponse_NOT_SERVING {
+		t.Fatalf("expected NOT_SERVING in degraded mode, got: %v", resp.GetStatus())
+	}
+
+	if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
+		t.Fatalf("send SIGTERM: %v", err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("degraded serve must not error (no crash), got: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("degraded serve did not return within 5s")
 	}
 }
 

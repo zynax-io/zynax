@@ -3,12 +3,19 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
 
 	"gopkg.in/yaml.v3"
 )
+
+// ErrSecretMissing is returned by ResolveSecret when the configured api-key env
+// var is declared but unset or empty. The bootstrap layer distinguishes this from
+// a malformed config so it can degrade gracefully (start, warn, skip registration)
+// instead of crash-looping when no secret is provided (issue #1375).
+var ErrSecretMissing = errors.New("config: api key env var is not set")
 
 // Supported provider names — the closed set per ADR-035.
 const (
@@ -187,7 +194,7 @@ func (c *AdapterConfig) ResolveSecret() (Secret, error) {
 	}
 	value := os.Getenv(c.Provider.APIKeyEnv)
 	if value == "" {
-		return Secret{}, fmt.Errorf("config: env var %s is required but not set", c.Provider.APIKeyEnv)
+		return Secret{}, fmt.Errorf("env var %s is required but not set: %w", c.Provider.APIKeyEnv, ErrSecretMissing)
 	}
 	return NewSecret(value), nil
 }

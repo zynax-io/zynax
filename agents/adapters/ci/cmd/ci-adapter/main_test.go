@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -17,6 +18,8 @@ import (
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
 
@@ -67,23 +70,18 @@ func TestRun_MissingRequiredFields(t *testing.T) {
 	}
 }
 
-func TestRun_MissingToken(t *testing.T) {
-	f, err := os.CreateTemp(t.TempDir(), "ci-adapter-*.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Full valid config but CI_TOKEN_UNSET_XYZ is not in the environment.
-	_, _ = fmt.Fprintf(f,
-		"agent_id: ci-test\nname: CI Test\n"+
-			"endpoint: \":50055\"\nregistry_endpoint: \"localhost:50052\"\n"+
-			"ci:\n  provider: github-actions\n  token_env: CI_TOKEN_UNSET_XYZ_407\n"+
-			"capabilities:\n  - name: trigger_workflow\n    owner: o\n    repo: r\n    workflow_id: ci.yml\n",
-	)
-	_ = f.Close()
-	t.Setenv("ADAPTER_CONFIG", f.Name())
-	os.Unsetenv("CI_TOKEN_UNSET_XYZ_407") //nolint:errcheck // test cleanup
-	if err := run(); err == nil {
+// TestResolveToken_MissingIsSentinel proves a missing token surfaces the typed
+// ErrTokenMissing sentinel so the bootstrap layer can degrade gracefully rather
+// than crash-loop (issue #1375).
+func TestResolveToken_MissingIsSentinel(t *testing.T) {
+	cfg := &config.AdapterConfig{CI: config.CIConfig{TokenEnv: "CI_TOKEN_UNSET_XYZ_407"}} //nolint:gosec // G101: env-var NAME, not a credential value
+	os.Unsetenv("CI_TOKEN_UNSET_XYZ_407")                                                 //nolint:errcheck // test cleanup
+	_, err := config.ResolveToken(cfg)
+	if err == nil {
 		t.Fatal("expected error when token env var is not set")
+	}
+	if !errors.Is(err, config.ErrTokenMissing) {
+		t.Fatalf("expected ErrTokenMissing sentinel, got: %v", err)
 	}
 }
 
@@ -193,7 +191,7 @@ func TestServe_GracefulShutdown(t *testing.T) {
 	client := &successRegistryClient{}
 
 	done := make(chan error, 1)
-	go func() { done <- serve(ctx, cfg, "fake-token", client) }()
+	go func() { done <- serve(ctx, cfg, "fake-token", false, client) }()
 
 	time.Sleep(50 * time.Millisecond)
 	cancel()
@@ -205,5 +203,66 @@ func TestServe_GracefulShutdown(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("serve() did not return within 5s after cancel")
+	}
+}
+
+// failRegistryClient fails any RegisterAgent call. The degraded path must never
+// reach it, so wiring it in proves no registration is attempted (issue #1375).
+type failRegistryClient struct{ successRegistryClient }
+
+func (c *failRegistryClient) RegisterAgent(_ context.Context, _ *zynaxv1.RegisterAgentRequest, _ ...grpc.CallOption) (*zynaxv1.RegisterAgentResponse, error) {
+	return nil, status.Error(codes.Internal, "registry must not be called in degraded mode")
+}
+
+// TestServe_DegradedNoSecret proves the core fix (issue #1375): with no token the
+// adapter serves, reports NOT_SERVING readiness, does NOT register its
+// capabilities, and shuts down cleanly on context cancel — it does not crash.
+func TestServe_DegradedNoSecret(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := lis.Addr().String()
+	_ = lis.Close()
+
+	cfg := &config.AdapterConfig{
+		AgentID:          "ci-test",
+		Name:             "CI Test",
+		Endpoint:         addr,
+		RegistryEndpoint: "127.0.0.1:0",
+		CI:               config.CIConfig{Provider: "github-actions", TokenEnv: "IGNORED"},
+		Capabilities:     []config.CICapabilityConfig{{Name: "trigger_workflow", Owner: "o", Repo: "r", WorkflowID: "ci.yml"}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	// Degraded=true with a registry client that errors on RegisterAgent: if the
+	// degraded path tried to register, serve would return that error.
+	go func() { done <- serve(ctx, cfg, "", true, &failRegistryClient{}) }()
+
+	// Give the server a moment to bind, then probe health: must be NOT_SERVING.
+	time.Sleep(100 * time.Millisecond)
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial degraded adapter: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+	hc := grpc_health_v1.NewHealthClient(conn)
+	resp, err := hc.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
+	if err != nil {
+		t.Fatalf("health check: %v", err)
+	}
+	if resp.GetStatus() != grpc_health_v1.HealthCheckResponse_NOT_SERVING {
+		t.Fatalf("expected NOT_SERVING in degraded mode, got: %v", resp.GetStatus())
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("degraded serve must not error (no crash), got: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("degraded serve() did not return within 5s after cancel")
 	}
 }
