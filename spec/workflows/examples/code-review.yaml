@@ -1,5 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
-# Code Review Workflow — real, runnable reference (EPIC T.3, #1208)
+# Code Review Workflow — EVENT-DRIVEN REFERENCE spec (EPIC T.3, #1208)
+#
+# ⚠ NOT a runnable CLI demo. This workflow is event-driven: it waits on external
+# `github.*` / `review.*` / `human.*` events and dispatches capabilities
+# (request_review, summarize_feedback, merge_pr, notify_human, notify_author,
+# close_pr) that have no deployed agents. Applying it from the CLI alone just
+# hangs — there is no event source to advance it. It needs the event-injection
+# CLI (#1377) and backing agents before it can run.
+#
+# For a workflow that runs to WORKFLOW_STATUS_COMPLETED from the CLI alone, see
+# code-review-ollama.yaml (dispatches the local Ollama-backed `codereview`
+# capability over a git diff and transitions to a terminal state on completion).
 #
 # Demonstrates: loops, async events, human-in-the-loop, timeout handling, and
 # cross-state DATA-FLOW bindings (ADR-029, EPIC W.4 #1178).
