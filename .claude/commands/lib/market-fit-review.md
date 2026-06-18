@@ -87,6 +87,10 @@ from [docs/contributing/pr-templates.md](docs/contributing/pr-templates.md), doc
 
 - **Lead with Kagent.** The repo's own docs name it the direct competitor — never omit it (the
   cautionary precedent: an earlier informal analysis did, and was wrong).
+- **Audit the wedge discipline.** Against `docs/product/positioning.md`, check whether user-facing
+  copy leads with the engine-portability wedge (run one workflow on Temporal or Argo without a
+  rewrite) or competes on the contested "control plane" category. Report drift as a positioning
+  recommendation (audience + adoption-lever = positioning), not a feature.
 - **Ground everything.** Cite positioning docs; pull adoption metrics live; no invented PMF score.
 - **Longitudinal.** Diff against the prior market-fit review / competitive-positioning doc.
 - **Recommendations carry user-type + adoption-lever annotations** (the `/plan` handoff).

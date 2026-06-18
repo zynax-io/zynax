@@ -81,7 +81,7 @@ your words where the table says.
 
 | Type | Emphasis / required extras | Sections that are usually `N/A` |
 |------|----------------------------|---------------------------------|
-| **feat** | Full template. **SPDD line required** (canvas Aligned + security-review PASS). Test plan maps every canvas AC. Evidence shows new observability (log event / metric / trace). | — |
+| **feat** | Full template. **SPDD line required** (canvas Aligned + security-review PASS). Test plan maps every canvas AC. Evidence shows new observability (log event / metric / trace). **Positioning line required** when the PR adds/changes user-facing copy (README, CLI help, docs, error strings): confirm it leads with the engine-portability wedge, not the generic "control plane" framing — see [docs/product/positioning.md](../product/positioning.md). | — |
 | **fix** | **Why = symptom + root cause** (not just "fixes bug"). A **regression test is mandatory** in the matrix: the test that fails on `main` and passes here. Evidence shows the repro **before → after**. | SPDD |
 | **docs** | Test plan = render/preview check, link-check, and `make validate-spec` when specs/schemas change. Evidence = preview link. | Artifacts/images; SPDD; observability |
 | **test** | "What you'll get" = the scenarios/coverage added. Evidence = coverage % and/or benchmark baseline numbers + the exact command to reproduce. | SPDD (unless the issue is `feat:`) |

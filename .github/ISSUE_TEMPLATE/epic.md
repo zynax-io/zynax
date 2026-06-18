@@ -32,6 +32,9 @@ Keep child stories small, independent, testable, and individually valuable.
   - Enterprises (security, scale, operability, trust)
   - CNCF interest / ecosystem credibility
   - Community / contributor pull
+- **Positioning fit:** <how does this advance the engine-portability wedge (run one workflow on
+  Temporal or Argo without a rewrite)? Does the epic's user-facing surface lead with the wedge, not
+  the contested "control plane for AI agents" framing? See [docs/product/positioning.md](../../docs/product/positioning.md).>
 - **Cost of not doing it:** <what stays broken, who stays blocked, what adoption is lost>
 
 ---

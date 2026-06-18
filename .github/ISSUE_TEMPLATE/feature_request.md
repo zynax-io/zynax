@@ -37,6 +37,9 @@ Before filing a feature request:
 
 - **For the Zynax user / adopter:** <the observable value this story delivers>
 - **Adoption angle:** <which lever — individual users · enterprises · CNCF interest · community>
+- **Positioning fit:** <does this advance the engine-portability wedge? If it adds user-facing copy
+  (CLI help, docs, error strings), does that copy lead with the wedge, not the generic "control
+  plane" framing? See [docs/product/positioning.md](../../docs/product/positioning.md).>
 - **Cost of not doing it:** <what stays broken / who stays blocked>
 
 ---
