@@ -1,6 +1,6 @@
 # services/workflow-compiler — AGENTS.md
 
-> Go 1.26.3. Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
+> Go toolchain pinned in the workspace [`go.work`](../../go.work). Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
 > **Status: M5 Complete.** Fully implemented — YAML → WorkflowIR, structured error list, cel-go guard wiring. IR store is in-memory (durable storage in M6, #466).
 
 > **⚠ Persistence limitation (M6):** The IR store is an unbounded in-memory map (`sync.RWMutex` +
