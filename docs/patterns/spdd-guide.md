@@ -248,6 +248,17 @@ git commit -S -s -m "docs: SPDD Canvas for M3 Temporal Execution — aligned (#2
 
 ---
 
+## Reference Example — M2 WorkflowIR (retrospective, issue #101)
+
+For a **complete, merged** Canvas to read end-to-end — all seven REASONS sections filled against
+real delivered code — see [`docs/spdd/101-workflow-ir/canvas.md`](../spdd/101-workflow-ir/canvas.md).
+It is a *retrospective* Canvas (Status: `Synced`) for the M2 WorkflowIR feature (PRs #83–#87): the
+implementation shipped first, then the Canvas was written to reflect its final state. Use it as the
+template for what a good Approach (explicit "will / will NOT"), Structure (real file tree), and
+Safeguards (code-anchored invariants) section looks like.
+
+---
+
 ## Quick Reference — When to Use Each Command
 
 | Situation | Command |

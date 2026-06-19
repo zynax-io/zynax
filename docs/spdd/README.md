@@ -44,7 +44,7 @@ Draft → Aligned → Implemented → Synced
 
 | Issue | Feature | Canvas | Status |
 |-------|---------|--------|--------|
-| — | — | — | — |
+| [#101](101-workflow-ir/canvas.md) | M2 WorkflowIR compilation (retrospective) | [101-workflow-ir/canvas.md](101-workflow-ir/canvas.md) | Synced |
 
 *Add entries as Canvases are created. Format: `[#NNN title](NNN-slug/canvas.md)`*
 
