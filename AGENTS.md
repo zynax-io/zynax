@@ -232,6 +232,7 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Architecture Decision Records | `docs/adr/INDEX.md` |
 | Current milestone and active PRs | `state/current-milestone.md` |
 | SPDD workflow guide and REASONS Canvas methodology | `docs/patterns/spdd-guide.md` |
+| AI-assisted refactoring decision tree (extract / inline / move / replace) | `docs/patterns/refactoring-guide.md` |
 | REASONS Canvas artifacts (one per `feat:` issue) | `docs/spdd/` |
 | Execution architecture — engine dispatch, event routing, memory, M3 sequence | `docs/architecture/2026-04-30-execution-architecture.md` |
 | Competitive analysis and Kestra/Temporal/LangGraph positioning | `docs/architecture/2026-04-30-competitive-analysis.md` |
