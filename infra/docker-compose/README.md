@@ -11,6 +11,7 @@ All Compose files live in this directory:
 | `docker-compose.test.yml` | CI overlay — disables persistent volumes for ephemeral test runs |
 | `docker-compose.observability.yml` | Local Uptrace stack — traces/metrics/logs/APM with a login UI |
 | `docker-compose.ollama.yml` | Zero-cost local LLM overlay — bundles `ollama` and repoints `llm-adapter` at it (no API key) |
+| `docker-compose.eval-temporal.yml` | Day-0 overlay — swaps the durable Temporal trio for a single in-memory `temporal server start-dev` (no Postgres/UI container) |
 
 ## Local dev stack
 
@@ -118,6 +119,41 @@ point `provider.name` / `provider.ollama_base_url` at a different provider. The
 model/provider is config-only and never travels in the workflow input payload
 (ADR-013 / ADR-035), so any workflow stays portable across models. A full
 human-validation guide standard is tracked in #1388.
+
+## Eval-Temporal overlay (single in-memory binary)
+
+By default the stack runs Temporal as **three containers** — `temporalio/auto-setup`,
+a dedicated Postgres, and `temporalio/ui`. For a Day-0 evaluation that is overkill.
+The `docker-compose.eval-temporal.yml` overlay replaces all three with **one**
+self-contained binary, `temporal server start-dev` (embedded in-memory SQLite, no
+external DB), and makes activities **fail fast** (`ZYNAX_ENGINE_MAX_ACTIVITY_ATTEMPTS=1`,
+no durable retry loops). It reuses the proven `TemporalEngine` — no new engine to own
+(this supersedes the rejected in-process `EvalEngine` of ADR-037 / #1359 for the compose
+path).
+
+```bash
+# Bring the whole stack up on the lightweight Temporal:
+docker compose \
+  -f infra/docker-compose/docker-compose.yml \
+  -f infra/docker-compose/docker-compose.eval-temporal.yml \
+  up -d
+
+# Or via the demo (one opt-in flag):
+EVAL_TEMPORAL=1 make demo
+```
+
+The single binary's built-in Web UI is on the same host port as before — http://localhost:7088.
+
+**Graduate to durable production Temporal — one flag, no edits:** simply drop the overlay
+(use the base `docker-compose.yml` alone). That restores `auto-setup` + Postgres + the
+standalone UI and the engine-adapter's default 3 retry attempts. If you need to run the
+durable trio while the overlay is layered on, opt in by profile:
+
+```bash
+docker compose -f infra/docker-compose/docker-compose.yml \
+  -f infra/docker-compose/docker-compose.eval-temporal.yml \
+  --profile durable-temporal up -d
+```
 
 ## Not included
 
