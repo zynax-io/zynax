@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zynax.io/schemas/scenario/v1alpha1",
+  "title": "Zynax Scenario Index",
+  "description": "JSON Schema for a Zynax Scenario INDEX (kind: Scenario, apiVersion: zynax.io/v1alpha1). A Scenario is NOT a server-side composite kind: it is a CLIENT-SIDE manifest-set convention (A2, ADR-028 'two kinds, no third schema'). The index lists the member manifests (existing kind: Workflow / kind: AgentDef files), declares the apply order, and reserves a context slot whose bounded-slice semantics are owned by issue #1387. `zynax apply <dir|index>` expands the index and submits each member over the existing /api/v1/apply REST path in apply_order — no new api-gateway endpoint or response shape. See docs/scenarios/scenario-manifest.md and docs/spdd/1385-scenario-manifest/canvas.md.",
+  "type": "object",
+  "required": ["kind", "apiVersion", "metadata", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "Scenario",
+      "description": "Must be 'Scenario'. Marks this file as a client-side scenario index, distinct from the Workflow/AgentDef/Policy server-side kinds."
+    },
+    "apiVersion": {
+      "type": "string",
+      "const": "zynax.io/v1alpha1",
+      "description": "Schema version. The CLI rejects indexes with an unrecognised apiVersion."
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/spec"
+    }
+  },
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "description": "Identifying information for the Scenario.",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique scenario name. Conventionally matches the parent directory name.",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Logical namespace the scenario's members are scoped to. Defaults to 'default' when omitted.",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Free-form key-value annotations, e.g. a human-readable description.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "description": "The scenario composition: its members, the order they are applied in, and a reserved context slot.",
+      "required": ["members", "apply_order"],
+      "additionalProperties": false,
+      "properties": {
+        "members": {
+          "type": "array",
+          "description": "The member manifests this scenario composes. Each is an existing kind: Workflow or kind: AgentDef file, referenced by its kind, a stable id, and a path relative to the index file.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/member"
+          }
+        },
+        "apply_order": {
+          "type": "array",
+          "description": "Member ids in the order they must be applied. AgentDef members MUST precede the Workflow that consumes their capabilities, so an unbacked capability fails fast rather than retrying forever (#1381). Every id here must reference a declared member exactly once.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        }
+      }
+    },
+    "member": {
+      "type": "object",
+      "description": "A single member manifest reference.",
+      "required": ["id", "kind", "file"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable identifier for this member, referenced from apply_order.",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+        },
+        "kind": {
+          "type": "string",
+          "description": "The member's manifest kind. Only the two server-side apply-able kinds are valid in a scenario set.",
+          "enum": ["Workflow", "AgentDef"]
+        },
+        "file": {
+          "type": "string",
+          "description": "Path to the member manifest, relative to the directory containing this index file. Must not escape the scenario directory.",
+          "minLength": 1,
+          "pattern": "^[^/].*$"
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "description": "RESERVED context-injection slot. #1385 provides only the wiring placeholder; the bounded {files[], max_tokens} slice semantics and strict isolation are owned by issue #1387 (ADR-028). The slot may carry DATA ONLY — never provider/model/endpoint/URL or any field that redirects where a capability runs (ADR-013). Values declared here are intended to bind into a Workflow action's `input` Jinja2 {{ .ctx.* }} templates once #1387 lands; until then they are a documented pass-through and are NOT evaluated by the CLI.",
+      "additionalProperties": true
+    }
+  }
+}

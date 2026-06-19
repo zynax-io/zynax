@@ -128,8 +128,14 @@ logs-local: ## Tail all local stack logs
 .PHONY: demo demo-clean
 DEMO_WORKFLOW ?= spec/workflows/examples/code-review-ollama.yaml
 ZYNAX        ?= zynax
+# Optional: run a declarative scenario manifest set instead of the single hero
+# workflow — e.g. `make demo SCENARIO=code-review`. When SCENARIO is set, the
+# whole directory spec/scenarios/$(SCENARIO) is applied (AgentDef then Workflow,
+# in the index's apply_order) over the existing /api/v1/apply REST path.
+SCENARIO     ?=
+DEMO_TARGET   = $(if $(SCENARIO),spec/scenarios/$(SCENARIO),$(DEMO_WORKFLOW))
 
-demo: check-docker ## ★ One command: boot the Ollama stack + run the hero code-review workflow
+demo: check-docker ## ★ One command: boot the Ollama stack + run the hero workflow (or a SCENARIO=<name> manifest set)
 	@command -v $(ZYNAX) >/dev/null 2>&1 || \
 	  (echo "❌ zynax CLI not found — run 'make install-cli' and ensure ~/bin is on your PATH" && exit 1)
 	@echo "🧠 Demo model: qwen2.5-coder:3b — pull it once on the host if you have not:"
@@ -137,8 +143,8 @@ demo: check-docker ## ★ One command: boot the Ollama stack + run the hero code
 	@echo "🚀 Booting the minimal stack + Ollama overlay (waiting for health)..."
 	$(COMPOSE_DEMO) up -d --wait
 	@export ZYNAX_API_URL=http://localhost:7080; \
-	  echo "▶  zynax apply $(DEMO_WORKFLOW)"; \
-	  run_id=$$($(ZYNAX) apply $(DEMO_WORKFLOW) | sed -n 's/^run_id: //p'); \
+	  echo "▶  zynax apply $(DEMO_TARGET)"; \
+	  run_id=$$($(ZYNAX) apply $(DEMO_TARGET) | sed -n 's/^run_id: //p' | tail -n1); \
 	  test -n "$$run_id" || (echo "❌ apply did not return a run_id" && exit 1); \
 	  echo "   run_id: $$run_id"; \
 	  echo "⏳ Streaming to terminal + printing the model's review..."; \
@@ -148,7 +154,7 @@ demo: check-docker ## ★ One command: boot the Ollama stack + run the hero code
 	@echo ""
 	@echo "✅ Demo complete. Next steps:"
 	@echo "   • Inspect logs:    ZYNAX_API_URL=http://localhost:7080 zynax logs <run-id> --follow"
-	@echo "   • Author your own: cp $(DEMO_WORKFLOW) my-workflow.yaml  (see docs/quickstart.md)"
+	@echo "   • Run a scenario:  make demo SCENARIO=code-review  (see docs/scenarios/scenario-manifest.md)"
 	@echo "   • Tear it all down: make demo-clean"
 
 demo-clean: ## Stop and remove the demo stack (base + Ollama overlay)
@@ -413,13 +419,13 @@ clean-tools: ## Remove tools image
 clean-all: clean dev-down clean-tools ## ⚠ Remove everything
 
 # ── Spec validation ───────────────────────────────────────────────────────────
-.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema check-expert-mapping validate-canvas validate-milestone-state dry-run
+.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping validate-canvas validate-milestone-state dry-run
 
 validate-milestone-state: ## Validate state/milestone.yaml against state/milestone.schema.json
 	cd cmd/zynax-ci && GOWORK=off go run . validate milestone --root "$(CURDIR)"
 	@echo "✅ Milestone state valid"
 
-validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema validate-policy-schema check-expert-mapping ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def + policy manifests + expert mapping)
+validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def + policy + scenario manifests + expert mapping)
 
 validate-canvas: ensure-tools ## Validate REASONS Canvas files under docs/spdd/ (SPDD — ADR-019)
 	$(TOOLS_RUN) zynax-ci validate canvas docs/spdd/
@@ -429,9 +435,10 @@ validate-capability-schemas: ensure-tools ## Validate capability declarations in
 	$(TOOLS_RUN) zynax-ci validate capabilities spec/workflows/examples/ --schema-dir spec/schemas
 	@echo "✅ Capability schemas valid"
 
-validate-workflow-schema: ensure-tools ## Validate Workflow manifests (spec examples + templates + automation/workflows) against workflow.schema.json
+validate-workflow-schema: ensure-tools ## Validate Workflow manifests (spec examples + templates + scenarios + automation/workflows) against workflow.schema.json
 	$(TOOLS_RUN) zynax-ci validate workflows spec/workflows/examples/ --schema-dir spec/schemas
 	$(TOOLS_RUN) zynax-ci validate workflows spec/templates/workflow/ --schema-dir spec/schemas
+	$(TOOLS_RUN) zynax-ci validate workflows spec/scenarios/code-review/ --schema-dir spec/schemas
 	$(TOOLS_RUN) zynax-ci validate workflows automation/workflows/ --schema-dir spec/schemas
 	@echo "✅ Workflow schemas valid"
 
@@ -439,6 +446,7 @@ validate-agent-def-schema: ensure-tools ## Validate AgentDef manifests (spec exa
 	$(TOOLS_RUN) zynax-ci validate agent-defs spec/workflows/examples/ --schema-dir spec/schemas
 	$(TOOLS_RUN) zynax-ci validate agent-defs spec/templates/task/ --schema-dir spec/schemas
 	$(TOOLS_RUN) zynax-ci validate agent-defs spec/templates/expert/ --schema-dir spec/schemas
+	$(TOOLS_RUN) zynax-ci validate agent-defs spec/scenarios/code-review/ --schema-dir spec/schemas
 	$(TOOLS_RUN) zynax-ci validate agent-defs automation/workflows/ --schema-dir spec/schemas
 	$(TOOLS_RUN) zynax-ci validate agent-defs automation/workflows/experts/ --schema-dir spec/schemas
 	@echo "✅ AgentDef schemas valid"
@@ -446,6 +454,10 @@ validate-agent-def-schema: ensure-tools ## Validate AgentDef manifests (spec exa
 validate-policy-schema: ensure-tools ## Validate Policy manifests in spec/workflows/examples/ against policy.schema.json
 	$(TOOLS_RUN) zynax-ci validate policies spec/workflows/examples/ --schema-dir spec/schemas
 	@echo "✅ Policy schemas valid"
+
+validate-scenario-schema: ensure-tools ## Validate Scenario index files in spec/scenarios/ against scenario.schema.json
+	$(TOOLS_RUN) zynax-ci validate scenarios spec/scenarios/code-review/ --schema-dir spec/schemas
+	@echo "✅ Scenario schemas valid"
 
 check-expert-mapping: ## Drift guard: authoring <-> runtime expert mapping (ADR-033)
 	cd cmd/zynax-ci && GOWORK=off go run . check expert-mapping --root "$(CURDIR)"

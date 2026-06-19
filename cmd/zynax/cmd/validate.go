@@ -53,7 +53,19 @@ func init() {
 
 func runValidate(cmd *cobra.Command, args []string) error {
 	file := args[0]
-	errs, err := validate.File(file, validateSchemaDir)
+
+	indexPath, isScenario, err := validate.ResolveScenarioIndex(file)
+	if err != nil {
+		return err
+	}
+
+	var errs []validate.ValidationError
+	if isScenario {
+		file = indexPath
+		errs, err = validate.ScenarioFile(indexPath, validateSchemaDir)
+	} else {
+		errs, err = validate.File(file, validateSchemaDir)
+	}
 	if err != nil {
 		return err
 	}

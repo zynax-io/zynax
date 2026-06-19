@@ -219,6 +219,34 @@ func TestPrintManifestResults_TextWithErrors(t *testing.T) {
 	}
 }
 
+// ── validate scenarios ────────────────────────────────────────────────────────
+
+func TestRunValidateScenarios_NoIndexes(t *testing.T) {
+	root := repoRoot(t)
+	scenariosSchemaDir = filepath.Join(root, "spec/schemas")
+	scenariosFormat = formatText
+	dir := t.TempDir()
+	cmd := fakeCmd(t)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := runValidateScenarios(cmd, []string{dir}); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRunValidateScenarios_ValidIndex(t *testing.T) {
+	root := repoRoot(t)
+	scenariosSchemaDir = filepath.Join(root, "spec/schemas")
+	scenariosFormat = formatText
+	dir := filepath.Join(root, "spec/scenarios/code-review")
+	cmd := fakeCmd(t)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := runValidateScenarios(cmd, []string{dir}); err != nil {
+		t.Errorf("reference scenario index should validate, got: %v", err)
+	}
+}
+
 // ── validate agent-defs ───────────────────────────────────────────────────────
 
 func TestRunValidateAgentDefs_NoManifests(t *testing.T) {
