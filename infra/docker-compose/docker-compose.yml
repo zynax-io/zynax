@@ -172,10 +172,16 @@ services:
       ZYNAX_BROKER_LOG_LEVEL: info
       ZYNAX_BROKER_DB_ENABLED: "true"
       ZYNAX_BROKER_DB_DSN: "postgres://zynax:zynax@postgres-zynax:5432/task_broker?sslmode=disable"
+      # Publish task-lifecycle CloudEvents (incl. the capability result_payload) so
+      # `zynax result`/`logs` can stream the model's output. Without this the broker
+      # runs with no event publisher and the review is never emitted to the bus.
+      ZYNAX_BROKER_EVENTBUS_ADDR: "event-bus:50056"
     depends_on:
       agent-registry:
         condition: service_healthy
       postgres-zynax:
+        condition: service_healthy
+      event-bus:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "/healthcheck", "tcp://localhost:50053"]
@@ -266,6 +272,10 @@ services:
       ZYNAX_GW_COMPILER_ADDR: workflow-compiler:50054
       ZYNAX_GW_ENGINE_ADDR: engine-adapter:50055
       ZYNAX_GW_REGISTRY_ADDR: "agent-registry:50052"
+      # Subscribe to task-broker capability CloudEvents so `zynax result`/`logs`
+      # stream the result_payload. The default localhost:50056 is unreachable
+      # in-container, so without this the gateway streams engine history only.
+      ZYNAX_GW_EVENT_BUS_ADDR: "event-bus:50056"
       ZYNAX_GW_LOG_LEVEL: info
       ZYNAX_GW_DEV_INSECURE: "1"
     ports:
