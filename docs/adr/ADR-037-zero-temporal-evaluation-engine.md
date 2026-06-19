@@ -1,6 +1,7 @@
 # ADR-037: Zero-Temporal in-process evaluation engine
 
-**Status:** Proposed  **Date:** 2026-06-19
+**Status:** Rejected  **Date:** 2026-06-19
+**Rejected:** 2026-06-19 — superseded by #1456 (lightweight Temporal eval profile); see Update below.
 **Related:** ADR-015 (pluggable workflow engines — this adds a third engine behind the same
 port), ADR-012 (Workflow IR — the engine-agnostic IR this engine interprets), ADR-014
 (event-driven state machine), ADR-034 (deterministic ManifestWorkflowID), ADR-022 (EventBusService)
@@ -59,7 +60,8 @@ compiled `WorkflowIR` **in-process** for evaluation, selectable via
 
 | Option | Assessment |
 |--------|------------|
-| **In-process eval engine behind `WorkflowEngine`** | ✅ **Chosen** — reuses the already-pure `IRInterpreter` and the existing capability path; minimal new code; respects ADR-015; removes the heaviest Day-0 prerequisite while keeping a clean graduation path to durable engines. |
+| **In-process eval engine behind `WorkflowEngine`** | ✗ **Deferred** — Sound, but only strictly needed for a *zero-Docker, zynax-binary-only* run. For the compose Day-0 path a stripped Temporal profile (next row) achieves the same with no new engine to maintain. |
+| Lightweight Temporal profile — `temporal server start-dev` (in-memory, no external DB) + retries off (`ZYNAX_ENGINE_MAX_ACTIVITY_ATTEMPTS=1`) | ✅ **Chosen (#1456)** — Config-only: a compose overlay + 2 existing env vars, ZERO new engine code, reuses the proven `TemporalEngine`. Removes the database (the real Day-0 weight: today Temporal = auto-setup + dedicated Postgres + UI) and gives eval-grade fail-fast behavior. No semantic-drift risk. |
 | Embedded Temporal / Templite (in-process Temporal-lite) | ✗ Rejected — heavier dependency surface, replay/persistence semantics we explicitly do not want for an evaluation engine, and a larger maintenance burden than the few hundred lines this engine needs. |
 | Require Temporal (status quo — "do nothing") | ✗ Rejected — leaves the top adoption barrier in place; evaluators bounce before the first workflow runs. |
 | Shell out to an external lightweight runner | ✗ Rejected — adds a process/IPC boundary and a new artifact to ship and version, for no benefit over an in-process Go implementation behind the existing port. |
@@ -80,3 +82,23 @@ compiled `WorkflowIR` **in-process** for evaluation, selectable via
 - **Neutral / follow-up required:** add an `eval` reference leg to the e2e-smoke matrix (no
   Temporal/Argo control plane), update the unsupported-engine error to list `eval`, and document
   the evaluation-vs-production boundary. No proto, YAML, or persistence-schema changes.
+
+---
+
+## Update — 2026-06-19 (Rejected)
+
+This ADR's original alternatives analysis omitted a **stripped Temporal profile**: Temporal's
+official `temporal server start-dev` runs an embedded in-memory database (no external Postgres),
+and retries are already a config knob (`ZYNAX_ENGINE_MAX_ACTIVITY_ATTEMPTS=1`,
+`services/engine-adapter/cmd/engine-adapter/main.go:80`). The engine-adapter is a Temporal *client*
+that simply dials `ZYNAX_ENGINE_ADAPTER_TEMPORAL_HOST_PORT` (`main.go:68`), so pointing it at a
+dev-server is a compose change, not code.
+
+That option (tracked as **#1456**) achieves the Day-0 goal — no external database, evaluation-grade
+fail-fast behavior — by **reusing the proven `TemporalEngine` with ~zero new code and nothing new to
+maintain**, and with no eval-vs-production semantic-drift risk. It therefore dominates a third
+in-process engine for the Docker/compose path.
+
+**Decision:** Rejected. The in-process `EvalEngine` is **deferred** — revisit only if a truly
+zero-Docker, `zynax`-binary-only run (no container at all) becomes a requirement. Issues #1359 and
+its stories #1449–#1452 are closed as superseded by #1456.
