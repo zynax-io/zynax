@@ -39,6 +39,12 @@ procedure: repo-wide ready work by default, or the `--milestone` filter. Where a
   squash auto-merge (rebase blocked by `required_signatures`).
 - **Stops on blockers** (CI red it can't fix, context budget) and reports how to resume — recover
   with `/reconcile`.
+- **Runtime evidence, not config evidence:** for changes touching `infra/docker-compose/**`,
+  `infra/helm/**`, a Makefile `demo`/`run-local`/compose target, `services/*/cmd/**`,
+  `agents/adapters/**`, or `cmd/zynax*`, "done" requires actually booting the documented path and
+  observing the user-facing outcome — `docker compose config`, a build, or CI-green are **not**
+  runtime evidence. Re-run stateful paths **twice** on the same volumes (persistence bugs surface on
+  run #2). Claim "works end-to-end" only for what was executed; label config/build-only checks as such.
 
 ## Output
 Per issue: claim status, PR link, merge state, post-merge verification, and learnings recorded.

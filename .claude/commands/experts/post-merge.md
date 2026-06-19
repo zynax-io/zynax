@@ -146,6 +146,29 @@ done
 
 ---
 
+## Phase 3.5 — Runtime smoke (when INFRA_CHANGED or a service/adapter/CLI path changed)
+
+```bash
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] RUNTIME_SMOKE: booting documented path on merged images  [ctx: ~13K | compress=0 | msgs=5]
+```
+
+CI-green + image-published is **not** runtime evidence. If `INFRA_CHANGED` is true or the merge
+touched `agents/adapters/**`, `services/*/cmd/**`, or `cmd/zynax*`, boot the user-facing path on a
+clean slate, assert no container is Exited/unhealthy, then run it a **second** time (persistence /
+idempotency — a Postgres-backed registry/repo makes run #2 fail where run #1 passed):
+
+```bash
+make demo-clean 2>/dev/null || true
+docker compose -f infra/docker-compose/docker-compose.yml \
+  -f infra/docker-compose/docker-compose.ollama.yml down -v --remove-orphans 2>/dev/null || true
+make demo && make demo || { echo "RUNTIME SMOKE FAILED"; RUNTIME_SMOKE_STATUS="FAIL"; }
+```
+
+If the host cannot run the stack, emit `RUNTIME_SMOKE: SKIPPED (no docker host)` in the evidence
+block — never silently treat the absence of a smoke as a pass.
+
+---
+
 ## Phase 4a — Update service image digest pins in docker-compose
 
 ```bash
