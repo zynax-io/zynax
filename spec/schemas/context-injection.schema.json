@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zynax.io/schemas/context-injection/v1alpha1",
+  "title": "Zynax Context-Injection Block",
+  "description": "JSON Schema for a declarative context-injection block (issue #1387, ADR-028 context-slice contract). The block declares file-rooted content sources and a hard token budget; the CLI binds each source's content into a Workflow action's `input` through the EXISTING {{ .ctx.<key> }} Jinja2 template surface at apply/validate time. It is STRICTLY DATA-ONLY (ADR-013/ADR-035): it admits content sources and a budget only and MUST NEVER carry provider/model/endpoint/url or any field that redirects where or how a capability runs — those stay in AgentDef/overlay config and are never accepted from input_payload. This block fills the reserved `spec.context` slot of a Scenario index (#1385). See docs/scenarios/context-injection.md.",
+  "type": "object",
+  "required": ["sources", "max_tokens"],
+  "additionalProperties": false,
+  "properties": {
+    "sources": {
+      "type": "array",
+      "description": "The named content sources this block injects. Each source binds one context key to the concatenated contents of one or more files. The key is what a Workflow action references via {{ .ctx.<key> }}.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "max_tokens": {
+      "type": "integer",
+      "description": "Hard cap on the total approximate token count of all injected sources combined. The CLI enforces this bound before binding; content beyond the cap is dropped per the overflow policy. Bounds the dispatched input_payload so injection can never be unbounded (ADR-028).",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "overflow": {
+      "type": "string",
+      "description": "What the CLI does when the combined source content exceeds max_tokens. 'truncate-oldest' (default) drops content from the earliest-declared sources first until the budget is met. 'error' fails validation/apply instead of truncating.",
+      "enum": ["truncate-oldest", "error"],
+      "default": "truncate-oldest"
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "description": "One named context source: a key plus the file(s) whose contents become its value. Sources are file-rooted, not inline bodies, so injection is declarative and re-runnable.",
+      "required": ["key", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "The context key bound by this source. A Workflow action references it as {{ .ctx.<key> }}. Lowercase alphanumeric with single internal hyphens/underscores.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$"
+        },
+        "files": {
+          "type": "array",
+          "description": "Paths to the files whose contents source this key, relative to the directory containing the scenario index. Multiple files are concatenated in declared order. A path MUST NOT be absolute or escape the scenario directory (enforced by the CLI).",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^/].*$"
+          }
+        }
+      }
+    }
+  }
+}

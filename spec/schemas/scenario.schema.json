@@ -110,8 +110,56 @@
     },
     "context": {
       "type": "object",
-      "description": "RESERVED context-injection slot. #1385 provides only the wiring placeholder; the bounded {files[], max_tokens} slice semantics and strict isolation are owned by issue #1387 (ADR-028). The slot may carry DATA ONLY — never provider/model/endpoint/URL or any field that redirects where a capability runs (ADR-013). Values declared here are intended to bind into a Workflow action's `input` Jinja2 {{ .ctx.* }} templates once #1387 lands; until then they are a documented pass-through and are NOT evaluated by the CLI.",
-      "additionalProperties": true
+      "description": "Declarative context-injection block (#1387, ADR-028 context-slice contract). Declares file-rooted content sources and a hard token budget; the CLI binds each source into the scenario's Workflow action `input` through the EXISTING {{ .ctx.<key> }} Jinja2 template surface at apply/validate time, applying the max_tokens cap and the overflow policy. STRICTLY DATA-ONLY (ADR-013/ADR-035): it admits content sources and a budget only and MUST NEVER carry provider/model/endpoint/url or any routing-redirecting field. Shape mirrors spec/schemas/context-injection.schema.json. One scenario's context never reaches another (strict isolation).",
+      "required": ["sources", "max_tokens"],
+      "additionalProperties": false,
+      "properties": {
+        "sources": {
+          "type": "array",
+          "description": "The named content sources this block injects. Each binds one context key to the concatenated contents of one or more files referenced via {{ .ctx.<key> }}.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/contextSource"
+          }
+        },
+        "max_tokens": {
+          "type": "integer",
+          "description": "Hard cap on the total approximate token count of all injected sources combined; bounds the dispatched input_payload (ADR-028).",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "overflow": {
+          "type": "string",
+          "description": "Policy when combined content exceeds max_tokens: 'truncate-oldest' (default) drops earliest-declared sources first; 'error' fails apply.",
+          "enum": ["truncate-oldest", "error"],
+          "default": "truncate-oldest"
+        }
+      }
+    },
+    "contextSource": {
+      "type": "object",
+      "description": "One named context source: a key plus the file(s) whose contents become its value. File-rooted, not inline bodies.",
+      "required": ["key", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "The context key bound by this source, referenced as {{ .ctx.<key> }}.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$"
+        },
+        "files": {
+          "type": "array",
+          "description": "Paths to the files sourcing this key, relative to the scenario directory; concatenated in declared order. Must not be absolute or escape the directory (CLI-enforced).",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^/].*$"
+          }
+        }
+      }
     }
   }
 }

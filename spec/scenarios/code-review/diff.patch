@@ -1,0 +1,17 @@
+diff --git a/payments.go b/payments.go
+--- a/payments.go
++++ b/payments.go
+@@ -7,5 +7,12 @@ func Charge(balanceCents, amountCents int) (int, error) {
+ 	if amountCents < 0 {
+ 		return balanceCents, errors.New("amount must be non-negative")
+ 	}
+-	return balanceCents - amountCents, nil
++	// Apply a 2% loyalty discount before charging.
++	discounted := amountCents - (amountCents / 50)
++	return balanceCents - discounted, nil
++}
++
++// Refund credits amountCents back to the account.
++func Refund(balanceCents, amountCents int) int {
++	return balanceCents + amountCents
+ }
