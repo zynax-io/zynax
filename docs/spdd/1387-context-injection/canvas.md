@@ -8,7 +8,8 @@
 **Epic:** #1370 (awesome-quickstart / first-run UX) — Operations step 16
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-19
-**Status:** Draft
+**Status:** Aligned (v1 — maintainer-authorized 2026-06-19, approach A2 selected)
+**Aligned:** 2026-06-19 (maintainer-authorized; approach A2 — context: block on the existing template surface)
 
 > **Provenance — own canvas required (ADR-019).** The #1370 canvas
 > ([docs/spdd/1370-awesome-quickstart/canvas.md](../1370-awesome-quickstart/canvas.md), Reframe
@@ -141,8 +142,8 @@ Scenario(#1385) ──carries `spec.context` slot──> ContextInjectionBlock  
 
 | Option | Tradeoff | Verdict |
 |--------|----------|---------|
-| **A1 — Extend the existing data-flow `input_bindings`** (ADR-029) to also accept an *external/initial* source (file/literal) alongside the `$.states.<state>.output.<key>` JSON-path references. | Reuses one binding surface; *but* ADR-029 deliberately scopes `input_bindings` to **state→state, run-scoped** references with **no expression/transform/templating** and "no typed schema for context values in M7". Adding an external file source widens an **accepted, additive-only proto contract** beyond its stated non-goals, conflates initial-context injection with intermediate data-flow, and would need a `buf breaking`-gated proto edit + ADR-029 amendment. It also has **no place** for the bounded `{files[], max_tokens}` / isolation semantics ADR-028 already owns. | **Rejected** — re-opens a fixed one-way-door contract for the wrong concern. |
-| **A2 — New top-level `context:` block resolved through the EXISTING `{{ .ctx.* }}` template surface, with ADR-028 `{files[], max_tokens}` + strict-isolation semantics.** The block declares file-rooted sources + a token budget; the compiler binds them into the existing action `input` template (`ActionIR.input_template_json`) at dispatch. No new template engine, no new proto field on the dispatch path. | The block is a **declarative spec surface** (a small schema + the `spec.context` slot #1385 already reserves) that fills the existing `{{ .ctx.<key> }}` references workflow actions can already write. It applies ADR-028's contract at the scenario boundary, keeps initial-context injection cleanly separate from ADR-029 data-flow, and is **data-only** by construction (ADR-013). The only **new** surface is the context-block schema + the binding logic that reads files and caps tokens before resolution. | **Recommended.** |
+| **A1 — Extend the existing data-flow `input_bindings`** (ADR-029) to also accept an *external/initial* source (file/literal) alongside the `$.states.<state>.output.<key>` JSON-path references. | Reuses one binding surface; *but* ADR-029 deliberately scopes `input_bindings` to **state→state, run-scoped** references with **no expression/transform/templating** and "no typed schema for context values in M7". Adding an external file source widens an **accepted, additive-only proto contract** beyond its stated non-goals, conflates initial-context injection with intermediate data-flow, and would need a `buf breaking`-gated proto edit + ADR-029 amendment. It also has **no place** for the bounded `{files[], max_tokens}` / isolation semantics ADR-028 already owns. | **REJECTED** — reopens an accepted additive-only proto contract; broader blast radius; re-opens a fixed one-way-door contract for the wrong concern. |
+| **A2 — New top-level `context:` block resolved through the EXISTING `{{ .ctx.* }}` template surface, with ADR-028 `{files[], max_tokens}` + strict-isolation semantics.** The block declares file-rooted sources + a token budget; the compiler binds them into the existing action `input` template (`ActionIR.input_template_json`) at dispatch. No new template engine, no new proto field on the dispatch path. | The block is a **declarative spec surface** (a small schema + the `spec.context` slot #1385 already reserves) that fills the existing `{{ .ctx.<key> }}` references workflow actions can already write. It applies ADR-028's contract at the scenario boundary, keeps initial-context injection cleanly separate from ADR-029 data-flow, and is **data-only** by construction (ADR-013). The only **new** surface is the context-block schema + the binding logic that reads files and caps tokens before resolution. | **SELECTED** (maintainer-authorized 2026-06-19) — recommended; data-only per ADR-013/035, no proto-contract reopening. |
 | **A3 — Do nothing** (keep hand-pasting the diff/prompt into `actions[].input`). | Re-creates the live-run pain on every run; unbounded `input_payload`; mixes data and instructions; no isolation. Violates ADR-011 (declarative control plane) and the parent-epic first-run UX goal. | Rejected. |
 
 ### We will
@@ -401,7 +402,7 @@ fully met; defending the model against its own input is a separate, capability-l
 - **#1370** parent-epic fixes (#1371–#1381, merged) and **#1388** human-validation-guide template are
   prerequisites for O4/O5.
 
-**Open question for the maintainer (alignment decision):** confirm **A2 (new `context:` block on the
-existing `{{ .ctx.* }}` surface, recommended)** vs **A1 (extend ADR-029 `input_bindings`)**. A1
-re-opens an accepted, additive-only proto contract for the wrong concern and needs an ADR-029
+**Resolved (alignment decision, maintainer-authorized 2026-06-19):** **A2 (new `context:` block on the
+existing `{{ .ctx.* }}` surface) is SELECTED**; **A1 (extend ADR-029 `input_bindings`) is REJECTED** —
+A1 re-opens an accepted, additive-only proto contract for the wrong concern and needs an ADR-029
 amendment + `buf breaking` clearance; A2 needs neither. The rest of the canvas is written against A2.
