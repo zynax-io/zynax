@@ -477,6 +477,35 @@ git diff --name-only | grep -q '\.proto\|_pb2\|\.go.*grpc' && {
 echo "All local gates passed."
 ```
 
+### Runtime smoke — REQUIRED when the change affects a runtime path
+
+Build/test/lint/CI-green validate **structure**, not **runtime**. If `git diff --name-only` touches
+any of `infra/docker-compose/**`, `infra/helm/**`, a Makefile `demo`/`run-local`/compose target,
+`services/*/cmd/**`, `agents/adapters/**`, or `cmd/zynax*`, boot the affected path and observe the
+user-facing outcome BEFORE claiming the issue done:
+
+```bash
+# 1. Clean slate — persistent volumes (Postgres-backed registry/repos) hide re-run bugs.
+make demo-clean 2>/dev/null || true
+$(COMPOSE_DEMO) down -v --remove-orphans 2>/dev/null || true
+
+# 2. Boot the issue's DOCUMENTED path (the one in its acceptance criteria), e.g.
+#    `make demo` | `EVAL_TEMPORAL=1 make demo` | `make run-local`.
+#    `up --wait` gates on EVERY service it starts: any Exited/unhealthy container = FAIL,
+#    even one the feature does not use.
+<documented command>            # FAIL the gate on non-zero exit
+PS=$($(COMPOSE_DEMO) ps --format '{{.Name}} {{.State}}')
+echo "$PS" | grep -qiE 'exited|unhealthy' && { echo "RUNTIME SMOKE FAILED:"; echo "$PS"; exit 1; }
+
+# 3. Idempotency — run the documented path a SECOND time on the same volumes.
+#    Stateful services (registry/repos, Temporal) must survive a repeat run.
+<documented command again>      # FAIL on non-zero exit
+```
+
+Map every acceptance criterion that says "runs", "demo", "documented run", or "end-to-end" to an
+actual execution with captured output. Never mark such an AC met from `docker compose config`, a
+build, or CI-green alone.
+
 ---
 
 ## STEP 8 — Commit
