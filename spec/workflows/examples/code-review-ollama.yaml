@@ -14,6 +14,13 @@
 # Run:
 #   zynax apply spec/workflows/examples/code-review-ollama.yaml
 #   zynax logs <run-id> --follow
+#
+# This standalone example inlines the diff by hand (the pre-#1387 way). For the
+# DECLARATIVE alternative — inject your own diff from a file, bounded and
+# isolated, with no prompt hand-edit — apply the scenario instead:
+#   zynax apply spec/scenarios/code-review
+# which binds spec/scenarios/code-review/diff.patch into {{ .ctx.diff }} via the
+# scenario's context-injection block (docs/scenarios/context-injection.md).
 
 kind: Workflow
 apiVersion: zynax.io/v1

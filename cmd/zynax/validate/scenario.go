@@ -131,8 +131,32 @@ func ScenarioFile(indexPath, schemaDir string) ([]ValidationError, error) {
 		return single(indexPath, "/spec", err.Error()), nil
 	}
 
+	// Resolve the declarative context-injection block (#1387) once for the
+	// scenario: parse it (rejecting any routing/provider field — data-only),
+	// read its file sources, and apply the max_tokens cap. A block error is an
+	// index error.
+	block, err := ParseContextBlock(indexPath)
+	if err != nil {
+		return single(indexPath, "/spec/context", err.Error()), nil
+	}
+	values, err := ResolveContext(block, filepath.Dir(indexPath))
+	if err != nil {
+		return single(indexPath, "/spec/context", err.Error()), nil
+	}
+
 	var out []ValidationError
 	for _, m := range members {
+		// For a Workflow member, bind the resolved context into its
+		// {{ .ctx.* }} references and validate the BOUND manifest, so an
+		// unresolved key (one the block does not supply) fails validation.
+		if m.Kind == kindWorkflow {
+			memberErrs, err := validateBoundWorkflow(m.Path, schemaDir, values)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, memberErrs...)
+			continue
+		}
 		memberErrs, err := File(m.Path, schemaDir)
 		if err != nil {
 			return nil, err
@@ -140,6 +164,27 @@ func ScenarioFile(indexPath, schemaDir string) ([]ValidationError, error) {
 		out = append(out, memberErrs...)
 	}
 	return out, nil
+}
+
+// validateBoundWorkflow renders the Workflow member's {{ .ctx.* }} references
+// with the resolved context values and validates the result. When the member
+// declares no {{ .ctx.* }} references the binding is a no-op. A reference the
+// context block does not supply surfaces here as a bind error (the file is
+// reported so callers can locate it).
+func validateBoundWorkflow(path, schemaDir string, values map[string]string) ([]ValidationError, error) {
+	raw, err := os.ReadFile(path) //nolint:gosec // path is confined by ExpandScenario
+	if err != nil {
+		return nil, fmt.Errorf("scenario: read member %q: %w", path, err)
+	}
+	if !strings.Contains(string(raw), "{{") {
+		// No template references — validate the file as-is.
+		return File(path, schemaDir)
+	}
+	bound, err := BindContextIntoWorkflow(raw, values)
+	if err != nil {
+		return single(path, "/spec", err.Error()), nil
+	}
+	return FileBytes(path, bound, schemaDir)
 }
 
 // resolveMemberPath joins a member file to the scenario directory and rejects any

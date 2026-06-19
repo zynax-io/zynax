@@ -25,7 +25,13 @@ func DataFlow(filePath string) ([]ValidationError, error) {
 	if err != nil {
 		return nil, fmt.Errorf("validate: read %q: %w", filePath, err)
 	}
+	return DataFlowBytes(filePath, raw)
+}
 
+// DataFlowBytes runs the state-machine data-flow checks over already-loaded
+// manifest bytes, attributing errors to filePath. It backs both DataFlow (file
+// on disk) and the context-bound validation path (#1387).
+func DataFlowBytes(filePath string, raw []byte) ([]ValidationError, error) {
 	var doc struct {
 		Kind string `yaml:"kind"`
 		Spec struct {
@@ -41,7 +47,7 @@ func DataFlow(filePath string) ([]ValidationError, error) {
 		// Structural/YAML errors are surfaced by Manifest's schema pass; skip here.
 		return nil, nil //nolint:nilerr // schema validation owns parse-error reporting
 	}
-	if doc.Kind != "Workflow" {
+	if doc.Kind != kindWorkflow {
 		return nil, nil
 	}
 

@@ -37,8 +37,17 @@ spec:
     - llm-agent
     - review-workflow
 
-  # RESERVED context-injection slot (#1387 owns the bounded-slice semantics).
-  # Data-only — never provider/model/endpoint/URL (ADR-013). The CLI does NOT
-  # evaluate these values yet; they are a documented pass-through placeholder.
+  # Declarative context-injection block (#1387, ADR-028 context-slice contract).
+  # Declares file-rooted content sources + a hard token budget; `zynax apply`
+  # binds each source into the Workflow member's {{ .ctx.<key> }} input template
+  # at apply time, applying the cap and overflow policy. STRICTLY DATA-ONLY
+  # (ADR-013/ADR-035) — never provider/model/endpoint/URL or any routing field;
+  # the CLI rejects such a field at compile time. One scenario's context never
+  # reaches another (strict isolation). See docs/scenarios/context-injection.md.
   context:
-    language: go
+    sources:
+      - key: diff
+        files:
+          - diff.patch
+    max_tokens: 8000
+    overflow: truncate-oldest

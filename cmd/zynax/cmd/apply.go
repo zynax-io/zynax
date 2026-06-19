@@ -5,6 +5,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/zynax-io/zynax/cmd/zynax/client"
@@ -61,10 +62,30 @@ func runApplyScenario(cmd *cobra.Command, gw *client.Gateway, indexPath string) 
 	if err != nil {
 		return err
 	}
+	// Resolve the declarative context-injection block (#1387): parse it
+	// (rejecting any routing/provider field — data-only, ADR-013), read its file
+	// sources, and apply the max_tokens cap. The resolved values bind into the
+	// Workflow member's {{ .ctx.* }} references below before it is submitted —
+	// keeping injection client-side over the existing REST path (no new proto
+	// field, no api-gateway endpoint).
+	block, err := validate.ParseContextBlock(indexPath)
+	if err != nil {
+		return err
+	}
+	ctxValues, err := validate.ResolveContext(block, filepath.Dir(indexPath))
+	if err != nil {
+		return err
+	}
 	for _, m := range members {
 		data, err := os.ReadFile(m.Path) //nolint:gosec // member path is confined by ExpandScenario
 		if err != nil {
 			return fmt.Errorf("read scenario member %s (%s): %w", m.ID, m.Path, err)
+		}
+		if m.Kind == "Workflow" {
+			data, err = validate.BindContextIntoWorkflow(data, ctxValues)
+			if err != nil {
+				return fmt.Errorf("scenario member %s: %w", m.ID, err)
+			}
 		}
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "applying %s (%s)...\n", m.ID, m.Kind)
 		if applyDryRun {

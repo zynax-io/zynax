@@ -15,6 +15,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// kindWorkflow is the manifest kind whose members get context-injection binding
+// and data-flow validation (the only kind the CLI special-cases beyond schema).
+const kindWorkflow = "Workflow"
+
 // ValidationError is a single schema validation failure.
 type ValidationError struct {
 	File    string `json:"file"`
@@ -40,7 +44,14 @@ func Manifest(filePath, schemaDir string) ([]ValidationError, error) {
 	if err != nil {
 		return nil, fmt.Errorf("validate: read %q: %w", filePath, err)
 	}
+	return ManifestBytes(filePath, raw, schemaDir)
+}
 
+// ManifestBytes validates already-loaded manifest bytes against the JSON Schema
+// for its kind. filePath is used only for error attribution. It backs both
+// Manifest (file on disk) and the context-bound validation path (#1387), where
+// a Workflow's {{ .ctx.* }} references are rendered in memory before validation.
+func ManifestBytes(filePath string, raw []byte, schemaDir string) ([]ValidationError, error) {
 	var doc interface{}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return single(filePath, "", "YAML parse error: "+err.Error()), nil
@@ -110,6 +121,24 @@ func File(filePath, schemaDir string) ([]ValidationError, error) {
 	return combined, nil
 }
 
+// FileBytes runs the full local validation pipeline (schema + data-flow) over
+// already-loaded manifest bytes, attributing every error to filePath. It backs
+// the context-bound Workflow validation path (#1387): the member's
+// {{ .ctx.* }} references are rendered in memory, then the rendered manifest is
+// validated as if it were on disk.
+func FileBytes(filePath string, raw []byte, schemaDir string) ([]ValidationError, error) {
+	schemaErrs, err := ManifestBytes(filePath, raw, schemaDir)
+	if err != nil {
+		return nil, err
+	}
+	flowErrs, err := DataFlowBytes(filePath, raw)
+	if err != nil {
+		return nil, err
+	}
+	combined := append(schemaErrs, flowErrs...) //nolint:gocritic // intentional new slice
+	return combined, nil
+}
+
 // compileSchema compiles a JSON Schema from an absolute file path.
 func compileSchema(absPath string) (*jsonschema.Schema, error) {
 	c := jsonschema.NewCompiler()
@@ -163,7 +192,7 @@ func normalise(v interface{}) interface{} {
 // kindToSchemaFile maps a manifest kind to its JSON Schema filename.
 func kindToSchemaFile(kind string) (string, error) {
 	switch kind {
-	case "Workflow":
+	case kindWorkflow:
 		return "workflow.schema.json", nil
 	case "AgentDef":
 		return "agent-def.schema.json", nil
