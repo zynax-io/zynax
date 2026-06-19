@@ -7,7 +7,7 @@
 **Issue:** #1359
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-19
-**Status:** Aligned (v1 — maintainer-authorized 2026-06-19; scoped into M7 per operator decision)
+**Status:** Superseded (2026-06-19) — by #1456 (lightweight Temporal eval profile); ADR-037 Rejected. In-process EvalEngine deferred to a zero-Docker path.
 **Aligned:** 2026-06-19 (maintainer-authorized; grounded in the live engine-adapter code at `services/engine-adapter/`)
 **ADR:** [ADR-037](../../adr/ADR-037-zero-temporal-evaluation-engine.md) (Proposed — awaits maintainer Accept before `/deliver`)
 
