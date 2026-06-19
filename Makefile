@@ -20,6 +20,11 @@ BENCH_BASELINE := tools/bench-baseline.txt
 AGENTS        := $(shell find agents/examples -maxdepth 2 -name pyproject.toml -exec dirname {} \; 2>/dev/null | xargs -rI{} basename {} | sort)
 COMPOSE          := docker compose -f infra/docker-compose/docker-compose.yml
 COMPOSE_DEMO     := docker compose -f infra/docker-compose/docker-compose.yml -f infra/docker-compose/docker-compose.ollama.yml
+# Opt-in lightweight Temporal for the demo: `EVAL_TEMPORAL=1 make demo` swaps the durable
+# Temporal trio for a single in-memory `temporal server start-dev`. See infra/docker-compose/README.md.
+ifeq ($(EVAL_TEMPORAL),1)
+COMPOSE_DEMO     += -f infra/docker-compose/docker-compose.eval-temporal.yml
+endif
 COMPOSE_SERVICES := docker compose -f infra/docker-compose/docker-compose.services.yml
 COMPOSE_TOOLS    := docker compose -f infra/docker-compose/docker-compose.tools.yml
 COMPOSE_OBS      := docker compose --env-file infra/docker-compose/observability/.env.observability -f infra/docker-compose/docker-compose.observability.yml
@@ -155,6 +160,7 @@ demo: check-docker ## ★ One command: boot the Ollama stack + run the hero work
 	@echo "✅ Demo complete. Next steps:"
 	@echo "   • Inspect logs:    ZYNAX_API_URL=http://localhost:7080 zynax logs <run-id> --follow"
 	@echo "   • Run a scenario:  make demo SCENARIO=code-review  (see docs/scenarios/scenario-manifest.md)"
+	@echo "   • Lighter Temporal: EVAL_TEMPORAL=1 make demo  (single in-memory start-dev, no Postgres/UI)"
 	@echo "   • Tear it all down: make demo-clean"
 
 demo-clean: ## Stop and remove the demo stack (base + Ollama overlay)
