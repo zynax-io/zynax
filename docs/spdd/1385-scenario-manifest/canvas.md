@@ -8,7 +8,8 @@
 **Epic:** #1370 (awesome-quickstart / first-run UX) — Operations step 14
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-19
-**Status:** Draft
+**Status:** Aligned (v1 — maintainer-authorized 2026-06-19, approach A2 selected)
+**Aligned:** 2026-06-19 (maintainer-authorized; approach A2 — manifest-set convention)
 
 > **Provenance — own canvas required (ADR-019).** The #1370 canvas
 > ([docs/spdd/1370-awesome-quickstart/canvas.md](../1370-awesome-quickstart/canvas.md), Reframe
@@ -100,8 +101,8 @@ Real contracts this composes (cited, not redefined):
 
 | Option | Tradeoff | Verdict |
 |--------|----------|---------|
-| **A1 — New `kind: Scenario` composite schema** (one file embeds/links a Workflow + AgentDefs + context). | Single tidy artefact, but it is a **third manifest schema** with its own validation, its own `apply` semantics, and a **new api-gateway response shape** (today `apply` returns *either* `run_id` (202, Workflow) *or* `agent_id` (201, AgentDef) — a Scenario produces *both*). That is a new spec **and** gRPC/REST boundary, a one-way door, and a direct repeat of the option ADR-028 §Option C **rejected** ("invent a third manifest schema"). Needs a `.feature` at the new boundary + likely an ADR. | **Rejected** (default) — highest blast radius, contradicts ADR-028. |
-| **A2 — Manifest-set convention** (existing `kind: Workflow` + `kind: AgentDef` files grouped under `spec/scenarios/<name>/`, plus a tiny `scenario.yaml` index declaring members + apply order + the context slot). `zynax apply <dir>` and `make demo` iterate the set client-side in dependency order. | Zero new server-side kind; reuses the two shipped, CI-enforced schemas and the existing `/api/v1/apply` per-manifest path (no new gateway response shape). The only **new** spec surface is a small, separately-validated `scenario.schema.json` for the *index* file, and a CLI ordering loop. Aligns with ADR-028 ("two kinds, no third schema") and keeps the user manifests identical to any hand-applied manifest — which is the point of declarative self-service. | **Recommended.** |
+| **A1 — New `kind: Scenario` composite schema** (one file embeds/links a Workflow + AgentDefs + context). | Single tidy artefact, but it is a **third manifest schema** with its own validation, its own `apply` semantics, and a **new api-gateway response shape** (today `apply` returns *either* `run_id` (202, Workflow) *or* `agent_id` (201, AgentDef) — a Scenario produces *both*). That is a new spec **and** gRPC/REST boundary, a one-way door, and a direct repeat of the option ADR-028 §Option C **rejected** ("invent a third manifest schema"). Needs a `.feature` at the new boundary + likely an ADR. | **REJECTED** — one-way door, new gRPC boundary + dual result, needs own ADR + `.feature`; highest blast radius, contradicts ADR-028. |
+| **A2 — Manifest-set convention** (existing `kind: Workflow` + `kind: AgentDef` files grouped under `spec/scenarios/<name>/`, plus a tiny `scenario.yaml` index declaring members + apply order + the context slot). `zynax apply <dir>` and `make demo` iterate the set client-side in dependency order. | Zero new server-side kind; reuses the two shipped, CI-enforced schemas and the existing `/api/v1/apply` per-manifest path (no new gateway response shape). The only **new** spec surface is a small, separately-validated `scenario.schema.json` for the *index* file, and a CLI ordering loop. Aligns with ADR-028 ("two kinds, no third schema") and keeps the user manifests identical to any hand-applied manifest — which is the point of declarative self-service. | **SELECTED** (maintainer-authorized 2026-06-19) — recommended; zero new boundary, composes only accepted ADRs. |
 | **A3 — Do nothing** (keep documenting the manual edit sequence). | Violates ADR-011 (declarative control plane) and the parent-epic first-run UX goal; leaves the live-validation pain in place. | Rejected. |
 
 ### We will
@@ -326,7 +327,7 @@ No unmitigated attack surface remains under the recommended approach.
 - **#1370** parent-epic fixes (#1371–#1381) must be merged for O4's reference scenario to run green.
 - **#1388** human-validation-guide standard (on main) is the template O6 follows.
 
-**Open question for the maintainer (alignment decision):** confirm **A2 (manifest-set convention,
-recommended)** vs **A1 (new `kind: Scenario`)**. A1 is a one-way door that crosses the api-gateway
-contract and needs its own ADR + `.feature`; A2 needs neither. The rest of the canvas is written
-against A2.
+**Resolved (alignment decision, maintainer-authorized 2026-06-19):** **A2 (manifest-set convention)
+is SELECTED**; **A1 (new `kind: Scenario`) is REJECTED** — A1 is a one-way door that crosses the
+api-gateway contract and needs its own ADR + `.feature`; A2 needs neither. The rest of the canvas is
+written against A2.
