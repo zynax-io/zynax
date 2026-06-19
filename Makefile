@@ -139,14 +139,22 @@ ZYNAX        ?= zynax
 # in the index's apply_order) over the existing /api/v1/apply REST path.
 SCENARIO     ?=
 DEMO_TARGET   = $(if $(SCENARIO),spec/scenarios/$(SCENARIO),$(DEMO_WORKFLOW))
+# Services the demo needs; `up --wait` boots their depends_on closure (workflow-compiler,
+# engine-adapter, task-broker, agent-registry, temporal, event-bus, nats, postgres*, ollama).
+# Deliberately EXCLUDES the git/ci/langgraph adapters — they require GITHUB_TOKEN or are unused, and
+# `up --wait` (no service list) would otherwise gate the whole demo on their health — and the
+# standalone Temporal UI.
+DEMO_SERVICES := api-gateway llm-adapter
 
 demo: check-docker ## ★ One command: boot the Ollama stack + run the hero workflow (or a SCENARIO=<name> manifest set)
 	@command -v $(ZYNAX) >/dev/null 2>&1 || \
 	  (echo "❌ zynax CLI not found — run 'make install-cli' and ensure ~/bin is on your PATH" && exit 1)
 	@echo "🧠 Demo model: qwen2.5-coder:3b — pull it once on the host if you have not:"
 	@echo "     ollama pull qwen2.5-coder:3b"
-	@echo "🚀 Booting the minimal stack + Ollama overlay (waiting for health)..."
-	$(COMPOSE_DEMO) up -d --wait
+	@echo "🧹 Clean slate for a repeatable run (the agent-registry is persistent across runs)..."
+	@$(COMPOSE_DEMO) down -v --remove-orphans 2>/dev/null || true
+	@echo "🚀 Booting the demo services + Ollama overlay (waiting for health)..."
+	$(COMPOSE_DEMO) up -d --wait $(DEMO_SERVICES)
 	@export ZYNAX_API_URL=http://localhost:7080; \
 	  echo "▶  zynax apply $(DEMO_TARGET)"; \
 	  run_id=$$($(ZYNAX) apply $(DEMO_TARGET) | sed -n 's/^run_id: //p' | tail -n1); \
@@ -163,8 +171,8 @@ demo: check-docker ## ★ One command: boot the Ollama stack + run the hero work
 	@echo "   • Lighter Temporal: EVAL_TEMPORAL=1 make demo  (single in-memory start-dev, no Postgres/UI)"
 	@echo "   • Tear it all down: make demo-clean"
 
-demo-clean: ## Stop and remove the demo stack (base + Ollama overlay)
-	$(COMPOSE_DEMO) down --remove-orphans
+demo-clean: ## Stop and remove the demo stack + volumes (base + Ollama overlay)
+	$(COMPOSE_DEMO) down -v --remove-orphans
 	@echo "✅ Demo stack removed"
 
 install-cli: ## Build and install zynax CLI to ~/bin/zynax (requires Go 1.26.3)

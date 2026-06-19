@@ -8,11 +8,13 @@
 agent_id: llm-adapter
 name: LLM Adapter (Ollama / local)
 description: Ollama-backed local LLM capabilities for the zero-cost quickstart.
-# Endpoint is used BOTH as the bind address AND the address advertised to the
-# registry (no bind/advertise split in the Go adapter). The shipped example's
-# ":50070" advertises an unreachable host — the broker then dials localhost and
-# gets connection refused. Use the resolvable compose service name instead.
-endpoint: llm-adapter:50070
+# `endpoint` is the gRPC BIND address; ":50070" binds all interfaces so the
+# in-container healthcheck (which dials localhost:50070) passes. `advertise_endpoint`
+# is the ROUTABLE address the task-broker dials — the compose service name. Binding
+# directly to "llm-adapter:50070" instead would listen only on that interface and the
+# localhost healthcheck would get connection refused → container unhealthy (#1371).
+endpoint: ":50070"
+advertise_endpoint: llm-adapter:50070
 registry_endpoint: agent-registry:50052
 
 provider:
