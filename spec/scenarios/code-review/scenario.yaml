@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scenario INDEX (kind: Scenario) — the declarative code-review demo.
+#
+# A Scenario is a CLIENT-SIDE manifest-set convention (A2, ADR-028 "two kinds,
+# no third schema"): this index lists the member manifests in this directory,
+# declares the order they must be applied in, and reserves a context slot.
+#
+#   zynax validate spec/scenarios/code-review        # schema + per-member checks
+#   zynax apply    spec/scenarios/code-review        # registers AgentDef, submits Workflow
+#   make demo SCENARIO=code-review                    # compose-up → apply → result → cleanup
+#
+# Members are submitted over the EXISTING /api/v1/apply REST path, one at a time,
+# exactly as a hand-applied manifest is — no new api-gateway endpoint.
+# Validated by: make validate-spec (against spec/schemas/scenario.schema.json).
+
+kind: Scenario
+apiVersion: zynax.io/v1alpha1
+
+metadata:
+  name: code-review
+  namespace: demo
+  annotations:
+    description: "Declarative LLM code-review demo: Ollama AgentDef + code-review Workflow."
+
+spec:
+  members:
+    - id: llm-agent
+      kind: AgentDef
+      file: agent.yaml
+    - id: review-workflow
+      kind: Workflow
+      file: workflow.yaml
+
+  # AgentDef MUST register before the Workflow that consumes its `codereview`
+  # capability, so an unbacked capability fails fast rather than retrying (#1381).
+  apply_order:
+    - llm-agent
+    - review-workflow
+
+  # RESERVED context-injection slot (#1387 owns the bounded-slice semantics).
+  # Data-only — never provider/model/endpoint/URL (ADR-013). The CLI does NOT
+  # evaluate these values yet; they are a documented pass-through placeholder.
+  context:
+    language: go

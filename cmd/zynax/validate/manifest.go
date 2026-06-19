@@ -169,8 +169,10 @@ func kindToSchemaFile(kind string) (string, error) {
 		return "agent-def.schema.json", nil
 	case "Policy":
 		return "policy.schema.json", nil
+	case "Scenario":
+		return "scenario.schema.json", nil
 	default:
-		return "", fmt.Errorf("no JSON schema for kind %q — supported: Workflow, AgentDef, Policy", kind)
+		return "", fmt.Errorf("no JSON schema for kind %q — supported: Workflow, AgentDef, Policy, Scenario", kind)
 	}
 }
 

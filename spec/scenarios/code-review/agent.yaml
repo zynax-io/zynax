@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scenario member (kind: AgentDef) — the capability provider for the code-review
+# demo. Declares the `codereview` capability that the Workflow member dispatches.
+#
+# NOTE: the capability name has NO underscore on purpose — the engine derives the
+# completion event as "<capability>.completed", and the workflow compiler rejects
+# event types containing underscores. This mirrors the llm-adapter Ollama config
+# (infra/docker-compose/ollama/llm-adapter.config.yaml).
+#
+# Provider/model/endpoint live in the adapter config + compose overlay (ADR-013),
+# never in the manifest input — the AgentDef only declares the capability contract.
+# Validated by: make validate-spec (against spec/schemas/agent-def.schema.json).
+
+apiVersion: zynax.io/v1alpha1
+kind: AgentDef
+
+metadata:
+  name: llm-adapter
+  namespace: demo
+  labels:
+    team: platform
+    agent.zynax.io/provider: ollama
+
+spec:
+  capabilities:
+    - name: codereview
+      description: >
+        Review a code diff via a local Ollama-backed LLM and return concrete,
+        actionable findings as a single completion string.
+      input_schema:
+        type: object
+        required: [prompt]
+        properties:
+          prompt:
+            type: string
+            description: The full review prompt, including the diff to review.
+            minLength: 1
+        additionalProperties: false
+      output_schema:
+        type: object
+        properties:
+          completion:
+            type: string
+            description: The model's review text.
+      timeout_seconds: 300
+      max_retries: 1
+
+  runtime:
+    image: ghcr.io/zynax-io/zynax/llm-adapter:latest
+    env:
+      LOG_LEVEL: info
+      GRPC_PORT: "50070"
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+    replicas: 1

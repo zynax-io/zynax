@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -608,6 +609,96 @@ func TestResultCmd_NoResult_Errors(t *testing.T) {
 
 	if _, err := runResult(t, []string{"r6"}); err == nil {
 		t.Error("expected error when run finishes with no result payload")
+	}
+}
+
+// ── scenario apply + validate ─────────────────────────────────────────────────
+
+// TestRunApplyScenario_AppliesMembersInOrder verifies that applying the shipped
+// reference scenario submits each member over the existing /api/v1/apply path in
+// apply_order (AgentDef first), recording the order the server observed.
+func TestRunApplyScenario_AppliesMembersInOrder(t *testing.T) {
+	root := repoRoot(t)
+	var kinds []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		body := string(b)
+		switch {
+		case strings.Contains(body, "kind: AgentDef"):
+			kinds = append(kinds, "AgentDef")
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]string{"agent_id": "agent-xyz"})
+		default:
+			kinds = append(kinds, "Workflow")
+			w.WriteHeader(http.StatusAccepted)
+			_ = json.NewEncoder(w).Encode(map[string]any{"run_id": "wf-001"})
+		}
+	}))
+	defer srv.Close()
+	apiURL = srv.URL
+	applyDryRun = false
+	applyEngine = ""
+
+	idx := filepath.Join(root, "spec/scenarios/code-review", "scenario.yaml")
+	cmd := fakeCmd(t)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := runApplyScenario(cmd, newGateway(), idx); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(kinds) != 2 || kinds[0] != "AgentDef" || kinds[1] != "Workflow" {
+		t.Errorf("server observed order %v, want [AgentDef Workflow]", kinds)
+	}
+	if !strings.Contains(out.String(), "run_id: wf-001") {
+		t.Errorf("expected workflow run_id in output, got:\n%s", out.String())
+	}
+}
+
+func TestRunApplyScenario_DryRun(t *testing.T) {
+	root := repoRoot(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"warnings": []string{}})
+	}))
+	defer srv.Close()
+	apiURL = srv.URL
+	applyDryRun = true
+	defer func() { applyDryRun = false }()
+
+	idx := filepath.Join(root, "spec/scenarios/code-review", "scenario.yaml")
+	cmd := fakeCmd(t)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	if err := runApplyScenario(cmd, newGateway(), idx); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRunApplyScenario_MemberError(t *testing.T) {
+	root := repoRoot(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	apiURL = srv.URL
+	applyDryRun = false
+
+	idx := filepath.Join(root, "spec/scenarios/code-review", "scenario.yaml")
+	cmd := fakeCmd(t)
+	if err := runApplyScenario(cmd, newGateway(), idx); err == nil {
+		t.Error("expected error when a scenario member fails to apply")
+	}
+}
+
+func TestRunValidate_Scenario(t *testing.T) {
+	root := repoRoot(t)
+	validateSchemaDir = filepath.Join(root, "spec/schemas")
+	validateFormat = formatText
+
+	cmd := fakeCmd(t)
+	dir := filepath.Join(root, "spec/scenarios/code-review")
+	if err := runValidate(cmd, []string{dir}); err != nil {
+		t.Errorf("reference scenario should validate, got: %v", err)
 	}
 }
 
