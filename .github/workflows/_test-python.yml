@@ -21,7 +21,7 @@ jobs:
     name: test-python
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:8b13da262184f2f89470d2fba7a48b10c28f24bba1722df1ea664feaccd53ff1
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:ede2550494172730b29a5979f461f0fa70bb21b5ad35a56d379607ccfe35872e
       options: --user root
     env:
       UV_LINK_MODE: copy
