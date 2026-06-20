@@ -138,7 +138,11 @@ ZYNAX        ?= zynax
 # whole directory spec/scenarios/$(SCENARIO) is applied (AgentDef then Workflow,
 # in the index's apply_order) over the existing /api/v1/apply REST path.
 SCENARIO     ?=
-DEMO_TARGET   = $(if $(SCENARIO),spec/scenarios/$(SCENARIO),$(DEMO_WORKFLOW))
+# Optional: review a real GitHub PR's diff instead of the canned workflow —
+# `make demo PR=1446` fetches the diff (read-only via `gh pr diff`) and reviews it.
+PR           ?=
+DEMO_PR_FILE := /tmp/zynax-demo-pr-review.yaml
+DEMO_TARGET   = $(if $(PR),$(DEMO_PR_FILE),$(if $(SCENARIO),spec/scenarios/$(SCENARIO),$(DEMO_WORKFLOW)))
 # Services the demo needs; `up --wait` boots their depends_on closure (workflow-compiler,
 # engine-adapter, task-broker, agent-registry, temporal, event-bus, nats, postgres*, ollama).
 # Deliberately EXCLUDES the git/ci/langgraph adapters — they require GITHUB_TOKEN or are unused, and
@@ -146,15 +150,19 @@ DEMO_TARGET   = $(if $(SCENARIO),spec/scenarios/$(SCENARIO),$(DEMO_WORKFLOW))
 # standalone Temporal UI.
 DEMO_SERVICES := api-gateway llm-adapter
 
-demo: check-docker ## ★ One command: boot the Ollama stack + run the hero workflow (or a SCENARIO=<name> manifest set)
+demo: check-docker ## ★ One command: boot the Ollama stack + review code (hero workflow, or SCENARIO=<name> / PR=<number>)
 	@command -v $(ZYNAX) >/dev/null 2>&1 || \
 	  (echo "❌ zynax CLI not found — run 'make install-cli' and ensure ~/bin is on your PATH" && exit 1)
 	@echo "🧠 Demo model: qwen2.5-coder:3b — pull it once on the host if you have not:"
 	@echo "     ollama pull qwen2.5-coder:3b"
 	@echo "🧹 Clean slate for a repeatable run (the agent-registry is persistent across runs)..."
 	@$(COMPOSE_DEMO) down -v --remove-orphans 2>/dev/null || true
-	@echo "🚀 Booting the demo services + Ollama overlay (waiting for health)..."
-	$(COMPOSE_DEMO) up -d --wait $(DEMO_SERVICES)
+	@echo "🚀 Booting the demo services + Ollama overlay (building current images, waiting for health)..."
+	$(COMPOSE_DEMO) up -d --build --wait $(DEMO_SERVICES)
+	@if [ -n "$(PR)" ]; then \
+	   echo "📥 Reviewing GitHub PR #$(PR) — fetching diff (read-only, no changes to the PR)..."; \
+	   tools/pr-review-workflow.sh "$(PR)" > "$(DEMO_PR_FILE)" || { echo "❌ could not build the PR review workflow"; exit 1; }; \
+	 fi
 	@export ZYNAX_API_URL=http://localhost:7080; \
 	  echo "▶  zynax apply $(DEMO_TARGET)"; \
 	  run_id=$$($(ZYNAX) apply $(DEMO_TARGET) | sed -n 's/^run_id: //p' | tail -n1); \
@@ -168,6 +176,7 @@ demo: check-docker ## ★ One command: boot the Ollama stack + run the hero work
 	@echo "✅ Demo complete. Next steps:"
 	@echo "   • Inspect logs:    ZYNAX_API_URL=http://localhost:7080 zynax logs <run-id> --follow"
 	@echo "   • Run a scenario:  make demo SCENARIO=code-review  (see docs/scenarios/scenario-manifest.md)"
+	@echo "   • Review a real PR: make demo PR=<number>  (read-only — never changes the PR)"
 	@echo "   • Lighter Temporal: EVAL_TEMPORAL=1 make demo  (single in-memory start-dev, no Postgres/UI)"
 	@echo "   • Tear it all down: make demo-clean"
 
