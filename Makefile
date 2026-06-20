@@ -143,6 +143,11 @@ SCENARIO     ?=
 PR           ?=
 DEMO_PR_FILE := /tmp/zynax-demo-pr-review.yaml
 DEMO_TARGET   = $(if $(PR),$(DEMO_PR_FILE),$(if $(SCENARIO),spec/scenarios/$(SCENARIO),$(DEMO_WORKFLOW)))
+# Optional: STREAM=1 prints EVERY step's output live via `zynax logs --follow`
+# instead of just the final result — useful for multi-step (data-flow) workflows.
+# Note: streaming is per-step, not per-token — the engine polls the broker for
+# each capability's final result, so a step's output appears once it completes.
+STREAM       ?=
 # Demo LLM model — read from the Ollama overlay config so the pre-flight check and
 # the config never drift. `make demo` ensures this is pulled on the host (the
 # ollama container reuses host models read-only), otherwise the codereview 404s.
@@ -181,12 +186,18 @@ demo: check-docker ## ★ One command: boot the Ollama stack + review code (hero
 	  run_id=$$($(ZYNAX) apply $(DEMO_TARGET) | sed -n 's/^run_id: //p' | tail -n1); \
 	  test -n "$$run_id" || (echo "❌ apply did not return a run_id" && exit 1); \
 	  echo "   run_id: $$run_id"; \
-	  echo "⏳ Streaming to terminal + printing the model's review..."; \
-	  echo "── review ──────────────────────────────────────────────"; \
-	  $(ZYNAX) result "$$run_id" || echo "(no review — the run did not complete; inspect: ZYNAX_API_URL=$$ZYNAX_API_URL $(ZYNAX) logs $$run_id)"; \
+	  echo "── output ──────────────────────────────────────────────"; \
+	  if [ -n "$(STREAM)" ]; then \
+	    echo "⏳ Streaming every step live (zynax logs --follow)..."; \
+	    $(ZYNAX) logs "$$run_id" --follow || echo "(stream ended early; inspect: ZYNAX_API_URL=$$ZYNAX_API_URL $(ZYNAX) logs $$run_id)"; \
+	  else \
+	    echo "⏳ Waiting for the final result (add STREAM=1 to see every step live)..."; \
+	    $(ZYNAX) result "$$run_id" || echo "(no result — the run did not complete; inspect: ZYNAX_API_URL=$$ZYNAX_API_URL $(ZYNAX) logs $$run_id)"; \
+	  fi; \
 	  echo "────────────────────────────────────────────────────────"
 	@echo ""
 	@echo "✅ Demo complete. Next steps:"
+	@echo "   • See every step:  make demo STREAM=1 DEMO_WORKFLOW=<file>  (live, all states)"
 	@echo "   • Inspect logs:    ZYNAX_API_URL=http://localhost:7080 zynax logs <run-id> --follow"
 	@echo "   • Run a scenario:  make demo SCENARIO=code-review  (see docs/scenarios/scenario-manifest.md)"
 	@echo "   • Review a real PR: make demo PR=<number>  (read-only — never changes the PR)"
