@@ -47,3 +47,22 @@ capabilities:
         "type": "object",
         "properties": { "completion": { "type": "string" } }
       }
+  # A second generic-LLM capability used by the two-step data-flow example
+  # (spec/workflows/examples/code-review-rank-ollama.yaml): it consumes the
+  # codereview output and ranks the issues by importance. Same shape as
+  # codereview — the llm-adapter sends `prompt` to Ollama and returns `completion`.
+  - name: summarize
+    timeout_seconds: 300
+    description: Summarize text and rank the items it contains by importance.
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["prompt"],
+        "properties": { "prompt": { "type": "string", "minLength": 1 } },
+        "additionalProperties": false
+      }
+    output_schema_json: |
+      {
+        "type": "object",
+        "properties": { "completion": { "type": "string" } }
+      }

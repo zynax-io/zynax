@@ -7,6 +7,7 @@ package domain
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
@@ -403,6 +404,25 @@ func TestResolveTemplate(t *testing.T) {
 	}
 	if string(got) != `{"user":"alice"}` {
 		t.Errorf("resolveTemplate = %s; want %s", got, `{"user":"alice"}`)
+	}
+}
+
+// TestResolveTemplate_EscapesJSON guards EPIC-W data-flow: a ctx value carrying
+// newlines and quotes (e.g. an LLM review passed between steps) must be
+// JSON-escaped on substitution so the rendered input_payload stays valid JSON,
+// rather than failing dispatch with "input_payload must be valid JSON".
+func TestResolveTemplate_EscapesJSON(t *testing.T) {
+	ctx := map[string]string{"review": "line 1\n\"quoted\" line 2\tend"}
+	got, err := resolveTemplate(`{"prompt":"Rank:\n{{ .ctx.review }}"}`, ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var out map[string]string
+	if err := json.Unmarshal(got, &out); err != nil {
+		t.Fatalf("rendered payload is not valid JSON: %v\npayload=%s", err, got)
+	}
+	if out["prompt"] != "Rank:\nline 1\n\"quoted\" line 2\tend" {
+		t.Errorf("decoded prompt = %q; want the original review verbatim", out["prompt"])
 	}
 }
 
