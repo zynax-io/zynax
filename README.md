@@ -326,6 +326,10 @@ Layer 1 YAML is never imported by Go services. Cross-service reads always go thr
 
 ## Quickstart
 
+> **Prefer raw `docker compose` (no `make`)?** See
+> [docs/running-with-docker-compose.md](docs/running-with-docker-compose.md) — three commands to a
+> result, then optional depth (full platform, observability).
+
 ### Try it with Docker
 
 **Prerequisites:** Docker Desktop + the `zynax` CLI (see [Install](#install-the-zynax-cli) above).

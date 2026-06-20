@@ -231,6 +231,7 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Helm chart templates (Deployment, HPA, NetworkPolicy, PDB) | `docs/patterns/helm-charts.md` |
 | Architecture Decision Records | `docs/adr/INDEX.md` |
 | Current milestone and active PRs | `state/current-milestone.md` |
+| Run the stack with raw `docker compose` (no `make`) | `docs/running-with-docker-compose.md` |
 | SPDD workflow guide and REASONS Canvas methodology | `docs/patterns/spdd-guide.md` |
 | AI-assisted refactoring decision tree (extract / inline / move / replace) | `docs/patterns/refactoring-guide.md` |
 | REASONS Canvas artifacts (one per `feat:` issue) | `docs/spdd/` |

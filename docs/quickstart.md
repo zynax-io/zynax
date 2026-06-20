@@ -3,6 +3,9 @@
 > **In a hurry?** Run `make demo` for the one-command path: it boots a zero-secret local-LLM
 > stack and runs the hero code-review workflow end-to-end. Prereq: `ollama pull qwen2.5-coder:3b`.
 > The steps below walk through the same flow manually.
+>
+> **Without `make`?** [running-with-docker-compose.md](running-with-docker-compose.md) is the raw
+> `docker compose` runbook — three commands to a result, then optional depth.
 
 Get from a fresh clone to a **traced workflow run** in minutes. Everything runs in
 Docker — the only prerequisite is Docker Desktop (or Docker Engine + the Compose plugin).
