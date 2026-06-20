@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: Apache-2.0
+# Two-step workflow with EPIC-W data-flow: code review, then summarize + rank.
+#
+# State `review` runs the `codereview` capability on a diff and publishes the
+# review text into the workflow data context via an OUTPUT binding. State `rank`
+# consumes it via an INPUT binding ("$.states.review.output.review"), exposes it
+# to the prompt template as {{ .ctx.review }}, and asks the `summarize` capability
+# to count the issues and rank them by importance.
+#
+# Run it:
+#   make demo DEMO_WORKFLOW=spec/workflows/examples/code-review-rank-ollama.yaml
+#   # or:
+#   zynax apply spec/workflows/examples/code-review-rank-ollama.yaml
+#   zynax result <run-id>
+#
+# Requires the llm-adapter to register BOTH `codereview` and `summarize`
+# (see infra/docker-compose/ollama/llm-adapter.config.yaml).
+kind: Workflow
+apiVersion: zynax.io/v1
+
+metadata:
+  name: code-review-rank-ollama
+  namespace: demo
+  version: "1.0.0"
+  annotations:
+    description: "Code review, then summarize + rank the issues by importance (data-flow)."
+
+spec:
+  initial_state: review
+
+  states:
+    # ── 1) Review the diff ────────────────────────────────────────
+    review:
+      actions:
+        - capability: codereview
+          input:
+            prompt: |
+              You are a senior Go code reviewer. Review the following git diff and
+              reply with a numbered list of concrete issues (correctness, security,
+              edge cases). Cite the function. End with APPROVE or REQUEST-CHANGES.
+
+              ```diff
+              diff --git a/payments.go b/payments.go
+              --- a/payments.go
+              +++ b/payments.go
+              @@ -7,5 +7,12 @@ func Charge(balanceCents, amountCents int) (int, error) {
+               	if amountCents < 0 {
+               		return balanceCents, errors.New("amount must be non-negative")
+               	}
+              -	return balanceCents - amountCents, nil
+              +	// Apply a 2% loyalty discount before charging.
+              +	discounted := amountCents - (amountCents / 50)
+              +	return balanceCents - discounted, nil
+              +}
+              +
+              +// Refund credits amountCents back to the account.
+              +func Refund(balanceCents, amountCents int) int {
+              +	return balanceCents + amountCents
+               }
+              ```
+          # OUTPUT binding: publish the review text (result field `completion`)
+          # into the data context as states.review.output.review.
+          output:
+            review: completion
+      on:
+        - event: codereview.completed
+          goto: rank
+
+    # ── 2) Summarize + rank the issues ────────────────────────────
+    rank:
+      actions:
+        - capability: summarize
+          # `review` is an INPUT BINDING (a "$.states..." reference): it is
+          # resolved from the data context and exposed to the prompt template as
+          # {{ .ctx.review }}. Bindings are NOT sent to the capability — only the
+          # rendered `prompt` is.
+          input:
+            review: "$.states.review.output.review"
+            prompt: |
+              Below is a code review. First state the TOTAL number of issues, then
+              list each issue ranked by importance (High / Medium / Low) with a
+              one-line justification.
+
+              {{ .ctx.review }}
+          output:
+            ranking: completion
+      on:
+        - event: summarize.completed
+          goto: done
+
+    done:
+      type: terminal

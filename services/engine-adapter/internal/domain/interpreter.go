@@ -287,8 +287,24 @@ func resolveTemplate(tmpl string, ctx map[string]string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid template %q: %w", tmpl, err)
 	}
+	// Each ctx value is substituted INTO the input's JSON template, almost always
+	// inside a JSON string literal (e.g. {"prompt":"...{{ .ctx.review }}..."}).
+	// Data-context values are arbitrary capability outputs — LLM text is routinely
+	// multi-line and quoted — so substituting them raw produces invalid JSON
+	// ("input_payload must be valid JSON"). JSON-escape each value to its
+	// string-inner form (marshal, strip the surrounding quotes) so the rendered
+	// payload stays valid; for simple values this is a no-op (backward compatible).
+	esc := make(map[string]string, len(ctx))
+	for k, v := range ctx {
+		b, mErr := json.Marshal(v)
+		if mErr != nil { // string marshalling never fails, but stay defensive
+			esc[k] = v
+			continue
+		}
+		esc[k] = string(b[1 : len(b)-1])
+	}
 	var buf strings.Builder
-	if err := t.Execute(&buf, map[string]any{"ctx": ctx}); err != nil {
+	if err := t.Execute(&buf, map[string]any{"ctx": esc}); err != nil {
 		return nil, fmt.Errorf("template execution failed: %w", err)
 	}
 	return []byte(buf.String()), nil
