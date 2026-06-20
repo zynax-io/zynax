@@ -36,10 +36,14 @@ type GatewayClients struct {
 	callTimeout time.Duration
 }
 
-// capabilityEventPattern matches every CloudEvent type so the streaming /logs
-// endpoint receives all capability events for a workflow. The event-bus filters
-// further by the workflow_id scope passed on the SubscribeRequest.
-const capabilityEventPattern = "**"
+// capabilityEventPattern subscribes to the task-broker task-lifecycle stream,
+// whose ".completed" events carry the capability result_payload surfaced by
+// `zynax logs`/`zynax result`. It MUST resolve (via StreamSubjectFromPattern) to
+// the concrete JetStream stream that owns those events: a bare "**" collapses to
+// the subject "x" and lands on a nonexistent stream, so no capability event is
+// ever delivered. The event-bus filters further by the workflow_id scope on the
+// SubscribeRequest.
+const capabilityEventPattern = "zynax.v1.task-broker.task.**"
 
 // ConnectionsReady returns false if any downstream gRPC connection is in
 // TRANSIENT_FAILURE or SHUTDOWN state. Used by the /readyz probe handler.

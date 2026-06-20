@@ -20,7 +20,15 @@ import (
 const (
 	dispatchCapabilityActivityName = "DispatchCapabilityActivity"
 	publishEventActivityName       = "PublishLifecycleEventActivity"
-	defaultActivityTimeout         = 30 * time.Second
+	// defaultActivityTimeout is the StartToClose timeout applied to a capability
+	// dispatch when the workflow action declares no explicit timeout. It must be
+	// agent-scale: real capabilities (LLM inference, CI runs, git ops) routinely
+	// take longer than a handful of seconds, and a too-short cap truncates the
+	// activity to a nil result — the capability's output never reaches the
+	// completion event, so `zynax result` reports "no result payload". 5 minutes
+	// covers the slowest shipped capability (codereview, timeout_seconds: 300)
+	// with headroom; capabilities needing more should declare an action timeout.
+	defaultActivityTimeout = 5 * time.Minute
 )
 
 // DefaultActivityMaxAttempts is the maximum number of retry attempts for
