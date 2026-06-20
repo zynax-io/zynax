@@ -143,6 +143,10 @@ SCENARIO     ?=
 PR           ?=
 DEMO_PR_FILE := /tmp/zynax-demo-pr-review.yaml
 DEMO_TARGET   = $(if $(PR),$(DEMO_PR_FILE),$(if $(SCENARIO),spec/scenarios/$(SCENARIO),$(DEMO_WORKFLOW)))
+# Demo LLM model — read from the Ollama overlay config so the pre-flight check and
+# the config never drift. `make demo` ensures this is pulled on the host (the
+# ollama container reuses host models read-only), otherwise the codereview 404s.
+DEMO_MODEL   := $(shell awk '/^[[:space:]]*model:/{print $$2; exit}' infra/docker-compose/ollama/llm-adapter.config.yaml)
 # Services the demo needs; `up --wait` boots their depends_on closure (workflow-compiler,
 # engine-adapter, task-broker, agent-registry, temporal, event-bus, nats, postgres*, ollama).
 # Deliberately EXCLUDES the git/ci/langgraph adapters — they require GITHUB_TOKEN or are unused, and
@@ -153,8 +157,17 @@ DEMO_SERVICES := api-gateway llm-adapter
 demo: check-docker ## ★ One command: boot the Ollama stack + review code (hero workflow, or SCENARIO=<name> / PR=<number>)
 	@command -v $(ZYNAX) >/dev/null 2>&1 || \
 	  (echo "❌ zynax CLI not found — run 'make install-cli' and ensure ~/bin is on your PATH" && exit 1)
-	@echo "🧠 Demo model: qwen2.5-coder:3b — pull it once on the host if you have not:"
-	@echo "     ollama pull qwen2.5-coder:3b"
+	@echo "🧠 Demo model: $(DEMO_MODEL)"
+	@if command -v ollama >/dev/null 2>&1; then \
+	   if ollama list 2>/dev/null | awk '{print $$1}' | grep -qx "$(DEMO_MODEL)"; then \
+	     echo "   ✓ model present on the host"; \
+	   else \
+	     echo "   📥 model not found — pulling once on the host (this can take a few minutes)..."; \
+	     ollama pull "$(DEMO_MODEL)" || { echo "❌ failed to pull $(DEMO_MODEL); pull it manually then re-run"; exit 1; }; \
+	   fi; \
+	 else \
+	   echo "   ⚠️  host 'ollama' not on PATH — ensure '$(DEMO_MODEL)' is available to the ollama container, else the codereview 404s"; \
+	 fi
 	@echo "🧹 Clean slate for a repeatable run (the agent-registry is persistent across runs)..."
 	@$(COMPOSE_DEMO) down -v --remove-orphans 2>/dev/null || true
 	@echo "🚀 Booting the demo services + Ollama overlay (building current images, waiting for health)..."
@@ -170,7 +183,7 @@ demo: check-docker ## ★ One command: boot the Ollama stack + review code (hero
 	  echo "   run_id: $$run_id"; \
 	  echo "⏳ Streaming to terminal + printing the model's review..."; \
 	  echo "── review ──────────────────────────────────────────────"; \
-	  $(ZYNAX) result "$$run_id"; \
+	  $(ZYNAX) result "$$run_id" || echo "(no review — the run did not complete; inspect: ZYNAX_API_URL=$$ZYNAX_API_URL $(ZYNAX) logs $$run_id)"; \
 	  echo "────────────────────────────────────────────────────────"
 	@echo ""
 	@echo "✅ Demo complete. Next steps:"
