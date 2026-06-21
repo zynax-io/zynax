@@ -38,7 +38,7 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 **Uptrace**), watches it execute state→state with **data-flow**, **streamed logs**, and a connected
 **distributed trace** in the Uptrace login UI — with green `make ci`.
 
-### EPICs (13) — one REASONS Canvas each under `docs/spdd/<letter>-<slug>/`
+### EPICs (14) — one REASONS Canvas each under `docs/spdd/<letter>-<slug>/`
 | EPIC | Title | Type | Canvas |
 |------|-------|------|--------|
 | W | Workflow data-flow (output/input bindings) — **keystone** | feat | [W](../docs/spdd/1167-workflow-data-flow/canvas.md) |
@@ -54,6 +54,7 @@ Goal: a developer authors a real multi-step workflow, runs it locally (`docker c
 | P | Port `llm-adapter` to Go (language-boundary cleanup, ADR-035) | refactor | [P](../docs/spdd/1276-llm-adapter-go/canvas.md) |
 | S | Consolidate CI bash into the `zynax-ci` Go CLI (ADR-036) | ci | [S](../docs/spdd/1285-ci-bash-to-go/canvas.md) |
 | K | First-run User Experience — zero-secret Ollama quickstart (clone → one command → result) | feat | [K](../docs/spdd/1370-awesome-quickstart/canvas.md) |
+| A | Google ADK Go adapter — Go-native AI-framework adapter (#1476, ADR-038) | feat | [A](../docs/spdd/1476-adk-go-adapter/canvas.md) |
 
 Pre-existing M7 EPICs #467 (OTel) / #468 (history streaming) / #469 (test rigor) are **absorbed** into
 O / L / R respectively — and their issue titles were aligned to that scheme 2026-06-17
