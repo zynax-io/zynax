@@ -48,6 +48,7 @@ a PR against `docs/adr/`.
 | [ADR-035](ADR-035-adapter-language-boundary.md) | Adapter language boundary — Go for provider/proxy adapters, Python for AI-framework adapters | Accepted | 2026-06-16 | `agents/adapters/*` — refines ADR-009 — M7 EPIC P (#1276) |
 | [ADR-036](ADR-036-ci-logic-as-go-cli.md) | CI logic belongs in a tested Go CLI (zynax-ci), not inline workflow bash | Accepted | 2026-06-16 | `cmd/zynax-ci/`, `.github/workflows/*`, `scripts/`, `Makefile` — M7 EPIC S (#1285) |
 | [ADR-037](ADR-037-zero-temporal-evaluation-engine.md) | Zero-Temporal in-process evaluation engine (Day-0 onboarding) | Rejected | 2026-06-19 | `services/engine-adapter/` — third engine behind ADR-015 — M7 (#1359) (superseded by #1456) |
+| [ADR-038](ADR-038-adk-go-adapter-framework.md) | Google ADK Go as a Go-native AI-framework adapter | Accepted | 2026-06-21 | `agents/adapters/adk/` — refines ADR-035 — M7 |
 
 ---
 

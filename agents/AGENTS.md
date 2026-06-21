@@ -13,6 +13,7 @@
 | Situation | Path |
 |-----------|------|
 | Wrapping an existing system (LangGraph app, REST API, CI, LLM provider) | **Adapter** — `agents/adapters/AGENTS.md` |
+| Building / wrapping a **Google ADK (Go)** agent — tools, sub-agents, multi-step reasoning | **ADK adapter** — `agents/adapters/adk/` (ADR-038) |
 | Building a new Python agent with LangGraph / AutoGen / CrewAI | **Python SDK** — `agents/sdk/AGENTS.md` |
 | Plain Python agent, no AI framework | **Python SDK** (`DirectRuntime`) |
 | Building an agent in Go, TypeScript, Java, Rust | **Raw stubs** — `protos/AGENTS.md §8` |
