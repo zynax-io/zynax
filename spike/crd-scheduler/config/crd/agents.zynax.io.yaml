@@ -1,0 +1,154 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Agent CRD — DURABLE output of the ADR-039 M7 spike (reused verbatim in the M8 build).
+# Everything else under spike/ is throwaway and is deleted before M8.
+#
+# Group/Version/Kind: zynax.io/v1alpha1, kind: Agent (namespaced, plural "agents", short "ag").
+# The OpenAPI v3 structural schema ports the constraints from spec/schemas/agent-def.schema.json:
+#   - capability id regex ^[a-z0-9_]{1,64}$
+#   - at least one capability (minItems: 1)
+# `spec` is operator-authored; `status` is reconciler-owned and DELIBERATELY low-churn
+# (ready/replicas/conditions only — never load/latency/queueDepth, which would churn etcd).
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: agents.zynax.io
+spec:
+  group: zynax.io
+  scope: Namespaced
+  names:
+    kind: Agent
+    listKind: AgentList
+    plural: agents
+    singular: agent
+    shortNames: [ag]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: boolean
+          jsonPath: .status.ready
+        - name: Replicas
+          type: integer
+          jsonPath: .status.replicas
+        - name: Capabilities
+          type: string
+          jsonPath: .spec.capabilities[*].id
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [endpointRef, capabilities]
+              properties:
+                endpointRef:
+                  description: >-
+                    Reference to the in-cluster Service that fronts this agent's gRPC
+                    AgentService. The scheduler resolves it to "<serviceName>.<namespace>.svc:<port>"
+                    at selection time. Replaces the free-form host:port string of AgentDef.
+                  type: object
+                  required: [serviceName, port]
+                  properties:
+                    serviceName:
+                      type: string
+                      maxLength: 253
+                    port:
+                      type: integer
+                      minimum: 1
+                      maximum: 65535
+                replicas:
+                  description: Desired replicas (mirrors AgentDef runtime.replicas); observed count lands in status.replicas.
+                  type: integer
+                  minimum: 0
+                  default: 1
+                capabilities:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [id]
+                    properties:
+                      id:
+                        description: Capability name — maps 1:1 to CapabilityDef.name.
+                        type: string
+                        pattern: '^[a-z0-9_]{1,64}$'
+                      description:
+                        type: string
+                      inputSchema:
+                        description: >-
+                          JSON Schema (draft-07) for the capability input, as a string.
+                          Still carries the context_slice default for the ADR-028 binding.
+                        type: string
+                      outputSchema:
+                        type: string
+                      selectors:
+                        description: Scheduler scoring hints (hard-constraint match candidates).
+                        type: object
+                        properties:
+                          language:
+                            type: array
+                            items: { type: string }
+                          tags:
+                            type: array
+                            items: { type: string }
+                      cost:
+                        type: object
+                        properties:
+                          tokenPrice:
+                            description: Relative per-1k-token cost (quantity string, e.g. "0.002").
+                            type: string
+                          latencyClass:
+                            type: string
+                            enum: [low, medium, high]
+                      resources:
+                        type: object
+                        properties:
+                          gpu:
+                            description: GPU count ("0" = CPU-only).
+                            type: string
+                            default: "0"
+                          memory:
+                            type: string
+                      models:
+                        description: Model identities this capability can serve (e.g. "qwen2.5-coder:3b").
+                        type: array
+                        items: { type: string }
+                      protocols:
+                        description: Wire protocols this capability supports.
+                        type: array
+                        items:
+                          type: string
+                          enum: [MCP, A2A, HTTP]
+            status:
+              description: Reconciler-owned. Low-churn only — never dynamic metrics.
+              type: object
+              properties:
+                ready:
+                  description: True when the backing Service's EndpointSlice has >=1 Ready endpoint.
+                  type: boolean
+                replicas:
+                  description: Observed Ready replica count.
+                  type: integer
+                observedGeneration:
+                  type: integer
+                  format: int64
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status]
+                    properties:
+                      type: { type: string }
+                      status: { type: string, enum: ["True", "False", "Unknown"] }
+                      reason: { type: string }
+                      message: { type: string }
+                      lastTransitionTime: { type: string, format: date-time }

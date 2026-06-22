@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: Apache-2.0
+# Spike sample Agent CRs. Annotations carry FAKE live metrics so the harness can
+# drive scoring without a real Prometheus (M8 replaces this with a PromQL client).
+---
+apiVersion: zynax.io/v1alpha1
+kind: Agent
+metadata:
+  name: reviewer-fast
+  namespace: default
+  annotations:
+    spike.zynax.io/load: "0.20"
+    spike.zynax.io/latency-ms: "80"
+spec:
+  endpointRef:
+    serviceName: reviewer-fast
+    port: 50061
+  replicas: 2
+  capabilities:
+    - id: review
+      description: "Reviews Go code (fast)"
+      inputSchema: '{"type":"object","properties":{"context_slice":{"type":"object"}}}'
+      selectors:
+        language: [go]
+        tags: [fast]
+      cost:
+        latencyClass: low
+      protocols: [A2A, HTTP]
+      models: [qwen2.5-coder:3b]
+---
+apiVersion: zynax.io/v1alpha1
+kind: Agent
+metadata:
+  name: reviewer-slow
+  namespace: default
+  annotations:
+    spike.zynax.io/load: "0.20"
+    spike.zynax.io/latency-ms: "400"
+spec:
+  endpointRef:
+    serviceName: reviewer-slow
+    port: 50061
+  replicas: 1
+  capabilities:
+    - id: review
+      description: "Reviews Go code (slow)"
+      selectors:
+        language: [go]
+      cost:
+        latencyClass: medium
+      protocols: [HTTP]
+---
+# A "crashed" agent: declares the capability but is never marked ready. The
+# stale-liveness fix means the scheduler must NEVER select it. The old push
+# registry would have left it REGISTERED and round-robined into it.
+apiVersion: zynax.io/v1alpha1
+kind: Agent
+metadata:
+  name: reviewer-dead
+  namespace: default
+  annotations:
+    spike.zynax.io/load: "0.01"
+    spike.zynax.io/latency-ms: "5"
+spec:
+  endpointRef:
+    serviceName: reviewer-dead
+    port: 50061
+  capabilities:
+    - id: review
+      selectors:
+        language: [go]
+      protocols: [HTTP]
