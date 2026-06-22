@@ -5,6 +5,7 @@
 go 1.26.4
 
 use (
+	./agents/adapters/adk
 	./agents/adapters/ci
 	./agents/adapters/git
 	./agents/adapters/http
