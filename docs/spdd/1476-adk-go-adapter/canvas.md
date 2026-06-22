@@ -79,8 +79,8 @@ Config env prefix: `ADAPTER_CONFIG` (path) · `OLLAMA_HOST` (model endpoint) · 
 
 ## O — Operations
 
-1. **S1 (#1477, docs):** ADR-038 + this Canvas + adapter `AGENTS.md`. *Verify:* Canvas passes security review and is set **Aligned**; `docs:` PR (size-excluded). *(ADR + INDEX + path-table already drafted.)*
-2. **S2 (#1478, feat):** adapter skeleton — `config`, `registry` client, `main.go` wiring, health; `ExecuteCapability` returns "not wired" until S3. *Verify:* `.feature` + unit tests green; adapter boots, registers, health `SERVING`.
+1. ✅ **S1 (#1477, docs):** ADR-038 + this Canvas + adapter `AGENTS.md`. *Verify:* Canvas passes security review and is set **Aligned**; `docs:` PR (size-excluded). *(Merged via PR #1481.)*
+2. ✅ **S2 (#1478, feat):** adapter skeleton — `config`, `registry` client, `main.go` wiring, health; `ExecuteCapability` returns "not wired" until S3. *Verify:* `.feature` committed spec-first; unit tests green (`-race`, 87.9% total coverage); golangci-lint + govulncheck clean; binary boots, loads config, attempts registration with backoff; `serve()` integration test exercises register → health `SERVING` → deregister. Module added to `go.work` (Makefile auto-discovers it for lint/test/coverage).
 3. **S3 (#1479, feat):** custom Ollama `model.LLM` + ADK `Runner`→`TaskEvent` bridge (`model/ollama.go`, `adk/agent.go`, `adapter/server.go`). *Verify:* `.feature` covers dispatch, schema-validate, `timeout→TIMEOUT`, terminal `COMPLETED`/`FAILED`; `make security` green.
 4. **S4 (#1480, feat):** `agent-def.yaml.example` + demo workflow + `Dockerfile` + `images.yaml` + compose wiring. *Verify:* secret-free Ollama run returns `COMPLETED` (twice); `make check-images` green.
 
