@@ -29,7 +29,9 @@ defaults:
 
 env:
   SERVICE_LIST: "agent-registry task-broker api-gateway workflow-compiler engine-adapter"
-  GO_ADAPTER_LIST: "http git"
+  # Go adapter modules are auto-discovered from go.work at run time (see the
+  # adapter test/coverage steps) — single source of truth, mirrors the Makefile
+  # and tools/golangci-lint-precommit.sh. No manual list to keep in sync.
   GOPROXY: "https://proxy.golang.org,direct"
   GONOSUMDB: "*"
 
@@ -246,7 +248,11 @@ jobs:
         if: steps.go-detect.outputs.has_adapters != '0' && inputs.adapters_go == 'true'
         run: |
           failed=false
-          for adapter in ${{ env.GO_ADAPTER_LIST }}; do
+          # Auto-discover Go adapter modules from go.work (SoT) — mirrors the Makefile
+          # and tools/golangci-lint-precommit.sh, so a new adapter is tested without a
+          # manual list edit here.
+          mapfile -t adapters < <(grep -E '^[[:space:]]+\./agents/adapters/' go.work | sed 's|.*agents/adapters/||')
+          for adapter in "${adapters[@]}"; do
             if [ -f "agents/adapters/${adapter}/go.mod" ]; then
               echo "── test: agents/adapters/${adapter}"
               cd "agents/adapters/${adapter}"
@@ -266,7 +272,8 @@ jobs:
         if: steps.go-detect.outputs.has_adapters != '0' && inputs.adapters_go == 'true'
         run: |
           failed=false
-          for adapter in ${{ env.GO_ADAPTER_LIST }}; do
+          mapfile -t adapters < <(grep -E '^[[:space:]]+\./agents/adapters/' go.work | sed 's|.*agents/adapters/||')
+          for adapter in "${adapters[@]}"; do
             if [ -f "agents/adapters/${adapter}/coverage.out" ]; then
               cd "agents/adapters/${adapter}"
               total=$(GOWORK=off go tool cover -func=coverage.out 2>/dev/null \
