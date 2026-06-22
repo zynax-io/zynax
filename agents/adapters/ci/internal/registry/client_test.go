@@ -5,6 +5,7 @@ package registry_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/zynax-io/zynax/agents/adapters/ci/internal/config"
 	"github.com/zynax-io/zynax/agents/adapters/ci/internal/registry"
@@ -109,6 +110,22 @@ func TestRegisterAgent_NonTransientError(t *testing.T) {
 	// Non-transient: should fail on first attempt.
 	if stub.calls != 1 {
 		t.Errorf("expected 1 call (no retry on InvalidArgument), got %d", stub.calls)
+	}
+}
+
+func TestRegisterAgent_TransientRetriesUntilCancelled(t *testing.T) {
+	t.Parallel()
+	// Always-Unavailable forces a retry (isTransient → true); a short ctx deadline
+	// trips the backoff select's ctx.Done() branch instead of waiting the base delay.
+	stub := &stubRegistryClient{registerErr: status.Error(codes.Unavailable, "down")}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	err := registry.RegisterAgent(ctx, stub, &zynaxv1.AgentDef{AgentId: "ci-adapter"})
+	if err == nil {
+		t.Fatal("expected cancellation error, got nil")
+	}
+	if stub.calls < 1 {
+		t.Errorf("expected at least one register attempt, got %d", stub.calls)
 	}
 }
 

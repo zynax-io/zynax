@@ -404,3 +404,11 @@ func TestGetRunStatus_APIError429(t *testing.T) {
 		t.Fatalf("want RESOURCE_EXHAUSTED, got %v", last)
 	}
 }
+
+func TestNewAgentServer(t *testing.T) {
+	// The production constructor wires a real CI handler from a resolved token;
+	// httptest paths use NewAgentServerWithURL, so cover the public ctor directly.
+	if adapter.NewAgentServer(minimalCfg(), "tok") == nil {
+		t.Fatal("NewAgentServer returned nil")
+	}
+}
