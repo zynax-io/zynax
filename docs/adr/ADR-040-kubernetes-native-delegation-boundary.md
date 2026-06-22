@@ -1,6 +1,6 @@
 # ADR-040: Kubernetes-native delegation boundary (thin-Zynax)
 
-**Status:** Proposed  **Date:** 2026-06-22
+**Status:** Accepted  **Date:** 2026-06-22
 **Related:** ADR-039 (the first concrete migration under this principle — agent-registry → `Agent` CRD), ADR-020 (mTLS via cert-manager — auth already delegated), ADR-030 (OpenTelemetry + Uptrace — metrics/tracing/logging already delegated), ADR-026 (Postgres distribution), ADR-012 (engine-agnostic Workflow IR — bounds the Workflow-CRD decision), ADR-015 (pluggable workflow engines), ADR-011 (declarative YAML / CRD control surface), ADR-016/017 (testing · `GOWORK=off`)
 
 > **Sequencing:** This is a governing **principle** ADR. It records the delegation boundary and the
