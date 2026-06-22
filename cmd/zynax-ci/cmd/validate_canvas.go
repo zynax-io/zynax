@@ -24,7 +24,7 @@ var validateCanvasCmd = &cobra.Command{
 Checks per canvas:
   • Seven REASONS sections (R, E, A, S-structure, O, N, S-safeguards)
   • Header fields: **Issue:**, **Author:**, **Date:**, **Status:**
-  • Status value one of: Draft, Aligned, Implemented, Synced
+  • Status value one of: Draft, Aligned, Implemented, Synced, Superseded, Rejected
   • Context Security checklist marker present
 
 Status: Draft emits a warning but does not fail.

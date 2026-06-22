@@ -75,6 +75,27 @@ func TestCanvas_DraftStatus_IsWarning(t *testing.T) {
 	}
 }
 
+func TestCanvas_TerminalStatuses_AreValid(t *testing.T) {
+	// Superseded/Rejected are terminal states for an abandoned or replaced canvas
+	// (e.g. its ADR was Rejected) and must validate without errors or warnings.
+	for _, status := range []string{"Superseded", "Rejected"} {
+		t.Run(status, func(t *testing.T) {
+			content := strings.ReplaceAll(fullCanvas, "**Status:** Aligned", "**Status:** "+status)
+			f := writeTempCanvas(t, content)
+			errs, warns, err := validate.Canvas(f)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(errs) != 0 {
+				t.Errorf("expected no errors for %s status, got: %v", status, errs)
+			}
+			if len(warns) != 0 {
+				t.Errorf("expected no warnings for %s status, got: %v", status, warns)
+			}
+		})
+	}
+}
+
 func TestCanvas_InvalidStatus(t *testing.T) {
 	content := strings.ReplaceAll(fullCanvas, "**Status:** Aligned", "**Status:** InProgress")
 	f := writeTempCanvas(t, content)

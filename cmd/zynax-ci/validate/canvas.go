@@ -33,8 +33,14 @@ type ValidationWarning struct {
 	Message string `json:"message"`
 }
 
+// validStatuses is the closed set of canvas lifecycle statuses. Draft → Aligned →
+// Implemented → Synced is the active path; Superseded and Rejected are terminal
+// states for a canvas whose design was abandoned or replaced (e.g. its ADR was
+// Rejected), which must remain valid so a closed/superseded canvas does not fail
+// the repo-wide canvas validation.
 var validStatuses = map[string]bool{
 	"Draft": true, "Aligned": true, "Implemented": true, "Synced": true,
+	"Superseded": true, "Rejected": true,
 }
 
 type sectionCheck struct {
@@ -66,7 +72,7 @@ var statusRe = regexp.MustCompile(`\*\*Status:\*\*\s*(\w+)`)
 // Checks (full parity with tools/validate_canvas.py):
 //   - Seven REASONS sections present
 //   - **Issue:**, **Author:**, **Date:**, **Status:** header fields present
-//   - Status value is one of Draft, Aligned, Implemented, Synced
+//   - Status value is one of Draft, Aligned, Implemented, Synced, Superseded, Rejected
 //   - Context Security checklist marker present
 //   - canvas.private.md not committed alongside canvas.md
 //
@@ -117,7 +123,7 @@ func checkStatus(filePath, text string, errs *[]ValidationError, warns *[]Valida
 	if !validStatuses[status] {
 		*errs = append(*errs, ValidationError{
 			File:    filePath,
-			Message: fmt.Sprintf("invalid Status %q — must be one of: Aligned, Draft, Implemented, Synced", status),
+			Message: fmt.Sprintf("invalid Status %q — must be one of: Aligned, Draft, Implemented, Synced, Superseded, Rejected", status),
 		})
 		return
 	}
