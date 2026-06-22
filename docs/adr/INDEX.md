@@ -50,6 +50,7 @@ a PR against `docs/adr/`.
 | [ADR-037](ADR-037-zero-temporal-evaluation-engine.md) | Zero-Temporal in-process evaluation engine (Day-0 onboarding) | Rejected | 2026-06-19 | `services/engine-adapter/` — third engine behind ADR-015 — M7 (#1359) (superseded by #1456) |
 | [ADR-038](ADR-038-adk-go-adapter-framework.md) | Google ADK Go as a Go-native AI-framework adapter | Accepted | 2026-06-21 | `agents/adapters/adk/` — refines ADR-035 — M7 |
 | [ADR-039](ADR-039-crd-native-scheduler.md) | CRD-native Scheduler — `Agent` CRD as the single source of truth; registry → stateless scheduler | Accepted | 2026-06-22 | `services/agent-registry/` (→ scheduler), `protos/zynax/v1/scheduler.proto`, task-broker — amends ADR-021/028 — spike M7, build M8 |
+| [ADR-040](ADR-040-kubernetes-native-delegation-boundary.md) | Kubernetes-native delegation boundary (thin-Zynax) — build only the AI-scheduling core, delegate generic primitives | Proposed | 2026-06-22 | Repo-wide design principle — delegation vs custom core; Workflow=thin CRD front-end; Loki out of scope — relates ADR-039/020/030/012/015 |
 
 ---
 
