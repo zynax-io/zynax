@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# temporal-dev — single-binary, in-memory Temporal for the LEAN kind profile.
+#
+# ADR-041 (kind-native unified runtime) keeps a lightweight in-cluster Temporal
+# *dev* profile so first-run stays light. This is the kind analogue of the
+# compose eval overlay (infra/docker-compose/docker-compose.eval-temporal.yml):
+# it replaces the chart's 5-pod Temporal topology (frontend/history/matching/
+# worker + admintools + the Postgres-backed schema Job) with ONE pod running
+# `temporal server start-dev` — embedded in-memory SQLite, no external Postgres,
+# and the `default` namespace auto-registered at boot (so cluster-up.sh skips the
+# admintools registration step it runs for the full chart).
+#
+# Applied by `scripts/e2e/cluster-up.sh` ONLY when PROFILE=lite (which also sets
+# `zynax-temporal.enabled=false` via values-lite.yaml so the chart is off). The
+# Service is named `zynax-temporal-frontend` on purpose: engine-adapter dials
+# `zynax-temporal-frontend:7233` (values-e2e.yaml), so the lean swap needs ZERO
+# engine-adapter env override — the dev pod simply answers on that name.
+#
+# Reuses the proven TemporalEngine — no new engine to own (see ADR-037 update).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zynax-temporal-dev
+  labels:
+    app.kubernetes.io/name: zynax-temporal-dev
+    app.kubernetes.io/component: workflow-engine
+    app.kubernetes.io/part-of: zynax-e2e
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zynax-temporal-dev
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zynax-temporal-dev
+        app.kubernetes.io/component: workflow-engine
+        app.kubernetes.io/part-of: zynax-e2e
+    spec:
+      containers:
+        - name: temporal
+          # Single self-contained binary — matches the compose eval overlay pin.
+          image: temporalio/temporal:1.7.2
+          imagePullPolicy: IfNotPresent
+          args:
+            - server
+            - start-dev
+            - --ip
+            - 0.0.0.0          # bind all interfaces so the Service can reach it
+            - --namespace
+            - default          # auto-create the namespace engine-adapter dials
+            - --log-level
+            - warn
+          ports:
+            - name: grpc
+              containerPort: 7233   # frontend gRPC (engine-adapter target)
+            - name: web
+              containerPort: 8233   # built-in dev Web UI
+          readinessProbe:
+            tcpSocket:
+              port: 7233
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 7233
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          # One process carries every Temporal role + the in-memory store, so it
+          # sits a little above a single chart role (50m/96Mi) but well under the
+          # 5-pod chart total it replaces.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # Named to match engine-adapter's temporalHostPort (values-e2e.yaml) so the
+  # lean swap needs no env override — same address, dev backend.
+  name: zynax-temporal-frontend
+  labels:
+    app.kubernetes.io/name: zynax-temporal-dev
+    app.kubernetes.io/part-of: zynax-e2e
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: zynax-temporal-dev
+  ports:
+    - name: grpc
+      port: 7233
+      targetPort: grpc
+      protocol: TCP
