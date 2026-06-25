@@ -168,3 +168,16 @@ Story: O.7 — local Uptrace docker-compose observability stack (Uptrace + Click
 
 ### Edge cases discovered
 - A fresh `make run-local` silently leaves git/ci/llm adapters `Exited(1)` for missing `GITHUB_TOKEN`/`OPENAI_API_KEY`; only the langgraph `echo` capability works out of the box (#1375). `zynax logs` streaming returns HTTP 500 `streaming not supported` against the compose api-gateway (#1373).
+
+## Session — 2026-06-25 (M7.K keystone — kind demo lifecycle, #1492)
+
+### #1492 (feat(infra): make kind-up / demo-on-kind + Platform-ready banner + model preflight)
+- WRAP the existing `scripts/e2e/cluster-up.sh` rather than reinvent kind bring-up: it already blocks on `kubectl rollout status` for all 7 services + Temporal-namespace registration, so gating the "Platform ready" banner on its exit status (plus a defence-in-depth rollout re-check) makes AC "no premature go signal" fall out for free. (domain)
+- An opt-in `KIND_LOAD_IMAGES` knob (default OFF) lets the laptop demo `kind load` local images while leaving the CI kind path (GHCR pull) byte-identical — both `e2e smoke (temporal)` and `e2e smoke (argo)` stay green, proving the change is non-invasive. (structural-workaround)
+- Real idempotency = TWO runs on ONE cluster: run 2 hits `helm upgrade` -> revision 2 and reuses the persistent Postgres creds Secret — the exact spot where "passed run 1, failed run 2" bites. A single run does NOT exercise this. (domain)
+- Workflow status from api-gateway is under `.status` as the WorkflowStatus proto enum (`WORKFLOW_STATUS_COMPLETED`/`_FAILED`), with lowercase aliases — NOT `.state`/`succeeded`. When polling a run in a demo/e2e script, match the SAME alias set as `scripts/e2e/e2e-happy.sh` (`succeeded|completed|*COMPLETED|*SUCCEEDED` for success; `*FAILED|*ERROR|*CANCELED|*TERMINATED|*TIMED_OUT` for failure). Polling `.state` alone silently hangs for the full timeout. (domain)
+
+### Edge cases discovered
+- Temporal frontend/history/matching/engine-adapter CrashLoopBackOff at ~70s on COLD kind bring-up is EXPECTED churn (engine-adapter crash-loops until `cluster-up.sh` registers the Temporal `default` namespace post-frontend-ready); the 600s rollout wait absorbs it — do not treat early restarts as failure. (domain)
+- The kind umbrella deploys NO ollama/llm-adapter — it uses an in-cluster `echo` capability (echo-worker), so the kind hero path needs no model. This makes "no host-LAN model exposure" trivially true and the model preflight purely host-side/informational. (domain)
+- Do NOT edit a bash demo script while a run is still executing it — bash buffers script reads and a live edit can corrupt the running process; let the run finish (or kill it after the server-side workflow shows COMPLETED), then re-run with the fixed script (which doubles as the idempotency re-run). (structural-workaround)
