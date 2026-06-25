@@ -11,6 +11,7 @@ from any service, no imports from `services/*/internal/`.
 - This module is **not** in `go.work`. Always use `GOWORK=off` for every `go` command here.
 - Depends only on `github.com/spf13/cobra` and the standard library.
 - The api-gateway base URL comes from `ZYNAX_API_URL` or `--api-url` flag; default `http://localhost:8080`.
+- The bearer token for an auth-enabled gateway comes from `ZYNAX_API_KEY` or `--api-key` flag; when set it is sent as `Authorization: Bearer <key>` on every request, when empty no header is sent (auth-disabled gateways still work). Must match the gateway's `ZYNAX_API_KEY` (issue #1517).
 
 ## Layout
 

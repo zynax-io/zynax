@@ -30,6 +30,7 @@ var rootCmd = &cobra.Command{
 
 var (
 	apiURL   string
+	apiKey   string
 	insecure bool
 )
 
@@ -46,10 +47,11 @@ func init() {
 		defaultURL = "http://localhost:8080"
 	}
 	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", defaultURL, "api-gateway base URL ($ZYNAX_API_URL)")
+	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", os.Getenv("ZYNAX_API_KEY"), "api-gateway bearer token sent as Authorization header ($ZYNAX_API_KEY)")
 	rootCmd.PersistentFlags().BoolVar(&insecure, "insecure", false, "skip TLS certificate verification")
 	rootCmd.AddGroup(&cobra.Group{ID: beginnerGroupID, Title: "Getting started:"})
 }
 
 func newGateway() *client.Gateway {
-	return client.New(apiURL, insecure)
+	return client.New(apiURL, insecure, apiKey)
 }

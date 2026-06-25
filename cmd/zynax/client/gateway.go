@@ -41,12 +41,17 @@ type CompileError struct {
 // Gateway is an HTTP client for the Zynax api-gateway REST API.
 type Gateway struct {
 	base   string
+	apiKey string
 	client *http.Client
 }
 
 // New creates a Gateway pointing at baseURL.
 // When insecure is true TLS certificate verification is skipped (local dev only).
-func New(baseURL string, insecure bool) *Gateway {
+// When apiKey is non-empty every request carries an "Authorization: Bearer <apiKey>"
+// header to satisfy the gateway's bearer-token auth (ZYNAX_API_KEY); an empty
+// apiKey sends no header, preserving the unauthenticated behaviour for
+// auth-disabled gateways.
+func New(baseURL string, insecure bool, apiKey string) *Gateway {
 	tr := http.DefaultTransport
 	if insecure {
 		tr = &http.Transport{
@@ -55,8 +60,23 @@ func New(baseURL string, insecure bool) *Gateway {
 	}
 	return &Gateway{
 		base:   strings.TrimRight(baseURL, "/"),
+		apiKey: apiKey,
 		client: &http.Client{Transport: tr},
 	}
+}
+
+// newRequest builds an *http.Request and applies the bearer-token Authorization
+// header when an API key is configured. Every gateway call funnels through here
+// so authentication is set in exactly one place (issue #1517).
+func (g *Gateway) newRequest(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return nil, fmt.Errorf("zynax: build request: %w", err)
+	}
+	if g.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+g.apiKey)
+	}
+	return req, nil
 }
 
 // Apply submits a manifest for execution. Returns run_id (Workflow) or
@@ -138,9 +158,9 @@ func (g *Gateway) ApplyDryRun(ctx context.Context, body []byte) ([]CompileError,
 // returns the reported status string on success, or a descriptive error when
 // the gateway is unreachable or unhealthy. Used by `zynax doctor`.
 func (g *Gateway) Health(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.base+"/healthz", nil)
+	req, err := g.newRequest(ctx, http.MethodGet, g.base+"/healthz", nil)
 	if err != nil {
-		return "", fmt.Errorf("zynax: build request: %w", err)
+		return "", err
 	}
 	resp, err := g.client.Do(req)
 	if err != nil {
@@ -167,9 +187,9 @@ func (g *Gateway) Health(ctx context.Context) (string, error) {
 // gateway's dependencies are reachable, 503 otherwise; no body either way).
 // Returns nil when ready, a descriptive error otherwise. Used by `zynax doctor`.
 func (g *Gateway) Ready(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.base+"/readyz", nil)
+	req, err := g.newRequest(ctx, http.MethodGet, g.base+"/readyz", nil)
 	if err != nil {
-		return fmt.Errorf("zynax: build request: %w", err)
+		return err
 	}
 	resp, err := g.client.Do(req)
 	if err != nil {
@@ -186,9 +206,9 @@ func (g *Gateway) Ready(ctx context.Context) error {
 
 // GetWorkflow returns the current status of a workflow run.
 func (g *Gateway) GetWorkflow(ctx context.Context, runID string) (*WorkflowStatus, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.base+"/api/v1/workflows/"+runID, nil)
+	req, err := g.newRequest(ctx, http.MethodGet, g.base+"/api/v1/workflows/"+runID, nil)
 	if err != nil {
-		return nil, fmt.Errorf("zynax: build request: %w", err)
+		return nil, err
 	}
 	resp, err := g.client.Do(req)
 	if err != nil {
@@ -213,9 +233,9 @@ func (g *Gateway) GetWorkflow(ctx context.Context, runID string) (*WorkflowStatu
 
 // DeleteWorkflow cancels a running workflow run.
 func (g *Gateway) DeleteWorkflow(ctx context.Context, runID string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, g.base+"/api/v1/workflows/"+runID, nil)
+	req, err := g.newRequest(ctx, http.MethodDelete, g.base+"/api/v1/workflows/"+runID, nil)
 	if err != nil {
-		return fmt.Errorf("zynax: build request: %w", err)
+		return err
 	}
 	resp, err := g.client.Do(req)
 	if err != nil {
@@ -246,9 +266,9 @@ func (g *Gateway) PublishEvent(ctx context.Context, runID, eventType string, dat
 	if err != nil {
 		return "", fmt.Errorf("zynax: encode event: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.base+"/api/v1/workflows/"+runID+"/events", bytes.NewReader(body))
+	req, err := g.newRequest(ctx, http.MethodPost, g.base+"/api/v1/workflows/"+runID+"/events", bytes.NewReader(body))
 	if err != nil {
-		return "", fmt.Errorf("zynax: build request: %w", err)
+		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := g.client.Do(req)
@@ -328,9 +348,9 @@ func completionField(s string) string {
 // WatchWorkflowLogs streams SSE events from GET /api/v1/workflows/{id}/logs,
 // calling send for each event. Returns when the stream closes or ctx is cancelled.
 func (g *Gateway) WatchWorkflowLogs(ctx context.Context, runID string, send func(LogEvent) error) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.base+"/api/v1/workflows/"+runID+"/logs", nil)
+	req, err := g.newRequest(ctx, http.MethodGet, g.base+"/api/v1/workflows/"+runID+"/logs", nil)
 	if err != nil {
-		return fmt.Errorf("zynax: build request: %w", err)
+		return err
 	}
 	req.Header.Set("Accept", "text/event-stream")
 	resp, err := g.client.Do(req)
@@ -372,9 +392,9 @@ func (g *Gateway) post(ctx context.Context, path string, q url.Values, body []by
 	if len(q) > 0 {
 		u += "?" + q.Encode()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
+	req, err := g.newRequest(ctx, http.MethodPost, u, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("zynax: build request: %w", err)
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/yaml")
 	resp, err := g.client.Do(req)

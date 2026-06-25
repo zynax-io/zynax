@@ -18,7 +18,15 @@ func newGW(t *testing.T, handler http.HandlerFunc) *client.Gateway {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	return client.New(srv.URL, false)
+	return client.New(srv.URL, false, "")
+}
+
+// newGWKey is newGW with a configured bearer API key (issue #1517).
+func newGWKey(t *testing.T, apiKey string, handler http.HandlerFunc) *client.Gateway {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	return client.New(srv.URL, false, apiKey)
 }
 
 func TestApply_Workflow_Returns202(t *testing.T) {
@@ -257,6 +265,83 @@ func TestPublishEvent_ServerError(t *testing.T) {
 	_, err := gw.PublishEvent(context.Background(), "run-7", "review.approved", nil)
 	if err == nil {
 		t.Fatal("expected error on 500, got nil")
+	}
+}
+
+// TestAuthorizationHeader_WithKey asserts every verb sends the bearer token when
+// an API key is configured (issue #1517 — AC2: key on all gateway calls). The
+// handler writes a permissive response so each verb completes without error; the
+// assertion is only on the captured Authorization header.
+func TestAuthorizationHeader_WithKey(t *testing.T) {
+	const key = "s3cr3t-token"
+	want := "Bearer " + key
+
+	cases := []struct {
+		name   string
+		status int
+		call   func(*client.Gateway) error
+	}{
+		{"apply POST", http.StatusAccepted, func(g *client.Gateway) error {
+			_, _, _, err := g.Apply(context.Background(), []byte("kind: Workflow"), "")
+			return err
+		}},
+		{"get workflow GET", http.StatusOK, func(g *client.Gateway) error {
+			_, err := g.GetWorkflow(context.Background(), "run-1")
+			return err
+		}},
+		{"delete workflow DELETE", http.StatusNoContent, func(g *client.Gateway) error {
+			return g.DeleteWorkflow(context.Background(), "run-1")
+		}},
+		{"publish event POST", http.StatusAccepted, func(g *client.Gateway) error {
+			_, err := g.PublishEvent(context.Background(), "run-1", "approved", nil)
+			return err
+		}},
+		{"watch logs SSE GET", http.StatusOK, func(g *client.Gateway) error {
+			return g.WatchWorkflowLogs(context.Background(), "run-1", func(client.LogEvent) error { return nil })
+		}},
+		{"health GET", http.StatusOK, func(g *client.Gateway) error {
+			_, err := g.Health(context.Background())
+			return err
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got string
+			gw := newGWKey(t, key, func(w http.ResponseWriter, r *http.Request) {
+				got = r.Header.Get("Authorization")
+				w.WriteHeader(tc.status)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"run_id": "run-1", "status": "ok", "event_id": "e1",
+				})
+			})
+			if err := tc.call(gw); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != want {
+				t.Errorf("Authorization = %q; want %q", got, want)
+			}
+		})
+	}
+}
+
+// TestAuthorizationHeader_NoKey asserts no Authorization header is sent when no
+// API key is configured (issue #1517 — AC3: backward compatible, auth-disabled
+// gateways keep working).
+func TestAuthorizationHeader_NoKey(t *testing.T) {
+	var got string
+	var seen bool
+	gw := newGW(t, func(w http.ResponseWriter, r *http.Request) {
+		_, seen = r.Header["Authorization"]
+		got = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(map[string]any{"run_id": "wf-1"})
+	})
+	if _, _, _, err := gw.Apply(context.Background(), []byte("kind: Workflow"), ""); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if seen || got != "" {
+		t.Errorf("Authorization header present (%q) without an API key; want none", got)
 	}
 }
 
