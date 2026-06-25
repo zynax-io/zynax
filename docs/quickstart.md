@@ -173,6 +173,11 @@ run_id: <run-id>
 
 Copy that `run_id` — the next step uses it.
 
+> **No need to shuttle the id around.** `apply` records your most recent run
+> locally, so a bare `zynax logs` / `zynax result` (no id) targets it. An
+> explicit id always overrides; delete `<user-config-dir>/zynax/last-run` to
+> reset.
+
 > **Starting from scratch?** `zynax init workflow my-pipeline -o my-pipeline.yaml`
 > scaffolds a valid, versioned manifest from a template. Run `zynax validate
 > my-pipeline.yaml` before applying.

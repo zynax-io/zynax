@@ -612,6 +612,168 @@ func TestResultCmd_NoResult_Errors(t *testing.T) {
 	}
 }
 
+// ── last-run state (#1491, canvas O21) ────────────────────────────────────────
+
+// TestRunApply_RecordsLastRunID asserts AC1: a successful apply that returns a
+// run id persists it to <config-dir>/last-run so bare logs/result can default
+// to it. The config dir is an isolated t.TempDir() via ZYNAX_CONFIG_DIR.
+func TestRunApply_RecordsLastRunID(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ZYNAX_CONFIG_DIR", dir)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(map[string]any{"run_id": "wf-record"})
+	}))
+	defer srv.Close()
+	apiURL = srv.URL
+	applyEngine = ""
+
+	cmd := fakeCmd(t)
+	if err := runApply(cmd, newGateway(), []byte("kind: Workflow")); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, lastRunFile)) //nolint:gosec // test reads the file it just wrote into a temp dir
+	if err != nil {
+		t.Fatalf("last-run file not written: %v", err)
+	}
+	if got := strings.TrimSpace(string(b)); got != "wf-record" {
+		t.Errorf("last-run file = %q, want %q", got, "wf-record")
+	}
+}
+
+// TestRunApply_AgentDef_DoesNotRecord asserts an apply that yields only an
+// agent id (no run id) records nothing — last-run is for Workflow runs only.
+func TestRunApply_AgentDef_DoesNotRecord(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ZYNAX_CONFIG_DIR", dir)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]string{"agent_id": "agent-xyz"})
+	}))
+	defer srv.Close()
+	apiURL = srv.URL
+
+	if err := runApply(fakeCmd(t), newGateway(), []byte("kind: AgentDef")); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, lastRunFile)); !os.IsNotExist(err) {
+		t.Errorf("expected no last-run file for AgentDef apply, stat err = %v", err)
+	}
+}
+
+// TestResolveRunID covers AC2/AC3: explicit id overrides the stored one, a bare
+// invocation falls back to the stored id, and no prior run yields a clear error.
+func TestResolveRunID(t *testing.T) {
+	tests := []struct {
+		name    string
+		stored  string // "" means do not write a state file
+		args    []string
+		want    string
+		wantErr bool
+	}{
+		{name: "explicit id with no stored", args: []string{"explicit-1"}, want: "explicit-1"},
+		{name: "explicit id overrides stored", stored: "stored-1", args: []string{"explicit-2"}, want: "explicit-2"},
+		{name: "bare falls back to stored", stored: "stored-2", args: nil, want: "stored-2"},
+		{name: "bare with no prior run errors", args: nil, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("ZYNAX_CONFIG_DIR", dir)
+			if tc.stored != "" {
+				if err := saveLastRun(tc.stored); err != nil {
+					t.Fatalf("seed saveLastRun: %v", err)
+				}
+			}
+			got, err := resolveRunID(tc.args)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for %s, got id %q", tc.name, got)
+				}
+				if !strings.Contains(err.Error(), "no prior run") {
+					t.Errorf("error not actionable: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("resolveRunID = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestLogsCmd_BareUsesStoredRun asserts AC2: bare `zynax logs` (no positional
+// id) streams the most recently recorded run.
+func TestLogsCmd_BareUsesStoredRun(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ZYNAX_CONFIG_DIR", dir)
+	if err := saveLastRun("stored-run"); err != nil {
+		t.Fatal(err)
+	}
+	var seenPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenPath = r.URL.Path
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintf(w, "data: %s\n\n",
+			`{"run_id":"stored-run","event_type":"workflow.completed","status":"WORKFLOW_STATUS_COMPLETED"}`)
+	}))
+	defer srv.Close()
+	apiURL = srv.URL
+	logsFormat = formatText
+	logsFollow = false
+
+	if _, err := runLogs(t, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(seenPath, "stored-run") {
+		t.Errorf("bare logs targeted %q, want path containing stored-run", seenPath)
+	}
+}
+
+// TestLogsCmd_BareNoPriorRun asserts AC3: a bare logs with no recorded run
+// returns a clear, actionable error rather than calling the gateway.
+func TestLogsCmd_BareNoPriorRun(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ZYNAX_CONFIG_DIR", dir)
+	logsFollow = false
+
+	if _, err := runLogs(t, nil); err == nil {
+		t.Error("expected error for bare logs with no prior run")
+	} else if !strings.Contains(err.Error(), "no prior run") {
+		t.Errorf("error not actionable: %v", err)
+	}
+}
+
+// TestResultCmd_BareUsesStoredRun asserts AC2 for `result`: a bare invocation
+// targets the stored run and prints its completion text.
+func TestResultCmd_BareUsesStoredRun(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ZYNAX_CONFIG_DIR", dir)
+	if err := saveLastRun("stored-r"); err != nil {
+		t.Fatal(err)
+	}
+	srv := sseServer(t, []map[string]any{
+		{"run_id": "stored-r", "event_type": "task.completed", "status": "capability_event",
+			"payload": `{"result_payload":"{\"completion\":\"bare result text\"}"}`},
+		{"run_id": "stored-r", "event_type": "workflow.completed", "status": "WORKFLOW_STATUS_COMPLETED"},
+	})
+	apiURL = srv.URL
+
+	out, err := runResult(t, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.TrimSpace(out) != "bare result text" {
+		t.Errorf("result output = %q, want %q", strings.TrimSpace(out), "bare result text")
+	}
+}
+
 // ── scenario apply + validate ─────────────────────────────────────────────────
 
 // TestRunApplyScenario_AppliesMembersInOrder verifies that applying the shipped

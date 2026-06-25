@@ -22,16 +22,22 @@ var (
 var errFollowDone = errors.New("follow: terminal state reached")
 
 var logsCmd = &cobra.Command{
-	Use:   "logs <run-id>",
+	Use:   "logs [run-id]",
 	Short: "Stream lifecycle events for a workflow run",
 	Long: "Stream lifecycle events (state transitions and capability events) for a " +
 		"workflow run from the api-gateway SSE endpoint.\n\n" +
+		"With no run id the command targets your most recent run (recorded by the " +
+		"last `zynax apply`/`run`). An explicit run id always overrides.\n\n" +
 		"With --follow the command tails the run live and exits once the workflow " +
 		"reaches a terminal state (completed, failed, or cancelled).",
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		runID, err := resolveRunID(args)
+		if err != nil {
+			return err
+		}
 		gw := newGateway()
-		err := gw.WatchWorkflowLogs(cmd.Context(), args[0], func(ev client.LogEvent) error {
+		err = gw.WatchWorkflowLogs(cmd.Context(), runID, func(ev client.LogEvent) error {
 			if logsFormat == "json" {
 				b, mErr := json.Marshal(ev)
 				if mErr != nil {

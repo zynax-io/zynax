@@ -111,6 +111,12 @@ func runApply(cmd *cobra.Command, gw *client.Gateway, body []byte) error {
 	}
 	if runID != "" {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "run_id: %s\n", runID)
+		// Record the run id locally so a later bare `zynax logs` / `zynax result`
+		// (no id) defaults to this run (#1491, canvas O21). Persisting is a
+		// convenience: a failure here must not fail an otherwise-successful apply.
+		if sErr := saveLastRun(runID); sErr != nil {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not record last run id: %v\n", sErr)
+		}
 	}
 	if agentID != "" {
 		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "agent_id: %s\n", agentID)
