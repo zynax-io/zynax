@@ -50,6 +50,10 @@ CLUSTER_NAME="${CLUSTER_NAME:-zynax-e2e}"
 NAMESPACE="${NAMESPACE:-zynax}"
 API_GW_URL="${API_GW_URL:-http://localhost:8080}"
 WORKFLOW_FILE="${WORKFLOW_FILE:-${REPO_ROOT}/spec/workflows/examples/e2e-demo.yaml}"
+# Stack profile passed through to cluster-up.sh (ADR-041): "full" (default,
+# prod-mirroring) or "lite" (lean laptop — one in-memory dev Temporal, no
+# event-bus/NATS/memory-service). The hero echo workflow runs on both.
+PROFILE="${PROFILE:-full}"
 # Default reference model — read from the single source (the llm-adapter config),
 # so the pre-flight and the runtime config never drift. Override with DEMO_MODEL.
 MODEL_CONFIG="${REPO_ROOT}/infra/docker-compose/ollama/llm-adapter.config.yaml"
@@ -151,6 +155,7 @@ log "bringing up the kind cluster + Zynax umbrella (wraps scripts/e2e/cluster-up
 KIND_LOAD_IMAGES="${KIND_LOAD_IMAGES:-1}" \
 CLUSTER_NAME="${CLUSTER_NAME}" \
 NAMESPACE="${NAMESPACE}" \
+PROFILE="${PROFILE}" \
   "${REPO_ROOT}/scripts/e2e/cluster-up.sh"
 
 # Defence-in-depth: re-assert every Zynax Deployment is actually Available before
@@ -159,8 +164,13 @@ NAMESPACE="${NAMESPACE}" \
 log "verifying every Zynax Deployment reports a healthy rollout before signalling ready…"
 SERVICE_DEPLOYMENTS=(
   zynax-api-gateway zynax-workflow-compiler zynax-engine-adapter
-  zynax-task-broker zynax-agent-registry zynax-event-bus zynax-memory-service
+  zynax-task-broker zynax-agent-registry
 )
+# event-bus + memory-service exist in the full profile only (the lean profile
+# disables them via values-lite.yaml) — only assert them when PROFILE != lite.
+if [[ "${PROFILE}" != "lite" ]]; then
+  SERVICE_DEPLOYMENTS+=(zynax-event-bus zynax-memory-service)
+fi
 for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
   kubectl -n "${NAMESPACE}" rollout status "deployment/${dep}" --timeout=120s \
     || die "deployment ${dep} is not ready — NOT printing the ready banner (platform still coming up)"

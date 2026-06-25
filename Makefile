@@ -137,6 +137,10 @@ logs-local: ## Tail all local stack logs
 KIND_DEMO     := scripts/demo/kind-demo.sh
 CLUSTER_UP    := scripts/e2e/cluster-up.sh
 CLUSTER_DOWN  := scripts/e2e/cluster-down.sh
+# Stack profile for the kind targets (ADR-041): `full` (default, prod-mirroring)
+# or `lite` (lean laptop — 1 in-memory dev Temporal, no event-bus/NATS/memory-
+# service). Usage: `make demo PROFILE=lite` / `make kind-up PROFILE=lite`.
+PROFILE      ?= full
 DEMO_WORKFLOW ?= spec/workflows/examples/code-review-ollama.yaml
 ZYNAX        ?= zynax
 # Optional: run a declarative scenario manifest set instead of the single hero
@@ -165,13 +169,13 @@ DEMO_MODEL   := $(shell awk '/^[[:space:]]*model:/{print $$2; exit}' infra/docke
 # standalone Temporal UI.
 DEMO_SERVICES := api-gateway llm-adapter
 
-demo: check-docker ## ★ One command (kind): create cluster → load images → install umbrella → wait rollout → "Platform ready" + run hero workflow
-	@echo "🧭 Zynax demo on kind (ADR-041) — one command, prod-mirroring charts."
-	$(KIND_DEMO)
+demo: check-docker ## ★ One command (kind): create cluster → load images → install umbrella → wait rollout → "Platform ready" + run hero workflow (PROFILE=lite for the lean stack)
+	@echo "🧭 Zynax demo on kind (ADR-041, profile: $(PROFILE)) — one command, prod-mirroring charts."
+	PROFILE=$(PROFILE) $(KIND_DEMO)
 
-kind-up: check-docker ## Create the kind cluster + install the zynax-umbrella chart (wraps scripts/e2e/cluster-up.sh, loads local images)
-	@echo "☸️  Bringing up the kind cluster + Zynax umbrella (loads local images)..."
-	KIND_LOAD_IMAGES=1 $(CLUSTER_UP)
+kind-up: check-docker ## Create the kind cluster + install the zynax-umbrella chart (wraps scripts/e2e/cluster-up.sh, loads local images; PROFILE=lite for the lean stack)
+	@echo "☸️  Bringing up the kind cluster + Zynax umbrella (profile: $(PROFILE), loads local images)..."
+	KIND_LOAD_IMAGES=1 PROFILE=$(PROFILE) $(CLUSTER_UP)
 
 kind-down: ## Tear down the kind cluster (wraps scripts/e2e/cluster-down.sh)
 	@echo "🧹 Tearing down the kind cluster..."
