@@ -16,8 +16,9 @@ import (
 var errResultDone = errors.New("result: terminal state reached")
 
 var resultCmd = &cobra.Command{
-	Use:   "result [run-id]",
-	Short: "Print the capability output (result payload) of a workflow run",
+	Use:     "result [run-id]",
+	GroupID: beginnerGroupID,
+	Short:   "Print the capability output (result payload) of a workflow run",
 	Long: "Stream a run's events and print the capability result payload — e.g. the " +
 		"model's review text from the code-review example — straight from the CLI.\n\n" +
 		"With no run id the command targets your most recent run (recorded by the " +

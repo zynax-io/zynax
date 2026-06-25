@@ -786,12 +786,12 @@ func TestRunApplyScenario_AppliesMembersInOrder(t *testing.T) {
 		b, _ := io.ReadAll(r.Body)
 		body := string(b)
 		switch {
-		case strings.Contains(body, "kind: AgentDef"):
-			kinds = append(kinds, "AgentDef")
+		case strings.Contains(body, "kind: "+kindAgentDef):
+			kinds = append(kinds, kindAgentDef)
 			w.WriteHeader(http.StatusCreated)
 			_ = json.NewEncoder(w).Encode(map[string]string{"agent_id": "agent-xyz"})
 		default:
-			kinds = append(kinds, "Workflow")
+			kinds = append(kinds, kindWorkflow)
 			w.WriteHeader(http.StatusAccepted)
 			_ = json.NewEncoder(w).Encode(map[string]any{"run_id": "wf-001"})
 		}
@@ -808,7 +808,7 @@ func TestRunApplyScenario_AppliesMembersInOrder(t *testing.T) {
 	if err := runApplyScenario(cmd, newGateway(), idx); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(kinds) != 2 || kinds[0] != "AgentDef" || kinds[1] != "Workflow" {
+	if len(kinds) != 2 || kinds[0] != kindAgentDef || kinds[1] != kindWorkflow {
 		t.Errorf("server observed order %v, want [AgentDef Workflow]", kinds)
 	}
 	if !strings.Contains(out.String(), "run_id: wf-001") {
