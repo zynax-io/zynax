@@ -22,8 +22,9 @@ var (
 var errFollowDone = errors.New("follow: terminal state reached")
 
 var logsCmd = &cobra.Command{
-	Use:   "logs [run-id]",
-	Short: "Stream lifecycle events for a workflow run",
+	Use:     "logs [run-id]",
+	GroupID: beginnerGroupID,
+	Short:   "Stream lifecycle events for a workflow run",
 	Long: "Stream lifecycle events (state transitions and capability events) for a " +
 		"workflow run from the api-gateway SSE endpoint.\n\n" +
 		"With no run id the command targets your most recent run (recorded by the " +

@@ -15,6 +15,12 @@ var Version = "dev"
 
 const workflowRunIDUse = "workflow <run-id>"
 
+// beginnerGroupID groups the small noun-first command set surfaced first in
+// `zynax --help` for new users (canvas O20). Advanced verbs (apply, get, status,
+// validate, …) stay available but fall under cobra's default "Additional
+// Commands" heading. `doctor` (issue #1489) joins this group when it lands.
+const beginnerGroupID = "beginner"
+
 var rootCmd = &cobra.Command{
 	Use:          "zynax",
 	Short:        "Zynax CLI — apply, manage, and monitor Zynax workflows",
@@ -41,6 +47,7 @@ func init() {
 	}
 	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", defaultURL, "api-gateway base URL ($ZYNAX_API_URL)")
 	rootCmd.PersistentFlags().BoolVar(&insecure, "insecure", false, "skip TLS certificate verification")
+	rootCmd.AddGroup(&cobra.Group{ID: beginnerGroupID, Title: "Getting started:"})
 }
 
 func newGateway() *client.Gateway {
