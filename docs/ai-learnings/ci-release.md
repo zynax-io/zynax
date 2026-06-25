@@ -645,3 +645,10 @@ Story: Q.4 — verify + document Go module consumption path (pkg.go.dev). PR #12
 
 ### Cross-cutting (structural)
 - On this repo's fast-moving main (up-to-date required, no merge queue), after the final rebase + force-push run `gh pr merge <PR> --squash --auto` rather than polling-then-merging — armed auto-merge fires the instant the branch is green AND current, avoiding the BEHIND race a manual merge keeps losing. (structural-workaround)
+
+## Session — 2026-06-25 (post-merge verify — M7.K CLI pair)
+
+### #1504 / #1505 (post-mrg for CLI-only PRs)
+- For a CLI-only PR (`cmd/zynax/**`), the honest runtime evidence is building the standalone binary (`GOWORK=off go -C cmd/zynax build -o <bin> .` — main is at the module ROOT, so `.` not `./...`, which errors "cannot write multiple packages to non-directory") and exercising the exact changed surface (`--help` groups, optional-id `logs`/`result`, the no-prior-run error). Cheaper and more targeted than a kind/demo boot, which would not touch client-side logic any better.
+- A green `Release` run for a CLI-only PR publishes NO image — `cmd/zynax` is outside the release matrix — so Status stays SKIP regardless of Release success.
+- When CI conclusion on the merge SHA is `failure`, do NOT stop blindly: pull the job-level breakdown (`gh run view <run> --json jobs`) and the failing job's log tail (`--log-failed --job <job.databaseId>` — the per-job databaseId, NOT the run id; the run id returns HTTP 404). If the failing test belongs to a package the PR did not touch (verify via `git log -1 -- <file>` + the prior main CI conclusion), classify it as an unrelated pre-existing flake: report the change as verified-good and the red CI as an orthogonal flake to deflake separately. (structural-workaround)

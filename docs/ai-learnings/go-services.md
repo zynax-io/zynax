@@ -631,3 +631,20 @@ Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicaliza
 ### #1377 / #1378 (chore: surface payload field in CLI; add domain port method)
 - Adding a method to an existing domain port interface breaks ALL its test doubles, including BDD `tests/steps_test.go` fakes — grep the module for implementers and add the method to every stub in the SAME commit, or the module fails to build with "does not implement <Port>". (domain)
 - For "surface X in the CLI" issues, trace the payload end-to-end first (producer → event/REST field → CLI struct); often no proto change is needed because the carrier is an opaque `CloudEvent.data []byte` — add a JSON field at the producer plus a render line at the CLI. (domain)
+
+## Session — 2026-06-25 (M7.K closeout — CLI pair + task-broker deflake)
+
+### #1490 (feat(cli): noun-grouped aliases + publish/run)
+- Cobra noun aliases via `RunE: <verbCmd>.RunE` duplicate zero logic; assert the wiring with pointer-identity (`reflect.ValueOf(c.RunE).Pointer()`) and command-object identity (`rootCmd.Find` == aliasCmd), NOT by comparing `Use:` strings (which adds duplicate literals that themselves trip goconst). (domain)
+- CI `lint-go` lints the `cmd/zynax` (and `cmd/zynax-ci`) module with `--config tools/golangci-lint.yml`, but `make lint-go` lints ONLY `services/*` — so a CLI-module goconst/gosec issue passes `make lint-go` and FAILS CI (cost a full round-trip here). Before pushing a `cmd/zynax` change, rely on the pre-commit golangci-lint hook (it `cd`s into the module). A cobra `Use:`/kind string literal repeated >=3x package-wide (incl. `_test.go`) fails goconst — extract a shared `const` (e.g. `publishUse`). (structural-workaround)
+- A force-push of an amended commit does NOT re-fire `pull_request` workflows while the branch is CONFLICTING/DIRTY (a sibling merged to main); only CodeQL re-ran. Rebasing onto origin/main (resolving the conflict) is what re-triggers the full required check set. (structural-workaround)
+- Shared scratchpad collides across parallel sibling agents — write issue-suffixed temp filenames (`commit-1490.txt`, `pr-body-1490.md`), never bare `pr-body.md`. (structural-workaround)
+
+### #1491 (feat(cli): persist last run id)
+- One shared `resolveRunID(args)` helper (explicit-id-wins -> stored fallback -> actionable no-prior-run error) consumed by both `logs` and `result` keeps them identical; only `Args` changes (ExactArgs->MaximumNArgs(1)). Record the id at apply's single success point so a future `workflow run` alias inherits it for free. (domain)
+- `ZYNAX_CONFIG_DIR` env override + `t.Setenv` + `t.TempDir()` makes the state-file tests hermetic (`t.Setenv` forbids `t.Parallel` — fine here). Persist-failure-as-warning never fails the core apply path. (domain)
+- gosec G703 (path-traversal-via-taint) fires under the local pre-commit linter on `os.WriteFile(filepath.Join(<configDir>, <constName>))` even for a fixed basename in a confined dir; the tools-image `make lint-go` does NOT flag it. Add `//nolint:gosec // G703: fixed basename in confined config dir`. New instance of the local-vs-tools linter divergence. (structural-workaround)
+- After any `go build`/`go test` in a worktree, `git checkout -- go.work.sum` before `git add` — the toolchain rewrites it as a side effect; it is in the PR-size skipPattern but is unrelated churn. (structural-workaround)
+
+### task-broker flake (test: deflake TestDispatchTask_HappyPath, PR #1506)
+- An async-dispatch domain test that asserts an INTERMEDIATE state ("immediately after dispatch must be PENDING") races the background `executeAsync` goroutine: with an instant fake executor the task reaches COMPLETED before the read. It is non-deterministic (load-dependent), passes locally even under `-race -count=500`, and only fails on the loaded CI runner. Fix: drop the racy intermediate read; assert only the terminal state after `WaitBackground()`. Mid-flight observability belongs in a dedicated test using a `blockingExecutor` + `<-started` channel (see `TestDispatchTask_NonBlocking`), which freezes the task at a known state deterministically. (domain)
