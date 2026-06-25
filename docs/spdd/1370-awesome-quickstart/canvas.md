@@ -10,6 +10,11 @@ Experience** epic per [docs/product/2026-06-18-ux-roadmap-realignment.md](../../
 See the Reframe Addendum at the end of this file. New feat: stories #1385 and #1387 (cross a
 spec/gRPC boundary) require their **own** REASONS Canvas before implementation (ADR-019).
 
+**Closeout (2026-06-25, v1.2):** the residual last-mile first-run polish is scoped as Operations
+steps **O18–O26** — issues #1488, #1489, #1490, #1491, #1492, #1493, #1494, #1495, plus #1463
+reconciled as **O25**. See the Closeout Addendum at the end of this file. **Aligned: 2026-06-25**
+(maintainer-authorized via `/plan #1370 --execute`).
+
 ---
 
 ## R — Requirements
@@ -193,4 +198,49 @@ original R/E/A/S/O/N/S above are preserved; the scope is **expanded** (not repla
 - **Never** require a paid API key or any secret on the default first-run path.
 - **Never** accept provider/model/endpoint/URL from `input_payload` — declarative config only (ADR-013).
 - **Never** make the demo non-deterministic or environment-dependent without a documented override.
+
+---
+
+## Closeout Addendum (2026-06-25, v1.2)
+
+The core path shipped (O1–O17). An audit of the *actual* clone→first-result journey (and the
+desired sub-five-minute target) surfaced a small set of **last-mile** gaps — naming/UX friction, a
+default-port papercut, a hidden model-pull prerequisite, three overlapping entry docs, and one open
+result-display blocker. This addendum scopes them as O18–O26 to **close** M7.K. It is **polish over
+new components** — every step reuses existing services/adapters; no new service, no proto change
+(O25 may touch existing api-gateway streaming only).
+
+### Expanded Requirements (added to R)
+- A brand-new user reaches a **first successful run in ≤ 5 minutes** (warm: model present) along a
+  **single golden path**, with **≤ 3 commands to first result**, **≤ 4 concepts** before success,
+  and **one** doc page (README) to read — zero Kubernetes/architecture knowledge required.
+- The first command after bring-up **works without setting any env var**; platform readiness and a
+  missing default model are **surfaced before** any workflow failure.
+- A **zero-dependency** first success (no model, no secret) is available before the model-backed demo.
+
+### Added Operations steps
+18. **#1488** — cli: default `--api-url` to the local api-gateway port (7080) so the first command works. *(fix)*
+19. **#1489** — cli: `zynax doctor` — one-command platform + default-model health checklist. *(feat)*
+20. **#1490** — cli: noun-grouped aliases (`agent`/`workflow`) + `publish`/`run` verbs over existing apply/init (back-compat). *(feat)*
+21. **#1491** — cli: persist last run id; bare `zynax logs`/`result` default to it. *(feat)*
+22. **#1492** — infra: "Platform ready" banner + Ollama model pre-flight check (kills the hidden model-pull blocker). *(feat)*
+23. **#1493** — spec: zero-dependency `hello-world` workflow over the existing `echo` example adapter. *(feat)*
+24. **#1494** — docs: single five-minute golden-path README, **wedge-first**; fold the three onboarding docs into one. *(docs; depends on O18–O23)*
+25. **#1463** — api-gateway: demo result display (SSE 500) + stale-image dispatch + recipe masking, so `make demo` shows the review end-to-end. *(fix; reconciled from M-UX)*
+26. **#1495** — adr: decide "lite/flagged Compose mode" vs k3d for first-run when ADR-039 removes the Compose discovery path at the M8 cutover. *(docs/ADR; `status: needs-design`)*
+
+### Added Safeguards (ADR-039 first-run survival)
+- **Never** let the M8 Kubernetes-native cutover (ADR-039) silently delete the five-minute Compose
+  onboarding without the **O26** decision recorded — ADR-039 itself flags that removing the
+  Docker-Compose discovery path "directly erodes the EPIC #1370 first-run wedge". O26 gates that.
+- **Never** expose the local model runtime on the host LAN by the ready-banner/pre-flight work
+  (kept inside the compose network, consistent with the original Feature Safeguards).
+- **Never** auto-pull a model or mutate host state from `zynax doctor` without explicit user action
+  (doctor is read-only; remediation is *suggested*, not performed silently).
+
+### Context Security (Closeout addendum — re-checked 2026-06-25)
+- [x] No Tier 2 content: no internal hostnames / private IPs / credentials (only `localhost` ports).
+- [x] No PII beyond the existing public author attribution; no email addresses.
+- [x] No prompt injection; all O18–O26 entities are public-safe abstractions.
+- [x] Self security-review PASS for this addendum (Tier 1 — no Tier 2 / injection / abstraction-leak findings).
 
