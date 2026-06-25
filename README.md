@@ -32,6 +32,11 @@ and runs the hero code-review workflow end-to-end — a real model reviews a git
 verdict, straight from the CLI. The only prerequisites are Docker and pulling the demo model once
 (`ollama pull qwen2.5-coder:3b`). Tear it down with `make demo-clean`.
 
+> **Zero-dependency first win** — want a success before any model or secret? Run the
+> [`hello-world`](spec/workflows/examples/hello-world.yaml) workflow on the same kind cluster:
+> `zynax --api-url http://localhost:8080 apply spec/workflows/examples/hello-world.yaml` (the built-in
+> `echo` capability, no Ollama, no API key).
+
 <!-- asciinema cast — record locally with `make demo` and `asciinema rec docs/casts/make-demo.cast`.
      See docs/casts/README.md. Once recorded, replace the placeholder below with the upload embed. -->
 [![asciicast — make demo](https://asciinema.org/a/PLACEHOLDER.svg)](https://asciinema.org/a/PLACEHOLDER)
