@@ -134,15 +134,14 @@ func TestDispatchTask_HappyPath(t *testing.T) {
 		t.Fatalf("DispatchTask: err=%v taskID=%q", err, taskID)
 	}
 
-	// Immediately after dispatch the task must be PENDING.
-	task, _ := repo.GetByID(context.Background(), taskID)
-	if task.Status != domain.TaskStatusPending {
-		t.Errorf("want PENDING, got %s", task.Status)
-	}
-
+	// Execution runs on a background goroutine, so the in-flight PENDING/DISPATCHED
+	// states are not deterministically observable here (an instant executor can reach
+	// COMPLETED before this goroutine reads the status back). Mid-flight observability
+	// is covered deterministically by TestDispatchTask_NonBlocking (blockingExecutor);
+	// the happy path asserts the terminal state once background work drains.
 	svc.WaitBackground()
 
-	task, _ = repo.GetByID(context.Background(), taskID)
+	task, _ := repo.GetByID(context.Background(), taskID)
 	if task.Status != domain.TaskStatusCompleted {
 		t.Errorf("want COMPLETED, got %s", task.Status)
 	}
