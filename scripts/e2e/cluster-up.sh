@@ -275,13 +275,19 @@ fi
 
 # ── 3. deploy the full Zynax stack via the umbrella chart ────────────────────────
 
-# Build chart dependencies if the packaged subcharts are missing (e.g. a fresh
-# checkout where `helm dependency build` has not yet run). No-op if present.
-if [[ ! -d "${UMBRELLA_CHART}/charts" ]] || \
-   [[ -z "$(ls -A "${UMBRELLA_CHART}/charts" 2>/dev/null)" ]]; then
-  log "building umbrella chart dependencies…"
-  helm dependency build "${UMBRELLA_CHART}"
-fi
+# ALWAYS (re)build chart dependencies from the live subchart sources before the
+# install. The umbrella vendors its subcharts as packaged `.tgz` files under
+# charts/, and those committed artifacts can drift from the subchart source —
+# e.g. the api-gateway tgz once predated the template that renders
+# service.nodePort, so the deployed Service silently dropped the pinned NodePort
+# 30080 and fell back to a kube-proxy-random nodePort the kind extraPortMapping
+# (host 8080 → 30080) does not target, leaving http://localhost:8080 unreachable
+# out of the box (#1488). A prior guard only rebuilt when charts/ was EMPTY, so a
+# stale-but-present tgz was deployed verbatim. Rebuilding unconditionally makes
+# the subchart source the single source of truth — it is idempotent and fast
+# (file:// deps, no network), and CI's helm-lint already rebuilds the same way.
+log "building umbrella chart dependencies from source (subchart source is the SoT)…"
+helm dependency build "${UMBRELLA_CHART}"
 
 log "deploying zynax-umbrella as release '${RELEASE_NAME}' in namespace '${NAMESPACE}' (engine: ${E2E_ENGINE})…"
 # values-e2e.yaml carries the e2e-only overrides (shared with helm-upgrade.sh so
@@ -394,6 +400,35 @@ kubectl -n "${NAMESPACE}" rollout status deployment/echo-worker --timeout "${WAI
 log "echo-worker is healthy and registered."
 
 kubectl -n "${NAMESPACE}" get pods -o wide
+
+# ── 6. assert the host NodePort path (the actual first-run user contract) ─────────
+
+# #1488: a brand-new user's very first command is `zynax --api-url
+# http://localhost:8080 apply …`, which relies SOLELY on the kind extraPortMapping
+# (host 8080 → nodePort 30080) hitting the api-gateway Service's pinned nodePort
+# 30080. The e2e assertion scripts deliberately port-forward to 18080 (kube-proxy
+# can reset a NodePort on multi-node clusters), so NO existing test ever exercised
+# raw localhost:8080 — which is exactly why the stale-tgz nodePort regression
+# shipped undetected. Verify the host path here so cluster-up.sh proves the claim
+# it prints below, and any future Service/extraPortMapping/nodePort drift fails
+# bring-up loudly instead of silently breaking the first-run experience.
+HOST_GW_URL="${HOST_GW_URL:-http://localhost:8080}"
+if command -v curl >/dev/null 2>&1; then
+  log "asserting the host NodePort path is reachable: ${HOST_GW_URL}/healthz (the first-run user contract, #1488)…"
+  host_ok=""
+  for _ in $(seq 1 30); do
+    code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 "${HOST_GW_URL}/healthz" 2>/dev/null || true)"
+    if [[ "${code}" == "200" ]]; then
+      host_ok="yes"
+      break
+    fi
+    sleep 2
+  done
+  [[ -n "${host_ok}" ]] || die "api-gateway is NOT reachable on the host port (${HOST_GW_URL}/healthz never returned 200) — the kind extraPortMapping (host 8080 → nodePort 30080) and the Service nodePort (must be 30080) are out of sync (#1488). Check: kubectl -n ${NAMESPACE} get svc zynax-api-gateway -o jsonpath='{.spec.ports[0].nodePort}'"
+  log "  ✓ host NodePort path verified — ${HOST_GW_URL} reaches the api-gateway (HTTP 200)."
+else
+  warn "curl not found — skipping the host NodePort reachability assertion (#1488)."
+fi
 
 log "cluster '${CLUSTER_NAME}' is up. api-gateway REST is reachable on host port 8080."
 log "tear down with: scripts/e2e/cluster-down.sh"
