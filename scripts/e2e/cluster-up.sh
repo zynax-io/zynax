@@ -81,6 +81,11 @@ KIND_LOAD_REGISTRY="${KIND_LOAD_REGISTRY:-ghcr.io/zynax-io/zynax}"
 KIND_LOAD_TAG="${KIND_LOAD_TAG:-main}"
 
 KIND_CONFIG="${SCRIPT_DIR}/kind-config.yaml"
+# The lean profile fits on ONE node — use the single-node config, which removes
+# two nodes' kubelet/containerd/kindnet tax and avoids loading the service images
+# into three nodes' containerd (the dominant laptop cost; see
+# docs/benchmarks/kind-lean-resources.md).
+[[ "${PROFILE}" == "lite" ]] && KIND_CONFIG="${SCRIPT_DIR}/kind-config-lite.yaml"
 UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
 
 # The Zynax service Deployments that must reach a healthy rollout. All 7
