@@ -125,12 +125,18 @@ stop-local: ## Stop and remove local stack containers
 logs-local: ## Tail all local stack logs
 	$(COMPOSE) logs -f
 
-# ── One-command demo ────────────────────────────────────────────────────────
-# Boots the minimal stack + the zero-secret Ollama overlay, runs the hero
-# code-review workflow to a terminal state, and prints the model's review.
-# Prereq: pull the demo model once on the host — `ollama pull qwen2.5-coder:3b`
-# (the overlay reuses host-pulled models read-only; nothing is auto-downloaded).
-.PHONY: demo demo-clean
+# ── One-command kind demo (ADR-041 — kind is the unified runtime) ────────────
+# `make demo` creates a single-node kind cluster, side-loads the local images,
+# installs the zynax-umbrella Helm chart, waits for every Deployment's rollout,
+# runs the hero workflow against the gateway, and prints "Platform ready" with
+# the next command — ONE command, on the same charts that run in production.
+# `make kind-up` / `make kind-down` front the cluster lifecycle directly.
+# The legacy Docker-Compose demo is preserved as `demo-compose` (deprecated per
+# ADR-041 — Compose is retired as the primary path and receives no new work).
+.PHONY: demo kind-up kind-down demo-compose demo-clean
+KIND_DEMO     := scripts/demo/kind-demo.sh
+CLUSTER_UP    := scripts/e2e/cluster-up.sh
+CLUSTER_DOWN  := scripts/e2e/cluster-down.sh
 DEMO_WORKFLOW ?= spec/workflows/examples/code-review-ollama.yaml
 ZYNAX        ?= zynax
 # Optional: run a declarative scenario manifest set instead of the single hero
@@ -159,7 +165,20 @@ DEMO_MODEL   := $(shell awk '/^[[:space:]]*model:/{print $$2; exit}' infra/docke
 # standalone Temporal UI.
 DEMO_SERVICES := api-gateway llm-adapter
 
-demo: check-docker ## ★ One command: boot the Ollama stack + review code (hero workflow, or SCENARIO=<name> / PR=<number>)
+demo: check-docker ## ★ One command (kind): create cluster → load images → install umbrella → wait rollout → "Platform ready" + run hero workflow
+	@echo "🧭 Zynax demo on kind (ADR-041) — one command, prod-mirroring charts."
+	$(KIND_DEMO)
+
+kind-up: check-docker ## Create the kind cluster + install the zynax-umbrella chart (wraps scripts/e2e/cluster-up.sh, loads local images)
+	@echo "☸️  Bringing up the kind cluster + Zynax umbrella (loads local images)..."
+	KIND_LOAD_IMAGES=1 $(CLUSTER_UP)
+
+kind-down: ## Tear down the kind cluster (wraps scripts/e2e/cluster-down.sh)
+	@echo "🧹 Tearing down the kind cluster..."
+	$(CLUSTER_DOWN)
+
+demo-compose: check-docker ## [DEPRECATED — ADR-041] Legacy Docker-Compose Ollama demo (use `make demo` on kind)
+	@echo "⚠️  demo-compose is DEPRECATED (ADR-041 — Compose is retired). Prefer: make demo (kind)."
 	@command -v $(ZYNAX) >/dev/null 2>&1 || \
 	  (echo "❌ zynax CLI not found — run 'make install-cli' and ensure ~/bin is on your PATH" && exit 1)
 	@echo "🧠 Demo model: $(DEMO_MODEL)"
@@ -204,9 +223,9 @@ demo: check-docker ## ★ One command: boot the Ollama stack + review code (hero
 	@echo "   • Lighter Temporal: EVAL_TEMPORAL=1 make demo  (single in-memory start-dev, no Postgres/UI)"
 	@echo "   • Tear it all down: make demo-clean"
 
-demo-clean: ## Stop and remove the demo stack + volumes (base + Ollama overlay)
+demo-clean: ## Stop the legacy Compose demo stack + volumes (for the kind demo use `make kind-down`)
 	$(COMPOSE_DEMO) down -v --remove-orphans
-	@echo "✅ Demo stack removed"
+	@echo "✅ Compose demo stack removed (kind demo: make kind-down)"
 
 install-cli: ## Build and install zynax CLI to ~/bin/zynax (requires Go 1.26.3)
 	cd cmd/zynax && GOWORK=off go build -trimpath -o ~/bin/zynax .
