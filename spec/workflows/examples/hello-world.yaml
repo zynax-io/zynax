@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: Apache-2.0
+# hello-world — the zero-dependency first workflow (#1493, canvas O23).
+#
+# This is the smallest possible Zynax workflow: a single state that dispatches
+# the built-in "echo" capability and then completes. It needs NO model and NO
+# secret — the echo-worker (agents/examples/echo, deployed by `make demo` /
+# scripts/e2e/cluster-up.sh) just echoes the input back. Run it as your very
+# first success on a fresh kind cluster, before touching Ollama or any API key.
+#
+# Run it (kind demo already up — see README "See it run"):
+#   zynax --api-url http://localhost:8080 apply spec/workflows/examples/hello-world.yaml
+#   zynax --api-url http://localhost:8080 result <run_id>   # echoed output
+#
+# Validate it locally first (schema + data-flow):
+#   zynax validate spec/workflows/examples/hello-world.yaml
+#
+# Expected: the run reaches COMPLETED and the echoed message is visible from the
+# CLI result. The richer code-review demo (a real model reviews a git diff) is
+# the next step — but this one proves the engine works with zero dependencies.
+
+kind: Workflow
+apiVersion: zynax.io/v1
+
+metadata:
+  name: hello-world
+  namespace: demo
+
+spec:
+  initial_state: greet
+
+  states:
+
+    # ── greet — dispatch the echo capability, then wait for its completion ────
+    greet:
+      actions:
+        - capability: echo
+          input:
+            message: "Hello from Zynax"
+      on:
+        # echo emits "echo.completed" when the echo-worker finishes; go terminal.
+        - event: echo.completed
+          goto: done
+
+    # ── done — terminal state; the workflow reaches COMPLETED here ────────────
+    done:
+      type: terminal
