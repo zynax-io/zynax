@@ -663,3 +663,20 @@ Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicaliza
 ### Failed approaches
 - `golangci-lint run <abs-module-path>/...` / `GOWORK=off golangci-lint ./cmd/...` from the worktree root fail "directory prefix does not contain main module" — the standalone cmd/zynax module isn't in go.work and the sandbox resets cwd between Bash calls. Lint it via a SINGLE sandbox-legal command: `sh -c 'cd <module> && GOWORK=off golangci-lint run --config <root>/tools/golangci-lint.yml ./...'` (mirrors tools/golangci-lint-precommit.sh). (structural-workaround)
 - Putting an explicit `Signed-off-by` line in the commit-message FILE and ALSO passing `-s` produces a DUPLICATE trailer. Use `-s` alone (or the file alone), never both. (structural-workaround)
+
+## Session — 2026-06-25 (M7.K — hello-world workflow, #1493)
+
+### #1493 (feat(spec): zero-dependency hello-world workflow over echo)
+- VERIFY-then-extend over green-field: #1492 had ALREADY wired echo-worker into cluster-up.sh and KIND_LOAD_IMAGES side-loads cached `:main` images, so AC "wire the echo adapter into the demo path" needed ZERO new infra — grepping cluster-up.sh first turned it into a one-manifest + one-smoke change. (domain)
+- `make kind-up` is a single blocking bring-up (create cluster → side-load local :main images with GHCR fallback → cert-manager + umbrella → block on every rollout): one Bash call with a 600s timeout boots the whole stack, no poll loops. (structural-workaround)
+- Engine-adapter logs are ground truth for a capability round-trip: grep the run_id for `DispatchCapabilityActivity` — it proves the capability executed even though the REST `/logs` stream carries only Temporal history event types. (domain)
+
+### Edge cases discovered
+- The `zynax` CLI client (cmd/zynax/client/gateway.go) sets NO Authorization header → HTTP **401** against the auth-enabled kind gateway. `zynax apply --api-url ...` cannot reach an auth'd kind gateway today; drive runtime via curl + the key from `kubectl get secret zynax-gw-api-key -o jsonpath='{.data.api-key}' | base64 -d` over a background `port-forward svc/zynax-api-gateway 18080:8080` (the canonical make demo / e2e-happy.sh path). This is a real first-run gap affecting #1488 + the golden path. (domain)
+- The REST `/logs` SSE stream on the kind/Temporal stack emits raw Temporal history event TYPES (WorkflowExecutionCompleted, ActivityTaskCompleted) and does NOT carry the capability RESULT payload — a smoke that greps the echoed *string* from /logs falsely fails. Assert COMPLETED via `.status` (`*COMPLETED|*SUCCEEDED`) + the terminal `WorkflowExecutionCompleted` event (matches e2e-happy.sh). Surfacing payload text is M7 output-binding work. (domain)
+- `zynax validate` resolves `--schema-dir` relative to CWD; `go -C cmd/zynax run . validate <abs-file>` sets CWD to cmd/zynax and can't find spec/schemas — pass `--schema-dir <abs-repo>/spec/schemas` explicitly. (structural-workaround)
+- Pre-existing bug on main: `make validate-spec`'s `validate-scenario-schema` target passes `--schema-dir` to `zynax-ci validate scenarios`, which rejects it ("unknown flag: --schema-dir"). Unrelated to workflow manifests — gate a new workflow with `make validate-workflow-schema`. (domain)
+
+### Failed approaches
+- A smoke step that greps the echoed literal text out of `/logs` never matches on this stack (payload absent from the history stream) — assert the terminal completion event instead, then re-run the smoke live to confirm. (domain)
+- Foreground `sleep 1` after pkill is sandbox-blocked (exit 144); verify process teardown with `pgrep -af` instead. (structural-workaround)
