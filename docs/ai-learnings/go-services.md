@@ -648,3 +648,18 @@ Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicaliza
 
 ### task-broker flake (test: deflake TestDispatchTask_HappyPath, PR #1506)
 - An async-dispatch domain test that asserts an INTERMEDIATE state ("immediately after dispatch must be PENDING") races the background `executeAsync` goroutine: with an instant fake executor the task reaches COMPLETED before the read. It is non-deterministic (load-dependent), passes locally even under `-race -count=500`, and only fails on the loaded CI runner. Fix: drop the racy intermediate read; assert only the terminal state after `WaitBackground()`. Mid-flight observability belongs in a dedicated test using a `blockingExecutor` + `<-started` channel (see `TestDispatchTask_NonBlocking`), which freezes the task at a known state deterministically. (domain)
+
+## Session — 2026-06-25 (M7.K — zynax doctor, #1489)
+
+### #1489 (feat(cli): zynax doctor — platform + model health checklist)
+- Inject `commander func(ctx,name,args...)(string,error)` + `healthProber func(ctx)(string,error)` as struct fields: doctor shells out to kubectl/helm/ollama in prod yet runs fully hermetic in unit tests (fake commander keyed on a substring of "<name> <args>"). No client-go, no real cluster — satisfies cmd/zynax's cobra+stdlib-only rule. (domain)
+- Pin workload names from `scripts/e2e/cluster-up.sh` (NAMESPACE/RELEASE/SERVICE_DEPLOYMENTS) AND verify against LIVE `kubectl get deploy,statefulset` before trusting them: the helm NOTES.txt printed `zynax-zynax-*` (chart default) while the deployed names were `zynax-*` (values-e2e.yaml fullnameOverride). NOTES text is a decoy; only `kubectl get` is ground truth. (domain)
+- Exit-policy split, tested explicitly: model-missing → ⚠ warning, healthy stays true (exit 0); cluster/release/pods/gateway failure → ✗, exit non-zero via `os.Exit(1)` in RunE (mirrors status.go's os.Exit(2) — a clean RunE return would hide the failure from scripts). (domain)
+
+### Edge cases discovered
+- kind host-8080 NodePort is environment-flaky AND already bound (the kind node container holds 8080, so you cannot port-forward to it either): the api-gateway http port got a nodePort that doesn't match the kind extraPortMapping → `localhost:8080` connection-reset. Fix for CLI runtime evidence: `kubectl -n zynax port-forward svc/zynax-api-gateway 18080:8080` and run the CLI with `--api-url http://localhost:18080`. This is exactly why kind-demo.sh uses a port-forward, not the NodePort. (structural-workaround)
+- A replica-count readiness check reads `spec.replicas` as desired, so a deployment scaled to 0 reports 0/0 = ready (correct — you asked for 0). To demonstrate the Gherkin "pod not Ready" line, scale 0→1 and run doctor INSIDE the rollout window (pod 0/1 Ready), not scale-to-0. (domain)
+
+### Failed approaches
+- `golangci-lint run <abs-module-path>/...` / `GOWORK=off golangci-lint ./cmd/...` from the worktree root fail "directory prefix does not contain main module" — the standalone cmd/zynax module isn't in go.work and the sandbox resets cwd between Bash calls. Lint it via a SINGLE sandbox-legal command: `sh -c 'cd <module> && GOWORK=off golangci-lint run --config <root>/tools/golangci-lint.yml ./...'` (mirrors tools/golangci-lint-precommit.sh). (structural-workaround)
+- Putting an explicit `Signed-off-by` line in the commit-message FILE and ALSO passing `-s` produces a DUPLICATE trailer. Use `-s` alone (or the file alone), never both. (structural-workaround)
