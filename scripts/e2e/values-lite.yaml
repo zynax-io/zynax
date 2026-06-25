@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# values-lite.yaml — LEAN kind profile overrides (ADR-041).
+#
+# Layered ON TOP of values-e2e.yaml (cluster-up.sh PROFILE=lite passes both with
+# `-f`, lite last → lite wins). It carries ONLY the deltas that strip the stack
+# down to what the hero `echo` workflow (spec/workflows/examples/e2e-demo.yaml)
+# actually exercises, so a laptop first-run is as light as possible while still
+# running on the SAME prod-mirroring charts.
+#
+# What it removes vs the full e2e profile:
+#   • Temporal chart (5 pods: frontend/history/matching/worker + admintools +
+#     the Postgres-backed schema Job) → replaced by ONE in-memory `start-dev`
+#     pod from scripts/e2e/manifests/temporal-dev.yaml, which cluster-up.sh
+#     applies when PROFILE=lite. engine-adapter still dials
+#     `zynax-temporal-frontend:7233` (values-e2e.yaml) — the dev Service owns
+#     that name, so NO engine-adapter override is needed here.
+#   • memory-service + its Redis — the echo workflow uses no agent memory.
+#   • event-bus + NATS — the echo workflow asserts no CloudEvents. (If a future
+#     workload needs completion events, re-enable these two; the Temporal cut is
+#     the dominant saving regardless.)
+#
+# What it keeps: the 5 core services (api-gateway, workflow-compiler,
+# engine-adapter, task-broker, agent-registry), Postgres (still backs
+# task-broker + agent-registry until ADR-039/M8 makes agent-registry stateless),
+# cert-manager, and the echo capability worker.
+
+# ── Collapse Temporal to the single-binary dev pod ───────────────────────────
+zynax-temporal:
+  enabled: false
+
+# ── Drop services the echo hero workflow does not use ────────────────────────
+zynax-memory-service:
+  enabled: false
+zynax-event-bus:
+  enabled: false
+# Only event-bus consumes NATS; drop the broker with it.
+zynax-nats:
+  enabled: false
+
+# ── Trim Postgres ────────────────────────────────────────────────────────────
+# Temporal no longer uses this Postgres (it ran the heaviest schema, default +
+# visibility stores). Only task-broker + agent-registry remain, which store
+# little, so shrink the reserved PVC from the 10Gi chart default to 2Gi.
+zynax-postgres:
+  postgresql:
+    primary:
+      persistence:
+        size: 2Gi
