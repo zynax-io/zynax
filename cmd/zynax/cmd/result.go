@@ -16,18 +16,24 @@ import (
 var errResultDone = errors.New("result: terminal state reached")
 
 var resultCmd = &cobra.Command{
-	Use:   "result <run-id>",
+	Use:   "result [run-id]",
 	Short: "Print the capability output (result payload) of a workflow run",
 	Long: "Stream a run's events and print the capability result payload — e.g. the " +
 		"model's review text from the code-review example — straight from the CLI.\n\n" +
+		"With no run id the command targets your most recent run (recorded by the " +
+		"last `zynax apply`/`run`). An explicit run id always overrides.\n\n" +
 		"The command tails the run until it reaches a terminal state and prints the " +
 		"last completion text it saw. Exits with an error if the run finishes with no " +
 		"result (e.g. a failed run).",
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		runID, err := resolveRunID(args)
+		if err != nil {
+			return err
+		}
 		gw := newGateway()
 		var output string
-		err := gw.WatchWorkflowLogs(cmd.Context(), args[0], func(ev client.LogEvent) error {
+		err = gw.WatchWorkflowLogs(cmd.Context(), runID, func(ev client.LogEvent) error {
 			if text := client.CompletionText(ev.Payload); text != "" {
 				output = text
 			}
@@ -40,7 +46,7 @@ var resultCmd = &cobra.Command{
 			return err
 		}
 		if output == "" {
-			return fmt.Errorf("no result payload for run %s", args[0])
+			return fmt.Errorf("no result payload for run %s", runID)
 		}
 		_, _ = fmt.Fprintln(cmd.OutOrStdout(), output)
 		return nil
