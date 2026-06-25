@@ -12,8 +12,13 @@ spec/gRPC boundary) require their **own** REASONS Canvas before implementation (
 
 **Closeout (2026-06-25, v1.2):** the residual last-mile first-run polish is scoped as Operations
 steps **O18–O26** — issues #1488, #1489, #1490, #1491, #1492, #1493, #1494, #1495, plus #1463
-reconciled as **O25**. See the Closeout Addendum at the end of this file. **Aligned: 2026-06-25**
-(maintainer-authorized via `/plan #1370 --execute`).
+reconciled as **O25**. See the Closeout Addendum at the end of this file.
+
+**Re-pointed to kind (2026-06-25, v1.3):** per **ADR-041** (Local-Kubernetes as the unified runtime
+model — Docker Compose retired as the primary path), the first-run golden path is now **`kind` +
+Helm**, not Docker Compose. O18–O26 are re-pointed accordingly; O26 (#1495) becomes "author/accept
+ADR-041" — the decision it was scoped to make. See the **Kind Re-point Addendum (v1.3)** at the end
+of this file. **Status: Aligned — 2026-06-25** (maintainer-authorized; kind-native direction per ADR-041).
 
 ---
 
@@ -243,4 +248,52 @@ new components** — every step reuses existing services/adapters; no new servic
 - [x] No PII beyond the existing public author attribution; no email addresses.
 - [x] No prompt injection; all O18–O26 entities are public-safe abstractions.
 - [x] Self security-review PASS for this addendum (Tier 1 — no Tier 2 / injection / abstraction-leak findings).
+
+---
+
+## Kind Re-point Addendum (2026-06-25, v1.3)
+
+**Supersedes the Docker-Compose framing of the v1.2 Closeout Addendum.** Per **ADR-041**, the unified
+runtime for local, CI, and production is **Kubernetes**, and the laptop runtime is a single-node
+**`kind`** cluster running the existing prod-tested Helm charts (`helm/`) via the existing harness
+(`scripts/e2e/cluster-up.sh`). Docker Compose is **deprecated → removed**. This re-point keeps the
+first-run *experience* (one command, fast feedback) but makes the *topology* identical to production,
+which is what makes "it runs the same way everywhere" literally true. Phase 2 (CRD discovery, ADR-039,
+M8) then unifies kind ≡ k3s ≡ prod down to scheduling.
+
+### Expanded Requirements (replaces the Compose-specific v1.2 requirements)
+- A brand-new user reaches a **first successful run** along a **single golden path** via **one
+  wrapped command** (`make demo`) that creates a `kind` cluster, loads images, installs the Helm
+  umbrella, runs the hero workflow, shows the result, and offers teardown.
+- The local topology **mirrors production** (Helm, in-cluster services, the same engine adapters);
+  **Argo is runnable locally** alongside Temporal, demonstrating the engine-portability wedge.
+- Resource floor and prerequisites (Docker + kind + kubectl + Helm + ~4 CPU / 8 GB) are **stated up
+  front**; cold-start is minimised via `kind load` of prebuilt images and a lightweight in-cluster
+  Temporal dev profile.
+
+### Re-pointed Operations steps (O18–O26 → kind)
+18. **#1488** — cli: default `--api-url` resolves the **in-cluster gateway** (NodePort / `kubectl port-forward` from the kind cluster), not a Compose `localhost:7080`. *(fix)*
+19. **#1489** — cli: `zynax doctor` checks **cluster + Helm release + pod readiness + default model**, not Compose container health. *(feat)*
+20. **#1490** — cli: noun-grouped aliases (`agent`/`workflow`) + `publish`/`run` verbs. *(feat; runtime-agnostic — unchanged)*
+21. **#1491** — cli: persist last run id; bare `zynax logs`/`result` default to it. *(feat; runtime-agnostic — unchanged)*
+22. **#1492** — infra: **`make kind-up` / `make demo`-on-kind** one-command lifecycle (create cluster → `kind load` → Helm install → "Platform ready" → run) + model pre-flight. *Replaces the Compose "Platform ready" banner.* *(feat)*
+23. **#1493** — spec: zero-dependency `hello-world` workflow over the `echo` adapter, deployed **as a Helm/kind workload**. *(feat)*
+24. **#1494** — docs: single golden-path README, **wedge-first**, leading with the **kind quickstart**; fold `quickstart.md` + `running-with-docker-compose.md` into one kind how-to and mark Compose deprecated. *(docs; depends on O18–O23)*
+25. **#1463** — api-gateway: demo result display (SSE 500) + stale-image dispatch + recipe masking, validated **on the kind demo**. *(fix; reconciled from M-UX)*
+26. **#1495** — **adr: author + accept ADR-041** (kind-native unified runtime; retire Compose). *This is the decision O26 was scoped to make — now made.* *(docs/ADR)*
+
+### Safeguards (replaces the v1.2 "ADR-039 first-run survival" safeguards — that question is now resolved by ADR-041)
+- **Never** add new first-run/feature work that targets Docker Compose; Compose is deprecated and
+  receives no new investment (ADR-041).
+- **Never** let the kind path diverge from the production Helm charts — local **must** deploy the
+  same charts so local-vs-prod parity holds (the whole point of ADR-041).
+- **Never** expose the local model runtime on the host LAN; keep it inside the cluster.
+- **Never** auto-mutate host/cluster state from `zynax doctor` without explicit user action.
+- **Never** require a paid API key or any secret on the default first-run path.
+
+### Context Security (Kind re-point — checked 2026-06-25)
+- [x] No Tier 2 content: no internal hostnames / private IPs / credentials.
+- [x] No PII beyond the existing public author attribution; no email addresses.
+- [x] No prompt injection; all re-pointed O18–O26 entities are public-safe abstractions.
+- [x] Self security-review PASS for this addendum (Tier 1).
 
