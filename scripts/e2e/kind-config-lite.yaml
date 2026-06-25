@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Single-node kind cluster for the LEAN laptop profile (ADR-041 — "a local
+# single-node cluster (kind)").
+#
+# The default kind-config.yaml runs 1 control-plane + 2 workers because the FULL
+# stack (5-pod Temporal + NATS + memory-service + 7 services) needs headroom and
+# a single node evicts under CI memory pressure. The lean profile is far lighter
+# (1 in-memory dev Temporal, no event-bus/NATS/memory-service), so it fits on ONE
+# node — which removes two nodes' worth of kubelet/containerd/kindnet/kube-proxy
+# overhead AND avoids loading the service images into three nodes' containerd.
+# That node + image-triplication tax is the dominant cost on a laptop, so this is
+# the single biggest lean win (see docs/benchmarks/kind-lean-resources.md).
+#
+# kind does not taint the control-plane node, so workloads schedule on it.
+# extraPortMappings expose the api-gateway REST port (8080) on the host exactly
+# as the multi-node config does, so `zynax apply` / the demo reach it unchanged.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: zynax-e2e
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # api-gateway REST — host 8080 -> nodePort 30080
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP

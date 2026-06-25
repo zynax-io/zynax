@@ -33,6 +33,11 @@
 #   ARGO_WORKFLOWS_CHART_VERSION
 #                         argo-helm argo-workflows chart version pin
 #                         (default: 0.47.5 → Argo Workflows v3.7.11)
+#   PROFILE               stack profile: full|lite (default: full). lite is the
+#                         ADR-041 lean laptop profile — collapses Temporal to a
+#                         single in-memory start-dev pod (manifests/temporal-dev.
+#                         yaml) and drops event-bus + NATS + memory-service via
+#                         values-lite.yaml. CI uses full.
 #
 # Minimum host resources: 4 CPU, 8 GB RAM (see scripts/e2e/README.md).
 
@@ -55,6 +60,12 @@ WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
 # Selection flows through umbrella values only — never hardcoded (ADR-015).
 E2E_ENGINE="${E2E_ENGINE:-temporal}"
 ARGO_WORKFLOWS_CHART_VERSION="${ARGO_WORKFLOWS_CHART_VERSION:-0.47.5}"
+# Stack profile (ADR-041). "full" (default, == CI) deploys the production-
+# mirroring topology: the 5-pod Temporal chart, event-bus, memory-service.
+# "lite" is the lean laptop profile — it collapses Temporal to ONE in-memory
+# `start-dev` pod (manifests/temporal-dev.yaml) and drops event-bus + NATS +
+# memory-service via values-lite.yaml. Same charts, same images, lighter floor.
+PROFILE="${PROFILE:-full}"
 # When set to a non-empty value, side-load the locally-built service images into
 # the kind cluster with `kind load docker-image` before the Helm install, so the
 # cluster runs the images already on the host instead of pulling from GHCR. The
@@ -70,6 +81,11 @@ KIND_LOAD_REGISTRY="${KIND_LOAD_REGISTRY:-ghcr.io/zynax-io/zynax}"
 KIND_LOAD_TAG="${KIND_LOAD_TAG:-main}"
 
 KIND_CONFIG="${SCRIPT_DIR}/kind-config.yaml"
+# The lean profile fits on ONE node — use the single-node config, which removes
+# two nodes' kubelet/containerd/kindnet tax and avoids loading the service images
+# into three nodes' containerd (the dominant laptop cost; see
+# docs/benchmarks/kind-lean-resources.md).
+[[ "${PROFILE}" == "lite" ]] && KIND_CONFIG="${SCRIPT_DIR}/kind-config-lite.yaml"
 UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
 
 # The Zynax service Deployments that must reach a healthy rollout. All 7
@@ -84,9 +100,12 @@ SERVICE_DEPLOYMENTS=(
   "zynax-engine-adapter"
   "zynax-task-broker"
   "zynax-agent-registry"
-  "zynax-event-bus"
-  "zynax-memory-service"
 )
+# event-bus + memory-service ship in the full profile only; the lean profile
+# (values-lite.yaml) disables them, so they have no Deployment to wait on.
+if [[ "${PROFILE:-full}" != "lite" ]]; then
+  SERVICE_DEPLOYMENTS+=("zynax-event-bus" "zynax-memory-service")
+fi
 
 # ── helpers ──────────────────────────────────────────────────────────────────────
 
@@ -108,6 +127,11 @@ require openssl
 case "${E2E_ENGINE}" in
   temporal|argo) ;;
   *) die "E2E_ENGINE must be 'temporal' or 'argo' (got: '${E2E_ENGINE}')" ;;
+esac
+
+case "${PROFILE}" in
+  full|lite) ;;
+  *) die "PROFILE must be 'full' or 'lite' (got: '${PROFILE}')" ;;
 esac
 
 [[ -f "${KIND_CONFIG}" ]]   || die "kind config not found: ${KIND_CONFIG}"
@@ -274,6 +298,13 @@ ENGINE_VALUES=()
 if [[ "${E2E_ENGINE}" == "argo" ]]; then
   ENGINE_VALUES+=(-f "${SCRIPT_DIR}/values-e2e-argo.yaml")
 fi
+# Lean profile overlay (ADR-041): layered last so it wins — disables the
+# Temporal chart, event-bus, NATS, memory-service and trims the Postgres PVC.
+PROFILE_VALUES=()
+if [[ "${PROFILE}" == "lite" ]]; then
+  log "lean profile: layering values-lite.yaml (Temporal→dev pod; no event-bus/NATS/memory-service)…"
+  PROFILE_VALUES+=(-f "${SCRIPT_DIR}/values-lite.yaml")
+fi
 IMAGE_OVERRIDES=()
 if [[ -n "${E2E_IMAGE_TAG:-}" ]]; then
   E2E_IMAGE_PREFIX="${E2E_IMAGE_PREFIX:-ghcr.io/zynax-io/zynax/staging}"
@@ -293,38 +324,52 @@ helm upgrade --install "${RELEASE_NAME}" "${UMBRELLA_CHART}" \
   --create-namespace \
   -f "${SCRIPT_DIR}/values-e2e.yaml" \
   "${ENGINE_VALUES[@]}" \
+  "${PROFILE_VALUES[@]}" \
   --set zynax-cert-manager.enabled=true \
   "${IMAGE_OVERRIDES[@]}"
 
-# ── 3.5 register the Temporal 'default' namespace ────────────────────────────────
+# ── 3.5 bring Temporal up + ensure the 'default' namespace exists ────────────────
 
-# The temporalio/temporal chart does NOT auto-register a namespace, but
-# engine-adapter connects to namespace 'default' on startup and crash-loops with
-# "Namespace default is not found" until it exists. Wait for the Temporal frontend
-# to roll out, then register it via the admintools pod. Idempotent: skip if it is
-# already present (e.g. a re-run against a reused cluster).
-log "waiting for Temporal frontend, then registering the 'default' namespace…"
-kubectl -n "${NAMESPACE}" rollout status \
-  "deployment/${RELEASE_NAME}-temporal-frontend" --timeout "${WAIT_TIMEOUT}"
+if [[ "${PROFILE}" == "lite" ]]; then
+  # Lean profile: the chart is off (values-lite.yaml). Deploy the single-binary
+  # in-memory dev Temporal, which auto-registers the 'default' namespace at boot
+  # — so there is no admintools pod and no namespace-registration loop. Its
+  # Service is named zynax-temporal-frontend (the exact address engine-adapter
+  # dials), so the swap needs no engine-adapter override.
+  log "lean profile: deploying single-binary dev Temporal (in-memory)…"
+  kubectl -n "${NAMESPACE}" apply -f "${SCRIPT_DIR}/manifests/temporal-dev.yaml"
+  kubectl -n "${NAMESPACE}" rollout status deployment/zynax-temporal-dev \
+    --timeout "${WAIT_TIMEOUT}"
+  log "dev Temporal is up ('default' namespace auto-registered by start-dev)."
+else
+  # The temporalio/temporal chart does NOT auto-register a namespace, but
+  # engine-adapter connects to namespace 'default' on startup and crash-loops with
+  # "Namespace default is not found" until it exists. Wait for the Temporal frontend
+  # to roll out, then register it via the admintools pod. Idempotent: skip if it is
+  # already present (e.g. a re-run against a reused cluster).
+  log "waiting for Temporal frontend, then registering the 'default' namespace…"
+  kubectl -n "${NAMESPACE}" rollout status \
+    "deployment/${RELEASE_NAME}-temporal-frontend" --timeout "${WAIT_TIMEOUT}"
 
-ADMINTOOLS="deployment/${RELEASE_NAME}-temporal-admintools"
-namespace_ready=""
-for _ in $(seq 1 30); do
-  if kubectl -n "${NAMESPACE}" exec "${ADMINTOOLS}" -- \
-       temporal operator namespace describe default >/dev/null 2>&1; then
-    namespace_ready="yes"
-    break
-  fi
-  kubectl -n "${NAMESPACE}" exec "${ADMINTOOLS}" -- \
-    temporal operator namespace create default >/dev/null 2>&1 || true
-  sleep 5
-done
-[[ -n "${namespace_ready}" ]] || die "Temporal 'default' namespace did not register"
-log "Temporal 'default' namespace is registered."
+  ADMINTOOLS="deployment/${RELEASE_NAME}-temporal-admintools"
+  namespace_ready=""
+  for _ in $(seq 1 30); do
+    if kubectl -n "${NAMESPACE}" exec "${ADMINTOOLS}" -- \
+         temporal operator namespace describe default >/dev/null 2>&1; then
+      namespace_ready="yes"
+      break
+    fi
+    kubectl -n "${NAMESPACE}" exec "${ADMINTOOLS}" -- \
+      temporal operator namespace create default >/dev/null 2>&1 || true
+    sleep 5
+  done
+  [[ -n "${namespace_ready}" ]] || die "Temporal 'default' namespace did not register"
+  log "Temporal 'default' namespace is registered."
+fi
 
-# ── 4. wait for all 7 service deployments to become healthy ──────────────────────
+# ── 4. wait for the profile's service deployments to become healthy ──────────────
 
-log "waiting for all 7 service deployments to roll out…"
+log "waiting for ${#SERVICE_DEPLOYMENTS[@]} service deployments to roll out (profile: ${PROFILE})…"
 for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
   if ! kubectl -n "${NAMESPACE}" get deployment "${dep}" >/dev/null 2>&1; then
     die "expected deployment not found: ${dep} (umbrella values out of sync?)"
@@ -334,7 +379,7 @@ for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
     --timeout "${WAIT_TIMEOUT}"
 done
 
-log "all 7 service deployments are healthy."
+log "all ${#SERVICE_DEPLOYMENTS[@]} service deployments are healthy."
 
 # ── 5. deploy the echo capability worker (#1088) ────────────────────────────────
 
