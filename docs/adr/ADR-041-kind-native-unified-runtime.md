@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # ADR-041: Local-Kubernetes (kind) as the unified runtime model — Docker Compose retired as the primary path
 
-**Status:** Proposed  **Date:** 2026-06-25
+**Status:** Accepted  **Date:** 2026-06-25
 **Related:** ADR-039 (CRD-native scheduler — the Phase-2 unifier), ADR-040 (Kubernetes-native delegation boundary), ADR-037 (rejected zero-Temporal eval engine; superseded by #1456), ADR-015 (pluggable workflow engines), ADR-020 (mTLS via cert-manager), ADR-026 (Postgres chart). Resolves the open decision in EPIC #1370 / O26 / #1495.
 
 ---
