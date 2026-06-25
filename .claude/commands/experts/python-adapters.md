@@ -118,6 +118,15 @@ cat docs/patterns/python-agent-guide.md  # code examples
 
 Never add business logic to an adapter — adapters are translation layers only.
 
+- **`agents/adapters/*` are GO modules (ADR-035), not Python.** A "python-adapter" task frequently
+  lands on a Go adapter (`cmd/<name>/main.go` + `internal/config`, its own `go.mod`) — locate the
+  module and confirm the language BEFORE assuming Python. When it is Go, switch to go-services
+  discipline: build/test with `GOWORK=off go -C <moduledir>`; pre-empt golangci-lint G706 (slog with
+  config args) / G101 (env-var-NAME literals) with `//nolint:gosec` matching the sibling adapters'
+  suppressions; for missing-secret graceful degradation use a typed sentinel + `errors.Is` branch in
+  `main` (start + warn + skip registry registration + health `NOT_SERVING`), keeping non-sentinel
+  errors fatal. Seen in: #1375, #1371 (2 sessions).
+
 ---
 
 ## Adapter structure

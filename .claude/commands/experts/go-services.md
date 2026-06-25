@@ -192,6 +192,21 @@ func (h *Handler) Submit(ctx context.Context, req *pb.SubmitRequest) (*pb.Submit
   `status.FromContextError(ctx.Err()).Err()`, which the wrapcheck grpc glob exempts and which
   maps cancellation/deadline to the correct gRPC code. Seen in: #824, #797 (2 sessions).
 
+- **Capability adapters must register a RESOLVABLE advertised endpoint, not a bind-only `:PORT`.**
+  One field reused for both `net.Listen` and the registry-advertised address is the recurring root
+  cause of "task-broker dials localhost → connection refused". Add an `advertise_endpoint` + a
+  resolver + fail-fast validation that rejects a hostless bind (`:50070`, empty host via
+  `net.SplitHostPort`) when no advertise is set; mirror the langgraph-adapter bind-vs-advertise
+  split. The example YAML is baked into the container as the shipped default config, so fixing the
+  example also fixes the runtime default in one edit. Seen in: #1371, #1116 (2 sessions).
+
+- **A `snake_case` capability yields a `<name>.completed` event the workflow-compiler REJECTS.**
+  `agents/adapters/AGENTS.md` mandates `snake_case` capability names, but the compiler's `event_type`
+  rule is dot-separated lowercase (no underscores) — so `summarize_feedback.completed` cannot be a
+  transition target. When widening an `event_type`/capability regex, reuse the repo's underscore
+  sub-pattern `(_[a-z0-9]+)*` (grep the sibling `capabilityNameRe`), never `[a-z0-9_]+` (which wrongly
+  accepts leading/trailing/double underscores). Seen in: #1372, #1376 (2 sessions).
+
 ---
 
 ## Postgres / pgx v5 patterns (ADR-008 + M6.H canvas)
