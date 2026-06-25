@@ -251,6 +251,17 @@ helm upgrade --install zynax-<service> helm/zynax-<service>/ --dry-run
   files only, so a literal email in an infra `.env.example` IS flagged. Validate overlays with
   `docker compose config --quiet` against a throwaway gitignored `.env`. (#1190, #807)
 
+- **`docker compose config` does NOT surface values inside a BIND-MOUNTED config file** — it renders
+  the mount, not the file the consuming Go service reads literally. Grep the actual value out of the
+  mounted file as a SEPARATE piece of PR evidence, and never put `${ENV:-default}` tokens inside a
+  config file the service reads literally (no shell interpolation happens — document a one-line file
+  edit instead). Seen in: #1386, #1360 (2 sessions).
+
+- **Third-party / dev-compose runtime images stay direct pinned refs — only first-party + base/
+  toolchain images go in `images/images.yaml`.** A dev compose overlay (ollama / postgres / nats /
+  clickhouse) is not an `images.yaml` consumer, so keep plain pinned tags (`postgres:16-alpine`) and
+  it stays out of the digest-alignment gate while still passing it. Seen in: #1190, #1374 (2 sessions).
+
 ---
 
 ## Commit format

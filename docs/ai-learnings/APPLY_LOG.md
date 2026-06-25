@@ -97,3 +97,17 @@
 | 2 | go-services | gh projectCards deprecation: read via --json, label via REST API | domain | #1206, #1183 | pending | — |
 
 **Summary:** 2 proposed | 0 applied | 0 rejected (structural) | 2 pending
+
+## Run 2026-06-25 16:00 — domains: go-services, python-adapters, infra-helm
+
+| # | Domain | Pattern | Category | Source sessions | Status | Delta |
+|---|--------|---------|----------|-----------------|--------|-------|
+| 1 | go-services | Capability adapter: advertise-vs-bind resolvable endpoint | domain | #1371, #1116 | committed | go-services.md +9L |
+| 2 | go-services | snake_case capability → underscored event rejected by compiler | domain | #1372, #1376 | committed | go-services.md +8L |
+| 3 | go-services | golangci-lint can't take abs/`...` path under no-cd sandbox | env-constraint | #1185, #1198, #1371 | pending | manual orchestrator-preamble edit (outside --apply scope) |
+| 4 | python-adapters | agents/adapters/* are Go (ADR-035), not Python; locate module first | domain | #1375, #1371 | committed | python-adapters.md +9L |
+| 5 | infra-helm | docker compose config hides bind-mounted config file values | domain | #1386, #1360 | committed | infra-helm.md +5L |
+| 6 | infra-helm | Third-party/dev-compose images stay direct refs, not images.yaml | domain | #1190, #1374 | committed | infra-helm.md +4L |
+| 7 | python-adapters | RUFF_CACHE_DIR prefix vs root-owned .ruff_cache | structural-workaround | #808, #1189 | rejected | — |
+
+**Summary:** 7 proposed | 5 committed | 1 rejected (structural) | 1 pending (env-constraint)
