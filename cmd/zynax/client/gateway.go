@@ -133,6 +133,57 @@ func (g *Gateway) ApplyDryRun(ctx context.Context, body []byte) ([]CompileError,
 	}
 }
 
+// Health probes the api-gateway liveness endpoint GET /healthz (issue #1380:
+// returns 200 + a {"status":"..."} JSON body when serving, 503 when not). It
+// returns the reported status string on success, or a descriptive error when
+// the gateway is unreachable or unhealthy. Used by `zynax doctor`.
+func (g *Gateway) Health(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.base+"/healthz", nil)
+	if err != nil {
+		return "", fmt.Errorf("zynax: build request: %w", err)
+	}
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("zynax: health: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("zynax: health: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	}
+	// Body is {"status":"ok"} since #1380; tolerate an empty body too.
+	var s struct {
+		Status string `json:"status"`
+	}
+	_ = json.Unmarshal(raw, &s)
+	if s.Status == "" {
+		s.Status = "ok"
+	}
+	return s.Status, nil
+}
+
+// Ready probes the api-gateway readiness endpoint GET /readyz (200 when the
+// gateway's dependencies are reachable, 503 otherwise; no body either way).
+// Returns nil when ready, a descriptive error otherwise. Used by `zynax doctor`.
+func (g *Gateway) Ready(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.base+"/readyz", nil)
+	if err != nil {
+		return fmt.Errorf("zynax: build request: %w", err)
+	}
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("zynax: ready: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("zynax: ready: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	}
+	return nil
+}
+
 // GetWorkflow returns the current status of a workflow run.
 func (g *Gateway) GetWorkflow(ctx context.Context, runID string) (*WorkflowStatus, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, g.base+"/api/v1/workflows/"+runID, nil)

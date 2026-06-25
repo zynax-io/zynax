@@ -28,6 +28,7 @@ cmd/zynax/
     mcp.go          zynax mcp git   (launch Git MCP server — execs `git-adapter mcp`, ADR-032)
     validate.go      zynax validate <file> [--schema-dir] [--format]  (local: schema + data-flow)
     init.go          zynax init workflow|expert [name] [-o file]  (scaffold from spec/templates)
+    doctor.go        zynax doctor   (read-only platform+model health checklist; shells out to kubectl/helm/ollama)
   validate/
     manifest.go     JSON Schema validation (validate.Manifest) + combined pipeline (validate.File)
     dataflow.go     Workflow state-machine checks (initial_state + transition goto targets)
