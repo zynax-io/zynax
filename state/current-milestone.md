@@ -61,7 +61,7 @@ O / L / R respectively — and their issue titles were aligned to that scheme 20
 (#467 → M7.O, #469 → M7.R, #553 backref) to resolve the duplicate `M7.C` label with #1168.
 New ADRs: ADR-029…034 (Proposed).
 
-**Delivery (as of 2026-06-19):** GitHub milestone #7 — **~115 closed / ~10 open (~92% done)**.
+**Delivery (as of 2026-06-25):** GitHub milestone #7 — **132 closed / 16 open (~89% done)**.
 
 **EPIC #1370 (M7.K — First-run User Experience) cluster DELIVERED 2026-06-18/19:** 11 stories merged
 via PRs #1431–#1441 (foundation #1371/#1372/#1380 closed earlier) — api-gateway SSE-logs 500 fix,
