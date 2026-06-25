@@ -55,6 +55,19 @@ WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
 # Selection flows through umbrella values only — never hardcoded (ADR-015).
 E2E_ENGINE="${E2E_ENGINE:-temporal}"
 ARGO_WORKFLOWS_CHART_VERSION="${ARGO_WORKFLOWS_CHART_VERSION:-0.47.5}"
+# When set to a non-empty value, side-load the locally-built service images into
+# the kind cluster with `kind load docker-image` before the Helm install, so the
+# cluster runs the images already on the host instead of pulling from GHCR. The
+# laptop demo path (`make kind-up` / `make demo`) sets this to make cold-start
+# fast and offline-friendly; CI leaves it unset and lets the cluster pull the
+# pinned staging/`:main` lane from GHCR (existing behaviour, ADR-027).
+KIND_LOAD_IMAGES="${KIND_LOAD_IMAGES:-}"
+# Registry/tag the loaded images carry — must match what values-e2e.yaml asks the
+# chart to run (`:main`, the lane the chart's image.tag override pins). The echo
+# capability worker image (langgraph-adapter, manifests/echo-worker.yaml) is
+# loaded too so the dispatch chain round-trips with IfNotPresent.
+KIND_LOAD_REGISTRY="${KIND_LOAD_REGISTRY:-ghcr.io/zynax-io/zynax}"
+KIND_LOAD_TAG="${KIND_LOAD_TAG:-main}"
 
 KIND_CONFIG="${SCRIPT_DIR}/kind-config.yaml"
 UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
@@ -115,6 +128,30 @@ fi
 
 # Point kubectl/helm at the cluster regardless of how it was created.
 kubectl config use-context "kind-${CLUSTER_NAME}" >/dev/null
+
+# ── 1.5 [opt-in] side-load locally-built images into the cluster ─────────────────
+
+# When KIND_LOAD_IMAGES is set (the laptop demo path), copy the host's local
+# `<registry>/<svc>:<tag>` images straight into the kind nodes so the chart runs
+# them with IfNotPresent instead of pulling from GHCR — fast, offline-friendly
+# cold-start. Skipped silently in CI (unset), where the cluster pulls the pinned
+# staging/`:main` lane. Each `kind load` no-ops gracefully if the host image is
+# absent (warn, continue) — a missing image surfaces as an ImagePull later, with
+# the same diagnostics as the GHCR path.
+if [[ -n "${KIND_LOAD_IMAGES}" ]]; then
+  log "side-loading local images into kind cluster '${CLUSTER_NAME}' (tag: ${KIND_LOAD_TAG})…"
+  for svc in api-gateway workflow-compiler engine-adapter task-broker \
+             agent-registry event-bus memory-service langgraph-adapter; do
+    img="${KIND_LOAD_REGISTRY}/${svc}:${KIND_LOAD_TAG}"
+    if docker image inspect "${img}" >/dev/null 2>&1; then
+      log "  → loading ${img}"
+      kind load docker-image "${img}" --name "${CLUSTER_NAME}"
+    else
+      warn "  host image not found, skipping (will pull from registry): ${img}"
+    fi
+  done
+  log "image side-load complete."
+fi
 
 # ── 2. install cert-manager (CRDs + controllers) ─────────────────────────────────
 
