@@ -1,12 +1,21 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Running Zynax with raw `docker compose`
+# Running Zynax with raw `docker compose` — DEPRECATED
 
-Everything `make demo` does, as plain `docker compose` + `zynax` commands — no `make` required.
-Start with the simplest run; the rest is optional depth.
+> ## ⚠️ DEPRECATED — Docker Compose is no longer the sanctioned local runtime
+>
+> [**ADR-041**](adr/ADR-041-kind-native-unified-runtime.md) retires Docker Compose as the primary
+> local path. It cannot run the **Argo engine** (Argo is Kubernetes-native), so the
+> engine-portability wedge cannot be demonstrated on Compose, and it structurally diverges from
+> production. No new feature work targets Compose; it will be **removed** once the kind path reaches
+> parity.
+>
+> **Use the kind path instead:** the five-minute golden path in the root
+> [README "See it run"](../README.md#see-it-run--the-five-minute-golden-path), and the full
+> [Quick Start on kind](quickstart.md). This page is retained for reference only.
 
-> For the gentle, narrated walkthrough see [quickstart.md](quickstart.md). This page is the
-> no-`make` operator reference.
+The historical runbook below documents everything `make demo-compose` did, as plain `docker compose` +
+`zynax` commands — no `make` required.
 
 ---
 
