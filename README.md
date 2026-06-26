@@ -21,25 +21,71 @@ _The engine-portability layer for agentic automation._
 
 ---
 
-## See it run — one command
+## See it run — the five-minute golden path
+
+**Write your workflow once — run it on Temporal *or* Argo, on a local Kubernetes cluster
+that mirrors production.** That engine portability is the wedge: a Kubernetes-locked agent
+platform cannot move one workflow across engines. This path proves it on your laptop, with
+**zero secrets and no model** for the first success.
+
+**Prerequisites:** Docker + [kind](https://kind.sigs.k8s.io/) + `kubectl` + [Helm](https://helm.sh/),
+and a host with **~4 CPU / 8 GB RAM**. ([ADR-041](docs/adr/ADR-041-kind-native-unified-runtime.md)
+makes local Kubernetes the one runtime model — see [why](#why-kind) below.)
+
+### 1. Boot the cluster — one command
 
 ```bash
 make demo
 ```
 
-`make demo` boots the minimal stack with a zero-secret local-LLM ([Ollama](https://ollama.com)) overlay
-and runs the hero code-review workflow end-to-end — a real model reviews a git diff and prints its
-verdict, straight from the CLI. The only prerequisites are Docker and pulling the demo model once
-(`ollama pull qwen2.5-coder:3b`). Tear it down with `make demo-clean`.
+`make demo` creates a [kind](https://kind.sigs.k8s.io/) cluster, loads the images, installs the
+**production Helm charts**, waits for every Deployment to roll out, then runs the hero workflow with
+the in-cluster **`echo`** capability — **no Ollama, no model, no API key needed for first success**.
+When it finishes it prints a **Platform ready** banner with the gateway URL
+(`http://localhost:8080`). Lean laptop? `PROFILE=lite make demo`.
 
-> **Zero-dependency first win** — want a success before any model or secret? Run the
-> [`hello-world`](spec/workflows/examples/hello-world.yaml) workflow on the same kind cluster:
-> `zynax --api-url http://localhost:8080 apply spec/workflows/examples/hello-world.yaml` (the built-in
-> `echo` capability, no Ollama, no API key).
+### 2. Reach the gateway and run your first workflow
 
-> **Switch engines, same workflow** — the demo runs on Temporal by default; run the *same*
-> manifest on Argo with one flag: `ENGINE=argo make demo` (or `E2E_ENGINE=argo make demo`). That
-> portability — write once, run on Temporal **or** Argo, no rewrite — is the wedge ([ADR-041](docs/adr/), [#1370](https://github.com/zynax-io/zynax/issues/1370)).
+The api-gateway is auth-enabled, so fetch the bearer key the cluster provisioned, then apply the
+zero-dependency [`hello-world`](spec/workflows/examples/hello-world.yaml) workflow (the built-in
+`echo` capability — no model, no external secret):
+
+```bash
+export ZYNAX_API_KEY=$(kubectl -n zynax get secret zynax-gw-api-key -o jsonpath='{.data.api-key}' | base64 -d)
+zynax apply spec/workflows/examples/hello-world.yaml
+# run_id: wf-<hex>
+
+zynax status workflow wf-<hex>
+# WORKFLOW_STATUS_COMPLETED
+```
+
+That `WORKFLOW_STATUS_COMPLETED` is your first success — the engine dispatched the in-cluster `echo`
+capability and ran to a terminal state with zero secrets. Inspect the run with
+`zynax logs wf-<hex>`.
+
+The CLI defaults to `--api-url http://localhost:8080` (mapped from the kind NodePort `30080`). The
+NodePort can be reset by kube-proxy on repeat runs; if `localhost:8080` is flaky, port-forward to a
+**different** local port (the NodePort already holds `8080`) and target it with `--api-url`:
+
+```bash
+kubectl -n zynax port-forward svc/zynax-api-gateway 18080:8080 &
+zynax --api-url http://localhost:18080 apply spec/workflows/examples/hello-world.yaml
+```
+
+### 3. Switch engines — same workflow, one flag
+
+```bash
+ENGINE=argo make demo     # (or E2E_ENGINE=argo make demo)
+```
+
+The *same* `hello-world.yaml` runs unchanged on Argo instead of Temporal — write once, run on
+either engine, no rewrite. That is the wedge ([ADR-041](docs/adr/ADR-041-kind-native-unified-runtime.md),
+[#1370](https://github.com/zynax-io/zynax/issues/1370)). Tear it all down with `make kind-down`.
+
+> **Next:** a real model reviews a git diff (the code-review demo), scaling onto k3s / managed
+> Kubernetes, and observability are covered in the **[kind how-to](docs/quickstart.md)** — not
+> inlined here. <a id="why-kind"></a>**Why kind?** One runtime for local, CI, and prod, and it is
+> the only way to run Argo locally — see [ADR-041](docs/adr/ADR-041-kind-native-unified-runtime.md).
 
 <!-- asciinema cast — record locally with `make demo` and `asciinema rec docs/casts/make-demo.cast`.
      See docs/casts/README.md. Once recorded, replace the placeholder below with the upload embed. -->
@@ -335,50 +381,15 @@ Layer 1 YAML is never imported by Go services. Cross-service reads always go thr
 
 ## Quickstart
 
-> **Prefer raw `docker compose` (no `make`)?** See
-> [docs/running-with-docker-compose.md](docs/running-with-docker-compose.md) — three commands to a
-> result, then optional depth (full platform, observability).
+The five-minute golden path lives in **[See it run](#see-it-run--the-five-minute-golden-path)**
+above (`make demo` on kind → fetch key → `zynax apply hello-world` → result). The full kind how-to —
+the code-review model demo, scaling onto k3s / managed Kubernetes, and observability — is
+**[docs/quickstart.md](docs/quickstart.md)**.
 
-### Try it with Docker
-
-**Prerequisites:** Docker Desktop + the `zynax` CLI (see [Install](#install-the-zynax-cli) above).
-
-> **M5 status note:** `make run-local` starts all five platform services: api-gateway,
-> workflow-compiler, engine-adapter, task-broker, and agent-registry, plus Temporal and NATS.
-> Workflows submit, dispatch capabilities to registered agents, and produce state-transition logs.
-> To exercise end-to-end capability dispatch, register an adapter (e.g. http-adapter) with the
-> agent-registry before running `zynax apply`.
-
-```bash
-git clone https://github.com/zynax-io/zynax.git
-cd zynax
-
-# Start the full local stack (all 5 platform services + Temporal + NATS)
-make run-local
-
-# Apply an example workflow manifest
-export ZYNAX_API_URL=http://localhost:7080
-zynax apply spec/workflows/examples/code-review.yaml
-# run_id: wf-<hex>
-
-zynax status workflow wf-<hex>
-# status: Running   current_state: review
-
-zynax logs wf-<hex>
-# streams state-transition events (capability dispatch pending M5.C)
-
-# Stop the stack when done
-make stop-local
-```
-
-Port map while the stack is running:
-
-| Endpoint | URL |
-|----------|-----|
-| api-gateway HTTP | http://localhost:7080 |
-| Temporal Web UI | http://localhost:7088 |
-| Temporal gRPC | localhost:7233 |
-| NATS | localhost:7422 |
+> **Docker Compose is deprecated** as the local runtime ([ADR-041](docs/adr/ADR-041-kind-native-unified-runtime.md)):
+> it cannot run the Argo engine and structurally diverges from production. Use the kind path above.
+> The legacy Compose runbook is kept for reference only at
+> [docs/running-with-docker-compose.md](docs/running-with-docker-compose.md).
 
 ### Develop locally
 

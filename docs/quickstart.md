@@ -1,252 +1,164 @@
-# Quick Start
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 
-> **In a hurry?** Run `make demo` for the one-command path: it boots a zero-secret local-LLM
-> stack and runs the hero code-review workflow end-to-end. Prereq: `ollama pull qwen2.5-coder:3b`.
-> The steps below walk through the same flow manually.
->
-> **Without `make`?** [running-with-docker-compose.md](running-with-docker-compose.md) is the raw
-> `docker compose` runbook — three commands to a result, then optional depth.
+# Quick Start — Zynax on kind
 
-Get from a fresh clone to a **traced workflow run** in minutes. Everything runs in
-Docker — the only prerequisite is Docker Desktop (or Docker Engine + the Compose plugin).
+The single how-to for running Zynax locally on a [kind](https://kind.sigs.k8s.io/) cluster that
+mirrors production. The **five-minute golden path** (boot → first workflow → switch engines) lives
+in the root [README "See it run"](../README.md#see-it-run--the-five-minute-golden-path); this page
+goes one level deeper — the real-model code-review demo, the engine-portability switch, scaling
+beyond kind, and observability.
 
-By the end you will have:
-
-1. A zero-secret local-LLM stack running (the base stack + the Ollama overlay).
-2. The hero `code-review-ollama` workflow applied with `zynax apply`.
-3. The run watched live with `zynax logs --follow` and its review printed with `zynax result`.
-4. (Optional) The trace and logs for that run visible in the Uptrace UI.
-
-Every command shown below maps to a real `zynax` subcommand — see
-[Command reference](#command-reference) at the end for the full list and how each was
-verified against the CLI source. Prefer watching it run first? See the recorded
-walkthroughs in [docs/casts/](casts/).
+> **Docker Compose is deprecated** as the local runtime ([ADR-041](adr/ADR-041-kind-native-unified-runtime.md)):
+> it cannot run the Argo engine and structurally diverges from production. The legacy Compose runbook
+> is kept for reference only at [running-with-docker-compose.md](running-with-docker-compose.md).
 
 ---
 
-## 1. Clone and bootstrap
+## Prerequisites
+
+- **Docker** Engine / Docker Desktop.
+- **[kind](https://kind.sigs.k8s.io/)**, **`kubectl`**, and **[Helm](https://helm.sh/)** on your PATH.
+- A host with **~4 CPU / 8 GB RAM** (the resource floor — see [ADR-041](adr/ADR-041-kind-native-unified-runtime.md)).
+- The **`zynax` CLI** — `make install-cli` (builds → `~/bin/zynax`; ensure `~/bin` is on PATH), or a
+  release binary (see the root [README § zynax CLI](../README.md#zynax-cli--user-facing-binary)).
+
+No Go, Python, or `buf` is needed locally — `make demo` builds and loads images inside containers.
+
+---
+
+## 1. Boot the cluster
 
 ```bash
 git clone https://github.com/zynax-io/zynax.git
 cd zynax
-make bootstrap    # one-time: pulls ghcr.io/zynax-io/zynax/tools:latest from GHCR
+
+make demo            # create kind cluster → load images → install Helm umbrella → wait rollout
 ```
 
-`make bootstrap` is only needed once after cloning. Nothing else needs Go, Python, or
-`buf` installed locally — they all run inside containers.
+`make demo` runs the full lifecycle and prints a **Platform ready** banner with the gateway URL
+(`http://localhost:8080`) once every Deployment is Available. The banner is never a premature "go"
+signal — it is gated on `kubectl rollout status` for all services.
+
+Lean laptop? `PROFILE=lite make demo` swaps the durable Temporal trio for a single in-cluster dev
+Temporal and disables the event-bus / memory-service.
 
 ---
 
-## 2. Install the `zynax` CLI
+## 2. Reach the gateway
 
-The CLI talks to the api-gateway over HTTP REST. Build it from source (requires the
-Go toolchain pinned in [go.work](../go.work)) or grab a release binary:
+The api-gateway is auth-enabled. Fetch the bearer key the cluster provisioned:
 
 ```bash
-make install-cli                       # builds → ~/bin/zynax (ensure ~/bin is on PATH)
-# or download a pre-built binary — see docs/local-dev.md
+export ZYNAX_API_KEY=$(kubectl -n zynax get secret zynax-gw-api-key -o jsonpath='{.data.api-key}' | base64 -d)
 ```
 
-Confirm it runs:
+The CLI defaults to `--api-url http://localhost:8080` (the kind NodePort `30080` mapped to host
+`8080`). The NodePort can be reset by kube-proxy on repeat runs; if `localhost:8080` is flaky,
+port-forward to a **different** local port (the NodePort already holds `8080`) and target it with
+`--api-url`:
 
 ```bash
-zynax --version
+kubectl -n zynax port-forward svc/zynax-api-gateway 18080:8080 &
+# then add --api-url http://localhost:18080 to the zynax commands below
 ```
 
 ---
 
-## 3. Start the stack with the zero-secret Ollama overlay
+## 3. First success — the zero-dependency workflow
 
-The fastest runnable path needs **no API keys and no cloud LLM**. A small Compose
-overlay ([docker-compose.ollama.yml](../infra/docker-compose/docker-compose.ollama.yml))
-adds an `ollama` service inside the network and repoints the llm-adapter at it via
-[ollama/llm-adapter.config.yaml](../infra/docker-compose/ollama/llm-adapter.config.yaml) —
-which registers a `codereview` capability against a local model. Pull the demo model
-once on the host (the overlay reuses host-pulled models read-only — nothing is
-re-downloaded), then layer the overlay on the base stack:
+[`hello-world.yaml`](../spec/workflows/examples/hello-world.yaml) dispatches the in-cluster `echo`
+capability and completes — **no model, no secret**. Validate it locally, then submit:
 
 ```bash
-ollama pull qwen2.5-coder:3b               # default model (see override note below)
+zynax validate spec/workflows/examples/hello-world.yaml   # static + data-flow checks (no gateway)
+zynax apply spec/workflows/examples/hello-world.yaml       # submit
+# run_id: wf-<hex>
 
-docker compose \
-  -f infra/docker-compose/docker-compose.yml \
-  -f infra/docker-compose/docker-compose.ollama.yml \
-  up -d --wait
+zynax status workflow wf-<hex>
+# WORKFLOW_STATUS_COMPLETED
+
+zynax logs wf-<hex>                                        # the lifecycle events for the run
 ```
 
-This starts the api-gateway, engine-adapter, workflow-compiler, Temporal, NATS, the
-`ollama` service, and the llm-adapter — all locally, with no secrets.
+`WORKFLOW_STATUS_COMPLETED` is your first success: the engine dispatched the in-cluster `echo`
+capability and ran to a terminal state with zero secrets.
 
-**Model / host-path overrides** (both optional):
-
-- The model lives in one line of `ollama/llm-adapter.config.yaml`
-  (`model: qwen2.5-coder:3b`). To switch, edit that line (e.g. `model: llama3.2:3b`) and
-  pull the new model on the host.
-- The overlay bind-mounts the host models dir read-only, defaulting to a systemd
-  install path. Override it for other setups:
-
-  ```bash
-  OLLAMA_HOST_MODELS=$HOME/.ollama/models docker compose \
-    -f infra/docker-compose/docker-compose.yml \
-    -f infra/docker-compose/docker-compose.ollama.yml up -d --wait
-  ```
-
-> **Cloud LLM instead?** Drop the `-f docker-compose.ollama.yml` overlay and run plain
-> `make run-local`; the baked llm-adapter config then expects an OpenAI key.
-
-When it finishes, the api-gateway is reachable on port `7080`. The CLI defaults to
-`http://localhost:8080`, so point it at the local gateway:
-
-```bash
-export ZYNAX_API_URL=http://localhost:7080
-```
-
-Verify the stack is healthy — `/healthz` returns a small JSON status body:
-
-```bash
-curl http://localhost:7080/healthz
-```
-
-Useful endpoints:
-
-| URL | What |
-|-----|------|
-| `http://localhost:7080` | api-gateway HTTP REST (`ZYNAX_API_URL`) |
-| `http://localhost:7088` | Temporal Web UI — inspect workflow executions |
-
-See [infra/docker-compose/README.md](../infra/docker-compose/README.md) for the full
-port map and startup order.
+> **No need to shuttle the id around.** `apply` records your most recent run locally, so a bare
+> `zynax status` / `zynax logs` (no id) targets it. An explicit id always overrides.
 
 ---
 
-## 4. (Optional) Start the observability stack
+## 4. The real-model code-review demo (optional)
 
-To see traces and logs in a UI, bring up the Uptrace overlay. Telemetry is **off by
-default** and env-gated, so this step is optional — the workflow run works without it.
+To run a workflow where a real model reviews a git diff, you need a model available to the
+llm-adapter. Pull it once on the host so the in-cluster adapter can reach it:
 
 ```bash
-cp infra/docker-compose/observability/.env.observability.example \
-   infra/docker-compose/observability/.env.observability
-# edit the file — set a login + token (there are no committed defaults)
-
-make obs-up    # Uptrace UI → http://localhost:7020
+ollama pull qwen2.5-coder:3b           # default model; see infra/docker-compose/ollama/llm-adapter.config.yaml
 ```
 
-Then point the platform services at the collector and restart the stack so they export
-telemetry:
+Then apply [`code-review-ollama.yaml`](../spec/workflows/examples/code-review-ollama.yaml) — it runs
+to completion from the CLI alone (its initial state dispatches the `codereview` capability over a
+real git diff, then transitions to a terminal state):
 
 ```bash
-export ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:7017
-make run-local
-```
-
-The Uptrace login UI is at `http://localhost:7020` (use the login/token you set in the
-`.env.observability` file). For the full telemetry guide see
-[docs/observability/](observability/).
-
----
-
-## 5. Apply the runnable workflow
-
-The hero example is
-[code-review-ollama.yaml](../spec/workflows/examples/code-review-ollama.yaml) — it runs
-to completion from the CLI alone: its initial state dispatches the `codereview`
-capability (served by the llm-adapter pointed at your local Ollama model) over a real git
-diff, then transitions to a terminal state. Validate it, then submit:
-
-```bash
-zynax validate spec/workflows/examples/code-review-ollama.yaml      # static + data-flow checks
-zynax apply --dry-run spec/workflows/examples/code-review-ollama.yaml   # compile without submitting
-zynax apply spec/workflows/examples/code-review-ollama.yaml         # submit
+zynax apply spec/workflows/examples/code-review-ollama.yaml
+zynax logs <run-id> --follow            # stream every state + step output as it completes
+zynax result <run-id>                   # print just the model's review text
 ```
 
 > Other examples under [spec/workflows/examples/](../spec/workflows/examples/) (e.g.
-> `code-review.yaml`) are **reference specs** that wait on external GitHub/review events —
-> use them to learn the data-flow patterns, but they do not run to completion from the CLI
-> alone.
-
-`apply` prints the run identifier:
-
-```
-run_id: <run-id>
-```
-
-Copy that `run_id` — the next step uses it.
-
-> **No need to shuttle the id around.** `apply` records your most recent run
-> locally, so a bare `zynax logs` / `zynax result` (no id) targets it. An
-> explicit id always overrides; delete `<user-config-dir>/zynax/last-run` to
-> reset.
-
-> **Starting from scratch?** `zynax init workflow my-pipeline -o my-pipeline.yaml`
-> scaffolds a valid, versioned manifest from a template. Run `zynax validate
-> my-pipeline.yaml` before applying.
+> `code-review.yaml`) are **reference specs** that wait on external GitHub/review events — use them to
+> learn the data-flow patterns, but they do not run to completion from the CLI alone. Drive one
+> forward with `zynax events publish <run-id> review.approved --data reviewer=alice`.
 
 ---
 
-## 6. Watch the run
+## 5. Switch engines — the portability wedge
 
-Check the current status (exits `0` if terminal, `2` if still running):
-
-```bash
-zynax status workflow <run-id>
-```
-
-Tail the run live — the command follows lifecycle events (state transitions and
-capability events) and exits once the workflow reaches a terminal state (`-f` is the
-short flag; `--format json` emits one JSON object per event):
+The same manifest runs unchanged on Temporal **or** Argo — selection flows through the cluster, never
+the workflow file:
 
 ```bash
-zynax logs <run-id> --follow
+ENGINE=argo make demo     # (or E2E_ENGINE=argo make demo)
 ```
 
-Print just the capability output — the model's review text — straight from the CLI:
-
-```bash
-zynax result <run-id>
-```
-
-For a full snapshot of a run (id, workflow, status, current state, version):
-
-```bash
-zynax get workflow <run-id>
-```
-
-For event-driven workflows (the reference `code-review.yaml` waits on review events),
-inject an event from the CLI to drive the run forward:
-
-```bash
-zynax events publish <run-id> review.approved --data reviewer=alice
-```
+This is the wedge: write once, run on whichever engine your org already operates. Argo is only
+runnable locally because the runtime is Kubernetes ([ADR-041](adr/ADR-041-kind-native-unified-runtime.md),
+[#1370](https://github.com/zynax-io/zynax/issues/1370)).
 
 ---
 
-## 7. See the trace and logs (if observability is running)
+## 6. Scaling beyond kind
 
-Open the Uptrace UI at `http://localhost:7020`, log in, and find the trace for your run.
-Traces, metrics, logs, and APM are correlated by `trace_id`/`span_id`, so you can jump
-from a span to the matching log records for the same run.
+kind, k3s / k3d, and managed Kubernetes are the **same runtime model** at larger scale — the Helm
+umbrella `make demo` installs is the production chart. Point `kubectl` at any cluster and
+`helm upgrade --install` the same umbrella. See [docs/local-dev.md](local-dev.md) and the Helm chart
+README under `infra/helm/` for cluster targeting, values overrides, and multi-namespace deploys.
+
+---
+
+## 7. Observability (optional)
+
+Telemetry is **off by default** and env-gated. To see traces, metrics, logs, and APM correlated by
+`trace_id`/`span_id` in the Uptrace UI, follow [docs/observability/](observability/) (`opentelemetry.md`
+and `uptrace.md`) for the in-cluster OTel collector + Uptrace wiring. The golden path above works
+without it.
 
 ---
 
 ## 8. Tear down
 
 ```bash
-docker compose \
-  -f infra/docker-compose/docker-compose.yml \
-  -f infra/docker-compose/docker-compose.ollama.yml \
-  down --remove-orphans      # or: make demo-clean
-
-make obs-down                # stop the observability stack (if started)
+make kind-down       # delete the kind cluster (wraps scripts/e2e/cluster-down.sh)
 ```
 
 ---
 
 ## Command reference
 
-Every command this guide shows is a real `zynax` subcommand. Verify the surface yourself
-with `zynax --help` (and `zynax <cmd> --help`); the source of record is
-[cmd/zynax/cmd/](../cmd/zynax/cmd/).
+Every command this guide shows is a real `zynax` subcommand. Verify the surface yourself with
+`zynax --help` (and `zynax <cmd> --help`); the source of record is [cmd/zynax/cmd/](../cmd/zynax/cmd/).
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
@@ -255,19 +167,24 @@ with `zynax --help` (and `zynax <cmd> --help`); the source of record is
 | `zynax apply <file>` | Submit a manifest to the gateway | `--dry-run`, `--engine` |
 | `zynax status workflow <run-id>` | Status (exit 0 terminal, 2 running) | — |
 | `zynax logs <run-id>` | Stream lifecycle events | `--follow/-f`, `--format text\|json` |
-| `zynax result <run-id>` | Print the capability output (review text) | — |
+| `zynax result <run-id>` | Print the capability output | — |
 | `zynax get workflow <run-id>` | Full run snapshot | — |
 | `zynax delete workflow <run-id>` | Cancel/remove a run | — |
 | `zynax events publish <run-id> <event-type>` | Inject an event into a running workflow | `--data key=value` (repeatable) |
+
+Global flags (any subcommand): `--api-url` (`$ZYNAX_API_URL`, default `http://localhost:8080`),
+`--api-key` (`$ZYNAX_API_KEY`, the gateway bearer token), `--insecure`.
 
 ---
 
 ## What next
 
 - **[Developer Guide](developer-guide.md)** — the Make targets and daily workflow.
-- **[Local Development Guide](local-dev.md)** — CLI install options and persona paths.
-- **[Human-validation guide](contributing/human-validation-guide.md)** — how to validate a
-  change actually runs (the standard the demo path is checked against).
+- **[Local Development Guide](local-dev.md)** — CLI install options and cluster targeting.
+- **[Human-validation guide](contributing/human-validation-guide.md)** — how to validate a change
+  actually runs (the standard the demo path is checked against).
 - **[docs/casts/](casts/)** — recorded terminal walkthroughs of these flows.
-- **[spec/workflows/examples/](../spec/workflows/examples/)** — the reference workflows and
-  their data-flow patterns.
+- **[spec/workflows/examples/](../spec/workflows/examples/)** — the reference workflows and their
+  data-flow patterns.
+</content>
+</invoke>
