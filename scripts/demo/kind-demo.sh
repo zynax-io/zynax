@@ -54,6 +54,14 @@ WORKFLOW_FILE="${WORKFLOW_FILE:-${REPO_ROOT}/spec/workflows/examples/e2e-demo.ya
 # prod-mirroring) or "lite" (lean laptop — one in-memory dev Temporal, no
 # event-bus/NATS/memory-service). The hero echo workflow runs on both.
 PROFILE="${PROFILE:-full}"
+# Workflow engine passed through to cluster-up.sh (#1500, the engine-portability
+# wedge — #1370 / ADR-041): "temporal" (default) or "argo". argo additionally
+# installs the Argo Workflows control plane and deploys the umbrella with
+# values-e2e-argo.yaml (cluster-up.sh, ADR-015). The SAME hero workflow runs
+# unchanged on either — selection flows through umbrella values, never the
+# manifest. Forwarded EXPLICITLY to cluster-up.sh below (no silent env
+# inheritance) so `E2E_ENGINE=argo make demo` is a robust, documented contract.
+E2E_ENGINE="${E2E_ENGINE:-temporal}"
 # Default reference model — read from the single source (the llm-adapter config),
 # so the pre-flight and the runtime config never drift. Override with DEMO_MODEL.
 MODEL_CONFIG="${REPO_ROOT}/infra/docker-compose/ollama/llm-adapter.config.yaml"
@@ -151,11 +159,12 @@ fi
 # KIND_LOAD_IMAGES), installs cert-manager + the zynax-umbrella chart, and BLOCKS
 # on `kubectl rollout status` for every Zynax Deployment. Its success is the gate
 # for the "Platform ready" banner below — we never print it if this returns ≠ 0.
-log "bringing up the kind cluster + Zynax umbrella (wraps scripts/e2e/cluster-up.sh)…"
+log "bringing up the kind cluster + Zynax umbrella (engine: ${E2E_ENGINE}; wraps scripts/e2e/cluster-up.sh)…"
 KIND_LOAD_IMAGES="${KIND_LOAD_IMAGES:-1}" \
 CLUSTER_NAME="${CLUSTER_NAME}" \
 NAMESPACE="${NAMESPACE}" \
 PROFILE="${PROFILE}" \
+E2E_ENGINE="${E2E_ENGINE}" \
   "${REPO_ROOT}/scripts/e2e/cluster-up.sh"
 
 # Defence-in-depth: re-assert every Zynax Deployment is actually Available before
@@ -179,6 +188,15 @@ log "all Zynax Deployments are Available."
 
 # ── 3. run the hero workflow against the gateway (localhost:8080) ────────────────
 
+# The opposite engine, for the wedge-switch hint in the banner below: the SAME
+# workflow runs unchanged on the other engine — just re-run with E2E_ENGINE flipped
+# (the engine-portability wedge, #1500 / #1370). Always defined (even with SKIP_RUN).
+if [[ "${E2E_ENGINE}" == "argo" ]]; then
+  OTHER_ENGINE="temporal"
+else
+  OTHER_ENGINE="argo"
+fi
+
 RAN_RESULT=""
 if [[ -z "${SKIP_RUN:-}" ]]; then
   require curl
@@ -195,7 +213,7 @@ if [[ -z "${SKIP_RUN:-}" ]]; then
     port_forward "svc/zynax-api-gateway" "${GW_LOCAL_PORT}" 8080
     API_GW_URL="http://localhost:${GW_LOCAL_PORT}"
   fi
-  log "running the hero workflow (${WORKFLOW_FILE##*/}) via api-gateway at ${API_GW_URL}…"
+  log "running the hero workflow (${WORKFLOW_FILE##*/}) on the '${E2E_ENGINE}' engine via api-gateway at ${API_GW_URL}…"
   APPLY_RESPONSE="$(api_curl POST /api/v1/apply \
     -H "Content-Type: application/x-yaml" \
     --data-binary "@${WORKFLOW_FILE}" 2>&1)" \
@@ -219,7 +237,7 @@ if [[ -z "${SKIP_RUN:-}" ]]; then
   done
   [[ "${RAN_RESULT}" == "succeeded" ]] \
     || die "hero workflow did not reach success within ${POLL_TIMEOUT}s (last status: '${status:-unknown}')"
-  log "  ✓ hero workflow reached terminal success ('${status}', run_id=${RUN_ID})."
+  log "  ✓ hero workflow reached terminal success on the '${E2E_ENGINE}' engine ('${status}', run_id=${RUN_ID})."
 fi
 
 # ── 4. "Platform ready" banner — ONLY reached after rollout + (optional) run ─────
@@ -242,7 +260,7 @@ echo ""
 echo "      zynax --api-url http://localhost:8080 apply spec/workflows/examples/e2e-demo.yaml"
 echo ""
 echo "  More:"
-echo "    • Engine-portability:  E2E_ENGINE=argo make demo   (same workflow, Argo engine)"
+echo "    • Engine-portability:  E2E_ENGINE=${OTHER_ENGINE} make demo   (same workflow, ${OTHER_ENGINE} engine — the wedge)"
 echo "    • Inspect a run:        zynax --api-url http://localhost:8080 logs <run-id> --follow"
 echo "    • Tear it all down:     make kind-down"
 echo ""

@@ -37,6 +37,10 @@ verdict, straight from the CLI. The only prerequisites are Docker and pulling th
 > `zynax --api-url http://localhost:8080 apply spec/workflows/examples/hello-world.yaml` (the built-in
 > `echo` capability, no Ollama, no API key).
 
+> **Switch engines, same workflow** — the demo runs on Temporal by default; run the *same*
+> manifest on Argo with one flag: `ENGINE=argo make demo` (or `E2E_ENGINE=argo make demo`). That
+> portability — write once, run on Temporal **or** Argo, no rewrite — is the wedge ([ADR-041](docs/adr/), [#1370](https://github.com/zynax-io/zynax/issues/1370)).
+
 <!-- asciinema cast — record locally with `make demo` and `asciinema rec docs/casts/make-demo.cast`.
      See docs/casts/README.md. Once recorded, replace the placeholder below with the upload embed. -->
 [![asciicast — make demo](https://asciinema.org/a/PLACEHOLDER.svg)](https://asciinema.org/a/PLACEHOLDER)
