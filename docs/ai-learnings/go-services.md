@@ -680,3 +680,17 @@ Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicaliza
 ### Failed approaches
 - A smoke step that greps the echoed literal text out of `/logs` never matches on this stack (payload absent from the history stream) — assert the terminal completion event instead, then re-run the smoke live to confirm. (domain)
 - Foreground `sleep 1` after pkill is sandbox-blocked (exit 144); verify process teardown with `pgrep -af` instead. (structural-workaround)
+
+## Session — 2026-06-26 (M7.K closeout loop — #1517 CLI auth, #1463 idempotent register)
+
+### #1517 (fix(cli): bearer auth)
+- Route all request builders through ONE private `newRequest` choke point that sets `Authorization: Bearer <key>` when a key is configured — guarantees the header on every verb and lets each call site drop its `build request: %w` wrap. (domain)
+- The gateway `requireBearer` (`services/api-gateway/internal/api/handler.go`) gates ONLY mutating routes (POST /apply, POST /events, DELETE). Read-only GETs are intentionally unauthenticated → a GET returning 200 without a key is EXPECTED, not a bug. The canonical 401 proof is `apply`/`delete`/`events` without a key. (domain)
+- `zynax result <hello-world-run>` → "no result payload" is a property of the echo capability (no `completion` field), NOT an auth failure — use `status`/`get` for a COMPLETED proof on hello-world. `PROFILE=lite make kind-up` provisions `secret/zynax-gw-api-key`, so the lean stack is already auth-enabled. (domain)
+
+### #1463 (fix(agent-registry): idempotent RegisterAgent)
+- A "make X idempotent" registry fix belongs in the DOMAIN layer, not the repo: the Postgres repo already upserted but the in-memory repo (lite profile) did not — fixing `Register` in domain made re-registration succeed regardless of backend (proven: registry logged zero errors with the in-memory repo). (domain)
+- Run the FULL module test suite after a consequence-cleanup, not just the named files: removing `ErrAgentAlreadyExists` broke a THIRD test (`internal/api/handler_test.go`) beyond the two expected. (domain)
+- BDD for a service lives in `services/<svc>/tests/` (in-module bufconn), NOT `protos/tests/<svc>/` — grep for the assertion string (`ALREADY_EXISTS`), don't trust a named path. (structural-workaround)
+- To prove a service-IMAGE fix in kind, build with the EXACT side-load tag `ghcr.io/zynax-io/zynax/<svc>:main` (`docker build -f infra/docker/Dockerfile.service --build-arg SVC=<svc> -t <tag> <root>`); `make build-svc`'s `:local` tag is skipped by the `KIND_LOAD_TAG=main` side-load. The hero `run_id` is a CONTENT HASH — after a failed run, change the workflow body to force a fresh run_id. For a clean adapter re-register without rollout deregister races, `scale --replicas=0` + `wait --for=delete` + `scale --replicas=1` (not `rollout restart`, which overlaps pods). (structural-workaround)
+- golangci-lint needs cwd INSIDE the module; the sandbox resets cwd between calls and forbids `cd &&` — use a one-line scratchpad script that `cd`s then runs. Confirm a gateway service name with `kubectl get svc` (`zynax-api-gateway`), never the doubled name in helm NOTES. (structural-workaround)
