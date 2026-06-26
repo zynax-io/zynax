@@ -141,6 +141,14 @@ CLUSTER_DOWN  := scripts/e2e/cluster-down.sh
 # or `lite` (lean laptop — 1 in-memory dev Temporal, no event-bus/NATS/memory-
 # service). Usage: `make demo PROFILE=lite` / `make kind-up PROFILE=lite`.
 PROFILE      ?= full
+# Workflow engine the kind demo deploys (#1500, the engine-portability wedge —
+# #1370 / ADR-041): `temporal` (default) or `argo`. The SAME workflow manifest
+# runs unchanged on either — selection flows through umbrella values only
+# (values-e2e-argo.yaml), never the workflow (ADR-015). `ENGINE` is the clean
+# alias; the underlying `E2E_ENGINE` env var (read by cluster-up.sh) still works
+# as an override, so `E2E_ENGINE=argo make demo` and `make demo ENGINE=argo` are
+# equivalent. Usage: `make demo ENGINE=argo` / `make kind-up ENGINE=argo`.
+ENGINE       ?= $(or $(E2E_ENGINE),temporal)
 DEMO_WORKFLOW ?= spec/workflows/examples/code-review-ollama.yaml
 ZYNAX        ?= zynax
 # Optional: run a declarative scenario manifest set instead of the single hero
@@ -169,13 +177,13 @@ DEMO_MODEL   := $(shell awk '/^[[:space:]]*model:/{print $$2; exit}' infra/docke
 # standalone Temporal UI.
 DEMO_SERVICES := api-gateway llm-adapter
 
-demo: check-docker ## ★ One command (kind): create cluster → load images → install umbrella → wait rollout → "Platform ready" + run hero workflow (PROFILE=lite for the lean stack)
-	@echo "🧭 Zynax demo on kind (ADR-041, profile: $(PROFILE)) — one command, prod-mirroring charts."
-	PROFILE=$(PROFILE) $(KIND_DEMO)
+demo: check-docker ## ★ One command (kind): create cluster → load images → install umbrella → wait rollout → "Platform ready" + run hero workflow (PROFILE=lite for the lean stack; ENGINE=argo for the Argo wedge)
+	@echo "🧭 Zynax demo on kind (ADR-041, profile: $(PROFILE), engine: $(ENGINE)) — one command, prod-mirroring charts."
+	PROFILE=$(PROFILE) E2E_ENGINE=$(ENGINE) $(KIND_DEMO)
 
-kind-up: check-docker ## Create the kind cluster + install the zynax-umbrella chart (wraps scripts/e2e/cluster-up.sh, loads local images; PROFILE=lite for the lean stack)
-	@echo "☸️  Bringing up the kind cluster + Zynax umbrella (profile: $(PROFILE), loads local images)..."
-	KIND_LOAD_IMAGES=1 PROFILE=$(PROFILE) $(CLUSTER_UP)
+kind-up: check-docker ## Create the kind cluster + install the zynax-umbrella chart (wraps scripts/e2e/cluster-up.sh, loads local images; PROFILE=lite for the lean stack; ENGINE=argo for Argo)
+	@echo "☸️  Bringing up the kind cluster + Zynax umbrella (profile: $(PROFILE), engine: $(ENGINE), loads local images)..."
+	KIND_LOAD_IMAGES=1 PROFILE=$(PROFILE) E2E_ENGINE=$(ENGINE) $(CLUSTER_UP)
 
 kind-down: ## Tear down the kind cluster (wraps scripts/e2e/cluster-down.sh)
 	@echo "🧹 Tearing down the kind cluster..."
