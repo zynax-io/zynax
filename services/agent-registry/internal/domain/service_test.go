@@ -157,13 +157,34 @@ func TestRegister_TooManyCapabilities(t *testing.T) {
 	}
 }
 
-func TestRegister_AlreadyExists(t *testing.T) {
+// TestRegister_IsIdempotent covers issue #1463: re-registering an already-REGISTERED
+// agent must succeed (not error), upsert the endpoint/capabilities, and preserve the
+// original RegisteredAt so a restarted adapter pod re-registers without crash-looping.
+func TestRegister_IsIdempotent(t *testing.T) {
 	svc := domain.NewAgentRegistryService(newFakeRepo())
-	seed(t, svc, validAgent("dup-01"))
+	first := seed(t, svc, validAgent("dup-01"))
 
-	_, err := svc.Register(context.Background(), validAgent("dup-01"))
-	if !errors.Is(err, domain.ErrAgentAlreadyExists) {
-		t.Errorf("err = %v, want ErrAgentAlreadyExists", err)
+	updated := validAgent("dup-01", "summarize", "translate")
+	updated.Endpoint = "new-host:9100"
+
+	second, err := svc.Register(context.Background(), updated)
+	if err != nil {
+		t.Fatalf("re-Register: %v", err)
+	}
+	if second.Status != domain.AgentStatusRegistered {
+		t.Errorf("status = %s, want REGISTERED", second.Status)
+	}
+	if second.Endpoint != "new-host:9100" {
+		t.Errorf("endpoint = %q, want updated endpoint", second.Endpoint)
+	}
+	if len(second.Capabilities) != 2 {
+		t.Errorf("capabilities = %d, want 2 (updated set)", len(second.Capabilities))
+	}
+	if !second.RegisteredAt.Equal(first.RegisteredAt) {
+		t.Errorf("RegisteredAt = %v, want preserved %v", second.RegisteredAt, first.RegisteredAt)
+	}
+	if !second.UpdatedAt.After(first.UpdatedAt) && !second.UpdatedAt.Equal(first.UpdatedAt) {
+		t.Errorf("UpdatedAt = %v, want >= %v", second.UpdatedAt, first.UpdatedAt)
 	}
 }
 

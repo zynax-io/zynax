@@ -29,13 +29,15 @@ Feature: Agent Registration
     When the agent is registered
     Then the metadata is persisted and retrievable via GetAgent
 
-  # ─── Validation failures ─────────────────────────────────────────────────
+  # ─── Idempotent re-registration (issue #1463) ────────────────────────────
 
-  Scenario: Reject duplicate agent_id
+  Scenario: Re-registering an existing agent_id is idempotent
     Given an agent with id "existing-agent-01" is already registered
     When a new agent registration is attempted with id "existing-agent-01"
-    Then the response status is ALREADY_EXISTS
-    And the error message contains "existing-agent-01"
+    Then the response status is OK (not NOT_FOUND)
+    And the agent_id matches the requested id "existing-agent-01"
+
+  # ─── Validation failures ─────────────────────────────────────────────────
 
   Scenario: Reject agent with no capabilities
     Given an agent spec with id "empty-agent" and capabilities []
