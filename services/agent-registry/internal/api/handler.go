@@ -151,9 +151,6 @@ func grpcErr(err error) error {
 	if errors.Is(err, domain.ErrAgentNotFound) {
 		return status.Errorf(codes.NotFound, "%v", err)
 	}
-	if errors.Is(err, domain.ErrAgentAlreadyExists) {
-		return status.Errorf(codes.AlreadyExists, "%v", err)
-	}
 	if errors.Is(err, domain.ErrInvalidArgument) {
 		return status.Errorf(codes.InvalidArgument, "%v", err)
 	}

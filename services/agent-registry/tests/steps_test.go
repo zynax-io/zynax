@@ -187,13 +187,6 @@ func TestFeatures(t *testing.T) {
 			})
 
 			// ── Error assertions ──────────────────────────────────────────────
-			sc.Step(`^the response status is ALREADY_EXISTS$`, func(ctx context.Context) (context.Context, error) {
-				st, _ := status.FromError(env.lastErr)
-				if st.Code() != codes.AlreadyExists {
-					return ctx, fmt.Errorf("expected ALREADY_EXISTS, got %w", env.lastErr)
-				}
-				return ctx, nil
-			})
 			sc.Step(`^the response status is INVALID_ARGUMENT$`, func(ctx context.Context) (context.Context, error) {
 				st, _ := status.FromError(env.lastErr)
 				if st.Code() != codes.InvalidArgument {

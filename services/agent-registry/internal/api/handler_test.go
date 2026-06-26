@@ -78,7 +78,10 @@ func TestRegisterAgent_HappyPath(t *testing.T) {
 	}
 }
 
-func TestRegisterAgent_AlreadyExists(t *testing.T) {
+// TestRegisterAgent_IsIdempotent covers issue #1463: a restarted capability adapter
+// pod re-registers the same agent_id; this must return OK (not ALREADY_EXISTS) so the
+// pod does not crash-loop. The latest endpoint is upserted.
+func TestRegisterAgent_IsIdempotent(t *testing.T) {
 	client := newTestClient(t)
 
 	req := &zynaxv1.RegisterAgentRequest{Agent: validAgentDef("dup-01", "summarize")}
@@ -86,9 +89,23 @@ func TestRegisterAgent_AlreadyExists(t *testing.T) {
 		t.Fatalf("first RegisterAgent: %v", err)
 	}
 
-	_, err := client.RegisterAgent(context.Background(), req)
-	if code := status.Code(err); code != codes.AlreadyExists {
-		t.Errorf("want AlreadyExists, got %v", code)
+	// Simulate the adapter pod restarting and re-registering with a fresh endpoint.
+	updated := validAgentDef("dup-01", "summarize")
+	updated.Endpoint = "new-host:9100"
+	resp, err := client.RegisterAgent(context.Background(), &zynaxv1.RegisterAgentRequest{Agent: updated})
+	if err != nil {
+		t.Fatalf("re-RegisterAgent: want OK, got %v", err)
+	}
+	if resp.AgentId != "dup-01" {
+		t.Errorf("agent_id = %q, want %q", resp.AgentId, "dup-01")
+	}
+
+	def, err := client.GetAgent(context.Background(), &zynaxv1.GetAgentRequest{AgentId: "dup-01"})
+	if err != nil {
+		t.Fatalf("GetAgent: %v", err)
+	}
+	if def.Endpoint != "new-host:9100" {
+		t.Errorf("endpoint = %q, want upserted endpoint", def.Endpoint)
 	}
 }
 

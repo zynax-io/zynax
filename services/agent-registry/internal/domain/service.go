@@ -27,23 +27,27 @@ func NewAgentRegistryService(repo AgentRepository) *AgentRegistryService {
 	return &AgentRegistryService{repo: repo}
 }
 
-// Register validates and persists a new agent.
-// Returns ErrAgentAlreadyExists if a REGISTERED agent with the same ID already exists.
+// Register validates and persists an agent. Registration is idempotent on agent ID:
+// re-registering an existing agent (regardless of its current status) succeeds and
+// upserts the latest endpoint, capabilities, and metadata, preserving the original
+// RegisteredAt timestamp. This lets a restarted capability adapter pod re-register
+// cleanly instead of crash-looping on a non-existent conflict (issue #1463).
 // Returns ErrInvalidArgument if required fields are missing or invalid.
 func (s *AgentRegistryService) Register(ctx context.Context, agent Agent) (Agent, error) {
 	if err := validateAgent(agent); err != nil {
 		return Agent{}, err
 	}
 
-	existing, err := s.repo.FindByID(ctx, agent.ID)
-	if err == nil && existing.Status == AgentStatusRegistered {
-		return Agent{}, fmt.Errorf("%w: %q", ErrAgentAlreadyExists, agent.ID)
-	}
-
 	now := time.Now()
 	agent.Status = AgentStatusRegistered
-	agent.RegisteredAt = now
 	agent.UpdatedAt = now
+	// Preserve the original registration time on re-register; the durable repo
+	// upserts (ON CONFLICT DO UPDATE) so the record's identity stays stable.
+	if existing, err := s.repo.FindByID(ctx, agent.ID); err == nil {
+		agent.RegisteredAt = existing.RegisteredAt
+	} else {
+		agent.RegisteredAt = now
+	}
 
 	if err := s.repo.Save(ctx, agent); err != nil {
 		return Agent{}, fmt.Errorf("agent-registry: save: %w", err)
