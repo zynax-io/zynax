@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# agentdef — the LOGICAL AgentDef manifest, held in a ConfigMap and POSTed to the
+# api-gateway by the apply-Job (apply-job.yaml). This is the GitOps-declarative
+# capability contract: it declares that an agent named `llm-adapter` serves BOTH
+# the `codereview` and `summarize` capabilities at the routable Service address
+# `llm-adapter:50070`.
+#
+# Mirrors spec/scenarios/code-review/agent.yaml but adds the `summarize`
+# capability the rank workflow needs.
+#
+# Two registration paths converge on agent_id `llm-adapter`, which the
+# agent-registry upserts idempotently (#1463/#1523):
+#   1. The llm-adapter pod self-registers on startup with both capabilities +
+#      their JSON Schemas and advertise_endpoint llm-adapter:50070.
+#   2. This manifest, applied via the gateway, declares the same agent + caps +
+#      the same endpoint.
+# Because both carry the SAME endpoint (llm-adapter:50070), the upsert is
+# order-independent: the task-broker always dials a routable address. The
+# gateway's AgentDef path only forwards name+endpoint+capability-names to the
+# registry (input validation lives in the adapter), so dropping the schemas here
+# is harmless for dispatch.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: code-review-rank-agentdef
+  labels:
+    app.kubernetes.io/name: code-review-rank
+    app.kubernetes.io/part-of: code-review-rank
+data:
+  agentdef.yaml: |
+    # SPDX-License-Identifier: Apache-2.0
+    apiVersion: zynax.io/v1alpha1
+    kind: AgentDef
+
+    metadata:
+      # agent_id the registry keys on — matches the llm-adapter pod's self-id so
+      # the two registration paths upsert the same record (same endpoint below).
+      name: llm-adapter
+      namespace: zynax
+      labels:
+        team: platform
+        agent.zynax.io/provider: ollama
+
+    spec:
+      # Routable address the task-broker dials — the in-cluster Service name.
+      endpoint: llm-adapter:50070
+      capabilities:
+        - name: codereview
+          description: >
+            Review a code diff via a local Ollama-backed LLM and return concrete,
+            actionable findings as a single completion string.
+          input_schema:
+            type: object
+            required: [prompt]
+            properties:
+              prompt:
+                type: string
+                description: The full review prompt, including the diff to review.
+                minLength: 1
+            additionalProperties: false
+          output_schema:
+            type: object
+            properties:
+              completion:
+                type: string
+                description: The model's review text.
+          timeout_seconds: 300
+          max_retries: 1
+        - name: summarize
+          description: >
+            Summarize a code review and rank the issues it contains by importance
+            (severity), returning a single structured completion string.
+          input_schema:
+            type: object
+            required: [prompt]
+            properties:
+              prompt:
+                type: string
+                description: The summarization/ranking prompt.
+                minLength: 1
+            additionalProperties: false
+          output_schema:
+            type: object
+            properties:
+              completion:
+                type: string
+                description: The model's ranked summary text.
+          timeout_seconds: 300
+          max_retries: 1
+
+      runtime:
+        image: ghcr.io/zynax-io/zynax/llm-adapter:main
+        env:
+          LOG_LEVEL: info
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
+        replicas: 1

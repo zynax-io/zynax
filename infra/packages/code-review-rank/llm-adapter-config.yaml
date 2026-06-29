@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# llm-adapter-config — the YAML config consumed by the llm-adapter Go service.
+#
+# Mounted at /etc/llm-adapter/config.yaml (see llm-adapter.yaml) and read via the
+# ZYNAX_LLM_CONFIG env var. Declares BOTH capabilities the code-review-rank
+# workflow needs — `codereview` and `summarize` — backed by a local Ollama
+# provider (no API key, zero cost).
+#
+# Endpoint split (#1371): `endpoint: ":50070"` is the gRPC BIND address (all
+# interfaces, so the in-pod TCP healthcheck on localhost passes), while
+# `advertise_endpoint: "llm-adapter:50070"` is the ROUTABLE address the
+# task-broker dials — the in-cluster Service name. Binding to the Service name
+# directly would listen on only that interface and break the localhost probe.
+#
+# The provider has NO `api_key_env`: ollama needs no credential, so ResolveSecret
+# returns an empty secret WITHOUT error and the adapter registers normally (it
+# does NOT enter the degraded/no-registration path — #1432 / #1375).
+#
+# >>> To use an EXTERNAL Ollama, change ONLY `provider.ollama_base_url` below. <<<
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-adapter-config
+  labels:
+    app.kubernetes.io/name: llm-adapter
+    app.kubernetes.io/part-of: code-review-rank
+data:
+  config.yaml: |
+    # SPDX-License-Identifier: Apache-2.0
+    agent_id: llm-adapter
+    name: LLM Adapter (Ollama / local)
+    description: Ollama-backed local LLM capabilities for code-review-rank.
+
+    # Bind all interfaces (in-pod healthcheck dials localhost:50070).
+    endpoint: ":50070"
+    # Routable address the task-broker dials — the ClusterIP Service name (#1371).
+    advertise_endpoint: "llm-adapter:50070"
+    # The in-cluster agent-registry the adapter self-registers with on startup.
+    registry_endpoint: "zynax-agent-registry:50052"
+
+    provider:
+      name: ollama
+      # Qwen2.5-Coder 3B: small, fast, code-focused local model. Zero cost, no
+      # API key. To switch model/provider, edit these lines.
+      model: qwen2.5-coder:3b
+      # >>> THE ONE LINE TO CHANGE FOR AN EXTERNAL OLLAMA <<<
+      # In-cluster Ollama Service (ollama.yaml). For a host/external Ollama use
+      # e.g. http://<docker-host-ip>:11434 (host reachable from the cluster) and scale the ollama Deployment to 0.
+      ollama_base_url: "http://ollama:11434"
+      # Capped low so each CPU inference fits inside the provider's 120s HTTP
+      # budget AND the capability timeout_seconds below.
+      max_tokens: 600
+
+    capabilities:
+      # codereview — reviews a diff and returns findings. Capability names carry
+      # NO underscore on purpose: the engine derives the completion event as
+      # "<capability>.completed" and the workflow compiler rejects underscores.
+      - name: codereview
+        timeout_seconds: 300
+        description: Review a code diff and return concrete, actionable findings.
+        input_schema_json: |
+          {
+            "type": "object",
+            "required": ["prompt"],
+            "properties": { "prompt": { "type": "string", "minLength": 1 } },
+            "additionalProperties": false
+          }
+        output_schema_json: |
+          {
+            "type": "object",
+            "properties": { "completion": { "type": "string" } }
+          }
+      # summarize — the rank step: consumes the codereview output (via data-flow)
+      # and ranks the issues by importance. Same prompt/completion shape.
+      - name: summarize
+        timeout_seconds: 300
+        description: Summarize text and rank the items it contains by importance.
+        input_schema_json: |
+          {
+            "type": "object",
+            "required": ["prompt"],
+            "properties": { "prompt": { "type": "string", "minLength": 1 } },
+            "additionalProperties": false
+          }
+        output_schema_json: |
+          {
+            "type": "object",
+            "properties": { "completion": { "type": "string" } }
+          }

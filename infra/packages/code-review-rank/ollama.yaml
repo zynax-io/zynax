@@ -1,0 +1,177 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# ollama — in-cluster local LLM server for the code-review-rank package.
+#
+# Serves the qwen2.5-coder:3b model (a small, fast, code-focused 3B model) over
+# the Ollama REST API on :11434. The llm-adapter (llm-adapter.yaml) dials this
+# Service at http://ollama:11434 to run real inference for the `codereview` and
+# `summarize` capabilities — zero cost, no API key, fully self-contained.
+#
+# Startup model pull: the container serves Ollama in the background, waits for it
+# to come up, then pulls qwen2.5-coder:3b. The PVC persists the blob cache so the
+# (large) model pull happens only once across restarts. Readiness is gated on the
+# model actually being present (`ollama list | grep`), so dependents that wait on
+# `kubectl rollout status` / Ready will not dispatch before inference can serve.
+#
+# To use an EXTERNAL Ollama instead, scale this Deployment to 0 and point
+# llm-adapter-config.yaml's `ollama_base_url` at your host (see README.md).
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: code-review-rank
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # ~6Gi: qwen2.5-coder:3b is ~1.9Gi on disk; headroom for the blob cache.
+      storage: 6Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/component: llm-server
+    app.kubernetes.io/part-of: code-review-rank
+spec:
+  replicas: 1
+  # Recreate (not RollingUpdate): the PVC is ReadWriteOnce, so a new pod cannot
+  # mount it while the old one still holds it.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ollama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ollama
+        app.kubernetes.io/component: llm-server
+        app.kubernetes.io/part-of: code-review-rank
+    spec:
+      # Hardened pod security context — mirrors helm/zynax-lib's
+      # `zynax.podSecurityContext` (non-root UID/GID 1001, RuntimeDefault
+      # seccomp). fsGroup 1001 makes the ReadWriteOnce PVC group-writable so the
+      # non-root user can persist the model blob cache.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          imagePullPolicy: IfNotPresent
+          # Hardened container security context — mirrors zynax-lib's
+          # `zynax.containerSecurityContext`. readOnlyRootFilesystem forces every
+          # writable path onto a mounted volume: the model store lives on the PVC
+          # at /models (HOME=/models, see env) and scratch on the /tmp emptyDir.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1001
+          # Serve in the background, wait for the API, then ensure the model is
+          # pulled. `exec ... wait` keeps the serve process as PID-managed child
+          # so SIGTERM drains it cleanly.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[ollama] starting server..."
+              ollama serve &
+              SERVE_PID=$!
+              echo "[ollama] waiting for API on 127.0.0.1:11434..."
+              until ollama list >/dev/null 2>&1; do
+                sleep 2
+              done
+              echo "[ollama] server up; ensuring model qwen2.5-coder:3b is present..."
+              if ! ollama list | grep -q 'qwen2.5-coder:3b'; then
+                echo "[ollama] pulling qwen2.5-coder:3b (one-time; cached on the PVC)..."
+                ollama pull qwen2.5-coder:3b
+              fi
+              echo "[ollama] model ready; serving."
+              wait $SERVE_PID
+          ports:
+            - name: http
+              containerPort: 11434
+          env:
+            # Bind to all interfaces so the Service can route to the pod.
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:11434"
+            # Non-root UID 1001 cannot write the image default $HOME (/root) under
+            # readOnlyRootFilesystem. Point HOME and the model store at the PVC
+            # mounted at /models (group-writable via fsGroup 1001) so the blob
+            # cache persists and the (large) pull happens only once.
+            - name: HOME
+              value: /models
+            - name: OLLAMA_MODELS
+              value: /models
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            # Scratch for anything ollama writes outside the model store
+            # (readOnlyRootFilesystem makes the rest of the FS read-only).
+            - name: tmp
+              mountPath: /tmp
+          # Readiness gates on the MODEL being available, not just the API — a
+          # dependent that waits for Ready will not dispatch before inference can
+          # actually serve. The first pull can take a few minutes on a cold PVC,
+          # so failureThreshold is generous.
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "ollama list | grep -q 'qwen2.5-coder:3b'"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 120
+          livenessProbe:
+            tcpSocket:
+              port: 11434
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "500m"
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 6Gi
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: ollama-models
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: code-review-rank
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: http
+      protocol: TCP

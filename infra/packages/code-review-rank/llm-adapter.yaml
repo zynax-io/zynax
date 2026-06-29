@@ -1,0 +1,123 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# llm-adapter — the capability provider for code-review-rank.
+#
+# A Go gRPC adapter that serves the `codereview` and `summarize` capabilities by
+# proxying to a local Ollama server (ollama.yaml). On startup it reads its config
+# (llm-adapter-config.yaml, mounted at /etc/llm-adapter/config.yaml) and
+# self-registers BOTH capabilities with the in-cluster agent-registry, advertising
+# the routable address `llm-adapter:50070`. The task-broker then dials this
+# Service when a workflow dispatches either capability.
+#
+# Mirrors the shape of scripts/e2e/manifests/echo-worker.yaml (Deployment +
+# ClusterIP Service + probes), but llm-adapter is config-FILE-driven (a mounted
+# ConfigMap) rather than env-mounts.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-adapter
+  labels:
+    app.kubernetes.io/name: llm-adapter
+    app.kubernetes.io/component: capability-provider
+    app.kubernetes.io/part-of: code-review-rank
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: llm-adapter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: llm-adapter
+        app.kubernetes.io/component: capability-provider
+        app.kubernetes.io/part-of: code-review-rank
+      annotations:
+        # Roll the pod when the config changes (kustomize does not hash a
+        # non-generated ConfigMap; bump this if you hand-edit the config).
+        zynax.io/config-revision: "1"
+    spec:
+      # Hardened pod security context — mirrors helm/zynax-lib's
+      # `zynax.podSecurityContext` (non-root UID/GID 1001, RuntimeDefault seccomp).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: llm-adapter
+          image: ghcr.io/zynax-io/zynax/llm-adapter:main
+          imagePullPolicy: IfNotPresent
+          # Hardened container security context — mirrors zynax-lib's
+          # `zynax.containerSecurityContext`. The Go binary reads its config
+          # read-only from the mounted ConfigMap and talks gRPC; the only writable
+          # path it needs is scratch (/tmp emptyDir) under readOnlyRootFilesystem.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1001
+          ports:
+            - name: grpc
+              containerPort: 50070
+          env:
+            # Path to the mounted config; the only required env var (main.go).
+            - name: ZYNAX_LLM_CONFIG
+              value: /etc/llm-adapter/config.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/llm-adapter
+              readOnly: true
+            # Scratch under readOnlyRootFilesystem.
+            - name: tmp
+              mountPath: /tmp
+          # TCP probes on the gRPC port: the server binds :50070 only after a
+          # successful registry registration, so Ready ⇒ capabilities registered.
+          readinessProbe:
+            tcpSocket:
+              port: 50070
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: 50070
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: llm-adapter-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-adapter
+  labels:
+    app.kubernetes.io/name: llm-adapter
+    app.kubernetes.io/part-of: code-review-rank
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: llm-adapter
+  ports:
+    - name: grpc
+      port: 50070
+      targetPort: grpc
+      protocol: TCP

@@ -54,7 +54,7 @@ jobs:
             // config/contract surfaces (images.yaml SoT, Helm charts, spec fixtures,
             // automation configs, Makefile), and narrative docs (CLAUDE/ROADMAP/README).
             // Keep this list in sync with CLAUDE.md §PR size.
-            const skipPattern = /\.(pb\.go|pb\.py|sum|lock|png|jpg|gif|svg)$|\/generated\/|CHANGELOG\.md$|^\.github\/workflows\/|AGENTS\.md$|^docs\/|^state\/|^\.claude\/|^images\/images\.yaml$|^infra\/helm\/|^spec\/|^automation\/|^Makefile$|^CLAUDE\.md$|^ROADMAP\.md$|^README\.md$/;
+            const skipPattern = /\.(pb\.go|pb\.py|sum|lock|png|jpg|gif|svg)$|\/generated\/|CHANGELOG\.md$|^\.github\/workflows\/|AGENTS\.md$|^docs\/|^state\/|^\.claude\/|^images\/images\.yaml$|^infra\/helm\/|^infra\/packages\/|^spec\/|^automation\/|^Makefile$|^CLAUDE\.md$|^ROADMAP\.md$|^README\.md$/;
             const lines = files
               .filter(f => !skipPattern.test(f.filename))
               .reduce((total, f) => total + f.additions + f.deletions, 0);

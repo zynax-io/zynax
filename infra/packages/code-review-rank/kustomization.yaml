@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# code-review-rank — one atomic, GitOps-ready kustomize package that deploys the
+# code-review-with-rank workflow END TO END on top of an existing Zynax platform.
+#
+# Deploy:   kubectl apply -k infra/packages/code-review-rank/
+# Teardown: kubectl delete -k infra/packages/code-review-rank/
+#
+# Adds ONLY the capability-provider infra (ollama + llm-adapter) and the logical
+# manifests (AgentDef + Workflow, submitted by the apply-Job). It assumes the
+# Zynax platform (api-gateway, workflow-compiler, engine-adapter, task-broker,
+# agent-registry, temporal, event-bus) is already running in the `zynax`
+# namespace, and reuses the existing `zynax-gw-api-key` secret for auth.
+#
+# Flux-ready: point a Flux Kustomization at this directory (see README.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# All resources land in the platform namespace.
+namespace: zynax
+
+# Common labels for easy selection / teardown.
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: code-review-rank
+    includeSelectors: false
+
+resources:
+  # Capability-provider infra:
+  - ollama.yaml               # local LLM server + PVC + Service
+  - llm-adapter-config.yaml   # ConfigMap: adapter config (codereview + summarize)
+  - llm-adapter.yaml          # adapter Deployment + Service (self-registers caps)
+  # Logical manifests (held as ConfigMaps, submitted by the apply-Job):
+  - agentdef.yaml             # ConfigMap: AgentDef declaring both capabilities
+  - workflow.yaml             # ConfigMap: the self-contained rank Workflow
+  # Atomic submission:
+  - apply-job.yaml            # Job: waits for adapter, POSTs AgentDef + Workflow

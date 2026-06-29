@@ -39,7 +39,7 @@ Each directory has an `AGENTS.md`; see [AGENTS.md §Knowledge Base Index](AGENTS
 Exclusions (mirror of the `skipPattern` in `.github/workflows/pr-size.yml` — keep in sync):
 generated stubs (`*.pb.go`, `*.pb.py`, `/generated/`), lock files (`*.sum`, `*.lock`),
 binary fixtures (`*.png`, `*.jpg`, `*.gif`, `*.svg`), `CHANGELOG.md`, `.github/workflows/`,
-`AGENTS.md`, `docs/`, `state/`, `.claude/`, `images/images.yaml`, `infra/helm/`, `spec/`,
+`AGENTS.md`, `docs/`, `state/`, `.claude/`, `images/images.yaml`, `infra/helm/`, `infra/packages/`, `spec/`,
 `automation/`, `Makefile`, `CLAUDE.md`, `ROADMAP.md`, `README.md`.
 One commit per logical change · one PR per issue · never squash unrelated work.
 

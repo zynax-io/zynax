@@ -1,0 +1,183 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# apply-job — submits the AgentDef then the Workflow to the api-gateway once the
+# llm-adapter capability provider is serving, completing the atomic deploy.
+#
+# Sequence:
+#   1. initContainer `wait-for-ollama-model` blocks until the in-cluster ollama
+#      has the reference model pulled (GET /api/tags lists qwen2.5-coder). A cold
+#      `kubectl apply -k` pulls ~2 GB, which can take minutes — submitting the
+#      Workflow before that lands makes the first `codereview` dispatch fail with
+#      `dial tcp ollama:11434: connection refused` (capability max_retries is low),
+#      so we gate the whole submit on the model being servable first.
+#   2. initContainer `wait-for-adapter` blocks until the llm-adapter gRPC port
+#      (llm-adapter:50070) accepts TCP. The adapter binds that port only AFTER it
+#      has self-registered codereview+summarize with the agent-registry, so a
+#      successful connect means the capabilities are dispatchable.
+#   3. Main container `apply` POSTs the AgentDef (logical declaration) then the
+#      Workflow to POST /api/v1/apply with a Bearer token, and prints the
+#      returned run_id so it can be polled. Content-Type: application/yaml.
+#
+# The Bearer key is read from the existing platform secret `zynax-gw-api-key`
+# (key `api-key`) via an env var — never baked into the image or manifest.
+#
+# Re-running the package re-runs this Job (Jobs are immutable on selector, so a
+# re-apply with changed spec needs a delete first — see README teardown).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: code-review-rank-apply
+  labels:
+    app.kubernetes.io/name: code-review-rank-apply
+    app.kubernetes.io/part-of: code-review-rank
+spec:
+  backoffLimit: 3
+  # Keep the Job (and its log with the run_id) around after completion.
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: code-review-rank-apply
+        app.kubernetes.io/part-of: code-review-rank
+    spec:
+      restartPolicy: Never
+      # Hardened pod security context — mirrors helm/zynax-lib's
+      # `zynax.podSecurityContext` (non-root UID/GID 1001, RuntimeDefault seccomp).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-for-ollama-model
+          image: busybox:1.36
+          # Hardened container security context — mirrors zynax-lib's
+          # `zynax.containerSecurityContext`. busybox wget may use /tmp, so a
+          # writable emptyDir is mounted there under readOnlyRootFilesystem.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1001
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[apply-job] waiting for ollama to have qwen2.5-coder (cold pull is ~2GB, can take minutes)..."
+              i=0
+              until wget -q -O - http://ollama:11434/api/tags 2>/dev/null | grep -q "qwen2.5-coder"; do
+                i=$((i+1))
+                if [ "$i" -gt 240 ]; then
+                  echo "[apply-job] timed out (20m) waiting for the ollama model" >&2
+                  exit 1
+                fi
+                sleep 5
+              done
+              echo "[apply-job] ollama model is present and servable."
+        - name: wait-for-adapter
+          image: busybox:1.36
+          # Hardened container security context — mirrors zynax-lib's
+          # `zynax.containerSecurityContext`. busybox nc may use /tmp.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1001
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[apply-job] waiting for llm-adapter:50070 (adapter binds it only after registering)..."
+              i=0
+              until nc -z llm-adapter 50070; do
+                i=$((i+1))
+                if [ "$i" -gt 120 ]; then
+                  echo "[apply-job] timed out waiting for llm-adapter:50070" >&2
+                  exit 1
+                fi
+                sleep 5
+              done
+              echo "[apply-job] llm-adapter is serving."
+      containers:
+        - name: apply
+          image: curlimages/curl:8.10.1
+          # Hardened container security context — mirrors zynax-lib's
+          # `zynax.containerSecurityContext`. curl reads the mounted manifests
+          # read-only and POSTs them; /tmp is a writable scratch emptyDir under
+          # readOnlyRootFilesystem.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1001
+          env:
+            - name: GW
+              value: "http://zynax-api-gateway:8080"
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: zynax-gw-api-key
+                  key: api-key
+          volumeMounts:
+            - name: agentdef
+              mountPath: /manifests/agentdef
+              readOnly: true
+            - name: workflow
+              mountPath: /manifests/workflow
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "[apply-job] submitting AgentDef..."
+              AGENT_RESP=$(curl -sS -w '\n%{http_code}' \
+                -H "Authorization: Bearer ${API_KEY}" \
+                -H "Content-Type: application/yaml" \
+                --data-binary @/manifests/agentdef/agentdef.yaml \
+                "${GW}/api/v1/apply")
+              echo "[apply-job] AgentDef response: ${AGENT_RESP}"
+
+              echo "[apply-job] submitting Workflow..."
+              WF_RESP=$(curl -sS -w '\n%{http_code}' \
+                -H "Authorization: Bearer ${API_KEY}" \
+                -H "Content-Type: application/yaml" \
+                --data-binary @/manifests/workflow/workflow.yaml \
+                "${GW}/api/v1/apply")
+              echo "[apply-job] Workflow response: ${WF_RESP}"
+
+              # Extract run_id from the {"run_id":"..."} JSON (first line of WF_RESP).
+              RUN_ID=$(echo "${WF_RESP}" | sed -n 's/.*"run_id":"\([^"]*\)".*/\1/p')
+              if [ -z "${RUN_ID}" ]; then
+                echo "[apply-job] ERROR: no run_id returned; workflow apply failed" >&2
+                exit 1
+              fi
+              echo "[apply-job] RUN_ID=${RUN_ID}"
+              echo "[apply-job] poll it: GET ${GW}/api/v1/workflows/${RUN_ID}"
+      volumes:
+        - name: agentdef
+          configMap:
+            name: code-review-rank-agentdef
+        - name: workflow
+          configMap:
+            name: code-review-rank-workflow
+        # Writable scratch shared by the init + main containers (they run
+        # sequentially) under readOnlyRootFilesystem.
+        - name: tmp
+          emptyDir: {}
