@@ -1,0 +1,154 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# workflow — the LOGICAL Workflow manifest, held in a ConfigMap and POSTed to the
+# api-gateway by the apply-Job (apply-job.yaml) AFTER the AgentDef.
+#
+# This is the self-contained code-review-rank workflow (adapted from
+# spec/workflows/examples/code-review-rank-ollama.yaml):
+#   - State `review` dispatches `codereview` over a deliberately-flawed Go diff
+#     BAKED INLINE into the prompt (no client-side {{ .ctx.diff }} injection — the
+#     apply-Job submits this manifest verbatim), and publishes the review text
+#     into the data context via an OUTPUT binding (states.review.output.review).
+#   - State `rank` dispatches `summarize`, consuming that review via an INPUT
+#     binding ("$.states.review.output.review") exposed to the prompt as
+#     {{ .ctx.review }} (server-side data-flow — resolved by the engine, not the
+#     client), and asks the model to categorize + rank the issues.
+#   - State `done` is terminal.
+#
+# Namespace is `zynax` so it lands in the same namespace as the platform + the
+# llm-adapter capability provider.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: code-review-rank-workflow
+  labels:
+    app.kubernetes.io/name: code-review-rank
+    app.kubernetes.io/part-of: code-review-rank
+data:
+  workflow.yaml: |
+    # SPDX-License-Identifier: Apache-2.0
+    kind: Workflow
+    apiVersion: zynax.io/v1
+
+    metadata:
+      name: code-review-rank
+      namespace: zynax
+      version: "1.0.0"
+      annotations:
+        description: "Code review, then categorize (type) + rank (severity) the issues (data-flow)."
+
+    spec:
+      initial_state: review
+
+      states:
+        # ── 1) Review a deliberately-flawed diff (baked inline) ──────
+        review:
+          actions:
+            - capability: codereview
+              input:
+                prompt: |
+                  You are a senior Go code reviewer. Review the git diff below and
+                  report EVERY issue you find as a numbered list. For each issue give,
+                  on its own lines:
+                    - Type: exactly one category from this set —
+                      security | correctness | concurrency | error-handling |
+                      resource-leak | performance | style | documentation
+                      (Type is the CATEGORY of the issue, never its severity.)
+                    - Severity: one of High | Medium | Low
+                    - Function: the function name it occurs in
+                    - Detail: a one-sentence explanation
+                  End with a single line: "VERDICT: APPROVE" or "VERDICT: REQUEST-CHANGES".
+
+                  ```diff
+                  diff --git a/payments.go b/payments.go
+                  --- a/payments.go
+                  +++ b/payments.go
+                  @@ -1,4 +1,60 @@
+                   package payments
+                  +
+                  +import (
+                  +	"database/sql"
+                  +	"os"
+                  +)
+                  +
+                  +// dbConn is the production database connection string.
+                  +var dbConn = "host=db.prod dbname=payments user=app sslmode=disable"
+                  +
+                  +var totalCharged int
+                  +
+                  +func Charge(balanceCents, amountCents int) (int, error) {
+                  +	if amountCents < 0 {
+                  +		return balanceCents, nil
+                  +	}
+                  +	// Apply a 2% loyalty discount before charging.
+                  +	discounted := amountCents - (amountCents / 50)
+                  +	totalCharged += discounted
+                  +	return balanceCents - discounted, nil
+                  +}
+                  +
+                  +func Refund(balanceCents, amountCents int) int {
+                  +	return balanceCents + amountCents
+                  +}
+                  +
+                  +func UserByName(db *sql.DB, name string) *sql.Row {
+                  +	q := "SELECT id, email FROM users WHERE name = '" + name + "'"
+                  +	return db.QueryRow(q)
+                  +}
+                  +
+                  +func ReadConfig(path string) []byte {
+                  +	f, _ := os.Open(path)
+                  +	buf := make([]byte, 4096)
+                  +	n, _ := f.Read(buf)
+                  +	return buf[:n]
+                  +}
+                  +
+                  +func CountMatches(items []string, target string) int {
+                  +	count := 0
+                  +	for i := 0; i < len(items); i++ {
+                  +		for j := 0; j < len(items); j++ {
+                  +			if items[i] == target {
+                  +				count++
+                  +			}
+                  +		}
+                  +	}
+                  +	return count
+                  +}
+                  ```
+              # OUTPUT binding: publish the review text (result field `completion`)
+              # into the data context as states.review.output.review.
+              output:
+                review: completion
+          on:
+            - event: codereview.completed
+              goto: rank
+
+        # ── 2) Categorize (type) + rank (severity) the issues ─────────
+        rank:
+          actions:
+            - capability: summarize
+              # INPUT BINDING (a "$.states..." reference): resolved server-side
+              # from the data context and exposed to the prompt as {{ .ctx.review }}.
+              input:
+                review: "$.states.review.output.review"
+                prompt: |
+                  Below is a code review. Produce a structured summary.
+
+                  1. State the TOTAL number of distinct issues.
+                  2. Then a breakdown BY TYPE — count per category, where Type is one of:
+                     security | correctness | concurrency | error-handling |
+                     resource-leak | performance | style | documentation.
+                     (Do NOT put a severity such as "High" in the Type field — Type is
+                     the category; severity is reported separately.)
+                  3. Then list each issue ordered by Severity (High first), as:
+                     "[Severity] (Type) function — one-line summary".
+
+                  REVIEW:
+                  {{ .ctx.review }}
+              output:
+                ranking: completion
+          on:
+            - event: summarize.completed
+              goto: done
+
+        done:
+          type: terminal
