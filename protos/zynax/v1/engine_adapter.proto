@@ -120,6 +120,13 @@ message WorkflowRun {
   // Human-readable reason for cancellation. Populated only when
   // status is CANCELLED.
   string cancellation_reason = 11;
+
+  // Resolved workflow-level outputs returned by GetWorkflowStatus once the run
+  // is terminal (ADR-042, M7.U). Maps each result name declared on the terminal
+  // StateIR.outputs to its resolved value. Empty for runs that declared no
+  // outputs and for non-terminal runs — empty is success, never an error. The
+  // same map is returned regardless of engine (Temporal/Argo). Strictly additive.
+  map<string, string> outputs = 12;
 }
 
 // WorkflowEvent is streamed by WatchWorkflow and published to the event bus
@@ -145,6 +152,14 @@ message WorkflowEvent {
   google.protobuf.Timestamp timestamp = 6;
 
   // Optional JSON-encoded event payload (e.g. signal data, error details).
+  //
+  // On the TERMINAL event of a completed run the payload carries the typed JSON
+  // shape {"completion": "<text>", "outputs": {<name>: <value>}} (ADR-042, M7.U).
+  // "outputs" mirrors WorkflowRun.outputs; it is namespaced separately from
+  // "completion" so the task-broker completion reader (CompletionText) and the
+  // workflow-outputs reader never cross-parse each other's field. Both keys are
+  // optional — a run may carry completion text, declared outputs, both, or
+  // neither (empty payload), all of which are valid.
   bytes payload = 7;
 }
 

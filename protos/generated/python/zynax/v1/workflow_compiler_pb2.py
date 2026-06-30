@@ -4,73 +4,78 @@
 # source: zynax/v1/workflow_compiler.proto
 # Protobuf Python Version: 7.35.1
 """Generated protocol buffer code."""
-
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
 from google.protobuf import runtime_version as _runtime_version
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf.internal import builder as _builder
-
 _runtime_version.ValidateProtobufRuntimeVersion(
-    _runtime_version.Domain.PUBLIC, 7, 35, 1, "", "zynax/v1/workflow_compiler.proto"
+    _runtime_version.Domain.PUBLIC,
+    7,
+    35,
+    1,
+    '',
+    'zynax/v1/workflow_compiler.proto'
 )
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n zynax/v1/workflow_compiler.proto\x12\x08zynax.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xa0\x01\n\x10\x43ompilationError\x12\x32\n\x04\x63ode\x18\x01 \x01(\x0e\x32\x1e.zynax.v1.CompilationErrorCodeR\x04\x63ode\x12\x18\n\x07message\x18\x02 \x01(\tR\x07message\x12\x1f\n\x0bline_number\x18\x03 \x01(\x05R\nlineNumber\x12\x1d\n\nstate_name\x18\x04 \x01(\tR\tstateName"\xc9\x03\n\x08\x41\x63tionIR\x12\x1e\n\ncapability\x18\x01 \x01(\tR\ncapability\x12\x33\n\x07timeout\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR\x07timeout\x12.\n\x13input_template_json\x18\x03 \x01(\tR\x11inputTemplateJson\x12\x14\n\x05\x61sync\x18\x04 \x01(\x08R\x05\x61sync\x12O\n\x0foutput_bindings\x18\x05 \x03(\x0b\x32&.zynax.v1.ActionIR.OutputBindingsEntryR\x0eoutputBindings\x12L\n\x0einput_bindings\x18\x06 \x03(\x0b\x32%.zynax.v1.ActionIR.InputBindingsEntryR\rinputBindings\x1a\x41\n\x13OutputBindingsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a@\n\x12InputBindingsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\xd7\x01\n\x0cTransitionIR\x12\x1d\n\nevent_type\x18\x01 \x01(\tR\teventType\x12!\n\x0ctarget_state\x18\x02 \x01(\tR\x0btargetState\x12\x46\n\nconditions\x18\x03 \x03(\x0b\x32&.zynax.v1.TransitionIR.ConditionsEntryR\nconditions\x1a=\n\x0f\x43onditionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\xaa\x01\n\x07StateIR\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\'\n\x04type\x18\x02 \x01(\x0e\x32\x13.zynax.v1.StateTypeR\x04type\x12,\n\x07\x61\x63tions\x18\x03 \x03(\x0b\x32\x12.zynax.v1.ActionIRR\x07\x61\x63tions\x12\x38\n\x0btransitions\x18\x04 \x03(\x0b\x32\x16.zynax.v1.TransitionIRR\x0btransitions"\xcb\x02\n\nWorkflowIR\x12\x1f\n\x0bworkflow_id\x18\x01 \x01(\tR\nworkflowId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n\tnamespace\x18\x03 \x01(\tR\tnamespace\x12\x1f\n\x0b\x61pi_version\x18\x04 \x01(\tR\napiVersion\x12;\n\x0b\x63ompiled_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ncompiledAt\x12\x1d\n\nir_payload\x18\x06 \x01(\x0cR\tirPayload\x12#\n\rinitial_state\x18\x07 \x01(\tR\x0cinitialState\x12)\n\x06states\x18\x08 \x03(\x0b\x32\x11.zynax.v1.StateIRR\x06states\x12\x1d\n\nir_version\x18\t \x01(\tR\tirVersion"t\n\x16\x43ompileWorkflowRequest\x12#\n\rmanifest_yaml\x18\x01 \x01(\x0cR\x0cmanifestYaml\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x17\n\x07\x64ry_run\x18\x03 \x01(\x08R\x06\x64ryRun"\xd8\x01\n\x17\x43ompileWorkflowResponse\x12\x35\n\x0bworkflow_ir\x18\x01 \x01(\x0b\x32\x14.zynax.v1.WorkflowIRR\nworkflowIr\x12\x32\n\x06\x65rrors\x18\x02 \x03(\x0b\x32\x1a.zynax.v1.CompilationErrorR\x06\x65rrors\x12\x1a\n\x08warnings\x18\x03 \x03(\tR\x08warnings\x12\x36\n\x17\x63ompilation_duration_ms\x18\x04 \x01(\x03R\x15\x63ompilationDurationMs"\\\n\x17ValidateManifestRequest\x12#\n\rmanifest_yaml\x18\x01 \x01(\x0cR\x0cmanifestYaml\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace"\x80\x01\n\x18ValidateManifestResponse\x12\x14\n\x05valid\x18\x01 \x01(\x08R\x05valid\x12\x32\n\x06\x65rrors\x18\x02 \x03(\x0b\x32\x1a.zynax.v1.CompilationErrorR\x06\x65rrors\x12\x1a\n\x08warnings\x18\x03 \x03(\tR\x08warnings"=\n\x1aGetCompiledWorkflowRequest\x12\x1f\n\x0bworkflow_id\x18\x01 \x01(\tR\nworkflowId"\x91\x01\n\x1bGetCompiledWorkflowResponse\x12\x35\n\x0bworkflow_ir\x18\x01 \x01(\x0b\x32\x14.zynax.v1.WorkflowIRR\nworkflowIr\x12;\n\x0b\x63ompiled_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ncompiledAt*\xeb\x03\n\x14\x43ompilationErrorCode\x12&\n"COMPILATION_ERROR_CODE_UNSPECIFIED\x10\x00\x12+\n\'COMPILATION_ERROR_CODE_YAML_PARSE_ERROR\x10\x01\x12+\n\'COMPILATION_ERROR_CODE_NO_INITIAL_STATE\x10\x02\x12\x32\n.COMPILATION_ERROR_CODE_MULTIPLE_INITIAL_STATES\x10\x03\x12,\n(COMPILATION_ERROR_CODE_NO_TERMINAL_STATE\x10\x04\x12\'\n#COMPILATION_ERROR_CODE_ORPHAN_STATE\x10\x05\x12\x32\n.COMPILATION_ERROR_CODE_UNKNOWN_STATE_REFERENCE\x10\x06\x12/\n+COMPILATION_ERROR_CODE_DUPLICATE_STATE_NAME\x10\x07\x12\x31\n-COMPILATION_ERROR_CODE_MISSING_REQUIRED_FIELD\x10\x08\x12.\n*COMPILATION_ERROR_CODE_INVALID_FIELD_VALUE\x10\t*y\n\tStateType\x12\x1a\n\x16STATE_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11STATE_TYPE_NORMAL\x10\x01\x12\x17\n\x13STATE_TYPE_TERMINAL\x10\x02\x12 \n\x1cSTATE_TYPE_HUMAN_IN_THE_LOOP\x10\x03\x32\xb0\x02\n\x17WorkflowCompilerService\x12V\n\x0f\x43ompileWorkflow\x12 .zynax.v1.CompileWorkflowRequest\x1a!.zynax.v1.CompileWorkflowResponse\x12Y\n\x10ValidateManifest\x12!.zynax.v1.ValidateManifestRequest\x1a".zynax.v1.ValidateManifestResponse\x12\x62\n\x13GetCompiledWorkflow\x12$.zynax.v1.GetCompiledWorkflowRequest\x1a%.zynax.v1.GetCompiledWorkflowResponseB3Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1b\x06proto3'
-)
+from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+
+
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n zynax/v1/workflow_compiler.proto\x12\x08zynax.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa0\x01\n\x10\x43ompilationError\x12\x32\n\x04\x63ode\x18\x01 \x01(\x0e\x32\x1e.zynax.v1.CompilationErrorCodeR\x04\x63ode\x12\x18\n\x07message\x18\x02 \x01(\tR\x07message\x12\x1f\n\x0bline_number\x18\x03 \x01(\x05R\nlineNumber\x12\x1d\n\nstate_name\x18\x04 \x01(\tR\tstateName\"\xc9\x03\n\x08\x41\x63tionIR\x12\x1e\n\ncapability\x18\x01 \x01(\tR\ncapability\x12\x33\n\x07timeout\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR\x07timeout\x12.\n\x13input_template_json\x18\x03 \x01(\tR\x11inputTemplateJson\x12\x14\n\x05\x61sync\x18\x04 \x01(\x08R\x05\x61sync\x12O\n\x0foutput_bindings\x18\x05 \x03(\x0b\x32&.zynax.v1.ActionIR.OutputBindingsEntryR\x0eoutputBindings\x12L\n\x0einput_bindings\x18\x06 \x03(\x0b\x32%.zynax.v1.ActionIR.InputBindingsEntryR\rinputBindings\x1a\x41\n\x13OutputBindingsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a@\n\x12InputBindingsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"\xd7\x01\n\x0cTransitionIR\x12\x1d\n\nevent_type\x18\x01 \x01(\tR\teventType\x12!\n\x0ctarget_state\x18\x02 \x01(\tR\x0btargetState\x12\x46\n\nconditions\x18\x03 \x03(\x0b\x32&.zynax.v1.TransitionIR.ConditionsEntryR\nconditions\x1a=\n\x0f\x43onditionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"\xa0\x02\n\x07StateIR\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\'\n\x04type\x18\x02 \x01(\x0e\x32\x13.zynax.v1.StateTypeR\x04type\x12,\n\x07\x61\x63tions\x18\x03 \x03(\x0b\x32\x12.zynax.v1.ActionIRR\x07\x61\x63tions\x12\x38\n\x0btransitions\x18\x04 \x03(\x0b\x32\x16.zynax.v1.TransitionIRR\x0btransitions\x12\x38\n\x07outputs\x18\x05 \x03(\x0b\x32\x1e.zynax.v1.StateIR.OutputsEntryR\x07outputs\x1a:\n\x0cOutputsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\"\xcb\x02\n\nWorkflowIR\x12\x1f\n\x0bworkflow_id\x18\x01 \x01(\tR\nworkflowId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n\tnamespace\x18\x03 \x01(\tR\tnamespace\x12\x1f\n\x0b\x61pi_version\x18\x04 \x01(\tR\napiVersion\x12;\n\x0b\x63ompiled_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ncompiledAt\x12\x1d\n\nir_payload\x18\x06 \x01(\x0cR\tirPayload\x12#\n\rinitial_state\x18\x07 \x01(\tR\x0cinitialState\x12)\n\x06states\x18\x08 \x03(\x0b\x32\x11.zynax.v1.StateIRR\x06states\x12\x1d\n\nir_version\x18\t \x01(\tR\tirVersion\"t\n\x16\x43ompileWorkflowRequest\x12#\n\rmanifest_yaml\x18\x01 \x01(\x0cR\x0cmanifestYaml\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x17\n\x07\x64ry_run\x18\x03 \x01(\x08R\x06\x64ryRun\"\xd8\x01\n\x17\x43ompileWorkflowResponse\x12\x35\n\x0bworkflow_ir\x18\x01 \x01(\x0b\x32\x14.zynax.v1.WorkflowIRR\nworkflowIr\x12\x32\n\x06\x65rrors\x18\x02 \x03(\x0b\x32\x1a.zynax.v1.CompilationErrorR\x06\x65rrors\x12\x1a\n\x08warnings\x18\x03 \x03(\tR\x08warnings\x12\x36\n\x17\x63ompilation_duration_ms\x18\x04 \x01(\x03R\x15\x63ompilationDurationMs\"\\\n\x17ValidateManifestRequest\x12#\n\rmanifest_yaml\x18\x01 \x01(\x0cR\x0cmanifestYaml\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\"\x80\x01\n\x18ValidateManifestResponse\x12\x14\n\x05valid\x18\x01 \x01(\x08R\x05valid\x12\x32\n\x06\x65rrors\x18\x02 \x03(\x0b\x32\x1a.zynax.v1.CompilationErrorR\x06\x65rrors\x12\x1a\n\x08warnings\x18\x03 \x03(\tR\x08warnings\"=\n\x1aGetCompiledWorkflowRequest\x12\x1f\n\x0bworkflow_id\x18\x01 \x01(\tR\nworkflowId\"\x91\x01\n\x1bGetCompiledWorkflowResponse\x12\x35\n\x0bworkflow_ir\x18\x01 \x01(\x0b\x32\x14.zynax.v1.WorkflowIRR\nworkflowIr\x12;\n\x0b\x63ompiled_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ncompiledAt*\xeb\x03\n\x14\x43ompilationErrorCode\x12&\n\"COMPILATION_ERROR_CODE_UNSPECIFIED\x10\x00\x12+\n\'COMPILATION_ERROR_CODE_YAML_PARSE_ERROR\x10\x01\x12+\n\'COMPILATION_ERROR_CODE_NO_INITIAL_STATE\x10\x02\x12\x32\n.COMPILATION_ERROR_CODE_MULTIPLE_INITIAL_STATES\x10\x03\x12,\n(COMPILATION_ERROR_CODE_NO_TERMINAL_STATE\x10\x04\x12\'\n#COMPILATION_ERROR_CODE_ORPHAN_STATE\x10\x05\x12\x32\n.COMPILATION_ERROR_CODE_UNKNOWN_STATE_REFERENCE\x10\x06\x12/\n+COMPILATION_ERROR_CODE_DUPLICATE_STATE_NAME\x10\x07\x12\x31\n-COMPILATION_ERROR_CODE_MISSING_REQUIRED_FIELD\x10\x08\x12.\n*COMPILATION_ERROR_CODE_INVALID_FIELD_VALUE\x10\t*y\n\tStateType\x12\x1a\n\x16STATE_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11STATE_TYPE_NORMAL\x10\x01\x12\x17\n\x13STATE_TYPE_TERMINAL\x10\x02\x12 \n\x1cSTATE_TYPE_HUMAN_IN_THE_LOOP\x10\x03\x32\xb0\x02\n\x17WorkflowCompilerService\x12V\n\x0f\x43ompileWorkflow\x12 .zynax.v1.CompileWorkflowRequest\x1a!.zynax.v1.CompileWorkflowResponse\x12Y\n\x10ValidateManifest\x12!.zynax.v1.ValidateManifestRequest\x1a\".zynax.v1.ValidateManifestResponse\x12\x62\n\x13GetCompiledWorkflow\x12$.zynax.v1.GetCompiledWorkflowRequest\x1a%.zynax.v1.GetCompiledWorkflowResponseB3Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
-_builder.BuildTopDescriptorsAndMessages(
-    DESCRIPTOR, "zynax.v1.workflow_compiler_pb2", _globals
-)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'zynax.v1.workflow_compiler_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
-    _globals["DESCRIPTOR"]._loaded_options = None
-    _globals[
-        "DESCRIPTOR"
-    ]._serialized_options = b"Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1"
-    _globals["_ACTIONIR_OUTPUTBINDINGSENTRY"]._loaded_options = None
-    _globals["_ACTIONIR_OUTPUTBINDINGSENTRY"]._serialized_options = b"8\001"
-    _globals["_ACTIONIR_INPUTBINDINGSENTRY"]._loaded_options = None
-    _globals["_ACTIONIR_INPUTBINDINGSENTRY"]._serialized_options = b"8\001"
-    _globals["_TRANSITIONIR_CONDITIONSENTRY"]._loaded_options = None
-    _globals["_TRANSITIONIR_CONDITIONSENTRY"]._serialized_options = b"8\001"
-    _globals["_COMPILATIONERRORCODE"]._serialized_start = 2233
-    _globals["_COMPILATIONERRORCODE"]._serialized_end = 2724
-    _globals["_STATETYPE"]._serialized_start = 2726
-    _globals["_STATETYPE"]._serialized_end = 2847
-    _globals["_COMPILATIONERROR"]._serialized_start = 112
-    _globals["_COMPILATIONERROR"]._serialized_end = 272
-    _globals["_ACTIONIR"]._serialized_start = 275
-    _globals["_ACTIONIR"]._serialized_end = 732
-    _globals["_ACTIONIR_OUTPUTBINDINGSENTRY"]._serialized_start = 601
-    _globals["_ACTIONIR_OUTPUTBINDINGSENTRY"]._serialized_end = 666
-    _globals["_ACTIONIR_INPUTBINDINGSENTRY"]._serialized_start = 668
-    _globals["_ACTIONIR_INPUTBINDINGSENTRY"]._serialized_end = 732
-    _globals["_TRANSITIONIR"]._serialized_start = 735
-    _globals["_TRANSITIONIR"]._serialized_end = 950
-    _globals["_TRANSITIONIR_CONDITIONSENTRY"]._serialized_start = 889
-    _globals["_TRANSITIONIR_CONDITIONSENTRY"]._serialized_end = 950
-    _globals["_STATEIR"]._serialized_start = 953
-    _globals["_STATEIR"]._serialized_end = 1123
-    _globals["_WORKFLOWIR"]._serialized_start = 1126
-    _globals["_WORKFLOWIR"]._serialized_end = 1457
-    _globals["_COMPILEWORKFLOWREQUEST"]._serialized_start = 1459
-    _globals["_COMPILEWORKFLOWREQUEST"]._serialized_end = 1575
-    _globals["_COMPILEWORKFLOWRESPONSE"]._serialized_start = 1578
-    _globals["_COMPILEWORKFLOWRESPONSE"]._serialized_end = 1794
-    _globals["_VALIDATEMANIFESTREQUEST"]._serialized_start = 1796
-    _globals["_VALIDATEMANIFESTREQUEST"]._serialized_end = 1888
-    _globals["_VALIDATEMANIFESTRESPONSE"]._serialized_start = 1891
-    _globals["_VALIDATEMANIFESTRESPONSE"]._serialized_end = 2019
-    _globals["_GETCOMPILEDWORKFLOWREQUEST"]._serialized_start = 2021
-    _globals["_GETCOMPILEDWORKFLOWREQUEST"]._serialized_end = 2082
-    _globals["_GETCOMPILEDWORKFLOWRESPONSE"]._serialized_start = 2085
-    _globals["_GETCOMPILEDWORKFLOWRESPONSE"]._serialized_end = 2230
-    _globals["_WORKFLOWCOMPILERSERVICE"]._serialized_start = 2850
-    _globals["_WORKFLOWCOMPILERSERVICE"]._serialized_end = 3154
+  _globals['DESCRIPTOR']._loaded_options = None
+  _globals['DESCRIPTOR']._serialized_options = b'Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1'
+  _globals['_ACTIONIR_OUTPUTBINDINGSENTRY']._loaded_options = None
+  _globals['_ACTIONIR_OUTPUTBINDINGSENTRY']._serialized_options = b'8\001'
+  _globals['_ACTIONIR_INPUTBINDINGSENTRY']._loaded_options = None
+  _globals['_ACTIONIR_INPUTBINDINGSENTRY']._serialized_options = b'8\001'
+  _globals['_TRANSITIONIR_CONDITIONSENTRY']._loaded_options = None
+  _globals['_TRANSITIONIR_CONDITIONSENTRY']._serialized_options = b'8\001'
+  _globals['_STATEIR_OUTPUTSENTRY']._loaded_options = None
+  _globals['_STATEIR_OUTPUTSENTRY']._serialized_options = b'8\001'
+  _globals['_COMPILATIONERRORCODE']._serialized_start=2351
+  _globals['_COMPILATIONERRORCODE']._serialized_end=2842
+  _globals['_STATETYPE']._serialized_start=2844
+  _globals['_STATETYPE']._serialized_end=2965
+  _globals['_COMPILATIONERROR']._serialized_start=112
+  _globals['_COMPILATIONERROR']._serialized_end=272
+  _globals['_ACTIONIR']._serialized_start=275
+  _globals['_ACTIONIR']._serialized_end=732
+  _globals['_ACTIONIR_OUTPUTBINDINGSENTRY']._serialized_start=601
+  _globals['_ACTIONIR_OUTPUTBINDINGSENTRY']._serialized_end=666
+  _globals['_ACTIONIR_INPUTBINDINGSENTRY']._serialized_start=668
+  _globals['_ACTIONIR_INPUTBINDINGSENTRY']._serialized_end=732
+  _globals['_TRANSITIONIR']._serialized_start=735
+  _globals['_TRANSITIONIR']._serialized_end=950
+  _globals['_TRANSITIONIR_CONDITIONSENTRY']._serialized_start=889
+  _globals['_TRANSITIONIR_CONDITIONSENTRY']._serialized_end=950
+  _globals['_STATEIR']._serialized_start=953
+  _globals['_STATEIR']._serialized_end=1241
+  _globals['_STATEIR_OUTPUTSENTRY']._serialized_start=1183
+  _globals['_STATEIR_OUTPUTSENTRY']._serialized_end=1241
+  _globals['_WORKFLOWIR']._serialized_start=1244
+  _globals['_WORKFLOWIR']._serialized_end=1575
+  _globals['_COMPILEWORKFLOWREQUEST']._serialized_start=1577
+  _globals['_COMPILEWORKFLOWREQUEST']._serialized_end=1693
+  _globals['_COMPILEWORKFLOWRESPONSE']._serialized_start=1696
+  _globals['_COMPILEWORKFLOWRESPONSE']._serialized_end=1912
+  _globals['_VALIDATEMANIFESTREQUEST']._serialized_start=1914
+  _globals['_VALIDATEMANIFESTREQUEST']._serialized_end=2006
+  _globals['_VALIDATEMANIFESTRESPONSE']._serialized_start=2009
+  _globals['_VALIDATEMANIFESTRESPONSE']._serialized_end=2137
+  _globals['_GETCOMPILEDWORKFLOWREQUEST']._serialized_start=2139
+  _globals['_GETCOMPILEDWORKFLOWREQUEST']._serialized_end=2200
+  _globals['_GETCOMPILEDWORKFLOWRESPONSE']._serialized_start=2203
+  _globals['_GETCOMPILEDWORKFLOWRESPONSE']._serialized_end=2348
+  _globals['_WORKFLOWCOMPILERSERVICE']._serialized_start=2968
+  _globals['_WORKFLOWCOMPILERSERVICE']._serialized_end=3272
 # @@protoc_insertion_point(module_scope)

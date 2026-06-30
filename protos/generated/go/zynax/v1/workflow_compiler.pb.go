@@ -457,7 +457,14 @@ type StateIR struct {
 	Actions []*ActionIR `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
 	// All valid outbound transitions from this state.
 	// Empty for TERMINAL states (no outbound edges by definition).
-	Transitions   []*TransitionIR `protobuf:"bytes,4,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	Transitions []*TransitionIR `protobuf:"bytes,4,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	// Workflow-level outputs declared on a TERMINAL state (ADR-042, M7.U).
+	// Maps a result name to an ADR-029 data reference
+	// ("$.states.<state>.output.<key>") or a literal. The engine adapter resolves
+	// these from the run-scoped data context at the terminal state and returns
+	// them as WorkflowRun.outputs. Valid only on TERMINAL states; empty otherwise.
+	// Strictly additive — existing IRs compile with an empty map.
+	Outputs       map[string]string `protobuf:"bytes,5,rep,name=outputs,proto3" json:"outputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -516,6 +523,13 @@ func (x *StateIR) GetActions() []*ActionIR {
 func (x *StateIR) GetTransitions() []*TransitionIR {
 	if x != nil {
 		return x.Transitions
+	}
+	return nil
+}
+
+func (x *StateIR) GetOutputs() map[string]string {
+	if x != nil {
+		return x.Outputs
 	}
 	return nil
 }
@@ -1052,12 +1066,16 @@ const file_zynax_v1_workflow_compiler_proto_rawDesc = "" +
 	"conditions\x1a=\n" +
 	"\x0fConditionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xaa\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa0\x02\n" +
 	"\aStateIR\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x13.zynax.v1.StateTypeR\x04type\x12,\n" +
 	"\aactions\x18\x03 \x03(\v2\x12.zynax.v1.ActionIRR\aactions\x128\n" +
-	"\vtransitions\x18\x04 \x03(\v2\x16.zynax.v1.TransitionIRR\vtransitions\"\xcb\x02\n" +
+	"\vtransitions\x18\x04 \x03(\v2\x16.zynax.v1.TransitionIRR\vtransitions\x128\n" +
+	"\aoutputs\x18\x05 \x03(\v2\x1e.zynax.v1.StateIR.OutputsEntryR\aoutputs\x1a:\n" +
+	"\fOutputsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xcb\x02\n" +
 	"\n" +
 	"WorkflowIR\x12\x1f\n" +
 	"\vworkflow_id\x18\x01 \x01(\tR\n" +
@@ -1133,7 +1151,7 @@ func file_zynax_v1_workflow_compiler_proto_rawDescGZIP() []byte {
 }
 
 var file_zynax_v1_workflow_compiler_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_zynax_v1_workflow_compiler_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_zynax_v1_workflow_compiler_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_zynax_v1_workflow_compiler_proto_goTypes = []any{
 	(CompilationErrorCode)(0),           // 0: zynax.v1.CompilationErrorCode
 	(StateType)(0),                      // 1: zynax.v1.StateType
@@ -1151,36 +1169,38 @@ var file_zynax_v1_workflow_compiler_proto_goTypes = []any{
 	nil,                                 // 13: zynax.v1.ActionIR.OutputBindingsEntry
 	nil,                                 // 14: zynax.v1.ActionIR.InputBindingsEntry
 	nil,                                 // 15: zynax.v1.TransitionIR.ConditionsEntry
-	(*durationpb.Duration)(nil),         // 16: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),       // 17: google.protobuf.Timestamp
+	nil,                                 // 16: zynax.v1.StateIR.OutputsEntry
+	(*durationpb.Duration)(nil),         // 17: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),       // 18: google.protobuf.Timestamp
 }
 var file_zynax_v1_workflow_compiler_proto_depIdxs = []int32{
 	0,  // 0: zynax.v1.CompilationError.code:type_name -> zynax.v1.CompilationErrorCode
-	16, // 1: zynax.v1.ActionIR.timeout:type_name -> google.protobuf.Duration
+	17, // 1: zynax.v1.ActionIR.timeout:type_name -> google.protobuf.Duration
 	13, // 2: zynax.v1.ActionIR.output_bindings:type_name -> zynax.v1.ActionIR.OutputBindingsEntry
 	14, // 3: zynax.v1.ActionIR.input_bindings:type_name -> zynax.v1.ActionIR.InputBindingsEntry
 	15, // 4: zynax.v1.TransitionIR.conditions:type_name -> zynax.v1.TransitionIR.ConditionsEntry
 	1,  // 5: zynax.v1.StateIR.type:type_name -> zynax.v1.StateType
 	3,  // 6: zynax.v1.StateIR.actions:type_name -> zynax.v1.ActionIR
 	4,  // 7: zynax.v1.StateIR.transitions:type_name -> zynax.v1.TransitionIR
-	17, // 8: zynax.v1.WorkflowIR.compiled_at:type_name -> google.protobuf.Timestamp
-	5,  // 9: zynax.v1.WorkflowIR.states:type_name -> zynax.v1.StateIR
-	6,  // 10: zynax.v1.CompileWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
-	2,  // 11: zynax.v1.CompileWorkflowResponse.errors:type_name -> zynax.v1.CompilationError
-	2,  // 12: zynax.v1.ValidateManifestResponse.errors:type_name -> zynax.v1.CompilationError
-	6,  // 13: zynax.v1.GetCompiledWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
-	17, // 14: zynax.v1.GetCompiledWorkflowResponse.compiled_at:type_name -> google.protobuf.Timestamp
-	7,  // 15: zynax.v1.WorkflowCompilerService.CompileWorkflow:input_type -> zynax.v1.CompileWorkflowRequest
-	9,  // 16: zynax.v1.WorkflowCompilerService.ValidateManifest:input_type -> zynax.v1.ValidateManifestRequest
-	11, // 17: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:input_type -> zynax.v1.GetCompiledWorkflowRequest
-	8,  // 18: zynax.v1.WorkflowCompilerService.CompileWorkflow:output_type -> zynax.v1.CompileWorkflowResponse
-	10, // 19: zynax.v1.WorkflowCompilerService.ValidateManifest:output_type -> zynax.v1.ValidateManifestResponse
-	12, // 20: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:output_type -> zynax.v1.GetCompiledWorkflowResponse
-	18, // [18:21] is the sub-list for method output_type
-	15, // [15:18] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	16, // 8: zynax.v1.StateIR.outputs:type_name -> zynax.v1.StateIR.OutputsEntry
+	18, // 9: zynax.v1.WorkflowIR.compiled_at:type_name -> google.protobuf.Timestamp
+	5,  // 10: zynax.v1.WorkflowIR.states:type_name -> zynax.v1.StateIR
+	6,  // 11: zynax.v1.CompileWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
+	2,  // 12: zynax.v1.CompileWorkflowResponse.errors:type_name -> zynax.v1.CompilationError
+	2,  // 13: zynax.v1.ValidateManifestResponse.errors:type_name -> zynax.v1.CompilationError
+	6,  // 14: zynax.v1.GetCompiledWorkflowResponse.workflow_ir:type_name -> zynax.v1.WorkflowIR
+	18, // 15: zynax.v1.GetCompiledWorkflowResponse.compiled_at:type_name -> google.protobuf.Timestamp
+	7,  // 16: zynax.v1.WorkflowCompilerService.CompileWorkflow:input_type -> zynax.v1.CompileWorkflowRequest
+	9,  // 17: zynax.v1.WorkflowCompilerService.ValidateManifest:input_type -> zynax.v1.ValidateManifestRequest
+	11, // 18: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:input_type -> zynax.v1.GetCompiledWorkflowRequest
+	8,  // 19: zynax.v1.WorkflowCompilerService.CompileWorkflow:output_type -> zynax.v1.CompileWorkflowResponse
+	10, // 20: zynax.v1.WorkflowCompilerService.ValidateManifest:output_type -> zynax.v1.ValidateManifestResponse
+	12, // 21: zynax.v1.WorkflowCompilerService.GetCompiledWorkflow:output_type -> zynax.v1.GetCompiledWorkflowResponse
+	19, // [19:22] is the sub-list for method output_type
+	16, // [16:19] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_zynax_v1_workflow_compiler_proto_init() }
@@ -1194,7 +1214,7 @@ func file_zynax_v1_workflow_compiler_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zynax_v1_workflow_compiler_proto_rawDesc), len(file_zynax_v1_workflow_compiler_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

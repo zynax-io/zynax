@@ -141,8 +141,14 @@ type WorkflowRun struct {
 	// Human-readable reason for cancellation. Populated only when
 	// status is CANCELLED.
 	CancellationReason string `protobuf:"bytes,11,opt,name=cancellation_reason,json=cancellationReason,proto3" json:"cancellation_reason,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Resolved workflow-level outputs returned by GetWorkflowStatus once the run
+	// is terminal (ADR-042, M7.U). Maps each result name declared on the terminal
+	// StateIR.outputs to its resolved value. Empty for runs that declared no
+	// outputs and for non-terminal runs — empty is success, never an error. The
+	// same map is returned regardless of engine (Temporal/Argo). Strictly additive.
+	Outputs       map[string]string `protobuf:"bytes,12,rep,name=outputs,proto3" json:"outputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WorkflowRun) Reset() {
@@ -252,6 +258,13 @@ func (x *WorkflowRun) GetCancellationReason() string {
 	return ""
 }
 
+func (x *WorkflowRun) GetOutputs() map[string]string {
+	if x != nil {
+		return x.Outputs
+	}
+	return nil
+}
+
 // WorkflowEvent is streamed by WatchWorkflow and published to the event bus
 // whenever the workflow transitions state or reaches a terminal condition.
 type WorkflowEvent struct {
@@ -270,6 +283,14 @@ type WorkflowEvent struct {
 	// Wall-clock time the adapter emitted this event.
 	Timestamp *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	// Optional JSON-encoded event payload (e.g. signal data, error details).
+	//
+	// On the TERMINAL event of a completed run the payload carries the typed JSON
+	// shape {"completion": "<text>", "outputs": {<name>: <value>}} (ADR-042, M7.U).
+	// "outputs" mirrors WorkflowRun.outputs; it is namespaced separately from
+	// "completion" so the task-broker completion reader (CompletionText) and the
+	// workflow-outputs reader never cross-parse each other's field. Both keys are
+	// optional — a run may carry completion text, declared outputs, both, or
+	// neither (empty payload), all of which are valid.
 	Payload       []byte `protobuf:"bytes,7,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -947,7 +968,7 @@ var File_zynax_v1_engine_adapter_proto protoreflect.FileDescriptor
 
 const file_zynax_v1_engine_adapter_proto_rawDesc = "" +
 	"\n" +
-	"\x1dzynax/v1/engine_adapter.proto\x12\bzynax.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a zynax/v1/workflow_compiler.proto\"\xb0\x04\n" +
+	"\x1dzynax/v1/engine_adapter.proto\x12\bzynax.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a zynax/v1/workflow_compiler.proto\"\xaa\x05\n" +
 	"\vWorkflowRun\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
@@ -963,8 +984,12 @@ const file_zynax_v1_engine_adapter_proto_rawDesc = "" +
 	"\vfinished_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"finishedAt\x12/\n" +
-	"\x13cancellation_reason\x18\v \x01(\tR\x12cancellationReason\x1a9\n" +
+	"\x13cancellation_reason\x18\v \x01(\tR\x12cancellationReason\x12<\n" +
+	"\aoutputs\x18\f \x03(\v2\".zynax.v1.WorkflowRun.OutputsEntryR\aoutputs\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a:\n" +
+	"\fOutputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x85\x02\n" +
 	"\rWorkflowEvent\x12\x15\n" +
@@ -1042,7 +1067,7 @@ func file_zynax_v1_engine_adapter_proto_rawDescGZIP() []byte {
 }
 
 var file_zynax_v1_engine_adapter_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_zynax_v1_engine_adapter_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_zynax_v1_engine_adapter_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_zynax_v1_engine_adapter_proto_goTypes = []any{
 	(WorkflowStatus)(0),              // 0: zynax.v1.WorkflowStatus
 	(*WorkflowRun)(nil),              // 1: zynax.v1.WorkflowRun
@@ -1058,39 +1083,41 @@ var file_zynax_v1_engine_adapter_proto_goTypes = []any{
 	(*ArgoConfig)(nil),               // 11: zynax.v1.ArgoConfig
 	(*EngineConfig)(nil),             // 12: zynax.v1.EngineConfig
 	nil,                              // 13: zynax.v1.WorkflowRun.LabelsEntry
-	nil,                              // 14: zynax.v1.SubmitWorkflowRequest.LabelsEntry
-	(*timestamppb.Timestamp)(nil),    // 15: google.protobuf.Timestamp
-	(*WorkflowIR)(nil),               // 16: zynax.v1.WorkflowIR
+	nil,                              // 14: zynax.v1.WorkflowRun.OutputsEntry
+	nil,                              // 15: zynax.v1.SubmitWorkflowRequest.LabelsEntry
+	(*timestamppb.Timestamp)(nil),    // 16: google.protobuf.Timestamp
+	(*WorkflowIR)(nil),               // 17: zynax.v1.WorkflowIR
 }
 var file_zynax_v1_engine_adapter_proto_depIdxs = []int32{
 	0,  // 0: zynax.v1.WorkflowRun.status:type_name -> zynax.v1.WorkflowStatus
 	13, // 1: zynax.v1.WorkflowRun.labels:type_name -> zynax.v1.WorkflowRun.LabelsEntry
-	15, // 2: zynax.v1.WorkflowRun.submitted_at:type_name -> google.protobuf.Timestamp
-	15, // 3: zynax.v1.WorkflowRun.started_at:type_name -> google.protobuf.Timestamp
-	15, // 4: zynax.v1.WorkflowRun.finished_at:type_name -> google.protobuf.Timestamp
-	0,  // 5: zynax.v1.WorkflowEvent.status:type_name -> zynax.v1.WorkflowStatus
-	15, // 6: zynax.v1.WorkflowEvent.timestamp:type_name -> google.protobuf.Timestamp
-	16, // 7: zynax.v1.SubmitWorkflowRequest.workflow_ir:type_name -> zynax.v1.WorkflowIR
-	14, // 8: zynax.v1.SubmitWorkflowRequest.labels:type_name -> zynax.v1.SubmitWorkflowRequest.LabelsEntry
-	15, // 9: zynax.v1.SubmitWorkflowResponse.submitted_at:type_name -> google.protobuf.Timestamp
-	15, // 10: zynax.v1.SignalWorkflowResponse.signalled_at:type_name -> google.protobuf.Timestamp
-	15, // 11: zynax.v1.CancelWorkflowResponse.cancelled_at:type_name -> google.protobuf.Timestamp
-	11, // 12: zynax.v1.EngineConfig.argo:type_name -> zynax.v1.ArgoConfig
-	3,  // 13: zynax.v1.EngineAdapterService.SubmitWorkflow:input_type -> zynax.v1.SubmitWorkflowRequest
-	5,  // 14: zynax.v1.EngineAdapterService.SignalWorkflow:input_type -> zynax.v1.SignalWorkflowRequest
-	7,  // 15: zynax.v1.EngineAdapterService.CancelWorkflow:input_type -> zynax.v1.CancelWorkflowRequest
-	9,  // 16: zynax.v1.EngineAdapterService.GetWorkflowStatus:input_type -> zynax.v1.GetWorkflowStatusRequest
-	10, // 17: zynax.v1.EngineAdapterService.WatchWorkflow:input_type -> zynax.v1.WatchWorkflowRequest
-	4,  // 18: zynax.v1.EngineAdapterService.SubmitWorkflow:output_type -> zynax.v1.SubmitWorkflowResponse
-	6,  // 19: zynax.v1.EngineAdapterService.SignalWorkflow:output_type -> zynax.v1.SignalWorkflowResponse
-	8,  // 20: zynax.v1.EngineAdapterService.CancelWorkflow:output_type -> zynax.v1.CancelWorkflowResponse
-	1,  // 21: zynax.v1.EngineAdapterService.GetWorkflowStatus:output_type -> zynax.v1.WorkflowRun
-	2,  // 22: zynax.v1.EngineAdapterService.WatchWorkflow:output_type -> zynax.v1.WorkflowEvent
-	18, // [18:23] is the sub-list for method output_type
-	13, // [13:18] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	16, // 2: zynax.v1.WorkflowRun.submitted_at:type_name -> google.protobuf.Timestamp
+	16, // 3: zynax.v1.WorkflowRun.started_at:type_name -> google.protobuf.Timestamp
+	16, // 4: zynax.v1.WorkflowRun.finished_at:type_name -> google.protobuf.Timestamp
+	14, // 5: zynax.v1.WorkflowRun.outputs:type_name -> zynax.v1.WorkflowRun.OutputsEntry
+	0,  // 6: zynax.v1.WorkflowEvent.status:type_name -> zynax.v1.WorkflowStatus
+	16, // 7: zynax.v1.WorkflowEvent.timestamp:type_name -> google.protobuf.Timestamp
+	17, // 8: zynax.v1.SubmitWorkflowRequest.workflow_ir:type_name -> zynax.v1.WorkflowIR
+	15, // 9: zynax.v1.SubmitWorkflowRequest.labels:type_name -> zynax.v1.SubmitWorkflowRequest.LabelsEntry
+	16, // 10: zynax.v1.SubmitWorkflowResponse.submitted_at:type_name -> google.protobuf.Timestamp
+	16, // 11: zynax.v1.SignalWorkflowResponse.signalled_at:type_name -> google.protobuf.Timestamp
+	16, // 12: zynax.v1.CancelWorkflowResponse.cancelled_at:type_name -> google.protobuf.Timestamp
+	11, // 13: zynax.v1.EngineConfig.argo:type_name -> zynax.v1.ArgoConfig
+	3,  // 14: zynax.v1.EngineAdapterService.SubmitWorkflow:input_type -> zynax.v1.SubmitWorkflowRequest
+	5,  // 15: zynax.v1.EngineAdapterService.SignalWorkflow:input_type -> zynax.v1.SignalWorkflowRequest
+	7,  // 16: zynax.v1.EngineAdapterService.CancelWorkflow:input_type -> zynax.v1.CancelWorkflowRequest
+	9,  // 17: zynax.v1.EngineAdapterService.GetWorkflowStatus:input_type -> zynax.v1.GetWorkflowStatusRequest
+	10, // 18: zynax.v1.EngineAdapterService.WatchWorkflow:input_type -> zynax.v1.WatchWorkflowRequest
+	4,  // 19: zynax.v1.EngineAdapterService.SubmitWorkflow:output_type -> zynax.v1.SubmitWorkflowResponse
+	6,  // 20: zynax.v1.EngineAdapterService.SignalWorkflow:output_type -> zynax.v1.SignalWorkflowResponse
+	8,  // 21: zynax.v1.EngineAdapterService.CancelWorkflow:output_type -> zynax.v1.CancelWorkflowResponse
+	1,  // 22: zynax.v1.EngineAdapterService.GetWorkflowStatus:output_type -> zynax.v1.WorkflowRun
+	2,  // 23: zynax.v1.EngineAdapterService.WatchWorkflow:output_type -> zynax.v1.WorkflowEvent
+	19, // [19:24] is the sub-list for method output_type
+	14, // [14:19] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_zynax_v1_engine_adapter_proto_init() }
@@ -1108,7 +1135,7 @@ func file_zynax_v1_engine_adapter_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zynax_v1_engine_adapter_proto_rawDesc), len(file_zynax_v1_engine_adapter_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
