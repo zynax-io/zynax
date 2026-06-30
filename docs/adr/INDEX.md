@@ -52,6 +52,7 @@ a PR against `docs/adr/`.
 | [ADR-039](ADR-039-crd-native-scheduler.md) | CRD-native Scheduler — `Agent` CRD as the single source of truth; registry → stateless scheduler | Accepted | 2026-06-22 | `services/agent-registry/` (→ scheduler), `protos/zynax/v1/scheduler.proto`, task-broker — amends ADR-021/028 — spike M7, build M8 |
 | [ADR-040](ADR-040-kubernetes-native-delegation-boundary.md) | Kubernetes-native delegation boundary (thin-Zynax) — build only the AI-scheduling core, delegate generic primitives | Accepted | 2026-06-22 | Repo-wide design principle — delegation vs custom core; Workflow=thin CRD front-end; Loki out of scope — relates ADR-039/020/030/012/015 |
 | [ADR-041](ADR-041-kind-native-unified-runtime.md) | Local-Kubernetes (kind) as the unified runtime model — Docker Compose retired as the primary path | Accepted | 2026-06-25 | local/CI/prod runtime; `infra/docker-compose/` (deprecate→remove), `helm/`, `scripts/e2e/`, Makefile, README/docs — resolves EPIC #1370 O26/#1495; relates ADR-039/040/037/015 |
+| [ADR-042](ADR-042-workflow-level-output-capture.md) | Workflow-level output capture & return — terminal-state outputs surfaced as the workflow result (`zynax result`) | Accepted | 2026-06-30 | `protos/` StateIR.outputs/WorkflowRun.outputs, workflow-compiler, engine-adapter, api-gateway, cli — extends ADR-029 — M7 EPIC U (#1529) |
 
 ---
 
