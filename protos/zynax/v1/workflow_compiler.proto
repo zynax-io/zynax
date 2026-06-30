@@ -200,6 +200,14 @@ message StateIR {
   // All valid outbound transitions from this state.
   // Empty for TERMINAL states (no outbound edges by definition).
   repeated TransitionIR transitions = 4;
+
+  // Workflow-level outputs declared on a TERMINAL state (ADR-042, M7.U).
+  // Maps a result name to an ADR-029 data reference
+  // ("$.states.<state>.output.<key>") or a literal. The engine adapter resolves
+  // these from the run-scoped data context at the terminal state and returns
+  // them as WorkflowRun.outputs. Valid only on TERMINAL states; empty otherwise.
+  // Strictly additive — existing IRs compile with an empty map.
+  map<string, string> outputs = 5;
 }
 
 // WorkflowIR is the engine-agnostic Intermediate Representation of a compiled

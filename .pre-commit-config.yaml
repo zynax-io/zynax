@@ -24,9 +24,14 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.11.8
     hooks:
+      # Generated protobuf stubs are the canonical `buf generate` output and are
+      # drift-checked byte-for-byte against a fresh regen in CI — never reformat
+      # them (mirrors the gofmt exclude below for the Go stubs).
       - id: ruff
         args: [--fix]
+        exclude: ^protos/generated/
       - id: ruff-format
+        exclude: ^protos/generated/
 
   # ── Go + Python type-check — require local toolchain (language: system) ───────
   - repo: local
