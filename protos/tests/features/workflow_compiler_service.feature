@@ -174,6 +174,31 @@ Feature: WorkflowCompilerService contract — YAML manifest compilation
     And the response contains a WorkflowIR
     And every ActionIR has zero output_bindings and zero input_bindings
 
+  # ─── Terminal workflow outputs (M7.U epic #1529, ADR-042) ─────────────────
+  # RED contract for O.6 (#1535): the compiler validates a terminal state's
+  # "outputs:" map (result name → $.states.<state>.output.<key>, reusing the
+  # ADR-029 grammar) and lowers it to StateIR.outputs. Steps are intentionally
+  # undefined until O.6 registers them — committed red per ADR-016, mirroring the
+  # data-flow bindings precedent above (suite stays green; scenarios pending).
+
+  Scenario: Compiler accepts a terminal output that resolves to a produced state output
+    Given a Workflow YAML whose terminal state declares an output "review" referencing "$.states.assess.output.text"
+    And state "assess" produces output "text"
+    When CompileWorkflow is called
+    Then the gRPC status is OK
+    And the response contains a WorkflowIR
+    And the terminal StateIR declares output "review"
+
+  Scenario: Compiler rejects a dangling terminal output reference
+    Given a Workflow YAML whose terminal state declares an output referencing a state that produces no such output
+    When CompileWorkflow is called
+    Then the response reports a COMPILATION_ERROR naming the offending line
+
+  Scenario: Compiler rejects outputs declared on a non-terminal state
+    Given a Workflow YAML where a non-terminal state declares an "outputs:" map
+    When CompileWorkflow is called
+    Then the response reports a COMPILATION_ERROR naming the offending line
+
   # ─── GetCompiledWorkflow ───────────────────────────────────────────────────
 
   Scenario: GetCompiledWorkflow returns the IR for a previously compiled workflow

@@ -121,7 +121,7 @@ Config env prefix: `ZYNAX_<SERVICE>_` · Engine-agnostic interpreter (Temporal /
    typing / empty-output contract / output-safety. Verified: ADR Accepted; gates all `feat:`.
 3. **O.3 (#1532, fix·cli)** ✅ — `zynax result` exits 0 with a graceful note on COMPLETED-empty; hard error
    kept for FAILED/CANCELLED. Verified: unit tests for COMPLETED-empty / FAILED / completion-present.
-4. **O.4 (#1533, test·protos)** — BDD `.feature` scenarios (engine_adapter + workflow_compiler), RED
+4. **O.4 (#1533, test·protos)** ✅ — BDD `.feature` scenarios (engine_adapter + workflow_compiler), RED
    before impl. Verified: scenarios committed and red; `protos/tests` compiles.
 5. **O.5 (#1534, feat·protos)** — Add `StateIR.outputs=5`, `WorkflowRun.outputs=12`, document terminal
    event payload JSON; regenerate stubs. Verified: `buf breaking` green; stubs committed.
