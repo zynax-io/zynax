@@ -87,6 +87,10 @@ func Build(_ context.Context, m *Manifest) (*WorkflowGraph, ParseErrors) {
 	// Every input binding reference must resolve to a declared upstream output.
 	errs = append(errs, validateInputBindings(m.States)...)
 
+	// Terminal workflow outputs must be terminal-only and resolve to a declared
+	// upstream output (ADR-042, M7.U).
+	errs = append(errs, validateWorkflowOutputs(m.States)...)
+
 	if len(errs) > 0 {
 		return nil, errs
 	}
@@ -105,18 +109,7 @@ func Build(_ context.Context, m *Manifest) (*WorkflowGraph, ParseErrors) {
 // COMPILATION_ERROR (ErrorCodeInvalidFieldValue) carrying the manifest line of
 // the consuming state. Returns all errors found — not just the first.
 func validateInputBindings(states map[string]*State) ParseErrors {
-	// Index declared outputs: stateID → set of output keys.
-	declared := make(map[string]map[string]struct{}, len(states))
-	for id, st := range states {
-		for _, a := range st.Actions {
-			for key := range a.OutputBindings {
-				if declared[id] == nil {
-					declared[id] = make(map[string]struct{})
-				}
-				declared[id][key] = struct{}{}
-			}
-		}
-	}
+	declared := indexDeclaredOutputs(states)
 
 	var errs ParseErrors
 	for id, st := range states {
@@ -129,6 +122,99 @@ func validateInputBindings(states map[string]*State) ParseErrors {
 		}
 	}
 	return errs
+}
+
+// indexDeclaredOutputs builds stateID → set of output keys declared by that
+// state's action output_bindings. This is the set of "$.states.<id>.output.<key>"
+// references resolvable elsewhere in the manifest.
+func indexDeclaredOutputs(states map[string]*State) map[string]map[string]struct{} {
+	declared := make(map[string]map[string]struct{}, len(states))
+	for id, st := range states {
+		for _, a := range st.Actions {
+			for key := range a.OutputBindings {
+				if declared[id] == nil {
+					declared[id] = make(map[string]struct{})
+				}
+				declared[id][key] = struct{}{}
+			}
+		}
+	}
+	return declared
+}
+
+// validateWorkflowOutputs enforces the terminal-output contract (ADR-042, M7.U):
+//   - outputs: may be declared only on a TERMINAL state;
+//   - each value is a literal, or a well-formed "$.states.<state>.output.<key>"
+//     reference whose target state declares <key> in its output_bindings.
+//
+// Violations yield a COMPILATION_ERROR (ErrorCodeInvalidFieldValue) carrying the
+// offending state's manifest line. Returns all errors found — not just the first.
+func validateWorkflowOutputs(states map[string]*State) ParseErrors {
+	declared := indexDeclaredOutputs(states)
+
+	var errs ParseErrors
+	for id, st := range states {
+		if len(st.Outputs) == 0 {
+			continue
+		}
+		if st.Type != StateTypeTerminal {
+			errs = append(errs, ParseError{
+				Code:      ErrorCodeInvalidFieldValue,
+				Message:   fmt.Sprintf("state %q: outputs may be declared only on a terminal state", id),
+				Line:      st.Line,
+				StateName: id,
+			})
+			continue
+		}
+		for name, ref := range st.Outputs {
+			// Literals (anything not rooted at the data-reference prefix) pass
+			// through verbatim — there is no transform language in M7 (ADR-029).
+			if !strings.HasPrefix(ref, inputBindingPrefix) {
+				continue
+			}
+			if perr := resolveWorkflowOutput(id, name, ref, st.Line, declared); perr != nil {
+				errs = append(errs, *perr)
+			}
+		}
+	}
+	return errs
+}
+
+// resolveWorkflowOutput parses a terminal output's "$.states.<state>.output.<key>"
+// reference and verifies the target state and output key are declared upstream.
+// Returns nil when the reference resolves, or a ParseError describing why not.
+func resolveWorkflowOutput(
+	state, outputName, ref string,
+	line int,
+	declared map[string]map[string]struct{},
+) *ParseError {
+	srcState, srcKey, ok := parseBindingRef(ref)
+	if !ok {
+		return &ParseError{
+			Code:      ErrorCodeInvalidFieldValue,
+			Message:   fmt.Sprintf("state %q: outputs[%q] reference %q is malformed; expected \"$.states.<state>.output.<key>\"", state, outputName, ref),
+			Line:      line,
+			StateName: state,
+		}
+	}
+	outputs, stateOK := declared[srcState]
+	if !stateOK {
+		return &ParseError{
+			Code:      ErrorCodeInvalidFieldValue,
+			Message:   fmt.Sprintf("state %q: outputs[%q] references output of unknown or output-less state %q", state, outputName, srcState),
+			Line:      line,
+			StateName: state,
+		}
+	}
+	if _, keyOK := outputs[srcKey]; !keyOK {
+		return &ParseError{
+			Code:      ErrorCodeInvalidFieldValue,
+			Message:   fmt.Sprintf("state %q: outputs[%q] references undeclared output %q of state %q", state, outputName, srcKey, srcState),
+			Line:      line,
+			StateName: state,
+		}
+	}
+	return nil
 }
 
 // resolveBinding parses a single "$.states.<state>.output.<key>" reference and

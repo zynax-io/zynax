@@ -68,6 +68,7 @@ func convertStates(states map[string]*domain.State) ([]*zynaxv1.StateIR, error) 
 			Type:        convertStateType(s.Type),
 			Actions:     actions,
 			Transitions: convertTransitions(s.Transitions),
+			Outputs:     copyBindings(s.Outputs),
 		})
 	}
 	return out, nil

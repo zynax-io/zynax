@@ -5,6 +5,9 @@ import (
 	"testing"
 )
 
+// stateDone is the terminal-state id reused across the terminal-output tests.
+const stateDone = "done"
+
 // buildMinimalManifest returns a valid two-state manifest for graph tests.
 func buildMinimalManifest() *Manifest {
 	return &Manifest{
@@ -349,5 +352,115 @@ func TestBuild_InputBindingValidationFailures(t *testing.T) {
 				t.Errorf("expected ErrorCodeInvalidFieldValue on 'summarize', got: %v", errs)
 			}
 		})
+	}
+}
+
+// terminalOutputsManifest builds a two-state workflow whose initial "greet"
+// state produces output "message" and whose terminal "done" state declares the
+// given outputs YAML block (indented under `outputs:`). When onGreet is true the
+// outputs block is placed on the non-terminal "greet" state instead.
+func terminalOutputsManifest(outputsBlock string, onGreet bool) []byte {
+	greetOutputs, doneOutputs := "", outputsBlock
+	if onGreet {
+		greetOutputs, doneOutputs = outputsBlock, ""
+	}
+	return []byte(`
+kind: Workflow
+apiVersion: zynax.io/v1
+metadata:
+  name: outputs-wf
+spec:
+  initial_state: greet
+  states:
+    greet:
+      actions:
+        - capability: echo
+          output:
+            message: message
+      on:
+        - event: greet.done
+          goto: done
+` + greetOutputs + `    done:
+      type: terminal
+` + doneOutputs)
+}
+
+func TestBuild_TerminalOutputs_LiteralAndValidRef(t *testing.T) {
+	block := "      outputs:\n        review: \"$.states.greet.output.message\"\n        note: \"shipped\"\n"
+	m, parseErrs := ParseManifest(context.Background(), terminalOutputsManifest(block, false))
+	if len(parseErrs) != 0 {
+		t.Fatalf("parse failed: %v", parseErrs)
+	}
+	// The terminal state carries both outputs after parsing.
+	if got := m.States[stateDone].Outputs; len(got) != 2 || got["review"] != "$.states.greet.output.message" || got["note"] != "shipped" {
+		t.Fatalf("parsed terminal outputs = %v, want review+note", got)
+	}
+	if _, errs := Build(context.Background(), m); len(errs) != 0 {
+		t.Fatalf("expected literal + resolvable ref to compile, got: %v", errs)
+	}
+}
+
+func TestBuild_TerminalOutputs_ValidationFailures(t *testing.T) {
+	tests := []struct {
+		name string
+		ref  string
+	}{
+		{"undeclared output key", "$.states.greet.output.missing"},
+		{"unknown source state", "$.states.nope.output.message"},
+		{"malformed reference", "$.states.greet.message"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			block := "      outputs:\n        review: \"" + tt.ref + "\"\n"
+			m, parseErrs := ParseManifest(context.Background(), terminalOutputsManifest(block, false))
+			if len(parseErrs) != 0 {
+				t.Fatalf("parse failed: %v", parseErrs)
+			}
+			_, errs := Build(context.Background(), m)
+			found := false
+			for _, e := range errs {
+				if e.Code == ErrorCodeInvalidFieldValue && e.StateName == stateDone {
+					found = true
+					if e.Line <= 0 {
+						t.Errorf("expected a line number on the error, got %d", e.Line)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("expected ErrorCodeInvalidFieldValue on 'done' for %q, got: %v", tt.ref, errs)
+			}
+		})
+	}
+}
+
+func TestBuild_OutputsOnNonTerminalState(t *testing.T) {
+	block := "      outputs:\n        review: \"done\"\n"
+	m, parseErrs := ParseManifest(context.Background(), terminalOutputsManifest(block, true))
+	if len(parseErrs) != 0 {
+		t.Fatalf("parse failed: %v", parseErrs)
+	}
+	_, errs := Build(context.Background(), m)
+	found := false
+	for _, e := range errs {
+		if e.Code == ErrorCodeInvalidFieldValue && e.StateName == "greet" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected a COMPILATION_ERROR for outputs on a non-terminal state, got: %v", errs)
+	}
+}
+
+func TestConvertWorkflowOutputs_NonStringValue(t *testing.T) {
+	block := "      outputs:\n        review:\n          nested: true\n"
+	_, parseErrs := ParseManifest(context.Background(), terminalOutputsManifest(block, false))
+	found := false
+	for _, e := range parseErrs {
+		if e.Code == ErrorCodeInvalidFieldValue && e.StateName == stateDone {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected a parse error for a non-string output value, got: %v", parseErrs)
 	}
 }
