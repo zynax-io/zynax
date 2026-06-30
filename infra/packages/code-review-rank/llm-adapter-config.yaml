@@ -41,9 +41,11 @@ data:
 
     provider:
       name: ollama
-      # Qwen2.5-Coder 3B: small, fast, code-focused local model. Zero cost, no
-      # API key. To switch model/provider, edit these lines.
-      model: qwen2.5-coder:3b
+      # Qwen2.5-Coder 0.5B: tiny (~398 MB), fast, code-focused local model — small
+      # enough to test the pipeline without a big download. Raise to
+      # qwen2.5-coder:3b (~1.9 GB) for higher-quality reviews. To switch model,
+      # edit this line AND the pull tag + readiness grep in ollama.yaml.
+      model: qwen2.5-coder:0.5b
       # >>> THE ONE LINE TO CHANGE FOR AN EXTERNAL OLLAMA <<<
       # In-cluster Ollama Service (ollama.yaml). For a host/external Ollama use
       # e.g. http://<docker-host-ip>:11434 (host reachable from the cluster) and scale the ollama Deployment to 0.

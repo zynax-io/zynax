@@ -12,7 +12,7 @@ runs to a ranked code review with zero further steps.
 
 | File | Kind | Purpose |
 |------|------|---------|
-| `ollama.yaml` | Deployment + PVC + Service | In-cluster Ollama, serves `qwen2.5-coder:3b`; pulls it on first start, caches on the PVC; readiness gated on the model being present. |
+| `ollama.yaml` | Deployment + PVC + Service | In-cluster Ollama, serves `qwen2.5-coder:0.5b`; pulls it on first start, caches on the PVC; readiness gated on the model being present. |
 | `llm-adapter-config.yaml` | ConfigMap | The adapter's YAML config: capabilities `codereview` + `summarize`, ollama provider at `http://ollama:11434`. |
 | `llm-adapter.yaml` | Deployment + Service | The `llm-adapter` gRPC capability provider; self-registers both capabilities with the agent-registry (advertises `llm-adapter:50070`). |
 | `agentdef.yaml` | ConfigMap | The logical `AgentDef` (both capabilities) the apply-Job POSTs to the gateway. |
@@ -33,7 +33,7 @@ runs to a ranked code review with zero further steps.
 kubectl apply -k infra/packages/code-review-rank/
 ```
 
-This brings up Ollama (first run pulls the ~1.9 GB model — a few minutes), then
+This brings up Ollama (first run pulls the ~398 MB model — under a minute), then
 the `llm-adapter` (which self-registers `codereview` + `summarize`), then the
 apply-Job submits the AgentDef and Workflow and prints the `run_id`.
 
@@ -41,7 +41,7 @@ apply-Job submits the AgentDef and Workflow and prints the `run_id`.
 
 ```bash
 kubectl -n zynax rollout status deploy/ollama --timeout=600s
-kubectl -n zynax exec deploy/ollama -- ollama list          # qwen2.5-coder:3b present
+kubectl -n zynax exec deploy/ollama -- ollama list          # qwen2.5-coder:0.5b present
 kubectl -n zynax rollout status deploy/llm-adapter --timeout=300s
 kubectl -n zynax logs deploy/llm-adapter | grep -i registr   # capabilities registered
 kubectl -n zynax wait --for=condition=complete job/code-review-rank-apply --timeout=300s
