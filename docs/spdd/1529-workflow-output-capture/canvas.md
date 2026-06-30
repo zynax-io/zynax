@@ -115,7 +115,7 @@ Config env prefix: `ZYNAX_<SERVICE>_` · Engine-agnostic interpreter (Temporal /
 
 > Each step = one reviewable PR, mapped 1:1 to a story issue.
 
-1. **O.1 (#1530, docs)** — Commit `docs/runbooks/see-workflow-result.md` documenting `zynax logs --follow`,
+1. **O.1 (#1530, docs)** ✅ — Commit `docs/runbooks/see-workflow-result.md` documenting `zynax logs --follow`,
    re-submit-and-stream, json replay, and `zynax status`. Verified: runbook commands work against the CLI.
 2. **O.2 (#1531, ADR)** — Author ADR-042 + register in `docs/adr/INDEX.md`; decide placement / carrier /
    typing / empty-output contract / output-safety. Verified: ADR Accepted; gates all `feat:`.
