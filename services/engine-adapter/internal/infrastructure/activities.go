@@ -58,7 +58,7 @@ func lifecycleTopic(eventType string) string {
 // unavailability never interrupts the workflow state machine.
 //
 // Topic format: zynax.v1.engine-adapter.workflow.<event_type> (see lifecycleTopic).
-func (a *ActivityWorker) PublishLifecycleEventActivity(ctx context.Context, eventType, workflowID, stateID string) error {
+func (a *ActivityWorker) PublishLifecycleEventActivity(ctx context.Context, eventType, workflowID, stateID string, payload []byte) error {
 	topic := lifecycleTopic(eventType)
 
 	req := &zynaxv1.PublishRequest{
@@ -71,6 +71,9 @@ func (a *ActivityWorker) PublishLifecycleEventActivity(ctx context.Context, even
 			Subject:         stateID,
 			Time:            timestamppb.New(time.Now()),
 			WorkflowId:      workflowID,
+			// Typed terminal payload {"outputs": {...}} on the completed event
+			// (nil for transition events) (ADR-042, M7.U).
+			Data: payload,
 		},
 	}
 

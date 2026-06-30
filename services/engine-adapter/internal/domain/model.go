@@ -42,6 +42,11 @@ type WorkflowRun struct {
 	StartedAt          time.Time
 	FinishedAt         time.Time
 	CancellationReason string
+	// Outputs are the resolved workflow-level outputs captured at the terminal
+	// state and returned as the run result (ADR-042, M7.U). Populated by
+	// GetStatus for a COMPLETED run; empty for runs that declared none and for
+	// non-terminal runs.
+	Outputs map[string]string
 }
 
 // WorkflowEvent is emitted when the workflow transitions state or reaches

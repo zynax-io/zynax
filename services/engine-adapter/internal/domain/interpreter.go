@@ -27,8 +27,13 @@ type ActivityExecutor interface {
 
 // EventPublisher abstracts CloudEvent publication via Temporal activities.
 // Domain code depends only on this interface (ADR-015).
+//
+// payload is an optional JSON-encoded event payload. It is nil for transition
+// events; on the terminal "completed" event it carries the typed
+// {"outputs": {...}} shape (ADR-042) so a consumer can read the workflow result
+// off the event stream without a separate query.
 type EventPublisher interface {
-	Publish(ctx context.Context, eventType, workflowID, stateID string) error
+	Publish(ctx context.Context, eventType, workflowID, stateID string, payload []byte) error
 }
 
 // ExecutionContext tracks the state machine's mutable state across activity executions.
@@ -46,12 +51,17 @@ type ExecutionContext struct {
 type IRInterpreter struct{}
 
 // Run drives the IR state machine until a terminal state or ctx cancellation.
+// On reaching a terminal state it resolves that state's declared outputs against
+// the still-live run-scoped data context (ADR-042) and returns them as the run
+// result. A run that declares no outputs returns an empty (non-nil) map; an
+// unresolved output reference fails the run loudly with a DataReferenceError, and
+// outputs that exceed the size bounds fail with an OutputSizeError.
 func (i *IRInterpreter) Run(
 	ctx context.Context,
 	ir *zynaxv1.WorkflowIR,
 	exec ActivityExecutor,
 	pub EventPublisher,
-) error {
+) (map[string]string, error) {
 	ec := &ExecutionContext{
 		WorkflowID:   ir.GetWorkflowId(),
 		CurrentState: ir.GetInitialState(),
@@ -67,37 +77,89 @@ func (i *IRInterpreter) Run(
 	for {
 		state := findState(ir, ec.CurrentState)
 		if state == nil {
-			return fmt.Errorf("engine-adapter: state %q not found in IR", ec.CurrentState)
+			return nil, fmt.Errorf("engine-adapter: state %q not found in IR", ec.CurrentState)
 		}
 		if state.GetType() == zynaxv1.StateType_STATE_TYPE_TERMINAL {
-			if err := pub.Publish(ctx, "zynax.workflow.completed", ec.WorkflowID, ec.CurrentState); err != nil {
-				slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.completed", "workflow_id", ec.WorkflowID, "err", err)
-			}
-			return nil
+			return i.captureTerminalOutputs(ctx, state, ec, data, scope, pub)
 		}
-		if err := pub.Publish(ctx, "zynax.workflow.state.entered", ec.WorkflowID, ec.CurrentState); err != nil {
-			return fmt.Errorf("engine-adapter: publish state.entered: %w", err)
+		if err := pub.Publish(ctx, "zynax.workflow.state.entered", ec.WorkflowID, ec.CurrentState, nil); err != nil {
+			return nil, fmt.Errorf("engine-adapter: publish state.entered: %w", err)
 		}
 		result, err := executeActions(ctx, state, ec, exec, data, scope)
 		if err != nil {
-			if perr := pub.Publish(ctx, "zynax.workflow.failed", ec.WorkflowID, ec.CurrentState); perr != nil {
-				slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.failed", "workflow_id", ec.WorkflowID, "err", perr)
-			}
-			return err
+			i.publishFailed(ctx, pub, ec)
+			return nil, err
 		}
 		transition, err := resolveTransition(state.GetTransitions(), result, ec.Ctx)
 		if err != nil {
-			if perr := pub.Publish(ctx, "zynax.workflow.failed", ec.WorkflowID, ec.CurrentState); perr != nil {
-				slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.failed", "workflow_id", ec.WorkflowID, "err", perr)
-			}
-			return err
+			i.publishFailed(ctx, pub, ec)
+			return nil, err
 		}
-		if perr := pub.Publish(ctx, "zynax.workflow.state.exited", ec.WorkflowID, ec.CurrentState); perr != nil {
+		if perr := pub.Publish(ctx, "zynax.workflow.state.exited", ec.WorkflowID, ec.CurrentState, nil); perr != nil {
 			slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.state.exited", "workflow_id", ec.WorkflowID, "err", perr)
 		}
 		mergePayload(ec.Ctx, result.Payload)
 		ec.CurrentState = transition.GetTargetState()
 	}
+}
+
+// captureTerminalOutputs resolves the terminal state's declared outputs against
+// the still-live data context, enforces the size bounds, publishes the typed
+// terminal "completed" event carrying the outputs, and returns the resolved map.
+// Resolution reuses ResolveInputs, so a dangling reference yields a
+// DataReferenceError and cross-run scope is still denied (canvas C.3). It runs
+// inside the Temporal workflow function and performs no I/O, so it stays
+// replay-deterministic.
+func (i *IRInterpreter) captureTerminalOutputs(
+	ctx context.Context,
+	state *zynaxv1.StateIR,
+	ec *ExecutionContext,
+	data *WorkflowDataContext,
+	scope DataContextScope,
+	pub EventPublisher,
+) (map[string]string, error) {
+	outputs, err := data.ResolveInputs(scope, state.GetOutputs())
+	if err != nil {
+		i.publishFailed(ctx, pub, ec)
+		return nil, err
+	}
+	if outputs == nil {
+		// Empty is success: a COMPLETED run with no declared outputs returns {}.
+		outputs = map[string]string{}
+	}
+	if err := enforceOutputBounds(outputs); err != nil {
+		i.publishFailed(ctx, pub, ec)
+		return nil, err
+	}
+	payload, err := marshalTerminalPayload(outputs)
+	if err != nil {
+		i.publishFailed(ctx, pub, ec)
+		return nil, err
+	}
+	if perr := pub.Publish(ctx, "zynax.workflow.completed", ec.WorkflowID, ec.CurrentState, payload); perr != nil {
+		slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.completed", "workflow_id", ec.WorkflowID, "err", perr)
+	}
+	return outputs, nil
+}
+
+// publishFailed emits the best-effort terminal "failed" lifecycle event.
+func (i *IRInterpreter) publishFailed(ctx context.Context, pub EventPublisher, ec *ExecutionContext) {
+	if perr := pub.Publish(ctx, "zynax.workflow.failed", ec.WorkflowID, ec.CurrentState, nil); perr != nil {
+		slog.Warn("lifecycle event publish failed", "event", "zynax.workflow.failed", "workflow_id", ec.WorkflowID, "err", perr)
+	}
+}
+
+// marshalTerminalPayload encodes the resolved outputs as the typed terminal
+// event payload {"outputs": {...}} (ADR-042). "outputs" is namespaced separately
+// from the task-broker "completion" field so the two readers never cross-parse.
+func marshalTerminalPayload(outputs map[string]string) ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Outputs map[string]string `json:"outputs"`
+	}{Outputs: outputs})
+	if err != nil {
+		return nil, fmt.Errorf("engine-adapter: marshal terminal outputs: %w", err)
+	}
+	return b, nil
 }
 
 // executeActions runs each synchronous action in the state and returns the result

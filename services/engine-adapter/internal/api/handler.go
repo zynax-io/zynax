@@ -105,6 +105,7 @@ func runToProto(r *domain.WorkflowRun) *zynaxv1.WorkflowRun {
 		StartedAt:          tsOrNil(r.StartedAt),
 		FinishedAt:         tsOrNil(r.FinishedAt),
 		CancellationReason: r.CancellationReason,
+		Outputs:            r.Outputs,
 	}
 }
 

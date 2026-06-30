@@ -39,7 +39,7 @@ func TestPublishLifecycleEventActivity_TopicFormat(t *testing.T) {
 	stub := &stubEventBusPublisher{}
 	w := newTestActivityWorker(stub)
 
-	err := w.PublishLifecycleEventActivity(context.Background(), "submitted", "wf-42", "state-1")
+	err := w.PublishLifecycleEventActivity(context.Background(), "submitted", "wf-42", "state-1", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestPublishLifecycleEventActivity_WorkflowIDInEvent(t *testing.T) {
 	stub := &stubEventBusPublisher{}
 	w := newTestActivityWorker(stub)
 
-	err := w.PublishLifecycleEventActivity(context.Background(), "running", "wf-99", "state-2")
+	err := w.PublishLifecycleEventActivity(context.Background(), "running", "wf-99", "state-2", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestPublishLifecycleEventActivity_AllEventTypes(t *testing.T) {
 		t.Run(eventType, func(t *testing.T) {
 			stub := &stubEventBusPublisher{}
 			w := newTestActivityWorker(stub)
-			err := w.PublishLifecycleEventActivity(context.Background(), eventType, "wf-1", "")
+			err := w.PublishLifecycleEventActivity(context.Background(), eventType, "wf-1", "", nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -117,7 +117,7 @@ func TestPublishLifecycleEventActivity_InterpreterEventTypes_NoDoublePrefix(t *t
 		t.Run(eventType, func(t *testing.T) {
 			stub := &stubEventBusPublisher{}
 			w := newTestActivityWorker(stub)
-			if err := w.PublishLifecycleEventActivity(context.Background(), eventType, "wf-1149", "s1"); err != nil {
+			if err := w.PublishLifecycleEventActivity(context.Background(), eventType, "wf-1149", "s1", nil); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if len(stub.reqs) != 1 {
@@ -139,7 +139,7 @@ func TestPublishLifecycleEventActivity_EventBusError_BestEffort(t *testing.T) {
 	stub := &stubEventBusPublisher{publishErr: errors.New("connection refused")}
 	w := newTestActivityWorker(stub)
 
-	err := w.PublishLifecycleEventActivity(context.Background(), "failed", "wf-3", "state-3")
+	err := w.PublishLifecycleEventActivity(context.Background(), "failed", "wf-3", "state-3", nil)
 	if err != nil {
 		t.Errorf("expected nil error on publish failure (best-effort), got: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestPublishLifecycleEventActivity_CloudEventFields(t *testing.T) {
 	stub := &stubEventBusPublisher{}
 	w := newTestActivityWorker(stub)
 
-	err := w.PublishLifecycleEventActivity(context.Background(), "completed", "wf-5", "end-state")
+	err := w.PublishLifecycleEventActivity(context.Background(), "completed", "wf-5", "end-state", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

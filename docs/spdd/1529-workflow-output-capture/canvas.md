@@ -131,9 +131,12 @@ Config env prefix: `ZYNAX_<SERVICE>_` · Engine-agnostic interpreter (Temporal /
    `@outputs` scenarios stay pending at the in-memory gRPC stub (it models neither action outputs nor
    StateIR structure — same precedent as the EPIC-W data-flow binding scenarios); the contract is verified
    by the domain unit tests. Turning the stub scenarios green is deferred with the stub IR-modeling work.
-7. **O.7 (#1536, feat·engine)** — Resolve `StateIR.outputs` at the terminal state before discard; return as
+7. **O.7 (#1536, feat·engine)** ✅ — Resolve `StateIR.outputs` at the terminal state before discard; return as
    Temporal result onto `WorkflowRun.outputs`; widen `EventPublisher.Publish` with one additive arg; enforce
-   size bounds. Verified: O.4 engine scenario green; empty=success, unresolved=DataReferenceError; cov ≥ 90%; race.
+   size bounds. Verified: empty=success, unresolved=DataReferenceError, oversized=OutputSizeError, GetStatus
+   reads the result; domain cov 91.8% + race green. The O.4 engine `@outputs` scenarios stay committed-but-
+   unrun at the in-memory testserver stub (no `@outputs` runner; same precedent as O.6) — verified by the
+   domain/infra unit tests; wiring a `TestOutputs` runner is deferred with the stub work.
 8. **O.8 (#1537, feat·gateway)** — `GET /api/v1/workflows/{id}/outputs` ({} / 404); outputs on SSE terminal
    event. Verified: `handler_test` populated/empty/404; `platform_client.get_outputs()` resolves.
 9. **O.9 (#1538, feat·cli)** — `zynax result` reads `/outputs`, prints declared outputs, falls back to

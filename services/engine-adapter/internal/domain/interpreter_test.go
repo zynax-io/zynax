@@ -38,7 +38,7 @@ type stubPublisher struct {
 	err    error
 }
 
-func (p *stubPublisher) Publish(_ context.Context, eventType, _, _ string) error {
+func (p *stubPublisher) Publish(_ context.Context, eventType, _, _ string, _ []byte) error {
 	p.events = append(p.events, eventType)
 	return p.err
 }
@@ -80,7 +80,7 @@ func transition(eventType, target string, conditions map[string]string) *zynaxv1
 func TestIRInterpreter_TerminalInitialState(t *testing.T) {
 	ir := buildIR("wf-1", "done", terminal("done"))
 	pub := &stubPublisher{}
-	err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub)
+	_, err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestIRInterpreter_TwoStateWorkflow(t *testing.T) {
 		terminal("done"),
 	)
 	pub := &stubPublisher{}
-	err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub)
+	_, err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestIRInterpreter_GuardBranching(t *testing.T) {
 		terminal("rejected"),
 	)
 	pub := &stubPublisher{}
-	err := (&IRInterpreter{}).Run(context.Background(), ir, exec, pub)
+	_, err := (&IRInterpreter{}).Run(context.Background(), ir, exec, pub)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestIRInterpreter_GuardBranching(t *testing.T) {
 
 func TestIRInterpreter_StateNotFound(t *testing.T) {
 	ir := buildIR("wf-4", "missing")
-	err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, &stubPublisher{})
+	_, err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, &stubPublisher{})
 	if err == nil || !containsMsg(err, "state \"missing\" not found") {
 		t.Errorf("expected state-not-found error, got: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestIRInterpreter_NoMatchingTransition(t *testing.T) {
 		),
 		terminal("done"),
 	)
-	err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, &stubPublisher{})
+	_, err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, &stubPublisher{})
 	if err == nil {
 		t.Fatal("expected error for no matching transition")
 	}
@@ -173,7 +173,7 @@ func TestIRInterpreter_ActivityError(t *testing.T) {
 	)
 	exec := &stubExecutor{err: errors.New("broker down")}
 	pub := &stubPublisher{}
-	err := (&IRInterpreter{}).Run(context.Background(), ir, exec, pub)
+	_, err := (&IRInterpreter{}).Run(context.Background(), ir, exec, pub)
 	if err == nil {
 		t.Fatal("expected error from activity")
 	}
@@ -211,7 +211,7 @@ func TestIRInterpreter_CtxMergedIntoNextAction(t *testing.T) {
 		),
 		terminal("done"),
 	)
-	err := (&IRInterpreter{}).Run(context.Background(), ir, captureExec, &stubPublisher{})
+	_, err := (&IRInterpreter{}).Run(context.Background(), ir, captureExec, &stubPublisher{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestIRInterpreter_AsyncActionsSkipped(t *testing.T) {
 		terminal("done"),
 	)
 	pub := &stubPublisher{}
-	if err := (&IRInterpreter{}).Run(context.Background(), ir, exec, pub); err != nil {
+	if _, err := (&IRInterpreter{}).Run(context.Background(), ir, exec, pub); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -362,7 +362,7 @@ func TestMergePayload_InvalidJSON(t *testing.T) {
 // errorPublisher fails with an error for a specific event type; all others succeed.
 type errorPublisher struct{ failOn string }
 
-func (p *errorPublisher) Publish(_ context.Context, eventType, _, _ string) error {
+func (p *errorPublisher) Publish(_ context.Context, eventType, _, _ string, _ []byte) error {
 	if eventType == p.failOn {
 		return errors.New("publish failed")
 	}
@@ -376,7 +376,7 @@ func TestIRInterpreter_StateEnteredPublishError(t *testing.T) {
 		terminal("done"),
 	)
 	pub := &errorPublisher{failOn: "zynax.workflow.state.entered"}
-	err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub)
+	_, err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub)
 	if err == nil || !containsMsg(err, "publish state.entered") {
 		t.Errorf("expected state.entered error, got: %v", err)
 	}
@@ -535,7 +535,7 @@ func TestIRInterpreter_PublishErrorLogged(t *testing.T) {
 	pub := &stubPublisher{err: errors.New("event bus down")}
 
 	// Run should succeed — publish failure is logged, not propagated.
-	if err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub); err != nil {
+	if _, err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !strings.Contains(buf.String(), "lifecycle event publish failed") {
