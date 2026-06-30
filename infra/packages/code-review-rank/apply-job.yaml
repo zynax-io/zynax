@@ -6,7 +6,7 @@
 # Sequence:
 #   1. initContainer `wait-for-ollama-model` blocks until the in-cluster ollama
 #      has the reference model pulled (GET /api/tags lists qwen2.5-coder). A cold
-#      `kubectl apply -k` pulls ~2 GB, which can take minutes — submitting the
+#      `kubectl apply -k` pulls ~398 MB, which can take ~a minute — submitting the
 #      Workflow before that lands makes the first `codereview` dispatch fail with
 #      `dial tcp ollama:11434: connection refused` (capability max_retries is low),
 #      so we gate the whole submit on the model being servable first.
@@ -70,7 +70,7 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "[apply-job] waiting for ollama to have qwen2.5-coder (cold pull is ~2GB, can take minutes)..."
+              echo "[apply-job] waiting for ollama to have qwen2.5-coder (cold pull is ~398 MB, can take ~a minute)..."
               i=0
               until wget -q -O - http://ollama:11434/api/tags 2>/dev/null | grep -q "qwen2.5-coder"; do
                 i=$((i+1))

@@ -2,13 +2,15 @@
 #
 # ollama — in-cluster local LLM server for the code-review-rank package.
 #
-# Serves the qwen2.5-coder:3b model (a small, fast, code-focused 3B model) over
-# the Ollama REST API on :11434. The llm-adapter (llm-adapter.yaml) dials this
+# Serves the qwen2.5-coder:0.5b model (a tiny, fast, code-focused 0.5B model —
+# ~398 MB, vs ~1.9 GB for the 3B; ideal for testing the pipeline without a big
+# download — raise the tag/model to qwen2.5-coder:3b for higher-quality reviews)
+# over the Ollama REST API on :11434. The llm-adapter (llm-adapter.yaml) dials this
 # Service at http://ollama:11434 to run real inference for the `codereview` and
 # `summarize` capabilities — zero cost, no API key, fully self-contained.
 #
 # Startup model pull: the container serves Ollama in the background, waits for it
-# to come up, then pulls qwen2.5-coder:3b. The PVC persists the blob cache so the
+# to come up, then pulls qwen2.5-coder:0.5b. The PVC persists the blob cache so the
 # (large) model pull happens only once across restarts. Readiness is gated on the
 # model actually being present (`ollama list | grep`), so dependents that wait on
 # `kubectl rollout status` / Ready will not dispatch before inference can serve.
@@ -28,8 +30,8 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      # ~6Gi: qwen2.5-coder:3b is ~1.9Gi on disk; headroom for the blob cache.
-      storage: 6Gi
+      # ~2Gi: qwen2.5-coder:0.5b is ~398Mi on disk; headroom for the blob cache.
+      storage: 2Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -96,10 +98,10 @@ spec:
               until ollama list >/dev/null 2>&1; do
                 sleep 2
               done
-              echo "[ollama] server up; ensuring model qwen2.5-coder:3b is present..."
-              if ! ollama list | grep -q 'qwen2.5-coder:3b'; then
-                echo "[ollama] pulling qwen2.5-coder:3b (one-time; cached on the PVC)..."
-                ollama pull qwen2.5-coder:3b
+              echo "[ollama] server up; ensuring model qwen2.5-coder:0.5b is present..."
+              if ! ollama list | grep -q 'qwen2.5-coder:0.5b'; then
+                echo "[ollama] pulling qwen2.5-coder:0.5b (one-time; cached on the PVC)..."
+                ollama pull qwen2.5-coder:0.5b
               fi
               echo "[ollama] model ready; serving."
               wait $SERVE_PID
@@ -134,7 +136,7 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - "ollama list | grep -q 'qwen2.5-coder:3b'"
+                - "ollama list | grep -q 'qwen2.5-coder:0.5b'"
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
