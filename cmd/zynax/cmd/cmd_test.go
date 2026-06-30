@@ -601,14 +601,62 @@ func TestResultCmd_PrintsCompletion(t *testing.T) {
 	}
 }
 
-func TestResultCmd_NoResult_Errors(t *testing.T) {
+func TestResultCmd_Failed_Errors(t *testing.T) {
 	srv := sseServer(t, []map[string]any{
 		{"run_id": "r6", "event_type": "workflow.failed", "status": "WORKFLOW_STATUS_FAILED"},
 	})
 	apiURL = srv.URL
 
 	if _, err := runResult(t, []string{"r6"}); err == nil {
-		t.Error("expected error when run finishes with no result payload")
+		t.Error("expected error when a FAILED run produced no result payload")
+	}
+}
+
+// runResultStreams runs the result command and returns stdout, stderr, and err
+// separately so the COMPLETED-empty note (written to stderr) can be asserted.
+func runResultStreams(t *testing.T, args []string) (string, string, error) {
+	t.Helper()
+	cmd := &cobra.Command{}
+	var out, errOut bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&errOut)
+	cmd.SetContext(context.Background())
+	err := resultCmd.RunE(cmd, args)
+	return out.String(), errOut.String(), err
+}
+
+// TestResultCmd_CompletedNoOutput_ExitsZeroWithNote asserts AC1: a COMPLETED run
+// that declared no output exits 0 (no error), prints nothing to stdout, and emits
+// the graceful runbook note on stderr — a successful run never looks like a failure.
+func TestResultCmd_CompletedNoOutput_ExitsZeroWithNote(t *testing.T) {
+	srv := sseServer(t, []map[string]any{
+		{"run_id": "r7", "event_type": "state.entered", "to_state": "done", "status": "WORKFLOW_STATUS_RUNNING"},
+		{"run_id": "r7", "event_type": "workflow.completed", "status": "WORKFLOW_STATUS_COMPLETED"},
+	})
+	apiURL = srv.URL
+
+	stdout, stderr, err := runResultStreams(t, []string{"r7"})
+	if err != nil {
+		t.Fatalf("COMPLETED-empty run must exit 0, got error: %v", err)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("stdout should be empty for a no-output run, got: %q", stdout)
+	}
+	if !strings.Contains(stderr, "docs/runbooks/see-workflow-result.md") {
+		t.Errorf("expected runbook note on stderr, got: %q", stderr)
+	}
+}
+
+// TestResultCmd_Cancelled_Errors asserts AC2: a CANCELLED run with no output
+// exits non-zero (a real failure must not read as success).
+func TestResultCmd_Cancelled_Errors(t *testing.T) {
+	srv := sseServer(t, []map[string]any{
+		{"run_id": "r8", "event_type": "workflow.cancelled", "status": "WORKFLOW_STATUS_CANCELLED"},
+	})
+	apiURL = srv.URL
+
+	if _, _, err := runResultStreams(t, []string{"r8"}); err == nil {
+		t.Error("expected non-zero exit for a CANCELLED run with no result")
 	}
 }
 

@@ -24,8 +24,9 @@ var resultCmd = &cobra.Command{
 		"With no run id the command targets your most recent run (recorded by the " +
 		"last `zynax apply`/`run`). An explicit run id always overrides.\n\n" +
 		"The command tails the run until it reaches a terminal state and prints the " +
-		"last completion text it saw. Exits with an error if the run finishes with no " +
-		"result (e.g. a failed run).",
+		"last completion text it saw. A run that COMPLETED but declared no output " +
+		"exits 0 with a note (see the see-workflow-result runbook); a FAILED or " +
+		"CANCELLED run exits non-zero.",
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		runID, err := resolveRunID(args)
@@ -33,12 +34,13 @@ var resultCmd = &cobra.Command{
 			return err
 		}
 		gw := newGateway()
-		var output string
+		var output, terminalStatus string
 		err = gw.WatchWorkflowLogs(cmd.Context(), runID, func(ev client.LogEvent) error {
 			if text := client.CompletionText(ev.Payload); text != "" {
 				output = text
 			}
 			if terminalStatuses[ev.Status] {
+				terminalStatus = ev.Status
 				return errResultDone
 			}
 			return nil
@@ -46,11 +48,25 @@ var resultCmd = &cobra.Command{
 		if err != nil && !errors.Is(err, errResultDone) {
 			return err
 		}
-		if output == "" {
-			return fmt.Errorf("no result payload for run %s", runID)
+		if output != "" {
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), output)
+			return nil
 		}
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), output)
-		return nil
+		// No completion text was emitted. A COMPLETED run that simply declared no
+		// output is a success — echo/hello-world style runs produce none — so exit
+		// 0 with a note pointing at the runbook (the structured-output reader in
+		// O.9 supersedes this). FAILED/CANCELLED, or a stream that closed before
+		// any terminal state, remain errors so a real failure never reads as success.
+		switch terminalStatus {
+		case "WORKFLOW_STATUS_COMPLETED":
+			_, _ = fmt.Fprintln(cmd.ErrOrStderr(),
+				"run completed with no declared output — see docs/runbooks/see-workflow-result.md")
+			return nil
+		case "":
+			return fmt.Errorf("no result payload for run %s", runID)
+		default:
+			return fmt.Errorf("run %s did not produce a result: status %s", runID, terminalStatus)
+		}
 	},
 }
 
