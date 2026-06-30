@@ -58,7 +58,12 @@ type State struct {
 	Type        StateType
 	Actions     []Action
 	Transitions []Transition
-	Line        int // 1-based source line in the YAML manifest
+	// Outputs declares the workflow-level result of a TERMINAL state (ADR-042,
+	// M7.U): result name → a literal or an ADR-029 data reference
+	// "$.states.<state>.output.<key>". Nil when the state declares none. Valid
+	// only on terminal states; the graph builder rejects it elsewhere.
+	Outputs map[string]string
+	Line    int // 1-based source line in the YAML manifest
 }
 
 // Manifest is the domain-level representation of a parsed workflow YAML manifest.
@@ -98,9 +103,10 @@ type yamlSpec struct {
 }
 
 type yamlState struct {
-	Type    string           `yaml:"type"`
-	Actions []yamlAction     `yaml:"actions"`
-	On      []yamlTransition `yaml:"on"`
+	Type    string                 `yaml:"type"`
+	Actions []yamlAction           `yaml:"actions"`
+	On      []yamlTransition       `yaml:"on"`
+	Outputs map[string]interface{} `yaml:"outputs"`
 }
 
 type yamlAction struct {
@@ -299,10 +305,49 @@ func convertState( //nolint:funlen // validates type + actions + transitions in 
 		})
 	}
 
+	outputs, outErrs := convertWorkflowOutputs(name, ys.Outputs, line)
+	errs = append(errs, outErrs...)
+	st.Outputs = outputs
+
 	if len(errs) > 0 {
 		return nil, errs
 	}
 	return st, nil
+}
+
+// convertWorkflowOutputs flattens a terminal state's outputs: mapping into a
+// string→string map of result name → source path (a literal or an ADR-029
+// "$.states.<state>.output.<key>" reference). Non-string values are a
+// compile-time error: M7 has no transform language, so each value must be a
+// literal string (ADR-042). Terminal-only placement and reference resolution are
+// enforced later by the graph builder, which has the full state set.
+func convertWorkflowOutputs(
+	state string,
+	raw map[string]interface{},
+	line int,
+) (map[string]string, ParseErrors) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var errs ParseErrors
+	out := make(map[string]string, len(raw))
+	for key, val := range raw {
+		s, ok := val.(string)
+		if !ok {
+			errs = append(errs, ParseError{
+				Code:      ErrorCodeInvalidFieldValue,
+				Message:   fmt.Sprintf("state %q: outputs[%q] must be a string source path, got %T", state, key, val),
+				Line:      line,
+				StateName: state,
+			})
+			continue
+		}
+		out[key] = s
+	}
+	if len(out) == 0 {
+		return nil, errs
+	}
+	return out, errs
 }
 
 // inputBindingPrefix is the JSON-path root that marks a string input value as a

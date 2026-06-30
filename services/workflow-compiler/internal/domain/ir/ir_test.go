@@ -383,3 +383,35 @@ func TestToIR_HITLGraph(t *testing.T) {
 		t.Errorf("review transitions: got %d, want 2", len(reviewState.Transitions))
 	}
 }
+
+// TestToIR_TerminalStateOutputs verifies the terminal state's declared outputs
+// (ADR-042, M7.U) are lowered onto StateIR.outputs, and that a state with no
+// declared outputs carries an empty map.
+func TestToIR_TerminalStateOutputs(t *testing.T) {
+	g := minimalGraph()
+	g.States[stateEnd].Outputs = map[string]string{"review": "$.states.start.output.text"}
+
+	wfIR, err := call(g)
+	if err != nil {
+		t.Fatalf("ToIR error: %v", err)
+	}
+
+	var end, start *zynaxv1.StateIR
+	for _, s := range wfIR.States {
+		switch s.Id {
+		case stateEnd:
+			end = s
+		case stateStart:
+			start = s
+		}
+	}
+	if end == nil || start == nil {
+		t.Fatalf("missing states in IR: start=%v end=%v", start, end)
+	}
+	if got := end.Outputs["review"]; got != "$.states.start.output.text" {
+		t.Errorf("terminal StateIR.outputs[review] = %q, want the declared reference", got)
+	}
+	if len(start.Outputs) != 0 {
+		t.Errorf("non-terminal StateIR.outputs = %v, want empty", start.Outputs)
+	}
+}

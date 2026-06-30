@@ -137,6 +137,13 @@
           "items": {
             "$ref": "#/$defs/transition"
           }
+        },
+        "outputs": {
+          "type": "object",
+          "description": "Workflow-level outputs declared on a terminal state (ADR-042). Maps a result name to a literal or an ADR-029 data reference '$.states.<state>.output.<key>'. Resolved at the terminal state and returned as the workflow result. Valid only on terminal states; the compiler rejects it elsewhere.",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
