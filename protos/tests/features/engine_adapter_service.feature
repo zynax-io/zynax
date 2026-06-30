@@ -14,6 +14,10 @@
 # Tags:
 #   @lifecycle — workflow submission, status query, cancellation (TestLifecycle)
 #   @signals   — signal delivery and watch stream (TestSignals)
+#   @outputs   — workflow-level output capture & return (M7.U epic #1529). RED contract
+#                pinned by O.4 (#1533) before O.5/O.7; no runner registers @outputs yet,
+#                so these scenarios are committed-but-not-executed until O.7 (#1536) adds
+#                TestOutputs with Tags "@outputs". (ADR-016, ADR-042)
 
 Feature: EngineAdapterService contract — workflow execution lifecycle
   As a Zynax control plane submitting compiled workflows for execution
@@ -198,3 +202,23 @@ Feature: EngineAdapterService contract — workflow execution lifecycle
     When GetWorkflowStatus is called
     Then the gRPC status is INVALID_ARGUMENT
     And the error message mentions "run_id"
+
+  # ─── Workflow-level outputs (M7.U #1529) ────────────────────────────────────
+  # RED contract for O.5 (proto fields) and O.7 (engine resolve-at-terminal).
+  # The result is engine-agnostic: identical whether the run executed on
+  # Temporal or Argo (ADR-015, ADR-042).
+
+  @outputs
+  Scenario: A completed run returns its declared workflow outputs
+    Given a compiled WorkflowIR whose terminal state declares outputs {"review": "$.states.assess.output.text"}
+    And the "assess" state produces output "text" with value "LGTM"
+    When the workflow is submitted and watched to COMPLETED
+    Then GetWorkflowStatus returns outputs {"review": "LGTM"}
+    And the terminal WorkflowEvent payload carries the same outputs
+
+  @outputs
+  Scenario: A completed run with no declared outputs returns an empty map
+    Given a compiled WorkflowIR whose terminal state declares no outputs
+    When the workflow is submitted and watched to COMPLETED
+    Then GetWorkflowStatus returns an empty outputs map
+    And the gRPC status is OK
