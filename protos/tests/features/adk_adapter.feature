@@ -56,3 +56,17 @@ Feature: adk-adapter — Google ADK (Go) capability adapter
     Then the stream emits at least one TaskEvent with event_type PROGRESS
     And the final TaskEvent has event_type COMPLETED
     And the COMPLETED payload validates against the declared output_schema_json
+
+  Scenario: ExecuteCapability emits FAILED INVALID_INPUT for a schema-invalid payload
+    Given a valid ExecuteCapabilityRequest for capability "triage"
+    But the input_payload does not satisfy the declared input_schema_json
+    When ExecuteCapability is called
+    Then the final TaskEvent has event_type FAILED
+    And the CapabilityError code is "INVALID_INPUT"
+
+  Scenario: ExecuteCapability emits FAILED TIMEOUT when the run exceeds timeout_seconds
+    Given a valid ExecuteCapabilityRequest for capability "triage"
+    And the request sets a timeout_seconds the ADK run cannot meet
+    When ExecuteCapability is called
+    Then the final TaskEvent has event_type FAILED
+    And the CapabilityError code is "TIMEOUT"

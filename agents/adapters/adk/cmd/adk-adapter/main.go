@@ -74,7 +74,11 @@ func serve(ctx context.Context, cfg *config.AdapterConfig, regClient zynaxv1.Age
 	}
 
 	grpcSrv := grpc.NewServer()
-	zynaxv1.RegisterAgentServiceServer(grpcSrv, adapter.NewAgentServer(cfg))
+	agentSrv, err := adapter.NewAgentServer(cfg)
+	if err != nil {
+		return fmt.Errorf("build agent server: %w", err)
+	}
+	zynaxv1.RegisterAgentServiceServer(grpcSrv, agentSrv)
 	healthSrv := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcSrv, healthSrv)
 
