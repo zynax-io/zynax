@@ -125,8 +125,11 @@ func (o *Ollama) GenerateContent(ctx context.Context, req *adkmodel.LLMRequest, 
 		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
-			b, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrBody))
-			yield(nil, fmt.Errorf("ollama: chat status %d: %s", resp.StatusCode, strings.TrimSpace(string(b))))
+			// Do not surface the raw upstream body: it is untrusted external bytes
+			// that must not flow into a CapabilityError.message (adapter rule).
+			// The status code is enough to classify; the body stays in Ollama's logs.
+			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxErrBody))
+			yield(nil, fmt.Errorf("ollama: chat status %d", resp.StatusCode))
 			return
 		}
 
@@ -168,6 +171,16 @@ func streamChat(body io.Reader, yield func(*adkmodel.LLMResponse, error) bool) {
 			return
 		}
 		if cr.Done {
+			// The done frame may itself carry the tail of the generation (some
+			// servers flush it alongside the done marker); include it so the
+			// aggregated final text is never truncated. Empty content (the
+			// canonical case) is a no-op.
+			if tail := cr.Message.Content; tail != "" {
+				full.WriteString(tail)
+				if !yield(partialResponse(tail), nil) {
+					return
+				}
+			}
 			yield(finalResponse(full.String()), nil)
 			return
 		}
