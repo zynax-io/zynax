@@ -231,6 +231,35 @@ func (g *Gateway) GetWorkflow(ctx context.Context, runID string) (*WorkflowStatu
 	}
 }
 
+// GetWorkflowOutputs returns the declared workflow-level outputs of a run
+// (ADR-042, M7.U). The gateway returns an empty object for a run that declared
+// none and 404 for an unknown id (surfaced as ErrNotFound).
+func (g *Gateway) GetWorkflowOutputs(ctx context.Context, runID string) (map[string]string, error) {
+	req, err := g.newRequest(ctx, http.MethodGet, g.base+"/api/v1/workflows/"+runID+"/outputs", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("zynax: get workflow outputs: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	raw, _ := io.ReadAll(resp.Body)
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var outputs map[string]string
+		if err := json.Unmarshal(raw, &outputs); err != nil {
+			return nil, fmt.Errorf("zynax: decode workflow outputs: %w", err)
+		}
+		return outputs, nil
+	case http.StatusNotFound:
+		return nil, ErrNotFound
+	default:
+		return nil, fmt.Errorf("zynax: get workflow outputs: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	}
+}
+
 // DeleteWorkflow cancels a running workflow run.
 func (g *Gateway) DeleteWorkflow(ctx context.Context, runID string) error {
 	req, err := g.newRequest(ctx, http.MethodDelete, g.base+"/api/v1/workflows/"+runID, nil)

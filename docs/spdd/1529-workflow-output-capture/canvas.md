@@ -140,8 +140,9 @@ Config env prefix: `ZYNAX_<SERVICE>_` · Engine-agnostic interpreter (Temporal /
 8. **O.8 (#1537, feat·gateway)** ✅ — `GET /api/v1/workflows/{id}/outputs` ({} / 404); outputs on SSE terminal
    event. Verified: `handler_test` populated/empty/404 + safe-JSON + terminal-SSE-carries-outputs;
    `platform_client.get_outputs()` already targets the route (now resolves instead of raising); domain cov 96.7%.
-9. **O.9 (#1538, feat·cli)** — `zynax result` reads `/outputs`, prints declared outputs, falls back to
-   `CompletionText`, sanitizes control chars; wedge-first help. Verified: CLI tests outputs/fallback/empty/FAILED.
+9. **O.9 (#1538, feat·cli)** ✅ — `zynax result` reads `/outputs`, prints declared outputs, falls back to
+   `CompletionText`, sanitizes control chars; wedge-first help. Verified: CLI tests
+   outputs/fallback/empty/FAILED + sanitize + client GetWorkflowOutputs; binary `result --help` smoke; O.1 runbook updated.
 10. **O.10 (#1539, feat·spec)** — Declare terminal `outputs:` on hello-world + code-review; update comments +
     runbook. Verified: examples compile/validate; existing 9 examples unchanged; `zynax result` prints output.
 11. **O.11 (#1540, test·engine)** — Gated e2e (`ZYNAX_PLATFORM_E2E=1`) proving apply→COMPLETED→`/outputs`;

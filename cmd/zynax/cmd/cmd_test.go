@@ -660,6 +660,117 @@ func TestResultCmd_Cancelled_Errors(t *testing.T) {
 	}
 }
 
+// resultServer serves both the SSE /logs stream and the JSON /outputs read path
+// so `zynax result`'s structured-outputs-plus-fallback flow can be exercised.
+func resultServer(t *testing.T, events []map[string]any, outputs map[string]string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/outputs"):
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(outputs)
+		case strings.HasSuffix(r.URL.Path, "/logs"):
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(http.StatusOK)
+			for _, ev := range events {
+				b, _ := json.Marshal(ev)
+				_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// TestResultCmd_PrintsDeclaredOutputs asserts AC1: declared outputs are read from
+// the gateway /outputs route and printed as sorted name=value lines.
+func TestResultCmd_PrintsDeclaredOutputs(t *testing.T) {
+	srv := resultServer(t,
+		[]map[string]any{{"run_id": "ro", "event_type": "workflow.completed", "status": "WORKFLOW_STATUS_COMPLETED"}},
+		map[string]string{"message": "hello world", "score": "9"},
+	)
+	apiURL = srv.URL
+
+	out, err := runResult(t, []string{"ro"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "message=hello world") || !strings.Contains(out, "score=9") {
+		t.Errorf("outputs render = %q, want message=hello world + score=9", out)
+	}
+}
+
+// TestResultCmd_OutputsPreferredOverCompletion asserts the structured outputs win
+// over the legacy completion-text fallback when both are present.
+func TestResultCmd_OutputsPreferredOverCompletion(t *testing.T) {
+	srv := resultServer(t,
+		[]map[string]any{
+			{"run_id": "rp", "event_type": "task.completed", "status": "capability_event",
+				"payload": `{"result_payload":"{\"completion\":\"fallback text\"}"}`},
+			{"run_id": "rp", "event_type": "workflow.completed", "status": "WORKFLOW_STATUS_COMPLETED"},
+		},
+		map[string]string{"review": "structured wins"},
+	)
+	apiURL = srv.URL
+
+	out, err := runResult(t, []string{"rp"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "review=structured wins") {
+		t.Errorf("expected structured outputs, got %q", out)
+	}
+	if strings.Contains(out, "fallback text") {
+		t.Errorf("structured outputs must win over the completion fallback, got %q", out)
+	}
+}
+
+// TestResultCmd_CompletionFallback_WhenOutputsEmpty asserts AC2: a run whose
+// /outputs is empty still prints via the completion-text fallback.
+func TestResultCmd_CompletionFallback_WhenOutputsEmpty(t *testing.T) {
+	srv := resultServer(t,
+		[]map[string]any{
+			{"run_id": "rf", "event_type": "task.completed", "status": "capability_event",
+				"payload": `{"result_payload":"{\"completion\":\"the model review text\"}"}`},
+			{"run_id": "rf", "event_type": "workflow.completed", "status": "WORKFLOW_STATUS_COMPLETED"},
+		},
+		map[string]string{},
+	)
+	apiURL = srv.URL
+
+	out, err := runResult(t, []string{"rf"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.TrimSpace(out) != "the model review text" {
+		t.Errorf("fallback output = %q, want completion text", strings.TrimSpace(out))
+	}
+}
+
+// TestResultCmd_SanitizesControlAndANSI asserts AC4: control chars and ANSI
+// escapes in an output value are stripped before printing.
+func TestResultCmd_SanitizesControlAndANSI(t *testing.T) {
+	srv := resultServer(t,
+		[]map[string]any{{"run_id": "rs", "event_type": "workflow.completed", "status": "WORKFLOW_STATUS_COMPLETED"}},
+		map[string]string{"x": "a\x1b[31mred\x00\x07b"},
+	)
+	apiURL = srv.URL
+
+	out, err := runResult(t, []string{"rs"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.ContainsAny(out, "\x1b\x00\x07") {
+		t.Errorf("control/ANSI bytes leaked to output: %q", out)
+	}
+	if !strings.Contains(out, "x=aredb") {
+		t.Errorf("sanitised output = %q, want line x=aredb", out)
+	}
+}
+
 // ── last-run state (#1491, canvas O21) ────────────────────────────────────────
 
 // TestRunApply_RecordsLastRunID asserts AC1: a successful apply that returns a

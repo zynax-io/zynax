@@ -3,23 +3,26 @@
 > **Watch your workflow run and see its result the same way whether it executed on Temporal or
 > Argo.** This page is the reliable, copy-pasteable way to read a completed run's output **today**.
 
-## When to use this
+## The quick answer: `zynax result`
 
-You ran a workflow, it reached `WORKFLOW_STATUS_COMPLETED`, and you want its result — but
-`zynax result <run-id>` printed:
+You ran a workflow, it reached `WORKFLOW_STATUS_COMPLETED`, and you want its result:
 
 ```
-no result payload for run wf-<hex>
+zynax result <run-id>
 ```
 
-That error is a **known interim limitation**, not a failed run. `zynax result` hard-errors on a
-COMPLETED run whose capabilities emit no `completion` field (for example a plain echo/hello-world
-step), even though the run succeeded — see
-[cmd/zynax/cmd/result.go](../../cmd/zynax/cmd/result.go). The permanent fix — declared
-workflow-level outputs surfaced by `zynax result`, and a graceful exit-0 on empty — lands in
+`zynax result` reads the run's **declared outputs** from
+`GET /api/v1/workflows/{id}/outputs` and prints them as `name=value` lines
+([cmd/zynax/cmd/result.go](../../cmd/zynax/cmd/result.go), ADR-042). If the workflow declared no
+`outputs:`, it falls back to the last capability **completion** text on the event stream (e.g. the
+model's review from the code-review example). A COMPLETED run that produced neither exits 0 with a
+short note (never a hard error); a FAILED/CANCELLED run exits non-zero. Output is sanitised of
+control/ANSI escapes before printing. Delivered by
 **M7.U O.9** ([#1538](https://github.com/zynax-io/zynax/issues/1538)), part of epic
-[#1529](https://github.com/zynax-io/zynax/issues/1529). Until then, use any of the four methods
-below. They all read the **same** lifecycle stream, so the result is identical no matter which
+[#1529](https://github.com/zynax-io/zynax/issues/1529).
+
+The methods below remain useful for **watching** a run live, replaying/scripting, or proving a run
+is terminal. They all read the **same** lifecycle stream, so the result is identical no matter which
 engine executed the run.
 
 > Every command takes an explicit `<run-id>` (the `run_id: wf-<hex>` line printed by `zynax apply`).
@@ -80,7 +83,8 @@ zynax logs <run-id> --format json \
 ```
 
 The last non-empty line is your result. Runs with no completion field (e.g. echo/hello-world) print
-nothing here — that is expected, and is exactly the case the interim `zynax result` mishandles.
+nothing here — that is expected; `zynax result` reads the run's declared `outputs:` instead, and for
+a run with neither exits 0 with a graceful note.
 
 ---
 
