@@ -41,6 +41,12 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Install locked dependencies (without the project itself — source is copied separately)
+#
+# Runtime/gencode invariant: the protobuf runtime pinned in uv.lock must be >= the
+# gencode version of the stubs copied below from protos/generated/python. protobuf
+# rejects runtime < gencode at import, which would crash the adapter on startup
+# (regressed in #1550: gencode bumped to 7.35.1 while the lock lagged at 7.35.0).
+# CI's docker-change detection now rebuilds this image on uv.lock/pyproject changes.
 COPY agents/adapters/langgraph/pyproject.toml agents/adapters/langgraph/uv.lock ./
 RUN uv sync --no-dev --no-install-project --frozen --no-build
 
