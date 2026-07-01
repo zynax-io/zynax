@@ -354,6 +354,27 @@ services:
       retries: 10
       start_period: 15s
 
+  adk-adapter:
+    image: ghcr.io/zynax-io/zynax/adk-adapter:main
+    build:
+      context: ../..
+      dockerfile: agents/adapters/adk/Dockerfile
+    environment:
+      # Google ADK (Go) agents as capabilities (ADR-038). Zero-secret by default:
+      # the baked config selects a local Ollama model; OLLAMA_HOST is an override.
+      # Ollama itself is provided by the docker-compose.ollama.yml overlay.
+      ADAPTER_CONFIG: /etc/adk-adapter/config.yaml
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://ollama:11434}
+    depends_on:
+      agent-registry:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/healthcheck", "tcp://localhost:50080"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
   langgraph-adapter:
     image: ghcr.io/zynax-io/zynax/langgraph-adapter:main
     build:

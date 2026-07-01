@@ -10,6 +10,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -24,13 +25,20 @@ const ProviderOllama = "ollama"
 
 // AdapterConfig is the top-level YAML struct parsed from the file at startup.
 type AdapterConfig struct {
-	AgentID          string             `yaml:"agent_id"`
-	Name             string             `yaml:"name"`
-	Description      string             `yaml:"description"`
-	Endpoint         string             `yaml:"endpoint"`
-	RegistryEndpoint string             `yaml:"registry_endpoint"`
-	Model            ModelConfig        `yaml:"model"`
-	Capabilities     []CapabilityConfig `yaml:"capabilities"`
+	AgentID     string `yaml:"agent_id"`
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+	// Endpoint is the address the gRPC server binds to (net.Listen). A hostless
+	// value such as ":50080" binds all interfaces but is NOT routable, so it must
+	// never be advertised to the registry verbatim (issue #1371).
+	Endpoint string `yaml:"endpoint"`
+	// AdvertiseEndpoint is the routable address the task-broker dials for this
+	// adapter, e.g. "adk-adapter:50080". When empty it falls back to Endpoint —
+	// but only if Endpoint carries an explicit host (see AdvertisedEndpoint).
+	AdvertiseEndpoint string             `yaml:"advertise_endpoint"`
+	RegistryEndpoint  string             `yaml:"registry_endpoint"`
+	Model             ModelConfig        `yaml:"model"`
+	Capabilities      []CapabilityConfig `yaml:"capabilities"`
 }
 
 // ModelConfig selects the LLM backend shared by every ADK agent in this adapter.
@@ -87,6 +95,14 @@ func (c *AdapterConfig) validate() error {
 	if c.RegistryEndpoint == "" {
 		return fmt.Errorf("config: registry_endpoint is required")
 	}
+	// The address advertised to the registry must be routable. A hostless bind
+	// endpoint (":50080") advertised verbatim makes the broker dial localhost
+	// (issue #1371), so require an explicit advertise_endpoint in that case.
+	if c.AdvertiseEndpoint == "" && !hasExplicitHost(c.Endpoint) {
+		return fmt.Errorf(
+			"config: advertise_endpoint is required when endpoint %q is hostless "+
+				"(a hostless bind address is not routable by the task-broker)", c.Endpoint)
+	}
 	if c.Model.Provider != ProviderOllama {
 		return fmt.Errorf("config: model.provider %q unsupported (only %q is wired)", c.Model.Provider, ProviderOllama)
 	}
@@ -99,4 +115,25 @@ func (c *AdapterConfig) validate() error {
 		}
 	}
 	return nil
+}
+
+// AdvertisedEndpoint returns the routable address registered with the registry
+// and dialled by the task-broker. It prefers an explicit advertise_endpoint and
+// otherwise falls back to the bind Endpoint — which validate() guarantees has an
+// explicit host when no advertise_endpoint is set.
+func (c *AdapterConfig) AdvertisedEndpoint() string {
+	if c.AdvertiseEndpoint != "" {
+		return c.AdvertiseEndpoint
+	}
+	return c.Endpoint
+}
+
+// hasExplicitHost reports whether addr carries a non-empty host component.
+// Hostless forms such as ":50080" return false; "host:port" returns true.
+func hasExplicitHost(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	return host != ""
 }

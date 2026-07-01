@@ -50,11 +50,16 @@ YAML at the path in `ADAPTER_CONFIG`. Key fields:
 | Field | Description |
 |-------|-------------|
 | `agent_id` | Unique id registered with agent-registry. |
-| `endpoint` | gRPC bind address (default `:50080`). |
+| `endpoint` | gRPC **bind** address (default `:50080`). A hostless value binds all interfaces but is not routable. |
+| `advertise_endpoint` | **Routable** address the task-broker dials (e.g. `adk-adapter:50080`). Required when `endpoint` is hostless (issue #1371); else falls back to `endpoint`. |
 | `registry_endpoint` | agent-registry address (e.g. `agent-registry:50052`). |
-| `model.provider` | `ollama` (default) or `gemini`. |
-| `model.name` | Model id (e.g. `qwen2.5-coder:3b`). |
+| `model.provider` | `ollama` (default; only value wired). |
+| `model.name` | Model id (e.g. `qwen2.5-coder:0.5b`). |
 | `capabilities[]` | `name`, `instruction`, `input_schema_json`, `output_schema_json`, `timeout_seconds`. |
+
+Runnable demo (secret-free, local Ollama): `spec/workflows/examples/adk-code-review-ollama.yaml`
+dispatches the `review` capability declared in `agent-def.yaml.example`. Bring up the
+Ollama overlay (`docker-compose.ollama.yml`), then `zynax apply … && zynax result <run>`.
 
 ## The bridge (`internal/adapter`)
 

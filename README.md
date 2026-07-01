@@ -329,7 +329,7 @@ Replace `api-gateway` with any image name from the table above.
               ↓
         Task Broker (Go)       ← Capability routing
               ↓
-    Execution Adapters Layer   ← LLM / HTTP / Git / CI / LangGraph
+    Execution Adapters Layer   ← LLM / HTTP / Git / CI / LangGraph / ADK
               ↓
      Event Bus — NATS (Go)     ← All events
               ↓
@@ -486,6 +486,7 @@ Current implementation status per service and adapter (as of M7 active developme
 | ci-adapter | Go | ✅ Complete | `trigger_workflow`, `get_run_status` via GitHub Actions REST API |
 | llm-adapter | Go | ✅ Complete | `chat_completion` — OpenAI, AWS Bedrock, Ollama (ported from Python, ADR-035) |
 | langgraph-adapter | Python | ✅ Complete | LangGraph `StateGraph` as Zynax capabilities; wired in e2e-demo |
+| adk-adapter | Go | ✅ Complete | Google ADK (Go) `llmagent` per capability over a zero-secret local Ollama model (ADR-038) |
 
 **Legend:** ✅ Complete · 🟡 MVP (in-memory, ephemeral) · 🔄 In Progress · 📋 Planned
 
