@@ -135,6 +135,12 @@ spec:
           input:
             pr_url: "{{ .trigger.pr_url }}"
             message: "Your PR has been merged."
+      # Return the review feedback summary published by the fix state as the
+      # workflow's declared result (ADR-042). Demonstrates surfacing a data-flow
+      # output (ADR-029) at the workflow boundary; on the review→fix→merge path
+      # `zynax result <run>` would print `feedback_summary=<the summary>`.
+      outputs:
+        feedback_summary: "$.states.fix.output.feedback_summary"
 
     abandon:
       type: terminal

@@ -17,7 +17,11 @@ zynax result <run-id>
 `outputs:`, it falls back to the last capability **completion** text on the event stream (e.g. the
 model's review from the code-review example). A COMPLETED run that produced neither exits 0 with a
 short note (never a hard error); a FAILED/CANCELLED run exits non-zero. Output is sanitised of
-control/ANSI escapes before printing. Delivered by
+control/ANSI escapes before printing.
+
+The shipped examples declare terminal `outputs:` so you see a real result on your first run:
+`hello-world.yaml` returns `message=Hello from Zynax`, and `code-review-ollama.yaml` returns
+`review=<the model's review text>`. Delivered by
 **M7.U O.9** ([#1538](https://github.com/zynax-io/zynax/issues/1538)), part of epic
 [#1529](https://github.com/zynax-io/zynax/issues/1529).
 

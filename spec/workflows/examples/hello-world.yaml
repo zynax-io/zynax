@@ -9,7 +9,7 @@
 #
 # Run it (kind demo already up — see README "See it run"):
 #   zynax --api-url http://localhost:8080 apply spec/workflows/examples/hello-world.yaml
-#   zynax --api-url http://localhost:8080 result <run_id>   # echoed output
+#   zynax --api-url http://localhost:8080 result <run_id>   # → message=Hello from Zynax
 #
 # Validate it locally first (schema + data-flow):
 #   zynax validate spec/workflows/examples/hello-world.yaml
@@ -36,6 +36,11 @@ spec:
         - capability: echo
           input:
             message: "Hello from Zynax"
+          # Publish the echoed message into the data context so the terminal
+          # state can return it. echo's result payload is {"echo": <input>}, so
+          # the greeting lives at echo.message (ADR-029).
+          output:
+            message: echo.message
       on:
         # echo emits "echo.completed" when the echo-worker finishes; go terminal.
         - event: echo.completed
@@ -44,3 +49,7 @@ spec:
     # ── done — terminal state; the workflow reaches COMPLETED here ────────────
     done:
       type: terminal
+      # Return the greeting as the workflow's declared result (ADR-042) — this is
+      # what `zynax result <run>` prints as `message=Hello from Zynax`.
+      outputs:
+        message: "$.states.greet.output.message"

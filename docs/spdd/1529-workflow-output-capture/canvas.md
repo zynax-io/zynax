@@ -143,8 +143,10 @@ Config env prefix: `ZYNAX_<SERVICE>_` · Engine-agnostic interpreter (Temporal /
 9. **O.9 (#1538, feat·cli)** ✅ — `zynax result` reads `/outputs`, prints declared outputs, falls back to
    `CompletionText`, sanitizes control chars; wedge-first help. Verified: CLI tests
    outputs/fallback/empty/FAILED + sanitize + client GetWorkflowOutputs; binary `result --help` smoke; O.1 runbook updated.
-10. **O.10 (#1539, feat·spec)** — Declare terminal `outputs:` on hello-world + code-review; update comments +
-    runbook. Verified: examples compile/validate; existing 9 examples unchanged; `zynax result` prints output.
+10. **O.10 (#1539, feat·spec)** ✅ — Declare terminal `outputs:` on hello-world + code-review + code-review-ollama;
+    update comments + runbook. Verified: all 3 compile through the real compiler `Build` (refs resolve to
+    produced outputs: greet.message / fix.feedback_summary / review.review); `make validate-spec` green on all
+    11 examples; existing 9 unchanged; runtime `zynax result` proven in O.11.
 11. **O.11 (#1540, test·engine)** — Gated e2e (`ZYNAX_PLATFORM_E2E=1`) proving apply→COMPLETED→`/outputs`;
     reconcile #1103 gap #4; document gaps #2/#3 still gating; mark ARCHITECTURE.md gap #4 closed. Verified:
     e2e run twice end-to-end (runtime smoke, not CI-green alone).

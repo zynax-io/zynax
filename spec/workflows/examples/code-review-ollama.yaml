@@ -14,6 +14,7 @@
 # Run:
 #   zynax apply spec/workflows/examples/code-review-ollama.yaml
 #   zynax logs <run-id> --follow
+#   zynax result <run-id>                    # → review=<the model's review text>
 #
 # This standalone example inlines the diff by hand (the pre-#1387 way). For the
 # DECLARATIVE alternative — inject your own diff from a file, bounded and
@@ -65,9 +66,17 @@ spec:
               +	return balanceCents + amountCents
                }
               ```
+          # Publish the model's review text (the codereview capability's
+          # {"completion": …} result) so the terminal state can return it.
+          output:
+            review: completion
       on:
         - event: codereview.completed
           goto: done
 
     done:
       type: terminal
+      # Return the model's review as the workflow's declared result (ADR-042):
+      # `zynax result <run>` prints `review=<the model's review text>`.
+      outputs:
+        review: "$.states.review.output.review"
