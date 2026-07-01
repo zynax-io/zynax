@@ -37,10 +37,12 @@ spec:
           input:
             message: "Hello from Zynax"
           # Publish the echoed message into the data context so the terminal
-          # state can return it. echo's result payload is {"echo": <input>}, so
-          # the greeting lives at echo.message (ADR-029).
+          # state can return it. The echo capability (langgraph examples.echo_graph)
+          # copies input.message to output.reply and returns the merged final
+          # state {"message": …, "reply": …}, so the greeting lives at `reply`
+          # (ADR-029).
           output:
-            message: echo.message
+            message: reply
       on:
         # echo emits "echo.completed" when the echo-worker finishes; go terminal.
         - event: echo.completed
