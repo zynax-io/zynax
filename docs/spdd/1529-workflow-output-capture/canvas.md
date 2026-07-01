@@ -137,8 +137,9 @@ Config env prefix: `ZYNAX_<SERVICE>_` · Engine-agnostic interpreter (Temporal /
    reads the result; domain cov 91.8% + race green. The O.4 engine `@outputs` scenarios stay committed-but-
    unrun at the in-memory testserver stub (no `@outputs` runner; same precedent as O.6) — verified by the
    domain/infra unit tests; wiring a `TestOutputs` runner is deferred with the stub work.
-8. **O.8 (#1537, feat·gateway)** — `GET /api/v1/workflows/{id}/outputs` ({} / 404); outputs on SSE terminal
-   event. Verified: `handler_test` populated/empty/404; `platform_client.get_outputs()` resolves.
+8. **O.8 (#1537, feat·gateway)** ✅ — `GET /api/v1/workflows/{id}/outputs` ({} / 404); outputs on SSE terminal
+   event. Verified: `handler_test` populated/empty/404 + safe-JSON + terminal-SSE-carries-outputs;
+   `platform_client.get_outputs()` already targets the route (now resolves instead of raising); domain cov 96.7%.
 9. **O.9 (#1538, feat·cli)** — `zynax result` reads `/outputs`, prints declared outputs, falls back to
    `CompletionText`, sanitizes control chars; wedge-first help. Verified: CLI tests outputs/fallback/empty/FAILED.
 10. **O.10 (#1539, feat·spec)** — Declare terminal `outputs:` on hello-world + code-review; update comments +

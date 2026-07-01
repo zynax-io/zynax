@@ -162,6 +162,7 @@ func (c *GatewayClients) GetWorkflowStatus(ctx context.Context, runID string) (d
 		WorkflowID:   run.GetWorkflowId(),
 		Status:       run.GetStatus().String(),
 		CurrentState: run.GetCurrentState(),
+		Outputs:      run.GetOutputs(),
 	}, nil
 }
 
