@@ -151,6 +151,7 @@ without it.
 
 ```bash
 make kind-down       # delete the kind cluster (wraps scripts/e2e/cluster-down.sh)
+zynax down           # CLI-native equivalent — same script, make-free, from any directory
 ```
 
 ---
@@ -162,6 +163,8 @@ Every command this guide shows is a real `zynax` subcommand. Verify the surface 
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
+| `zynax up` | Create/reuse a kind cluster + deploy the platform | `--profile full\|lite`, `--engine temporal\|argo`, `--no-load-images`, `--cluster-name`, `--namespace`, `--repo-root` |
+| `zynax down` | Delete the local kind cluster | `--cluster-name`, `--repo-root` |
 | `zynax validate <file>` | Local schema + data-flow checks (no gateway) | `--schema-dir`, `--format text\|json` |
 | `zynax init workflow\|expert [name]` | Scaffold a manifest from a template | `-o/--output`, `--template-dir` |
 | `zynax apply <file>` | Submit a manifest to the gateway | `--dry-run`, `--engine` |

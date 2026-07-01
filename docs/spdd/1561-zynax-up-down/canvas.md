@@ -7,8 +7,9 @@
 **Issue:** #1561 (epic M7.V) — stories #1562 (O1), #1563 (O2), #1564 (O3)
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-07-01
-**Status:** Aligned
+**Status:** Implemented
 **Aligned:** 2026-07-01 (maintainer-authorized; grounded in the ADR-041 kind runtime + the existing `scripts/e2e/cluster-up.sh` harness and the `cmd/zynax/cmd/doctor.go` shell-out precedent).
+**Implemented:** 2026-07-01 — all O-steps merged: O1 #1562 (PR #1566), O2 #1563 (PR #1567), O3 #1564. `zynax up`/`down` verified end-to-end on kind (up → idempotent up → down); ADR-041 amendment landed in PR #1565.
 
 ---
 

@@ -30,6 +30,9 @@ cmd/zynax/
     validate.go      zynax validate <file> [--schema-dir] [--format]  (local: schema + data-flow)
     init.go          zynax init workflow|expert [name] [-o file]  (scaffold from spec/templates)
     doctor.go        zynax doctor   (read-only platform+model health checklist; shells out to kubectl/helm/ollama)
+    up.go            zynax up [--profile full|lite] [--engine temporal|argo] [--no-load-images] [--cluster-name] [--namespace]  (create/reuse kind cluster + deploy umbrella; shells out via scripts/e2e/cluster-up.sh, ADR-041)
+    down.go          zynax down [--cluster-name]   (delete the kind cluster; shells out via scripts/e2e/cluster-down.sh, ADR-041)
+    reporoot.go      repo-root discovery for up/down: --repo-root | $ZYNAX_REPO_ROOT | walk-up sentinel scripts/e2e/cluster-up.sh
   validate/
     manifest.go     JSON Schema validation (validate.Manifest) + combined pipeline (validate.File)
     dataflow.go     Workflow state-machine checks (initial_state + transition goto targets)
