@@ -76,10 +76,12 @@ func BuildAgentDef(cfg *config.AdapterConfig) *zynaxv1.AgentDef {
 		})
 	}
 	return &zynaxv1.AgentDef{
-		AgentId:      cfg.AgentID,
-		Name:         cfg.Name,
-		Description:  cfg.Description,
-		Endpoint:     cfg.Endpoint,
+		AgentId:     cfg.AgentID,
+		Name:        cfg.Name,
+		Description: cfg.Description,
+		// Register the routable advertised endpoint, not the bind address —
+		// otherwise the broker dials localhost (issue #1371).
+		Endpoint:     cfg.AdvertisedEndpoint(),
 		Capabilities: caps,
 	}
 }

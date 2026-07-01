@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# adk-adapter config — Google ADK (Go) agents as Zynax capabilities (ADR-038).
+#
+# Baked into the image at /etc/adk-adapter/config.yaml (ADAPTER_CONFIG). The
+# default is the ZERO-SECRET local Ollama path: no API key, no cloud call. Pull
+# the model first on the host (`ollama pull qwen2.5-coder:0.5b`) and bring up the
+# stack with the Ollama overlay:
+#
+#   docker compose -f infra/docker-compose/docker-compose.yml \
+#     -f infra/docker-compose/docker-compose.ollama.yml up -d ollama adk-adapter
+#
+# Then dispatch the capability from a workflow:
+#   zynax apply spec/workflows/examples/adk-code-review-ollama.yaml
+#   zynax logs <run-id> --follow
+#   zynax result <run-id>                    # → review=<the ADK agent's review>
+
+agent_id: adk-adapter
+name: ADK Adapter (Ollama / local)
+description: Google ADK (Go) agents exposed as Zynax capabilities, zero-secret on local Ollama.
+
+# `endpoint` is the gRPC BIND address; ":50080" binds all interfaces so the
+# in-container healthcheck (which dials localhost:50080) passes. `advertise_endpoint`
+# is the ROUTABLE address the task-broker dials — the compose service name. A
+# hostless bind endpoint must never be advertised verbatim (issue #1371).
+endpoint: ":50080"
+advertise_endpoint: adk-adapter:50080
+registry_endpoint: agent-registry:50052
+
+model:
+  provider: ollama
+  # A small, fast, code-focused local model — makes the first run zero-cost and
+  # quick. Switch model/host here; host also falls back to $OLLAMA_HOST.
+  name: qwen2.5-coder:0.5b
+  host: http://ollama:11434
+
+capabilities:
+  # Capability name has NO underscore on purpose — the engine derives the
+  # completion event as "<capability>.completed", and the workflow compiler
+  # rejects event types containing underscores (must be dot-separated lowercase).
+  - name: review
+    timeout_seconds: 300
+    description: Review a code diff with an ADK agent and return concrete findings.
+    instruction: |
+      You are a senior Go code reviewer. Review the diff the user provides and
+      reply with a short, numbered list of concrete issues (correctness, security,
+      edge cases), each citing the function name. End with an APPROVE or
+      REQUEST-CHANGES verdict. Be concise.
+    input_schema_json: |
+      {
+        "type": "object",
+        "required": ["prompt"],
+        "properties": { "prompt": { "type": "string", "minLength": 1 } },
+        "additionalProperties": false
+      }
+    output_schema_json: |
+      {
+        "type": "object",
+        "required": ["response"],
+        "properties": { "response": { "type": "string" } }
+      }

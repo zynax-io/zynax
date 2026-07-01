@@ -38,3 +38,12 @@ services:
         condition: service_healthy
       agent-registry:
         condition: service_healthy
+
+  # The adk-adapter's baked config already targets local Ollama (zero-secret),
+  # so no config overlay is needed — it only has to wait for the ollama service.
+  adk-adapter:
+    depends_on:
+      ollama:
+        condition: service_healthy
+      agent-registry:
+        condition: service_healthy

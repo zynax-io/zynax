@@ -7,7 +7,7 @@
 **Issue:** #1476
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-21
-**Status:** Aligned
+**Status:** Implemented
 
 ---
 
@@ -82,7 +82,7 @@ Config env prefix: `ADAPTER_CONFIG` (path) · `OLLAMA_HOST` (model endpoint) · 
 1. ✅ **S1 (#1477, docs):** ADR-038 + this Canvas + adapter `AGENTS.md`. *Verify:* Canvas passes security review and is set **Aligned**; `docs:` PR (size-excluded). *(Merged via PR #1481.)*
 2. ✅ **S2 (#1478, feat):** adapter skeleton — `config`, `registry` client, `main.go` wiring, health; `ExecuteCapability` returns "not wired" until S3. *Verify:* `.feature` committed spec-first; unit tests green (`-race`, 87.9% total coverage); golangci-lint + govulncheck clean; binary boots, loads config, attempts registration with backoff; `serve()` integration test exercises register → health `SERVING` → deregister. Module added to `go.work` (Makefile auto-discovers it for lint/test/coverage).
 3. ✅ **S3 (#1479, feat):** custom Ollama `model.LLM` + ADK `Runner`→`TaskEvent` bridge (`model/ollama.go`, `adk/agent.go`, `adapter/server.go`). *Verify:* `.feature` covers dispatch, schema-validate, `timeout→TIMEOUT`, terminal `COMPLETED`/`FAILED`; unit tests green (`-race`; the real ADK Runner is driven by a stub `model.LLM` and the Ollama translation by an httptest server — no live Ollama needed); golangci-lint clean; `make security` (govulncheck on `google.golang.org/adk` v1.4.0 + `genai` v1.62.0) green — 0 vulnerabilities called. Live secret-free Ollama dispatch is S4 (#1480).
-4. **S4 (#1480, feat):** `agent-def.yaml.example` + demo workflow + `Dockerfile` + `images.yaml` + compose wiring. *Verify:* secret-free Ollama run returns `COMPLETED` (twice); `make check-images` green.
+4. ✅ **S4 (#1480, feat):** `agent-def.yaml.example` + demo workflow (`spec/workflows/examples/adk-code-review-ollama.yaml`) + `Dockerfile` + `images.yaml` entry + compose/Ollama wiring; adds `advertise_endpoint` (issue #1371) so the capability routes. *Verify:* PROVEN end-to-end — the adk-adapter image builds (distroless), boots, registers; `zynax apply` → the `review` capability dispatches to the ADK Runner → local Ollama (`qwen2.5-coder:0.5b`, `POST /api/chat` 200) → terminal `COMPLETED` with the declared `review` output; ran the stateful path **twice** (two fresh runs, both `COMPLETED` with the agent's review), secret-free (no API key); `make check-images` green. `.dockerignore` build-allowlist gap for the new module fixed.
 
 ---
 

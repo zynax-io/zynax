@@ -32,12 +32,15 @@ capabilities:
     output_schema_json: '{"type":"object"}'
 `
 
+// advAddr is the routable advertise endpoint reused across the config tests.
+const advAddr = "adk-adapter:50080"
+
 func TestLoad_Valid(t *testing.T) {
 	cfg, err := Load(writeConfig(t, validConfig))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.AgentID != "adk-adapter-1" || cfg.Endpoint != "adk-adapter:50080" {
+	if cfg.AgentID != "adk-adapter-1" || cfg.Endpoint != advAddr {
 		t.Errorf("cfg = %+v", cfg)
 	}
 	if len(cfg.Capabilities) != 1 || cfg.Capabilities[0].Name != "triage" {
@@ -46,12 +49,29 @@ func TestLoad_Valid(t *testing.T) {
 }
 
 func TestLoad_DefaultsEndpoint(t *testing.T) {
-	cfg, err := Load(writeConfig(t, "agent_id: a\nregistry_endpoint: r:1\ncapabilities:\n  - {name: c}\n"))
+	// A hostless bind endpoint needs an explicit advertise_endpoint (issue #1371).
+	cfg, err := Load(writeConfig(t, "agent_id: a\nregistry_endpoint: r:1\nadvertise_endpoint: adk-adapter:50080\ncapabilities:\n  - {name: c}\n"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if cfg.Endpoint != DefaultEndpoint {
 		t.Errorf("endpoint default = %q, want %q", cfg.Endpoint, DefaultEndpoint)
+	}
+	if cfg.AdvertisedEndpoint() != advAddr {
+		t.Errorf("advertised = %q, want the explicit advertise_endpoint", cfg.AdvertisedEndpoint())
+	}
+}
+
+func TestAdvertisedEndpoint(t *testing.T) {
+	// Explicit advertise_endpoint wins; otherwise an explicit-host bind endpoint
+	// is routable and falls through.
+	adv := &AdapterConfig{Endpoint: ":50080", AdvertiseEndpoint: advAddr}
+	if got := adv.AdvertisedEndpoint(); got != advAddr {
+		t.Errorf("advertise precedence: got %q", got)
+	}
+	host := &AdapterConfig{Endpoint: advAddr}
+	if got := host.AdvertisedEndpoint(); got != advAddr {
+		t.Errorf("host fallback: got %q", got)
 	}
 }
 
@@ -61,11 +81,12 @@ func TestLoad_ValidationErrors(t *testing.T) {
 		body string
 		want string
 	}{
-		{"missing agent_id", "registry_endpoint: r:1\ncapabilities:\n  - {name: c}\n", "agent_id is required"},
-		{"missing registry_endpoint", "agent_id: a\ncapabilities:\n  - {name: c}\n", "registry_endpoint is required"},
-		{"no capabilities", "agent_id: a\nregistry_endpoint: r:1\n", "at least one capability"},
-		{"capability missing name", "agent_id: a\nregistry_endpoint: r:1\ncapabilities:\n  - {description: d}\n", "name is required"},
-		{"unsupported provider", "agent_id: a\nregistry_endpoint: r:1\nmodel:\n  provider: openai\ncapabilities:\n  - {name: c}\n", "unsupported"},
+		{"missing agent_id", "registry_endpoint: r:1\nendpoint: h:1\ncapabilities:\n  - {name: c}\n", "agent_id is required"},
+		{"missing registry_endpoint", "agent_id: a\nendpoint: h:1\ncapabilities:\n  - {name: c}\n", "registry_endpoint is required"},
+		{"hostless endpoint without advertise", "agent_id: a\nregistry_endpoint: r:1\ncapabilities:\n  - {name: c}\n", "advertise_endpoint is required"},
+		{"no capabilities", "agent_id: a\nregistry_endpoint: r:1\nendpoint: h:1\n", "at least one capability"},
+		{"capability missing name", "agent_id: a\nregistry_endpoint: r:1\nendpoint: h:1\ncapabilities:\n  - {description: d}\n", "name is required"},
+		{"unsupported provider", "agent_id: a\nregistry_endpoint: r:1\nendpoint: h:1\nmodel:\n  provider: openai\ncapabilities:\n  - {name: c}\n", "unsupported"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -77,7 +98,7 @@ func TestLoad_ValidationErrors(t *testing.T) {
 }
 
 func TestLoad_ModelBlock(t *testing.T) {
-	body := "agent_id: a\nregistry_endpoint: r:1\n" +
+	body := "agent_id: a\nregistry_endpoint: r:1\nadvertise_endpoint: adk-adapter:50080\n" +
 		"model:\n  provider: ollama\n  name: qwen2.5-coder:0.5b\n  host: http://ollama:11434\n" +
 		"capabilities:\n  - name: triage\n    instruction: classify tickets\n"
 	cfg, err := Load(writeConfig(t, body))

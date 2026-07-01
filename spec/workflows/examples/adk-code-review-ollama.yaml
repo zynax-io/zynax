@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+# Runnable code-review workflow — backed by a Google ADK (Go) agent on local Ollama.
+#
+# The ADK sibling of code-review-ollama.yaml: instead of the single-shot
+# llm-adapter, the `review` capability here is served by the adk-adapter, which
+# runs an ADK `llmagent` (instruction-driven reasoning loop) over the same
+# zero-secret local Ollama model. It proves an ADK agent answers from a Zynax
+# workflow with no API key (ADR-038).
+#
+# Prereqs (pull the model on the host first: `ollama pull qwen2.5-coder:0.5b`):
+#   docker compose -f infra/docker-compose/docker-compose.yml \
+#     -f infra/docker-compose/docker-compose.ollama.yml up -d ollama adk-adapter
+#
+# Run:
+#   zynax apply spec/workflows/examples/adk-code-review-ollama.yaml
+#   zynax logs <run-id> --follow
+#   zynax result <run-id>                    # → review=<the ADK agent's review text>
+
+kind: Workflow
+apiVersion: zynax.io/v1
+
+metadata:
+  name: adk-code-review-ollama
+  namespace: demo
+  version: "1.0.0"
+  annotations:
+    description: "ADK-agent code review of a git diff via local Ollama (secret-free)."
+
+spec:
+  initial_state: review
+
+  states:
+    review:
+      actions:
+        - capability: review
+          input:
+            prompt: |
+              Review the following git diff:
+
+              ```diff
+              diff --git a/payments.go b/payments.go
+              --- a/payments.go
+              +++ b/payments.go
+              @@ -7,5 +7,12 @@ func Charge(balanceCents, amountCents int) (int, error) {
+               	if amountCents < 0 {
+               		return balanceCents, errors.New("amount must be non-negative")
+               	}
+              -	return balanceCents - amountCents, nil
+              +	// Apply a 2% loyalty discount before charging.
+              +	discounted := amountCents - (amountCents / 50)
+              +	return balanceCents - discounted, nil
+              +}
+              +
+              +// Refund credits amountCents back to the account.
+              +func Refund(balanceCents, amountCents int) int {
+              +	return balanceCents + amountCents
+               }
+              ```
+          # Publish the ADK agent's review text (the review capability's
+          # {"response": …} result) so the terminal state can return it.
+          output:
+            review: response
+      on:
+        - event: review.completed
+          goto: done
+
+    done:
+      type: terminal
+      # Return the agent's review as the workflow's declared result (ADR-042):
+      # `zynax result <run>` prints `review=<the ADK agent's review text>`.
+      outputs:
+        review: "$.states.review.output.review"
