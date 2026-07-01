@@ -119,6 +119,28 @@ func TestGenerateContent_Stream(t *testing.T) {
 	}
 }
 
+// TestGenerateContent_StreamContentOnDone covers a server that flushes the tail
+// of the generation alongside the done marker — the tail must land in the final
+// aggregated text, not be dropped.
+func TestGenerateContent_StreamContentOnDone(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		enc := json.NewEncoder(w)
+		_ = enc.Encode(chatResponse{Message: chatMessage{Content: "Hel"}})
+		_ = enc.Encode(chatResponse{Message: chatMessage{Content: "lo"}, Done: true}) // content ON the done frame
+	}))
+	defer srv.Close()
+
+	o := NewOllama(srv.URL, "m")
+	got, err := collect(o.GenerateContent(context.Background(), userReq("hi"), true))
+	if err != nil {
+		t.Fatalf("GenerateContent: %v", err)
+	}
+	final := got[len(got)-1]
+	if final.Partial || !final.TurnComplete || contentText(final.Content) != "Hello" {
+		t.Errorf("final aggregated text = %q, want %q (done-frame tail must not be dropped)", contentText(final.Content), "Hello")
+	}
+}
+
 func TestGenerateContent_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "model not found", http.StatusNotFound)

@@ -355,6 +355,19 @@ func TestBoundMessage(t *testing.T) {
 	}
 }
 
+func TestResolveTimeout(t *testing.T) {
+	cases := []struct{ req, cfg, want int32 }{
+		{30, 60, 30}, // request wins when set
+		{0, 60, 60},  // falls back to the capability default
+		{0, 0, 0},    // no deadline
+	}
+	for _, c := range cases {
+		if got := resolveTimeout(c.req, int(c.cfg)); got != c.want {
+			t.Errorf("resolveTimeout(%d,%d) = %d, want %d", c.req, c.cfg, got, c.want)
+		}
+	}
+}
+
 func TestOutputTargetKey(t *testing.T) {
 	cases := map[string]string{
 		triageOutputSchema:  "response",

@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"math"
 	"strings"
 	"time"
 
@@ -144,9 +145,9 @@ func (s *AgentServer) ExecuteCapability(req *zynaxv1.ExecuteCapabilityRequest, s
 	}
 
 	ctx := stream.Context()
-	if req.TimeoutSeconds > 0 {
+	if secs := resolveTimeout(req.TimeoutSeconds, rt.cfg.TimeoutSeconds); secs > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(req.TimeoutSeconds)*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(secs)*time.Second)
 		defer cancel()
 	}
 
@@ -392,4 +393,18 @@ func boundMessage(msg string) string {
 		r = r[:maxErrMsgLen]
 	}
 	return string(r)
+}
+
+// resolveTimeout picks the effective run budget: the request timeout when set,
+// else the capability's configured default, else 0 (no deadline). The AgentDef
+// declares a per-capability timeout_seconds; honouring it as a fallback makes
+// that config load-bearing even when a caller omits the request timeout.
+func resolveTimeout(reqSecs int32, cfgSecs int) int32 {
+	if reqSecs > 0 {
+		return reqSecs
+	}
+	if cfgSecs > 0 && cfgSecs <= math.MaxInt32 {
+		return int32(cfgSecs)
+	}
+	return 0
 }
