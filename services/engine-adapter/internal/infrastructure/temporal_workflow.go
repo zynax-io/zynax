@@ -49,17 +49,20 @@ var nonRetryableActivityErrors = []string{
 // IRInterpreterWorkflow is the Temporal workflow function registered by the worker
 // in cmd/engine-adapter/main.go. It bridges Temporal's workflow.Context to
 // domain.IRInterpreter.Run via the ActivityExecutor and EventPublisher port interfaces.
-func IRInterpreterWorkflow(ctx workflow.Context, ir *zynaxv1.WorkflowIR) error {
+func IRInterpreterWorkflow(ctx workflow.Context, ir *zynaxv1.WorkflowIR) (map[string]string, error) {
 	exec := &temporalActivityExecutor{ctx: ctx}
 	pub := &temporalEventPublisher{ctx: ctx}
 	// context.Background() is intentional: workflow.Context cannot be converted to
 	// context.Context without breaking Temporal's replay determinism (ADR-015).
 	// IRInterpreter.Run performs no I/O itself; all I/O is delegated to exec/pub,
 	// which receive workflow.Context via their struct fields.
-	if err := (&domain.IRInterpreter{}).Run(context.Background(), ir, exec, pub); err != nil {
-		return fmt.Errorf("engine-adapter: %w", err)
+	outputs, err := (&domain.IRInterpreter{}).Run(context.Background(), ir, exec, pub)
+	if err != nil {
+		return nil, fmt.Errorf("engine-adapter: %w", err)
 	}
-	return nil
+	// The resolved workflow outputs are the Temporal workflow result, surfaced on
+	// WorkflowRun.outputs by GetStatus (ADR-042, M7.U).
+	return outputs, nil
 }
 
 // temporalActivityExecutor implements domain.ActivityExecutor by scheduling
@@ -101,11 +104,13 @@ type temporalEventPublisher struct {
 }
 
 // Publish schedules the lifecycle event activity; errors are suppressed (best-effort).
-func (p *temporalEventPublisher) Publish(_ context.Context, eventType, workflowID, stateID string) error {
+// payload carries the typed terminal {"outputs": {...}} JSON on the completed
+// event (nil otherwise) and is forwarded to the activity as the CloudEvent data.
+func (p *temporalEventPublisher) Publish(_ context.Context, eventType, workflowID, stateID string, payload []byte) error {
 	actCtx := workflow.WithActivityOptions(p.ctx, workflow.ActivityOptions{
 		TaskQueue:           workflow.GetInfo(p.ctx).TaskQueueName,
 		StartToCloseTimeout: 5 * time.Second,
 	})
-	_ = workflow.ExecuteActivity(actCtx, publishEventActivityName, eventType, workflowID, stateID).Get(p.ctx, nil)
+	_ = workflow.ExecuteActivity(actCtx, publishEventActivityName, eventType, workflowID, stateID, payload).Get(p.ctx, nil)
 	return nil
 }

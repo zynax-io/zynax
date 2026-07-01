@@ -55,7 +55,7 @@ func BenchmarkIRInterpreter(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// A fresh publisher per iteration keeps its event slice from growing
 		// unboundedly across iterations and skewing allocation accounting.
-		if err := interp.Run(ctx, ir, exec, &stubPublisher{}); err != nil {
+		if _, err := interp.Run(ctx, ir, exec, &stubPublisher{}); err != nil {
 			b.Fatalf("Run: %v", err)
 		}
 	}

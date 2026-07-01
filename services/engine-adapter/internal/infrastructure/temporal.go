@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	enumspb "go.temporal.io/api/enums/v1"
@@ -34,6 +35,7 @@ type temporalClient interface {
 	CancelWorkflow(ctx context.Context, workflowID, runID string) error
 	DescribeWorkflowExecution(ctx context.Context, workflowID, runID string) (*workflowservice.DescribeWorkflowExecutionResponse, error)
 	GetWorkflowHistory(ctx context.Context, workflowID, runID string, isLongPoll bool, filterType enumspb.HistoryEventFilterType) client.HistoryEventIterator
+	GetWorkflow(ctx context.Context, workflowID, runID string) client.WorkflowRun
 }
 
 // TemporalEngine implements domain.WorkflowEngine backed by the Temporal Go SDK.
@@ -114,7 +116,22 @@ func (e *TemporalEngine) GetStatus(ctx context.Context, runID string) (*domain.W
 		}
 		return nil, fmt.Errorf("engine-adapter: describe workflow %q: %w", runID, err)
 	}
-	return describeToWorkflowRun(resp, runID, e.namespace), nil
+	run := describeToWorkflowRun(resp, runID, e.namespace)
+	// For a COMPLETED run, read the workflow result (the resolved outputs) and
+	// surface it on WorkflowRun.outputs (ADR-042, M7.U). Get() returns the stored
+	// result immediately for a finished workflow; gating on the terminal-completed
+	// status ensures it never blocks on a still-running execution. A read failure
+	// (e.g. history expired past Temporal retention) is non-fatal — status is
+	// still returned, just without outputs.
+	if run.Status == domain.WorkflowStatusCompleted {
+		var outputs map[string]string
+		if gerr := e.client.GetWorkflow(ctx, runID, "").Get(ctx, &outputs); gerr != nil {
+			slog.Warn("read workflow result failed", "run_id", runID, "err", gerr)
+		} else {
+			run.Outputs = outputs
+		}
+	}
+	return run, nil
 }
 
 // Watch long-polls the Temporal execution history and calls send for each

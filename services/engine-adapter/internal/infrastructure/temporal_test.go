@@ -23,15 +23,16 @@ import (
 
 // stubTemporalClient implements temporalClient for tests.
 type stubTemporalClient struct {
-	executeRun  client.WorkflowRun
-	executeErr  error
-	signalErr   error
-	cancelErr   error
-	descResps   []*workflowservice.DescribeWorkflowExecutionResponse
-	descErr     error
-	descCallIdx int
-	historyEvts []*historypb.HistoryEvent
-	historyErr  error
+	executeRun     client.WorkflowRun
+	executeErr     error
+	signalErr      error
+	cancelErr      error
+	descResps      []*workflowservice.DescribeWorkflowExecutionResponse
+	descErr        error
+	descCallIdx    int
+	historyEvts    []*historypb.HistoryEvent
+	historyErr     error
+	getWorkflowRun client.WorkflowRun
 }
 
 // stubHistoryIterator implements client.HistoryEventIterator over a fixed slice,
@@ -100,14 +101,35 @@ func (s *stubTemporalClient) DescribeWorkflowExecution(
 	return s.descResps[idx], nil
 }
 
-// stubWorkflowRun implements client.WorkflowRun for tests.
-type stubWorkflowRun struct{ id string }
+// stubWorkflowRun implements client.WorkflowRun for tests. When outputs/getErr
+// are set, Get copies outputs into the value pointer (mimicking Temporal
+// deserialising the workflow result) or returns getErr.
+type stubWorkflowRun struct {
+	id      string
+	outputs map[string]string
+	getErr  error
+}
 
-func (r *stubWorkflowRun) GetID() string                              { return r.id }
-func (r *stubWorkflowRun) GetRunID() string                           { return r.id + "-run" }
-func (r *stubWorkflowRun) Get(_ context.Context, _ interface{}) error { return nil }
+func (r *stubWorkflowRun) GetID() string    { return r.id }
+func (r *stubWorkflowRun) GetRunID() string { return r.id + "-run" }
+func (r *stubWorkflowRun) Get(_ context.Context, valuePtr interface{}) error {
+	if r.getErr != nil {
+		return r.getErr
+	}
+	if out, ok := valuePtr.(*map[string]string); ok {
+		*out = r.outputs
+	}
+	return nil
+}
 func (r *stubWorkflowRun) GetWithOptions(_ context.Context, _ interface{}, _ client.WorkflowRunGetOptions) error {
 	return nil
+}
+
+func (s *stubTemporalClient) GetWorkflow(_ context.Context, _, _ string) client.WorkflowRun {
+	if s.getWorkflowRun != nil {
+		return s.getWorkflowRun
+	}
+	return &stubWorkflowRun{}
 }
 
 func descResp(status enumspb.WorkflowExecutionStatus) *workflowservice.DescribeWorkflowExecutionResponse {
@@ -195,6 +217,43 @@ func TestTemporalEngine_GetStatus_Running(t *testing.T) {
 	}
 	if run.Status != domain.WorkflowStatusRunning {
 		t.Errorf("Status = %v; want Running", run.Status)
+	}
+}
+
+// TestTemporalEngine_GetStatus_CompletedReadsOutputs proves AC1 (infra): for a
+// COMPLETED run, GetStatus reads the Temporal workflow result and surfaces it on
+// WorkflowRun.Outputs.
+func TestTemporalEngine_GetStatus_CompletedReadsOutputs(t *testing.T) {
+	stub := &stubTemporalClient{
+		descResps: []*workflowservice.DescribeWorkflowExecutionResponse{
+			descResp(enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED),
+		},
+		getWorkflowRun: &stubWorkflowRun{outputs: map[string]string{"review": "LGTM"}},
+	}
+	run, err := newTestEngine(stub).GetStatus(context.Background(), "wf-done")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if run.Outputs["review"] != "LGTM" {
+		t.Errorf("Outputs = %v, want review=LGTM", run.Outputs)
+	}
+}
+
+// TestTemporalEngine_GetStatus_RunningSkipsResult proves the result-read is gated
+// on COMPLETED so it never blocks on a running execution.
+func TestTemporalEngine_GetStatus_RunningSkipsResult(t *testing.T) {
+	stub := &stubTemporalClient{
+		descResps: []*workflowservice.DescribeWorkflowExecutionResponse{
+			descResp(enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING),
+		},
+		getWorkflowRun: &stubWorkflowRun{getErr: errors.New("must not be called for a running run")},
+	}
+	run, err := newTestEngine(stub).GetStatus(context.Background(), "wf-run")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(run.Outputs) != 0 {
+		t.Errorf("running run should carry no outputs, got %v", run.Outputs)
 	}
 }
 

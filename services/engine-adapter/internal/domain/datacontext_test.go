@@ -223,7 +223,7 @@ func TestIRInterpreter_DataFlowHappyPath(t *testing.T) {
 		),
 		terminal("done"),
 	)
-	if err := (&IRInterpreter{}).Run(context.Background(), ir, capExec, &stubPublisher{}); err != nil {
+	if _, err := (&IRInterpreter{}).Run(context.Background(), ir, capExec, &stubPublisher{}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if string(captured.InputPayload) != `{"in":"the-answer"}` {
@@ -246,7 +246,7 @@ func TestIRInterpreter_DataFlowMissingReferenceFailsRun(t *testing.T) {
 		terminal("done"),
 	)
 	pub := &stubPublisher{}
-	err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub)
+	_, err := (&IRInterpreter{}).Run(context.Background(), ir, &stubExecutor{}, pub)
 	if err == nil {
 		t.Fatal("expected run to fail on unresolved reference")
 	}
@@ -286,7 +286,7 @@ func TestIRInterpreter_DataFlowTypeMismatchFailsRun(t *testing.T) {
 		),
 		terminal("done"),
 	)
-	err := (&IRInterpreter{}).Run(context.Background(), ir, exec, &stubPublisher{})
+	_, err := (&IRInterpreter{}).Run(context.Background(), ir, exec, &stubPublisher{})
 	if err == nil {
 		t.Fatal("expected run to fail on typed-mismatch output")
 	}
