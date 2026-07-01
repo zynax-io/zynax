@@ -457,6 +457,12 @@ jobs:
           GOWORK=off go run . check deps --root "$GITHUB_WORKSPACE"
           echo "✅ go.mod version alignment check passed"
 
+      - name: zynax-ci check protobuf-runtime (Python runtime >= gencode)
+        run: |
+          cd cmd/zynax-ci
+          GOWORK=off go run . check protobuf-runtime --root "$GITHUB_WORKSPACE"
+          echo "✅ protobuf runtime/gencode alignment check passed"
+
       - name: zynax-ci check images (digest drift detection)
         run: |
           cd cmd/zynax-ci
