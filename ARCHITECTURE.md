@@ -528,22 +528,26 @@ experts as Zynax `kind: AgentDef` / `kind: Workflow` manifests under `automation
 
 ### The Failing Test as an Honest Gate
 
-In `automation/tests/test_platform_readiness.py` the manifest schema tests pass; the live
-`zynax apply` e2e is marked `@pytest.mark.xfail(strict=True)`. Its flip (O8, #1103) is
-deferred to M7 because of four code-verified platform gaps:
+In `automation/tests/test_platform_readiness.py` the manifest schema tests pass. The live
+`zynax apply` legs are gated behind `ZYNAX_PLATFORM_E2E=1` (the `zynax_client` fixture SKIPS
+cleanly otherwise — an honest state, never a false green). The four code-verified platform
+gaps (#1103) stand as of M7.U:
 
-1. workflow-compiler rejects any action carrying `output:` (explicitly deferred to M7+ in
-   `services/workflow-compiler/internal/domain/manifest.go`)
+1. ~~workflow-compiler rejects any action carrying `output:`~~ — **CLOSED**: the compiler
+   compiles action `output_bindings` (EPIC W #1178) and terminal `outputs:` (M7.U O.6 #1535).
 2. the orchestrator manifest's Go-template barrier guards vs the engine's CEL evaluation
-   (fail-closed — the guarded transition can never fire)
-3. no capability providers exist for review/aggregate/act/notify/record
-4. api-gateway has no workflow-outputs or decision-log read path
+   (fail-closed — the guarded transition can never fire) — **still open**
+3. no capability providers exist for review/aggregate/act/notify/record — **still open**
+4. ~~api-gateway has no workflow-outputs or decision-log read path~~ — **CLOSED**: the
+   `GET /api/v1/workflows/{id}/outputs` read path (M7.U O.8 #1537) surfaces the resolved
+   `WorkflowRun.outputs` captured by the engine at the terminal state (O.7 #1536).
 
-The test uses `strict=True` so that an unexpected pass (XPASS) turns the build red —
-alerting the team that something changed and the boundary moved. Silence is not
-acceptable; neither is skipping the test.
-
-Wave 4 automation must not be wired into main CI until this test flips to a clean pass (#1103).
+The output read path (gap #4) is proven end-to-end by `test_declared_output_read_path`
+(gated) and live in CI by `scripts/e2e/hello-world-smoke.sh` (e2e-smoke.yml): a zero-dependency
+`apply → COMPLETED → GET /outputs` returning the workflow's declared `message`. The orchestrator
+leg (`test_orchestrator_executes_on_platform`) remains gated by gaps #2/#3 — it skips cleanly
+(never an XPASS that reddens the build), so Wave 4 automation stays out of main CI until those
+close (#1103).
 
 ### Not Ambient Context
 

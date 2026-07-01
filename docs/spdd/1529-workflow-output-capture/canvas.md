@@ -7,7 +7,7 @@
 **Issue:** #1529 (epic M7.U)
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-30
-**Status:** Aligned
+**Status:** Implemented
 
 ---
 
@@ -147,9 +147,10 @@ Config env prefix: `ZYNAX_<SERVICE>_` · Engine-agnostic interpreter (Temporal /
     update comments + runbook. Verified: all 3 compile through the real compiler `Build` (refs resolve to
     produced outputs: greet.message / fix.feedback_summary / review.review); `make validate-spec` green on all
     11 examples; existing 9 unchanged; runtime `zynax result` proven in O.11.
-11. **O.11 (#1540, test·engine)** — Gated e2e (`ZYNAX_PLATFORM_E2E=1`) proving apply→COMPLETED→`/outputs`;
-    reconcile #1103 gap #4; document gaps #2/#3 still gating; mark ARCHITECTURE.md gap #4 closed. Verified:
-    e2e run twice end-to-end (runtime smoke, not CI-green alone).
+11. **O.11 (#1540, test·engine)** ✅ — Gated e2e (`ZYNAX_PLATFORM_E2E=1`) `test_declared_output_read_path`
+    proving apply→COMPLETED→`/outputs`, plus a live CI leg `scripts/e2e/hello-world-smoke.sh` (wired into
+    e2e-smoke.yml). Reconciled #1103 gap #4 (and gap #1) closed; gaps #2/#3 documented still gating (clean
+    skip, no XPASS); ARCHITECTURE.md updated. Verified: runtime smoke via the CI e2e-smoke kind run (not CI-green alone).
 
 ---
 

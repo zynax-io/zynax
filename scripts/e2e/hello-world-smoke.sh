@@ -188,10 +188,8 @@ pass "step 2: hello-world reached terminal success state '${FINAL_STATUS}' (run_
 # event arrives, so a COMPLETED status already proves the echo-worker satisfied
 # the dispatch. We additionally confirm the run's event stream reached
 # WorkflowExecutionCompleted (the terminal lifecycle event) so a green smoke ties
-# the success to the actual echo round-trip, not just a status flip. The literal
-# echoed payload ("${EXPECTED_ECHO}") is what hello-world.yaml sends; surfacing it
-# verbatim over REST is M7 output-binding work and is intentionally not asserted
-# here (e2e-happy.sh likewise asserts the terminal state, not the payload text).
+# the success to the actual echo round-trip, not just a status flip. Step 4 then
+# reads the declared workflow output over REST — the M7.U output path.
 
 log "step 3: asserting the run reached the terminal completion event (echo round-trip)…"
 
@@ -202,6 +200,23 @@ else
   warn "  WorkflowExecutionCompleted not seen in the streamed logs."
   warn "  logs tail: $(printf '%s' "${LOGS}" | tail -c 400)"
   fail "step 3: run did not reach the terminal completion event (echo dispatch unverified)."
+fi
+
+# ── 4. read the declared workflow output over REST (M7.U O.8/O.9, #1103 gap #4) ─
+#
+# hello-world.yaml declares a terminal output `message: $.states.greet.output.message`
+# (the greet echo action publishes echo.message). GET /outputs must return it — the
+# live apply → COMPLETED → read-outputs proof that closes #1103 platform gap #4.
+
+log "step 4: reading GET /api/v1/workflows/${RUN_ID}/outputs (declared output read path)…"
+
+OUTPUTS=$(api_curl GET "/api/v1/workflows/${RUN_ID}/outputs" 2>/dev/null) \
+  || fail "step 4: GET /api/v1/workflows/${RUN_ID}/outputs failed"
+OUT_MESSAGE=$(printf '%s' "${OUTPUTS}" | jq -r '.message // empty')
+if [[ "${OUT_MESSAGE}" == "${EXPECTED_ECHO}" ]]; then
+  pass "step 4: /outputs returned message=\"${OUT_MESSAGE}\" — apply→COMPLETED→read-outputs proven (gap #4 closed)."
+else
+  fail "step 4: /outputs did not return the declared message. Expected \"${EXPECTED_ECHO}\", got: ${OUTPUTS}"
 fi
 
 # ── summary ────────────────────────────────────────────────────────────────────
