@@ -30,8 +30,8 @@ capability; add more by adding `capabilities[]` entries, no code change.
 
 | Backend | When | Secret? |
 |---------|------|---------|
-| **Ollama** (default) | `model.provider: ollama` — a custom `model.LLM` (`internal/model`) over Ollama `/api/chat` | **None** — keeps `make demo` secret-free |
-| Gemini (native ADK) | `model.provider: gemini` — ADK's `model/gemini` | `GOOGLE_API_KEY` required |
+| **Ollama** (default, **only value wired in S3 #1479**) | `model.provider: ollama` — a custom `model.LLM` (`internal/model`) over Ollama `/api/chat` | **None** — keeps `make demo` secret-free |
+| Gemini (native ADK) | `model.provider: gemini` — ADK's `model/gemini`; **designed (ADR-038 §3) but not yet wired** — config load rejects it until a later story | `GOOGLE_API_KEY` (when wired) |
 
 The model name and host always come from config/env — never hardcoded (12-factor).
 

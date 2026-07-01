@@ -65,6 +65,7 @@ func TestLoad_ValidationErrors(t *testing.T) {
 		{"missing registry_endpoint", "agent_id: a\ncapabilities:\n  - {name: c}\n", "registry_endpoint is required"},
 		{"no capabilities", "agent_id: a\nregistry_endpoint: r:1\n", "at least one capability"},
 		{"capability missing name", "agent_id: a\nregistry_endpoint: r:1\ncapabilities:\n  - {description: d}\n", "name is required"},
+		{"unsupported provider", "agent_id: a\nregistry_endpoint: r:1\nmodel:\n  provider: openai\ncapabilities:\n  - {name: c}\n", "unsupported"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -72,6 +73,27 @@ func TestLoad_ValidationErrors(t *testing.T) {
 				t.Fatalf("err = %v, want containing %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestLoad_ModelBlock(t *testing.T) {
+	body := "agent_id: a\nregistry_endpoint: r:1\n" +
+		"model:\n  provider: ollama\n  name: qwen2.5-coder:0.5b\n  host: http://ollama:11434\n" +
+		"capabilities:\n  - name: triage\n    instruction: classify tickets\n"
+	cfg, err := Load(writeConfig(t, body))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Model.Name != "qwen2.5-coder:0.5b" || cfg.Model.Host != "http://ollama:11434" {
+		t.Errorf("model = %+v", cfg.Model)
+	}
+	if cfg.Capabilities[0].Instruction != "classify tickets" {
+		t.Errorf("instruction = %q", cfg.Capabilities[0].Instruction)
+	}
+	// An omitted model block defaults the provider to ollama.
+	def, err := Load(writeConfig(t, validConfig))
+	if err != nil || def.Model.Provider != ProviderOllama {
+		t.Errorf("default provider = %q err=%v", def.Model.Provider, err)
 	}
 }
 
