@@ -29,6 +29,27 @@ make kind-up PROFILE=lite    # lean profile (single-node, trimmed)
 make kind-down               # delete the cluster
 ```
 
+## CLI-native lifecycle (`zynax up` / `zynax down`)
+
+The `zynax` CLI fronts the **same** lifecycle without `make`, and works from any
+directory inside a checkout:
+
+```bash
+zynax up                     # = make kind-up (full profile)
+zynax up --profile lite      # lean single-node profile
+zynax up --engine argo       # same platform on the Argo engine — the wedge, one flag
+zynax down                   # = make kind-down
+```
+
+Both wrap the **same** `scripts/e2e/cluster-up.sh` / `cluster-down.sh` as the
+`make` targets ([ADR-041](adr/ADR-041-kind-native-unified-runtime.md)), so the
+runtime is identical — `zynax up` is just a discoverable, `make`-free entry
+point that resolves the repo root itself. Flags map 1:1 to the script env
+(`--profile`→`PROFILE`, `--engine`→`E2E_ENGINE`, `--no-load-images` omits
+`KIND_LOAD_IMAGES`, `--cluster-name`, `--namespace`). Outside a checkout, point
+at one with `--repo-root` or `$ZYNAX_REPO_ROOT`. After bring-up, run a workflow
+with `zynax apply` (see the README golden path).
+
 ## Two profiles
 
 | | `PROFILE=full` (default) | `PROFILE=lite` |

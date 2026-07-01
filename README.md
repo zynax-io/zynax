@@ -44,6 +44,10 @@ the in-cluster **`echo`** capability — **no Ollama, no model, no API key neede
 When it finishes it prints a **Platform ready** banner with the gateway URL
 (`http://localhost:8080`). Lean laptop? `PROFILE=lite make demo`.
 
+> Prefer the CLI? `zynax up` (add `--profile lite`, or `--engine argo` for the wedge) brings the same
+> stack up `make`-free from any directory — it wraps the same script as `make kind-up` — and `zynax down`
+> tears it back down. See [local dev on kind](docs/local-dev-kind.md).
+
 ### 2. Reach the gateway and run your first workflow
 
 The api-gateway is auth-enabled, so fetch the bearer key the cluster provisioned, then apply the
@@ -80,7 +84,7 @@ ENGINE=argo make demo     # (or E2E_ENGINE=argo make demo)
 
 The *same* `hello-world.yaml` runs unchanged on Argo instead of Temporal — write once, run on
 either engine, no rewrite. That is the wedge ([ADR-041](docs/adr/ADR-041-kind-native-unified-runtime.md),
-[#1370](https://github.com/zynax-io/zynax/issues/1370)). Tear it all down with `make kind-down`.
+[#1370](https://github.com/zynax-io/zynax/issues/1370)). Tear it all down with `make kind-down` (or `zynax down`).
 
 > **Next:** a real model reviews a git diff (the code-review demo), scaling onto k3s / managed
 > Kubernetes, and observability are covered in the **[kind how-to](docs/quickstart.md)** — not
