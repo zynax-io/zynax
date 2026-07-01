@@ -66,3 +66,16 @@ Maintaining Compose as a first-class parallel runtime therefore means two discov
   - **Deprecate then remove** `infra/docker-compose/**` and its Make targets on a published timeline.
   - **Audit other-milestone issues** for Compose assumptions and re-align them with this model (this ADR triggers that sweep).
   - Phase-2 CRD cutover and push-RPC removal remain owned by **ADR-039** (M8).
+
+---
+
+## Amendment (2026-07-01): CLI-native lifecycle entry points (`zynax up` / `zynax down`)
+
+Decision #3 above wraps the kind cluster lifecycle behind `make kind-up` / `make kind-down` (fronting `scripts/e2e/cluster-up.sh` / `cluster-down.sh`). This amendment adds **CLI-native** entry points that wrap the **same** scripts:
+
+- **`zynax up`** brings the full umbrella up on a local kind cluster; **`zynax down`** tears it down. They shell out (streaming) to `scripts/e2e/cluster-up.sh` / `cluster-down.sh` — the identical, CI-proven, idempotent path — mapping flags 1:1 to the scripts' existing env-var contract (`--profile`→`PROFILE`, `--engine`→`E2E_ENGINE`, `--no-load-images`→omit `KIND_LOAD_IMAGES`, `--cluster-name`→`CLUSTER_NAME`, `--namespace`→`NAMESPACE`).
+- They are **`make`-free and location-independent**: the `zynax` binary resolves the repo root (`--repo-root` flag → `ZYNAX_REPO_ROOT` → walk-up sentinel `scripts/e2e/cluster-up.sh`), so bring-up works from any subdirectory of a checkout, and fails with a clone-pointing error outside one.
+
+**This does not change the runtime decision.** kind + the production Helm charts remain the single runtime model; `zynax up`/`down` are a second, more discoverable *entry point* to the lifecycle Decision #3 already established — not a new runtime, not a divergent topology, and (per ADR-041) never a Docker-Compose path. A repo checkout is still assumed ("clone → one command"); a clone-free binary-only bring-up remains out of scope (deferred to M-dx, consistent with the zero-infrastructure trade-off above).
+
+Tracked by **EPIC #1561 (M7.V)** — stories #1562 (`reporoot` + `zynax down`), #1563 (`zynax up`), #1564 (docs + this amendment). REASONS Canvas: `docs/spdd/1561-zynax-up-down/canvas.md`.
