@@ -145,6 +145,33 @@ func TestGetWorkflow_NotFound(t *testing.T) {
 	}
 }
 
+func TestGetWorkflowOutputs_ReturnsMap(t *testing.T) {
+	gw := newGW(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/workflows/run-42/outputs" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"review": "LGTM", "score": "9"})
+	})
+	out, err := gw.GetWorkflowOutputs(context.Background(), "run-42")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out["review"] != "LGTM" || out["score"] != "9" {
+		t.Errorf("outputs = %v, want review=LGTM score=9", out)
+	}
+}
+
+func TestGetWorkflowOutputs_NotFound(t *testing.T) {
+	gw := newGW(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	_, err := gw.GetWorkflowOutputs(context.Background(), "missing")
+	if !errors.Is(err, client.ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
 func TestDeleteWorkflow_Returns204(t *testing.T) {
 	gw := newGW(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
