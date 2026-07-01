@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPO_ROOT / "spec/schemas/agent-def.schema.json"
 WORKFLOW_SCHEMA_PATH = REPO_ROOT / "spec/schemas/workflow.schema.json"
 ORCHESTRATOR_YAML = REPO_ROOT / "automation/workflows/dev-advisory-orchestrator.yaml"
+HELLO_WORLD_YAML = REPO_ROOT / "spec/workflows/examples/hello-world.yaml"
 EXPERT_YAMLS = list((REPO_ROOT / "automation/workflows/experts").glob("*.yaml"))
 
 
@@ -45,6 +46,31 @@ class TestPlatformReadiness:
                 doc = yaml.safe_load(f)
             jsonschema.validate(doc, schema)
 
+    def test_declared_output_read_path(self, zynax_client):
+        """apply → COMPLETED → GET /outputs returns a run's declared output
+        (ADR-042, M7.U). This is the proof that closes #1103 gap #4 — the
+        api-gateway workflow-outputs read path.
+
+        Uses hello-world.yaml — a zero-dependency echo workflow that declares a
+        terminal ``outputs: {message: $.states.greet.output.message}`` — so this
+        leg is INDEPENDENT of gaps #2 (CEL-vs-Go-template guards) and #3 (missing
+        capability providers) that keep the orchestrator leg below gated. The
+        same path is also asserted live in CI by scripts/e2e/hello-world-smoke.sh
+        (e2e-smoke.yml). Gated on ``ZYNAX_PLATFORM_E2E=1`` (else a clean skip).
+        """
+        result = zynax_client.apply(str(HELLO_WORLD_YAML))
+        assert result.workflow_id is not None, "apply must return a run id"
+
+        status = zynax_client.wait_for_completion(result.workflow_id, timeout=60)
+        assert status in ("COMPLETED", "SUCCEEDED"), (
+            f"hello-world run did not reach a terminal success state: {status}"
+        )
+
+        outputs = zynax_client.get_outputs(result.workflow_id)
+        assert outputs.get("message") == "Hello from Zynax", (
+            f"expected the declared 'message' output, got: {outputs!r}"
+        )
+
     def test_orchestrator_executes_on_platform(self, zynax_client):
         """`zynax apply` of the orchestrator Workflow on a live platform yields
         an aggregated verdict + a decision-log entry (O8, #1103).
@@ -65,16 +91,22 @@ class TestPlatformReadiness:
 
         outputs = zynax_client.get_outputs(result.workflow_id)
 
-        # Aggregated verdict — the weighted-consensus output of the `aggregate`
-        # state (dev-advisory-orchestrator.yaml).
+        # Outputs are a flat map<string,string> (ADR-042): complex values are JSON
+        # strings the consumer parses — so the aggregated verdict is decoded here,
+        # not indexed as a nested dict. The read path itself is gap #4, now closed
+        # and covered by test_declared_output_read_path above. gaps #2 (CEL-vs-Go
+        # -template guards) and #3 (missing capability providers) still keep this
+        # orchestrator leg from running on the platform, so it stays gated (a clean
+        # skip via the zynax_client fixture — never an XPASS that reddens the build).
         assert "aggregated_verdict" in outputs, (
             "run produced no aggregated_verdict output"
         )
-        assert outputs["aggregated_verdict"].get("confidence") in (
+        verdict = json.loads(outputs["aggregated_verdict"])
+        assert verdict.get("confidence") in (
             "low",
             "medium",
             "high",
-        ), f"unexpected verdict confidence: {outputs['aggregated_verdict']!r}"
+        ), f"unexpected verdict confidence: {verdict!r}"
 
         # Decision-log entry — recorded on every path by the terminal `done`
         # state (record_decision capability). The verdict alone is not enough;

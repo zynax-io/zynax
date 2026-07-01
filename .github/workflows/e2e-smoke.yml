@@ -151,6 +151,14 @@ jobs:
         # A failed assertion exits non-zero and fails the job (readable logs).
         run: scripts/e2e/e2e-happy.sh
 
+      - name: Workflow output read-path assertion
+        if: matrix.engine == 'temporal'
+        # Submits hello-world.yaml (which declares a terminal `outputs:` block),
+        # asserts it reaches COMPLETED, then reads GET /api/v1/workflows/{id}/outputs
+        # and confirms the declared `message` output is returned — the live
+        # apply → COMPLETED → read-outputs proof that closes #1103 gap #4 (M7.U).
+        run: scripts/e2e/hello-world-smoke.sh
+
       - name: Failure-path workflow assertion
         if: matrix.engine == 'temporal'
         # Submits a workflow whose first state invokes an unreachable
