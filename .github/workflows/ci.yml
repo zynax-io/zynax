@@ -197,7 +197,11 @@ jobs:
             fi
             # docker: any path that ends up inside a container image (#1118 / ADR-027).
             # Locked matrix strategy: ALL images build when ANY of these change.
-            if echo "$f" | grep -qE '^(services/|infra/docker/Dockerfile\.|agents/adapters/[^/]+/Dockerfile$)'; then
+            # Runtime dependency locks/manifests count: a lock-only change (e.g. a
+            # protobuf runtime bump to match regenerated gencode) alters the image
+            # contents, so it must rebuild — otherwise the promoted :main image goes
+            # stale against the committed source (see #1550).
+            if echo "$f" | grep -qE '^(services/|infra/docker/Dockerfile\.|agents/adapters/[^/]+/Dockerfile$|agents/adapters/[^/]+/(uv\.lock|pyproject\.toml)$|agents/sdk/(uv\.lock|pyproject\.toml)$)'; then
               docker=true
             fi
             if echo "$f" | grep -qE '^(protos/|spec/|CLAUDE\.md|AGENTS\.md|.*/AGENTS\.md|docs/ai-assistant-setup\.md|\.ai/|\.claude/)'; then
