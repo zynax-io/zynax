@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -288,9 +289,153 @@ func TestHandler_GetWorkflow_NotFound_Returns404(t *testing.T) {
 	}
 }
 
+// ── GET /api/v1/workflows/{id}/outputs (M7.U O.8) ────────────────────────
+
+func TestHandler_WorkflowOutputs_Returns200WithOutputs(t *testing.T) {
+	srv := newServer(&stubCompiler{}, &stubEngine{
+		statusRun: domain.WorkflowRunSummary{
+			RunID: "r1", Status: statusCompletedTest,
+			Outputs: map[string]string{"review": "LGTM", "score": "9"},
+		},
+	})
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/api/v1/workflows/r1/outputs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status: got %d, want 200", resp.StatusCode)
+	}
+	body := decodeBody(t, resp)
+	if body["review"] != "LGTM" || body["score"] != "9" {
+		t.Errorf("outputs body = %v, want review=LGTM score=9", body)
+	}
+}
+
+func TestHandler_WorkflowOutputs_Empty_ReturnsEmptyObject(t *testing.T) {
+	srv := newServer(&stubCompiler{}, &stubEngine{
+		statusRun: domain.WorkflowRunSummary{RunID: "r1", Status: statusCompletedTest},
+	})
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/api/v1/workflows/r1/outputs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status: got %d, want 200", resp.StatusCode)
+	}
+	body := decodeBody(t, resp)
+	if len(body) != 0 {
+		t.Errorf("expected empty object {}, got %v", body)
+	}
+}
+
+func TestHandler_WorkflowOutputs_NotFound_Returns404(t *testing.T) {
+	srv := newServer(&stubCompiler{}, &stubEngine{statusErr: domain.ErrNotFound})
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/api/v1/workflows/ghost/outputs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("status: got %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestHandler_WorkflowOutputs_SafeJSONEncoding(t *testing.T) {
+	// An attacker-influenced value with control/ANSI bytes must be JSON-escaped,
+	// never emitted raw, yet round-trip back to the original string.
+	val := "a\x1b[31mred\x00b"
+	srv := newServer(&stubCompiler{}, &stubEngine{
+		statusRun: domain.WorkflowRunSummary{
+			RunID: "r1", Status: statusCompletedTest,
+			Outputs: map[string]string{"x": val},
+		},
+	})
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/api/v1/workflows/r1/outputs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	raw, _ := io.ReadAll(resp.Body)
+	if bytes.ContainsAny(raw, "\x00\x1b") {
+		t.Errorf("raw control bytes leaked into JSON output: %q", raw)
+	}
+	var m map[string]string
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatalf("body is not valid JSON: %v (%q)", err, raw)
+	}
+	if m["x"] != val {
+		t.Errorf("round-trip mismatch: got %q, want %q", m["x"], val)
+	}
+}
+
+func TestHandler_WorkflowLogs_TerminalEventCarriesOutputs(t *testing.T) {
+	events := []domain.WatchEvent{
+		{RunID: "r1", EventType: "state.entered", ToState: "done", Status: "WORKFLOW_STATUS_RUNNING"},
+		{RunID: "r1", EventType: "workflow.completed", Status: statusCompletedTest},
+	}
+	srv := newServer(&stubCompiler{}, &stubEngine{
+		watchEvents: events,
+		statusRun:   domain.WorkflowRunSummary{RunID: "r1", Status: statusCompletedTest, Outputs: map[string]string{"review": "LGTM"}},
+	})
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/api/v1/workflows/r1/logs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var dataLines []string
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		if line := scanner.Text(); strings.HasPrefix(line, "data: ") {
+			dataLines = append(dataLines, strings.TrimPrefix(line, "data: "))
+		}
+	}
+	if len(dataLines) == 0 {
+		t.Fatal("no SSE data lines")
+	}
+	var ev struct {
+		Status  string `json:"status"`
+		Payload string `json:"payload"`
+	}
+	if err := json.Unmarshal([]byte(dataLines[len(dataLines)-1]), &ev); err != nil {
+		t.Fatalf("terminal event not JSON: %v", err)
+	}
+	if ev.Status != statusCompletedTest {
+		t.Errorf("last event status = %q, want COMPLETED", ev.Status)
+	}
+	var pl struct {
+		Outputs map[string]string `json:"outputs"`
+	}
+	if err := json.Unmarshal([]byte(ev.Payload), &pl); err != nil {
+		t.Fatalf("terminal payload not JSON: %v (%q)", err, ev.Payload)
+	}
+	if pl.Outputs["review"] != "LGTM" {
+		t.Errorf("terminal payload outputs = %v, want review=LGTM", pl.Outputs)
+	}
+}
+
 // ── POST /api/v1/apply (kind: AgentDef) ──────────────────────────────────
 
-const agentDefYAML = "kind: AgentDef\napiVersion: zynax.io/v1alpha1\nmetadata:\n  name: test-agent\n"
+const (
+	agentDefYAML        = "kind: AgentDef\napiVersion: zynax.io/v1alpha1\nmetadata:\n  name: test-agent\n"
+	statusCompletedTest = "WORKFLOW_STATUS_COMPLETED"
+)
 
 func TestHandler_Apply_ValidAgentDef_Returns201(t *testing.T) {
 	srv := newServerWithRegistry(

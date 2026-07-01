@@ -32,6 +32,10 @@ type WorkflowRunSummary struct {
 	WorkflowID   string
 	Status       string
 	CurrentState string
+	// Outputs are the resolved workflow-level outputs of a COMPLETED run
+	// (ADR-042, M7.U). Empty for runs that declared none and for non-terminal
+	// runs. Surfaced over HTTP by GET /api/v1/workflows/{id}/outputs.
+	Outputs map[string]string
 }
 
 // WatchEvent is a single lifecycle event emitted by a streaming WatchWorkflow call.

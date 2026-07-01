@@ -43,6 +43,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	applyHandler := rl.Middleware(http.HandlerFunc(requireBearer(h.apiKey, h.handleApply)))
 	mux.Handle("POST /api/v1/apply", applyHandler)
 	mux.HandleFunc("GET /api/v1/workflows/{id}/logs", h.handleWorkflowLogs)
+	mux.HandleFunc("GET /api/v1/workflows/{id}/outputs", h.handleWorkflowOutputs)
 	eventsHandler := rl.Middleware(http.HandlerFunc(requireBearer(h.apiKey, h.handlePublishEvent)))
 	mux.Handle("POST /api/v1/workflows/{id}/events", eventsHandler)
 	mux.HandleFunc("GET /api/v1/workflows/{id}", h.handleGetWorkflow)
@@ -141,6 +142,36 @@ func (h *Handler) handleGetWorkflow(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// statusCompleted is the terminal status string for a successfully completed run
+// (WorkflowStatus enum rendered via .String()).
+const statusCompleted = "WORKFLOW_STATUS_COMPLETED"
+
+// handleWorkflowOutputs serves the resolved workflow-level outputs of a run
+// (ADR-042, M7.U). It returns the outputs JSON object for a COMPLETED run, an
+// empty object {} for a run that declared none, and 404 for an unknown id.
+// GET stays open (read-only). json.Encoder escapes control characters, so
+// attacker-influenced output values render safely.
+func (h *Handler) handleWorkflowOutputs(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "run_id is required", "INVALID_ARGUMENT")
+		return
+	}
+	run, err := h.svc.GetWorkflowStatus(r.Context(), id)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		writeError(w, http.StatusNotFound, "workflow run not found", "NOT_FOUND")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal error", "INTERNAL")
+	default:
+		outputs := run.Outputs
+		if outputs == nil {
+			outputs = map[string]string{}
+		}
+		writeJSON(w, http.StatusOK, outputs)
+	}
+}
+
 func (h *Handler) handleWorkflowLogs(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
@@ -157,14 +188,27 @@ func (h *Handler) handleWorkflowLogs(w http.ResponseWriter, r *http.Request) {
 	// the server-wide deadline because they never call this code path.
 	rc := http.NewResponseController(w)
 	_ = rc.SetWriteDeadline(time.Time{})
+	ctx := r.Context()
 	started := false
-	err := h.svc.WatchWorkflowLogs(r.Context(), id, func(ev domain.WatchEvent) error {
+	err := h.svc.WatchWorkflowLogs(ctx, id, func(ev domain.WatchEvent) error {
 		if !started {
 			w.Header().Set("Content-Type", "text/event-stream")
 			w.Header().Set("Cache-Control", "no-cache")
 			w.Header().Set("Connection", "keep-alive")
 			w.WriteHeader(http.StatusOK)
 			started = true
+		}
+		// On the terminal completed event, enrich the payload with the run's
+		// declared outputs so streaming consumers get the result without a
+		// separate /outputs read-back (ADR-042, M7.U O.8). The engine's history
+		// stream does not carry the workflow result, so it is fetched here using
+		// the same request-scoped context.
+		if ev.Status == statusCompleted && ev.Payload == "" {
+			if run, gerr := h.svc.GetWorkflowStatus(ctx, id); gerr == nil && len(run.Outputs) > 0 { //nolint:contextcheck // same request ctx captured above; the WatchWorkflowLogs callback carries no ctx param
+				if b, merr := json.Marshal(map[string]map[string]string{"outputs": run.Outputs}); merr == nil {
+					ev.Payload = string(b)
+				}
+			}
 		}
 		data, merr := json.Marshal(sseWatchEvent(ev))
 		if merr != nil {
