@@ -142,8 +142,9 @@ spec:
 
     done:
       type: terminal
-      # Return the ranked review — the LAST step's output — as the workflow's
-      # declared result (ADR-042): `zynax result <run>` prints
-      # `ranking=<the ranked review text>` instead of "no declared output".
+      # Expose BOTH steps' outputs as the workflow result (ADR-042) so
+      # `zynax result <run>` prints `review=<the code review>` AND
+      # `ranking=<the ranked summary>` — every step's output in one place.
       outputs:
+        review: "$.states.review.output.review"
         ranking: "$.states.rank.output.ranking"
