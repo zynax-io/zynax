@@ -50,31 +50,26 @@ When it finishes it prints a **Platform ready** banner with the gateway URL
 
 ### 2. Reach the gateway and run your first workflow
 
-The api-gateway is auth-enabled, so fetch the bearer key the cluster provisioned, then apply the
-zero-dependency [`hello-world`](spec/workflows/examples/hello-world.yaml) workflow (the built-in
-`echo` capability — no model, no external secret):
+The api-gateway is auth-enabled. Reach it over a **`kubectl port-forward`** — the reliable path. (The
+kind NodePort on `localhost:8080` also works, but resets under load on repeat runs, so prefer the
+forward.) Start it once, export the URL + the cluster's bearer key, then apply the zero-dependency
+[`hello-world`](spec/workflows/examples/hello-world.yaml) workflow (the built-in `echo` capability —
+no model, no external secret):
 
 ```bash
+kubectl -n zynax port-forward svc/zynax-api-gateway 18080:8080 &
+export ZYNAX_API_URL=http://localhost:18080
 export ZYNAX_API_KEY=$(kubectl -n zynax get secret zynax-gw-api-key -o jsonpath='{.data.api-key}' | base64 -d)
+
 zynax apply spec/workflows/examples/hello-world.yaml
 # run_id: wf-<hex>
-
 zynax status workflow wf-<hex>
 # WORKFLOW_STATUS_COMPLETED
 ```
 
 That `WORKFLOW_STATUS_COMPLETED` is your first success — the engine dispatched the in-cluster `echo`
-capability and ran to a terminal state with zero secrets. Inspect the run with
-`zynax logs wf-<hex>`.
-
-The CLI defaults to `--api-url http://localhost:8080` (mapped from the kind NodePort `30080`). The
-NodePort can be reset by kube-proxy on repeat runs; if `localhost:8080` is flaky, port-forward to a
-**different** local port (the NodePort already holds `8080`) and target it with `--api-url`:
-
-```bash
-kubectl -n zynax port-forward svc/zynax-api-gateway 18080:8080 &
-zynax --api-url http://localhost:18080 apply spec/workflows/examples/hello-world.yaml
-```
+capability and ran to a terminal state with zero secrets. Inspect the run with `zynax logs wf-<hex>`
+(exporting `ZYNAX_API_URL`/`ZYNAX_API_KEY` above means the `zynax` commands need no flags).
 
 ### 3. Switch engines — same workflow, one flag
 
