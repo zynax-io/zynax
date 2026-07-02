@@ -50,6 +50,16 @@ point that resolves the repo root itself. Flags map 1:1 to the script env
 at one with `--repo-root` or `$ZYNAX_REPO_ROOT`. After bring-up, run a workflow
 with `zynax apply` (see the README golden path).
 
+**Reaching the gateway:** use a `kubectl port-forward` — the reliable path — not
+the host NodePort on `localhost:8080`, which resets under load on repeat runs.
+Export the URL + key once and the `zynax` commands need no flags:
+
+```bash
+kubectl -n zynax port-forward svc/zynax-api-gateway 18080:8080 &
+export ZYNAX_API_URL=http://localhost:18080
+export ZYNAX_API_KEY=$(kubectl -n zynax get secret zynax-gw-api-key -o jsonpath='{.data.api-key}' | base64 -d)
+```
+
 ## Two profiles
 
 | | `PROFILE=full` (default) | `PROFILE=lite` |

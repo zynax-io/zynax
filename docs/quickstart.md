@@ -48,18 +48,14 @@ Temporal and disables the event-bus / memory-service.
 
 The api-gateway is auth-enabled. Fetch the bearer key the cluster provisioned:
 
-```bash
-export ZYNAX_API_KEY=$(kubectl -n zynax get secret zynax-gw-api-key -o jsonpath='{.data.api-key}' | base64 -d)
-```
-
-The CLI defaults to `--api-url http://localhost:8080` (the kind NodePort `30080` mapped to host
-`8080`). The NodePort can be reset by kube-proxy on repeat runs; if `localhost:8080` is flaky,
-port-forward to a **different** local port (the NodePort already holds `8080`) and target it with
-`--api-url`:
+Reach the gateway over a **`kubectl port-forward`** — the reliable path. The kind NodePort on
+`localhost:8080` also works, but resets under load on repeat runs, so prefer the forward. Start it,
+then export the URL + the cluster's bearer key so the `zynax` commands below need no flags:
 
 ```bash
 kubectl -n zynax port-forward svc/zynax-api-gateway 18080:8080 &
-# then add --api-url http://localhost:18080 to the zynax commands below
+export ZYNAX_API_URL=http://localhost:18080
+export ZYNAX_API_KEY=$(kubectl -n zynax get secret zynax-gw-api-key -o jsonpath='{.data.api-key}' | base64 -d)
 ```
 
 ---
