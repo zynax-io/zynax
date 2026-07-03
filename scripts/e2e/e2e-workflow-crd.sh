@@ -65,7 +65,14 @@ while [[ $(date +%s) -lt ${deadline} ]]; do
   if [[ "${disp}" == "True" && -n "${run1}" ]]; then break; fi
   sleep "${POLL_INTERVAL}"
 done
-[[ -n "${run1}" ]] || fail "CR never reached Dispatched=True with a runID (compile/submit failed?)"
+if [[ -z "${run1}" ]]; then
+  # Surface why: the CR's own conditions and the controller's reconcile logs.
+  log "CR status on failure: $(wf 'jsonpath={.status}')"
+  log "api-gateway controller logs (reconcile lines):"
+  kubectl -n "${NAMESPACE}" logs -l app.kubernetes.io/name=zynax-api-gateway --tail=50 2>/dev/null \
+    | grep -iE 'workflow|reconcile|controller|apply' || true
+  fail "CR never reached Dispatched=True with a runID (compile/submit failed?)"
+fi
 pass "reconciled to a dispatched run: runID=${run1} engine=$(wf 'jsonpath={.status.engine}')"
 
 # Thin-status contract: only the mirror keys may appear — run state stays in the engine.
