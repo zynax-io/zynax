@@ -29,7 +29,7 @@ const leaderElectionID = "zynax-api-gateway-workflow-controller"
 // RBAC is a namespaced Role (least privilege, no ClusterRole), so a
 // cluster-scope watch would be forbidden. Required — an empty namespace is a
 // hard error (mirrors the agent-registry scheduler, ADR-039).
-func NewManager(restCfg *rest.Config, namespace string) (manager.Manager, error) {
+func NewManager(restCfg *rest.Config, applier WorkflowApplier, namespace string) (manager.Manager, error) {
 	if namespace == "" {
 		return nil, fmt.Errorf("crd: watch namespace is required (namespaced RBAC forbids cluster-scope watches)")
 	}
@@ -49,7 +49,7 @@ func NewManager(restCfg *rest.Config, namespace string) (manager.Manager, error)
 	watched := &unstructured.Unstructured{}
 	watched.SetGroupVersionKind(WorkflowGVK)
 	if err := ctrl.NewControllerManagedBy(mgr).For(watched).
-		Complete(&WorkflowReconciler{Client: mgr.GetClient()}); err != nil {
+		Complete(&WorkflowReconciler{Client: mgr.GetClient(), Applier: applier}); err != nil {
 		return nil, fmt.Errorf("crd: build controller: %w", err)
 	}
 	return mgr, nil
@@ -59,7 +59,7 @@ func NewManager(restCfg *rest.Config, namespace string) (manager.Manager, error)
 // manager, and runs it in a goroutine until ctx is cancelled. A manager error
 // is fatal to the controller only — it is logged, not propagated — so a
 // controller failure never takes down the api-gateway REST apply path.
-func StartController(ctx context.Context, namespace string) error {
+func StartController(ctx context.Context, applier WorkflowApplier, namespace string) error {
 	// controller-runtime demands a logger before manager construction; bridge
 	// it into the service's structured slog output.
 	ctrl.SetLogger(logr.FromSlogHandler(slog.Default().Handler()))
@@ -67,7 +67,7 @@ func StartController(ctx context.Context, namespace string) error {
 	if err != nil {
 		return fmt.Errorf("crd: load kubeconfig: %w", err)
 	}
-	mgr, err := NewManager(restCfg, namespace)
+	mgr, err := NewManager(restCfg, applier, namespace)
 	if err != nil {
 		return fmt.Errorf("crd: build manager: %w", err)
 	}

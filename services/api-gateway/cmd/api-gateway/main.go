@@ -106,7 +106,7 @@ func run(cfg config) error {
 	// here is fatal to startup, but the manager itself is fault-isolated (its
 	// goroutine logs and exits without taking down the HTTP surface).
 	if cfg.CRDControllerEnabled {
-		if err := crd.StartController(ctx, resolveWatchNamespace(cfg)); err != nil {
+		if err := crd.StartController(ctx, svc, resolveWatchNamespace(cfg)); err != nil {
 			return fmt.Errorf("api-gateway: workflow controller: %w", err)
 		}
 	}
