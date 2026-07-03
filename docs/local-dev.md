@@ -128,7 +128,11 @@ zynax down        # tear it back down
 
 Reach the gateway over `kubectl -n zynax port-forward svc/zynax-api-gateway 18080:8080`.
 
+<<<<<<< HEAD
 See [local-dev-kind.md](local-dev-kind.md) for the full kind workflow; the Compose runtime is retired (ADR-041 / #1501).
+=======
+See [local-dev-kind.md](local-dev-kind.md) for the kind workflow; the Compose runtime is retired (ADR-041).
+>>>>>>> 257be05 (feat(docs): zynax up as the single documented first-run entry)
 
 ---
 

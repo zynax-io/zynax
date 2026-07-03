@@ -10,7 +10,7 @@ beyond kind, and observability.
 
 > **Docker Compose is deprecated** as the local runtime ([ADR-041](adr/ADR-041-kind-native-unified-runtime.md)):
 > it cannot run the Argo engine and structurally diverges from production. The legacy Compose runbook
-> is kept for reference only at [running-with-docker-compose.md](running-with-docker-compose.md).
+> is retired; [running-with-docker-compose.md](running-with-docker-compose.md) is a migration stub.
 
 ---
 
@@ -90,7 +90,7 @@ To run a workflow where a real model reviews a git diff, you need a model availa
 llm-adapter. Pull it once on the host so the in-cluster adapter can reach it:
 
 ```bash
-ollama pull qwen2.5-coder:3b           # default model; see infra/docker-compose/ollama/llm-adapter.config.yaml
+ollama pull qwen2.5-coder:3b           # default model for the llm-adapter
 ```
 
 Then apply [`code-review-ollama.yaml`](../spec/workflows/examples/code-review-ollama.yaml) — it runs
