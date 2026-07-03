@@ -129,7 +129,7 @@ Consumers / neighbors
    expert-strict); Prometheus at selection time via TTL cache; degradation path; structured
    rationale; step-1 `.feature` passes on kind. → #1581 ✅
 5. **Readiness reconciler** — EndpointSlice → `status.{ready,replicas,conditions}`; Lease leader
-   election (single writer, select path always-serving); stale-liveness scenario green. → #1582
+   election (single writer, select path always-serving); stale-liveness scenario green. → #1582 ✅
 6. **task-broker cutover** — `SelectAgent` replaces `FindByCapability` + round-robin; ADR-028
    binding regression green; rationale on the task record; **joint first-run-on-CRD-path e2e
    (named CI scenario, both engine legs, run twice) — the #1572/ADR-041 gate**. → #1583
