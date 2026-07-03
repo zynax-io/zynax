@@ -307,7 +307,8 @@ func (c *GatewayClients) RegisterAgent(ctx context.Context, manifestYAML []byte,
 	}
 	callCtx, cancel := context.WithTimeout(ctx, c.callTimeout)
 	defer cancel()
-	resp, err := c.registry.RegisterAgent(callCtx, req)
+	resp, err := c.registry.RegisterAgent( //nolint:staticcheck // SA1019: dead code behind domain.ErrAgentDefRetired; deleted with the M9 hard RPC removal (ADR-039).
+		callCtx, req)
 	if err != nil {
 		return domain.AgentRegistration{}, mapRegistryGRPCError(err)
 	}

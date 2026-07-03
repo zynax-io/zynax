@@ -1,4 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
+#
+# DEPRECATED SURFACE (ADR-039, #1584): the production registry answers
+# UNIMPLEMENTED for every RPC below — agent identity lives in the Agent
+# custom resource and dispatch uses SchedulerService.SelectAgent. This file
+# remains the reference-stub specification of the push-era wire contract
+# until the M9 hard removal deletes the RPCs (and this file with them).
 # Zynax — AgentRegistryService BDD Contract Specification
 #
 # This file is the SPECIFICATION. It is written BEFORE the implementation.

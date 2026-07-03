@@ -827,14 +827,14 @@ const file_zynax_v1_agent_registry_proto_rawDesc = "" +
 	"\vAgentStatus\x12\x1c\n" +
 	"\x18AGENT_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17AGENT_STATUS_REGISTERED\x10\x01\x12\x1d\n" +
-	"\x19AGENT_STATUS_DEREGISTERED\x10\x022\x9f\x03\n" +
-	"\x14AgentRegistryService\x12P\n" +
-	"\rRegisterAgent\x12\x1e.zynax.v1.RegisterAgentRequest\x1a\x1f.zynax.v1.RegisterAgentResponse\x12V\n" +
-	"\x0fDeregisterAgent\x12 .zynax.v1.DeregisterAgentRequest\x1a!.zynax.v1.DeregisterAgentResponse\x129\n" +
-	"\bGetAgent\x12\x19.zynax.v1.GetAgentRequest\x1a\x12.zynax.v1.AgentDef\x12G\n" +
+	"\x19AGENT_STATUS_DEREGISTERED\x10\x022\xb8\x03\n" +
+	"\x14AgentRegistryService\x12U\n" +
+	"\rRegisterAgent\x12\x1e.zynax.v1.RegisterAgentRequest\x1a\x1f.zynax.v1.RegisterAgentResponse\"\x03\x88\x02\x01\x12[\n" +
+	"\x0fDeregisterAgent\x12 .zynax.v1.DeregisterAgentRequest\x1a!.zynax.v1.DeregisterAgentResponse\"\x03\x88\x02\x01\x12>\n" +
+	"\bGetAgent\x12\x19.zynax.v1.GetAgentRequest\x1a\x12.zynax.v1.AgentDef\"\x03\x88\x02\x01\x12L\n" +
 	"\n" +
-	"ListAgents\x12\x1b.zynax.v1.ListAgentsRequest\x1a\x1c.zynax.v1.ListAgentsResponse\x12Y\n" +
-	"\x10FindByCapability\x12!.zynax.v1.FindByCapabilityRequest\x1a\".zynax.v1.FindByCapabilityResponseB3Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1b\x06proto3"
+	"ListAgents\x12\x1b.zynax.v1.ListAgentsRequest\x1a\x1c.zynax.v1.ListAgentsResponse\"\x03\x88\x02\x01\x12^\n" +
+	"\x10FindByCapability\x12!.zynax.v1.FindByCapabilityRequest\x1a\".zynax.v1.FindByCapabilityResponse\"\x03\x88\x02\x01B3Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1b\x06proto3"
 
 var (
 	file_zynax_v1_agent_registry_proto_rawDescOnce sync.Once

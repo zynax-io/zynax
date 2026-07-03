@@ -51,23 +51,34 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // AgentRegistryService is the platform's capability index.
-// Agents register on startup; the task broker queries at dispatch time.
+//
+// DEPRECATED (ADR-039, M8): the Agent custom resource (zynax.io/v1alpha1) is
+// now the single source of truth for agent identity, and dispatch selection
+// moved to SchedulerService.SelectAgent (scheduler.proto). Every RPC below is
+// deprecated and answers UNIMPLEMENTED with a migration pointer
+// (docs/patterns/agent-crd-migration.md); hard removal is scheduled for M9.
+// The AgentDef/CapabilityDef messages live on — scheduler.proto reuses them.
 type AgentRegistryServiceClient interface {
+	// Deprecated: Do not use.
 	// RegisterAgent records an agent and its capabilities in the registry.
 	// Returns ALREADY_EXISTS if the agent_id is already registered and active.
 	// Returns INVALID_ARGUMENT if required fields are empty or schemas are invalid.
 	RegisterAgent(ctx context.Context, in *RegisterAgentRequest, opts ...grpc.CallOption) (*RegisterAgentResponse, error)
+	// Deprecated: Do not use.
 	// DeregisterAgent marks an agent as DEREGISTERED.
 	// The record is retained for audit; the agent is excluded from discovery.
 	// Returns NOT_FOUND if no active agent with the given agent_id exists.
 	DeregisterAgent(ctx context.Context, in *DeregisterAgentRequest, opts ...grpc.CallOption) (*DeregisterAgentResponse, error)
+	// Deprecated: Do not use.
 	// GetAgent returns the full AgentDef for the given agent_id, including
 	// its current status. Returns NOT_FOUND if the agent_id is unknown.
 	GetAgent(ctx context.Context, in *GetAgentRequest, opts ...grpc.CallOption) (*AgentDef, error)
+	// Deprecated: Do not use.
 	// ListAgents returns all agents matching the optional label selector.
 	// DEREGISTERED agents are excluded unless include_deregistered is set.
 	// An empty selector matches all active agents.
 	ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error)
+	// Deprecated: Do not use.
 	// FindByCapability returns all active agents that declare the named
 	// capability. Returns an empty list (not NOT_FOUND) when no agents match.
 	// Returns INVALID_ARGUMENT if capability_name is empty.
@@ -82,6 +93,7 @@ func NewAgentRegistryServiceClient(cc grpc.ClientConnInterface) AgentRegistrySer
 	return &agentRegistryServiceClient{cc}
 }
 
+// Deprecated: Do not use.
 func (c *agentRegistryServiceClient) RegisterAgent(ctx context.Context, in *RegisterAgentRequest, opts ...grpc.CallOption) (*RegisterAgentResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RegisterAgentResponse)
@@ -92,6 +104,7 @@ func (c *agentRegistryServiceClient) RegisterAgent(ctx context.Context, in *Regi
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *agentRegistryServiceClient) DeregisterAgent(ctx context.Context, in *DeregisterAgentRequest, opts ...grpc.CallOption) (*DeregisterAgentResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeregisterAgentResponse)
@@ -102,6 +115,7 @@ func (c *agentRegistryServiceClient) DeregisterAgent(ctx context.Context, in *De
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *agentRegistryServiceClient) GetAgent(ctx context.Context, in *GetAgentRequest, opts ...grpc.CallOption) (*AgentDef, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AgentDef)
@@ -112,6 +126,7 @@ func (c *agentRegistryServiceClient) GetAgent(ctx context.Context, in *GetAgentR
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *agentRegistryServiceClient) ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListAgentsResponse)
@@ -122,6 +137,7 @@ func (c *agentRegistryServiceClient) ListAgents(ctx context.Context, in *ListAge
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *agentRegistryServiceClient) FindByCapability(ctx context.Context, in *FindByCapabilityRequest, opts ...grpc.CallOption) (*FindByCapabilityResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FindByCapabilityResponse)
@@ -137,23 +153,34 @@ func (c *agentRegistryServiceClient) FindByCapability(ctx context.Context, in *F
 // for forward compatibility.
 //
 // AgentRegistryService is the platform's capability index.
-// Agents register on startup; the task broker queries at dispatch time.
+//
+// DEPRECATED (ADR-039, M8): the Agent custom resource (zynax.io/v1alpha1) is
+// now the single source of truth for agent identity, and dispatch selection
+// moved to SchedulerService.SelectAgent (scheduler.proto). Every RPC below is
+// deprecated and answers UNIMPLEMENTED with a migration pointer
+// (docs/patterns/agent-crd-migration.md); hard removal is scheduled for M9.
+// The AgentDef/CapabilityDef messages live on — scheduler.proto reuses them.
 type AgentRegistryServiceServer interface {
+	// Deprecated: Do not use.
 	// RegisterAgent records an agent and its capabilities in the registry.
 	// Returns ALREADY_EXISTS if the agent_id is already registered and active.
 	// Returns INVALID_ARGUMENT if required fields are empty or schemas are invalid.
 	RegisterAgent(context.Context, *RegisterAgentRequest) (*RegisterAgentResponse, error)
+	// Deprecated: Do not use.
 	// DeregisterAgent marks an agent as DEREGISTERED.
 	// The record is retained for audit; the agent is excluded from discovery.
 	// Returns NOT_FOUND if no active agent with the given agent_id exists.
 	DeregisterAgent(context.Context, *DeregisterAgentRequest) (*DeregisterAgentResponse, error)
+	// Deprecated: Do not use.
 	// GetAgent returns the full AgentDef for the given agent_id, including
 	// its current status. Returns NOT_FOUND if the agent_id is unknown.
 	GetAgent(context.Context, *GetAgentRequest) (*AgentDef, error)
+	// Deprecated: Do not use.
 	// ListAgents returns all agents matching the optional label selector.
 	// DEREGISTERED agents are excluded unless include_deregistered is set.
 	// An empty selector matches all active agents.
 	ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error)
+	// Deprecated: Do not use.
 	// FindByCapability returns all active agents that declare the named
 	// capability. Returns an empty list (not NOT_FOUND) when no agents match.
 	// Returns INVALID_ARGUMENT if capability_name is empty.

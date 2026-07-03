@@ -27,11 +27,9 @@ import (
 	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/agent-registry/internal/api"
-	"github.com/zynax-io/zynax/services/agent-registry/internal/domain"
 	"github.com/zynax-io/zynax/services/agent-registry/internal/domain/scheduler"
 	"github.com/zynax-io/zynax/services/agent-registry/internal/infrastructure"
 	"github.com/zynax-io/zynax/services/agent-registry/internal/infrastructure/crd"
-	"github.com/zynax-io/zynax/services/agent-registry/internal/infrastructure/postgres"
 	"github.com/zynax-io/zynax/services/agent-registry/internal/infrastructure/promql"
 )
 
@@ -95,13 +93,10 @@ func run(cfg config) error {
 		return fmt.Errorf("agent-registry: tls credentials: %w", err)
 	}
 
-	repo, closeRepo, err := newRepository(ctx, cfg)
-	if err != nil {
-		return err
-	}
-	defer closeRepo()
-	svc := domain.NewAgentRegistryService(repo)
-
+	// CRD era (ADR-039): the push-era repositories (memory/Postgres) are no
+	// longer wired — the deprecated AgentRegistryService surface answers
+	// UNIMPLEMENTED and the Agent CR is the single source of truth. The
+	// repository code itself is deleted with the M9 hard RPC removal.
 	var schedHandler *api.SchedulerHandler
 	if cfg.CRDInformerEnabled {
 		idx, err := startCRDInformer(ctx, cfg)
@@ -111,7 +106,7 @@ func run(cfg config) error {
 		schedHandler = api.NewSchedulerHandler(idx, newScorer(cfg))
 	}
 
-	srv := newGRPCServer(creds, svc, schedHandler)
+	srv := newGRPCServer(creds, schedHandler)
 
 	healthSvc := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(srv, healthSvc)
@@ -141,7 +136,7 @@ func run(cfg config) error {
 // newGRPCServer builds the agent-registry gRPC server with OTEL tracing (server
 // stats handler + "<service>.<rpc>" span interceptors, canvas O.3) and the RED
 // metrics interceptor, then registers the service handler and reflection.
-func newGRPCServer(creds credentials.TransportCredentials, svc *domain.AgentRegistryService, sched *api.SchedulerHandler) *grpc.Server {
+func newGRPCServer(creds credentials.TransportCredentials, sched *api.SchedulerHandler) *grpc.Server {
 	tracingUnary, tracingStream := zynaxobs.TracingServerInterceptors()
 	srv := grpc.NewServer(
 		grpc.Creds(creds),
@@ -150,27 +145,12 @@ func newGRPCServer(creds credentials.TransportCredentials, svc *domain.AgentRegi
 		grpc.ChainStreamInterceptor(tracingStream),
 	)
 	reflection.Register(srv)
-	zynaxv1.RegisterAgentRegistryServiceServer(srv, api.NewHandler(svc))
+	zynaxv1.RegisterAgentRegistryServiceServer(srv, api.NewHandler())
 	if sched != nil {
 		zynaxv1.RegisterSchedulerServiceServer(srv, sched)
 		slog.Info("agent-registry: SchedulerService registered (SelectAgent live)")
 	}
 	return srv
-}
-
-// newRepository selects the AgentRepository adapter (ADR-021): Postgres when
-// configured, in-memory otherwise. The returned closer is a no-op for memory.
-func newRepository(ctx context.Context, cfg config) (domain.AgentRepository, func(), error) {
-	if cfg.DBEnabled {
-		pgRepo, err := postgres.New(ctx, cfg.DBDSN)
-		if err != nil {
-			return nil, nil, fmt.Errorf("agent-registry: postgres repository: %w", err)
-		}
-		slog.Info("agent-registry: using postgres repository")
-		return pgRepo, pgRepo.Close, nil
-	}
-	slog.Info("agent-registry: using in-memory repository")
-	return infrastructure.NewMemoryRepo(), func() {}, nil
 }
 
 // startCRDInformer builds and starts the controller-runtime manager: the

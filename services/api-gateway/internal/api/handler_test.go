@@ -437,7 +437,9 @@ const (
 	statusCompletedTest = "WORKFLOW_STATUS_COMPLETED"
 )
 
-func TestHandler_Apply_ValidAgentDef_Returns201(t *testing.T) {
+// CRD era (ADR-039): applying kind: AgentDef answers 410 Gone with the
+// migration pointer — the push forward is retired.
+func TestHandler_Apply_AgentDef_Returns410Retired(t *testing.T) {
 	srv := newServerWithRegistry(
 		&stubCompiler{},
 		&stubEngine{},
@@ -451,35 +453,15 @@ func TestHandler_Apply_ValidAgentDef_Returns201(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusCreated {
-		t.Errorf("status: got %d, want 201", resp.StatusCode)
+	if resp.StatusCode != http.StatusGone {
+		t.Errorf("status: got %d, want 410", resp.StatusCode)
 	}
 	body := decodeBody(t, resp)
-	if body["agent_id"] != "agent-001" {
-		t.Errorf("agent_id: got %v, want agent-001", body["agent_id"])
+	if body["code"] != "AGENTDEF_RETIRED" {
+		t.Errorf("code: got %v, want AGENTDEF_RETIRED", body["code"])
 	}
-}
-
-func TestHandler_Apply_DuplicateAgentDef_Returns409(t *testing.T) {
-	srv := newServerWithRegistry(
-		&stubCompiler{},
-		&stubEngine{},
-		&stubRegistry{err: domain.ErrAgentAlreadyExists},
-	)
-	defer srv.Close()
-
-	resp, err := http.Post(srv.URL+"/api/v1/apply", "application/yaml", bytes.NewBufferString(agentDefYAML))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusConflict {
-		t.Errorf("status: got %d, want 409", resp.StatusCode)
-	}
-	body := decodeBody(t, resp)
-	if body["code"] != "ALREADY_EXISTS" {
-		t.Errorf("code: got %v, want ALREADY_EXISTS", body["code"])
+	if msg, _ := body["error"].(string); !strings.Contains(msg, "agent-crd-migration") {
+		t.Errorf("error message must point at the migration guide, got %q", msg)
 	}
 }
 
