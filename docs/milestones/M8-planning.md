@@ -46,7 +46,7 @@ The K8s-native reduction is **not** new design work — it was decided and de-ri
 | Delegation boundary — "thin-Zynax": build only the AI scheduling/intelligence core; delegate every generic primitive; new infra **must** be a K8s primitive | [ADR-040](../adr/ADR-040-kubernetes-native-delegation-boundary.md) | Accepted (2026-06-22) |
 | `Agent` CRD as single source of truth; agent-registry → stateless informer-backed **Scheduler**; `SelectAgent` RPC; push registration removed | [ADR-039](../adr/ADR-039-crd-native-scheduler.md) | Accepted (2026-06-22) — **spike verified** on kind (`spike/adr-039-crd-scheduler-proof`) |
 | kind as the unified local/CI/prod runtime; Compose retired | [ADR-041](../adr/ADR-041-kind-native-unified-runtime.md) | Accepted (2026-06-25; amended 2026-07-01 with `zynax up/down`) — **Phase 1 delivered in M7** (kind-first docs, `make demo`, `zynax up`) |
-| Workflow CRD = thin authoring front-end only; execution stays engine-agnostic IR; etcd never holds run state | ADR-040 §3 → **new ADR required** (M8.E story 1) | Mandated, not yet written |
+| Workflow CRD = thin authoring front-end only; execution stays engine-agnostic IR; etcd never holds run state | ADR-040 §3 → [ADR-043](../adr/ADR-043-workflow-crd-front-end.md) (M8.E story 1) | ✅ Accepted (2026-07-03) |
 | Edge/infra delegation beyond the ADR-040 list (gateway edge, admission policy, event-bus facade) | **three new ADRs required** (M8.F/G/H story 1s) | Open — each may be Rejected |
 
 Already delegated per the ADR-040 audit — **no M8 work needed**: metrics (Prometheus), tracing/logs
@@ -69,7 +69,7 @@ Two governance EPICs pre-exist; six are added by this plan. Letters continue the
 | **M8.B** | Post-M8 process transition: Fork A narrowing + CNCF submission | docs | **#471** (pre-existing) | docs | — |
 | **M8.C** | **CRD-native Scheduler** — `Agent` CRD source of truth; registry → stateless scheduler | feat | **#1571** ✅ **DELIVERED** (PRs #1586, #1588–#1597; canvas Implemented; gate #1572 discharged) | agent-registry, task-broker, protos, infra | ADR-039 ✅ Accepted |
 | **M8.D** | kind runtime closeout: first-run on the CRD path + Compose runtime removal (absorbs #1501) | feat/chore | **#1572** ✅ **DELIVERED** (PRs #1601–#1604; canvas Implemented) | infra, cli, ci, docs | ADR-041 ✅ Accepted |
-| **M8.E** | Thin `Workflow` CRD front-end (GitOps authoring; zero run-state in etcd) | feat | **#1573** (new) | workflow-compiler, infra, cli | **new ADR** (story 1) |
+| **M8.E** | Thin `Workflow` CRD front-end (GitOps authoring; zero run-state in etcd) | feat | **#1573** (new) | workflow-compiler, infra, cli | [ADR-043](../adr/ADR-043-workflow-crd-front-end.md) ✅ Accepted (story 1) |
 | **M8.F** | Edge delegation: gateway auth + rate-limit → Gateway API / Envoy | feat | **#1574** (new) | api-gateway, infra | **new ADR** (story 1, may be Rejected) |
 | **M8.G** | Admission policy: compiler routing/quota gate → Kyverno/OPA + quota | feat | **#1575** (new) | workflow-compiler, infra | **new ADR** (story 1, may be Rejected) |
 | **M8.H** | Event-bus facade retirement → direct NATS JetStream | feat/refactor | **#1576** (new) | event-bus, protos, agents/sdk | **new ADR** (story 1, amends ADR-022; may be Rejected) |
@@ -153,7 +153,7 @@ endangering the milestone.
 
 | ADR | For | Gate character |
 |-----|-----|----------------|
-| Workflow CRD front-end | M8.E | Mandated by ADR-040 §3 — scope/bounds decision, expected Accepted |
+| Workflow CRD front-end | M8.E | [ADR-043](../adr/ADR-043-workflow-crd-front-end.md) ✅ Accepted (2026-07-03) — mandated by ADR-040 §3 |
 | Edge delegation: gateway auth + rate-limit → Gateway API/Envoy | M8.F | Genuinely open — may be Rejected |
 | Admission-delegated routing/quota policy | M8.G | Genuinely open — may be Rejected |
 | Direct-NATS eventing (amends ADR-022) | M8.H | Genuinely open — may be Rejected |
