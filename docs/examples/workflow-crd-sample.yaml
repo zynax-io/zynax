@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Sample Workflow custom resource (ADR-043, M8.E). Apply it on a Kubernetes
+# runtime with the embedded controller enabled:
+#
+#   kubectl apply -f docs/examples/workflow-crd-sample.yaml
+#
+# The controller reconciles it through the existing compile->submit path;
+# `kubectl get workflows.zynax.io` then shows the dispatch status. Run state
+# lives in the engine (Temporal/Argo), not in this object.
+#
+# YAML gotcha: the transition key must be quoted ("on"), because a bare `on`
+# is parsed as a boolean by kubectl's YAML reader.
+apiVersion: zynax.io/v1alpha1
+kind: Workflow
+metadata:
+  name: hello-review
+  namespace: default
+spec:
+  engine: temporal
+  initial_state: review
+  states:
+    review:
+      type: normal
+      actions:
+        - capability: code_review
+          timeout: 30m
+          input:
+            repo: "{{ .trigger.repo }}"
+      "on":
+        - event: capability.completed
+          goto: done
+    done:
+      type: terminal
+      outputs:
+        result: "$.states.review.output.summary"

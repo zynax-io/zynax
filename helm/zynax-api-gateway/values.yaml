@@ -14,6 +14,21 @@ serviceAccount:
   create: true
   name: ""
 
+# Embedded Workflow CRD controller (ADR-043, M8.E). Off by default: when
+# disabled, api-gateway serves only the REST apply path and starts no
+# controller-runtime manager. When enabled, a namespaced, Lease-elected manager
+# reconciles Workflow CRs (zynax.io/v1alpha1) through the existing compile->submit
+# path. The CRD itself ships in crds/ and installs regardless of this flag.
+crdController:
+  enabled: false
+  rbac:
+    # Create the namespaced Role/RoleBinding for the controller (Workflow CRs +
+    # workflows/status + leases). Bound to the api-gateway ServiceAccount.
+    create: true
+  # Namespace the controller watches. Empty => resolved at runtime from the
+  # downward-API (the pod's own namespace); a cluster-scoped watch is never used.
+  watchNamespace: ""
+
 service:
   type: ClusterIP
   port: 8080
