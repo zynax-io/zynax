@@ -15,6 +15,7 @@ import (
 var (
 	applyDryRun bool
 	applyEngine string
+	applyCRD    bool
 )
 
 var applyCmd = &cobra.Command{
@@ -33,14 +34,20 @@ consumes their capabilities. No new api-gateway endpoint is introduced.`,
 		if err != nil {
 			return err
 		}
-		gw := newGateway()
+		if applyCRD && isScenario {
+			return fmt.Errorf("--crd applies a single Workflow manifest; scenarios use the REST path")
+		}
 		if isScenario {
-			return runApplyScenario(cmd, gw, indexPath)
+			return runApplyScenario(cmd, newGateway(), indexPath)
 		}
 		data, err := os.ReadFile(args[0])
 		if err != nil {
 			return fmt.Errorf("read %s: %w", args[0], err)
 		}
+		if applyCRD {
+			return runApplyCRD(cmd, data)
+		}
+		gw := newGateway()
 		if applyDryRun {
 			return runDryRun(cmd, gw, data)
 		}
@@ -51,6 +58,8 @@ consumes their capabilities. No new api-gateway endpoint is introduced.`,
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "validate manifest without submitting")
 	applyCmd.Flags().StringVar(&applyEngine, "engine", "", "engine hint forwarded to SubmitWorkflow (ADR-015)")
+	applyCmd.Flags().BoolVar(&applyCRD, "crd", false,
+		"apply a Workflow as a custom resource on the current Kubernetes context (GitOps front-end, ADR-043) instead of the REST path")
 	rootCmd.AddCommand(applyCmd)
 }
 
@@ -81,7 +90,7 @@ func runApplyScenario(cmd *cobra.Command, gw *client.Gateway, indexPath string) 
 		if err != nil {
 			return fmt.Errorf("read scenario member %s (%s): %w", m.ID, m.Path, err)
 		}
-		if m.Kind == "Workflow" {
+		if m.Kind == kindWorkflow {
 			data, err = validate.BindContextIntoWorkflow(data, ctxValues)
 			if err != nil {
 				return fmt.Errorf("scenario member %s: %w", m.ID, err)

@@ -19,12 +19,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Manifest-kind literals shared across the CLI tests (satisfies goconst).
-const (
-	kindWorkflow = "Workflow"
-	kindAgentDef = "AgentDef"
-)
-
 // runEPtr returns the comparable pointer of a command's RunE for identity asserts.
 func runEPtr(c *cobra.Command) uintptr {
 	if c == nil || c.RunE == nil {
