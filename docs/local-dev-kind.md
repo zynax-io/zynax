@@ -95,7 +95,7 @@ The same workflow runs on Temporal or Argo on the same cluster:
 E2E_ENGINE=argo make demo     # installs the Argo Workflows control plane, same workflow
 ```
 
-## Legacy Docker Compose (deprecated)
+## Legacy Docker Compose (removed)
 
-`make demo-compose` still runs the old Compose Ollama demo, but Compose is
-deprecated under ADR-041 and receives no new feature work. Prefer `make demo`.
+The Compose runtime was removed in M8 (ADR-041 / #1501) — `make demo-compose`
+and `make run-local` no longer exist. `zynax up` / `make demo` are the way.

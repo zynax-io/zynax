@@ -122,14 +122,13 @@ Proto changes require a `.feature` file committed first (ADR-016). Generated stu
 Start all three platform services plus Temporal and NATS with a single command:
 
 ```bash
-make run-local    # build images + start (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)
-make logs-local   # tail all logs
-make stop-local   # stop and remove containers
+zynax up          # kind cluster + Helm umbrella — the one local runtime (ADR-041)
+zynax down        # tear it back down
 ```
 
-Port map: api-gateway `http://localhost:7080` · Temporal UI `http://localhost:7088` · Temporal gRPC `localhost:7233` · NATS `localhost:7422`.
+Reach the gateway over `kubectl -n zynax port-forward svc/zynax-api-gateway 18080:8080`.
 
-See [infra/docker-compose/README.md](../infra/docker-compose/README.md) for the full port map and startup order.
+See [local-dev-kind.md](local-dev-kind.md) for the full kind workflow; the Compose runtime is retired (ADR-041 / #1501).
 
 ---
 
