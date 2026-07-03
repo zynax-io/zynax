@@ -35,18 +35,18 @@ makes local Kubernetes the one runtime model — see [why](#why-kind) below.)
 ### 1. Boot the cluster — one command
 
 ```bash
-make demo
+zynax up
 ```
 
-`make demo` creates a [kind](https://kind.sigs.k8s.io/) cluster, loads the images, installs the
-**production Helm charts**, waits for every Deployment to roll out, then runs the hero workflow with
-the in-cluster **`echo`** capability — **no Ollama, no model, no API key needed for first success**.
-When it finishes it prints a **Platform ready** banner with the gateway URL
-(`http://localhost:8080`). Lean laptop? `PROFILE=lite make demo`.
+`zynax up` creates a [kind](https://kind.sigs.k8s.io/) cluster, loads the images, installs the
+**production Helm charts**, and waits for every Deployment to roll out — **no Ollama, no model, no
+API key needed for first success**. Add `--profile lite` for a lean laptop, or `--engine argo` to
+run the same workflows on the Argo engine (the wedge, live). `zynax down` tears it back down.
 
-> Prefer the CLI? `zynax up` (add `--profile lite`, or `--engine argo` for the wedge) brings the same
-> stack up `make`-free from any directory — it wraps the same script as `make kind-up` — and `zynax down`
-> tears it back down. See [local dev on kind](docs/local-dev-kind.md).
+> Prefer `make`? `make demo` drives the same bring-up from the repo root and additionally runs the
+> hero workflow, ending in a **Platform ready** banner (`PROFILE=lite make demo` for the lean
+> stack; `ENGINE=argo make demo` for the Argo leg). Both entries wrap the same script — one
+> runtime, two spellings. See [local dev on kind](docs/local-dev-kind.md).
 
 ### 2. Reach the gateway and run your first workflow
 
@@ -388,7 +388,7 @@ the code-review model demo, scaling onto k3s / managed Kubernetes, and observabi
 > **Docker Compose is deprecated** as the local runtime ([ADR-041](docs/adr/ADR-041-kind-native-unified-runtime.md)):
 > it cannot run the Argo engine and structurally diverges from production. Use the kind path above.
 > The legacy Compose runbook is kept for reference only at
-> [docs/running-with-docker-compose.md](docs/running-with-docker-compose.md).
+> [docs/running-with-docker-compose.md](docs/running-with-docker-compose.md) (retired — kind is the one runtime).
 
 ### Develop locally
 
@@ -454,7 +454,7 @@ task-broker + agent-registry were delivered in M5.C (#479, #480).
 **M4** delivered the YAML system and CLI: api-gateway HTTP REST layer
 (`POST /api/v1/apply`, `GET /api/v1/workflows/{id}`, `DELETE /api/v1/workflows/{id}`),
 the `zynax` CLI (`apply`, `get`,
-`delete`, `status`, `logs`), local Docker Compose runner (`make run-local`),
+`delete`, `status`, `logs`), the kind bring-up (`zynax up` / `zynax down`),
 pre-built CLI binaries published to GitHub Releases for five platforms, and GitOps integration.
 Canvas: `docs/spdd/314-yaml-system-cli/canvas.md`.
 
