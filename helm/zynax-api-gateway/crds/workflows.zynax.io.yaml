@@ -1,0 +1,182 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Workflow CRD — a thin, declarative authoring front-end for Zynax workflows
+# (ADR-043, M8.E). It is NOT a workflow store: a controller reconciles a
+# Workflow CR by calling the existing compile->submit path; execution and run
+# state stay in the engine (Temporal/Argo), and `status` is a deliberately thin
+# mirror (compile/dispatch conditions + the dispatched identifiers only) — never
+# a phase timeline, step results, or run history (ADR-040 §3).
+#
+# Group/Version/Kind: zynax.io/v1alpha1, kind: Workflow (namespaced, plural
+# "workflows", short "wf"). Lives under crds/ so Helm installs it before
+# templates; CRD upgrades are applied explicitly (kubectl apply), per Helm's
+# crds/ semantics — mirroring the Agent CRD (ADR-039).
+#
+# The OpenAPI v3 structural schema ports the state-machine shape from
+# spec/schemas/workflow.schema.json (the `kind: Workflow, apiVersion: zynax.io/v1`
+# manifest). The manifest's top-level `kind`/`apiVersion`/`metadata` are supplied
+# by the CR itself; the manifest `spec` maps to `.spec` here. The manifest pins
+# apiVersion `zynax.io/v1`; the CRD serves `v1alpha1` — the reconciler maps
+# `v1alpha1` -> `v1` when it reconstructs the manifest for the compiler (ADR-043 §5).
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: workflows.zynax.io
+spec:
+  group: zynax.io
+  scope: Namespaced
+  names:
+    kind: Workflow
+    listKind: WorkflowList
+    plural: workflows
+    singular: workflow
+    shortNames: [wf]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Engine
+          type: string
+          jsonPath: .spec.engine
+        - name: Dispatched
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Dispatched")].status
+        - name: Run-ID
+          type: string
+          jsonPath: .status.runID
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              description: >-
+                The workflow state machine (ported from the workflow manifest spec),
+                plus an optional engine hint. Operator-authored.
+              type: object
+              required: [initial_state, states]
+              properties:
+                engine:
+                  description: >-
+                    Optional engine hint passed to the submit path (e.g. "temporal",
+                    "argo", "eval"). Omit to use the platform default. Engine
+                    selection stays behind the engine-adapter interface (ADR-015).
+                  type: string
+                version:
+                  description: Optional SemVer of this workflow definition (mirrors manifest metadata.version).
+                  type: string
+                  pattern: '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'
+                initial_state:
+                  description: Name of the state entered on submission; must be a key in states.
+                  type: string
+                  minLength: 1
+                triggers:
+                  description: Optional CloudEvent patterns that start a new instance.
+                  type: array
+                  items:
+                    type: object
+                    required: [event]
+                    properties:
+                      event:
+                        type: string
+                        minLength: 1
+                      filter:
+                        type: object
+                        additionalProperties:
+                          type: string
+                states:
+                  description: Map of state name to state definition (at least one).
+                  type: object
+                  minProperties: 1
+                  additionalProperties:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum: [normal, terminal, human_in_the_loop]
+                      actions:
+                        type: array
+                        items:
+                          type: object
+                          required: [capability]
+                          properties:
+                            capability:
+                              type: string
+                              minLength: 1
+                            timeout:
+                              type: string
+                              pattern: '^([0-9]+(ns|us|ms|s|m|h))+$'
+                            input:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            output:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                      # "on" is quoted: bare `on` is a YAML 1.1 boolean.
+                      "on":
+                        type: array
+                        items:
+                          type: object
+                          required: [event, goto]
+                          properties:
+                            event:
+                              type: string
+                              minLength: 1
+                            goto:
+                              type: string
+                              minLength: 1
+                            guard:
+                              type: string
+                              minLength: 1
+                            set:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                      outputs:
+                        description: Terminal-state workflow outputs (ADR-042). Valid only on terminal states (enforced by the compiler).
+                        type: object
+                        additionalProperties:
+                          type: string
+            status:
+              description: >-
+                Reconciler-owned, deliberately thin. Compile/dispatch mirror only —
+                NEVER run state (no phase timeline, step results, or history). Live
+                progress and results come from the engine (zynax status / zynax result).
+              type: object
+              properties:
+                observedGeneration:
+                  description: The .metadata.generation last reconciled (the re-submit gate, ADR-043 §4).
+                  type: integer
+                  format: int64
+                workflowID:
+                  description: The content-hash ManifestWorkflowID dispatched to the engine (ADR-034).
+                  type: string
+                runID:
+                  description: The engine run id returned by submit. Run state lives in the engine, not here.
+                  type: string
+                engine:
+                  description: The engine the run was dispatched to.
+                  type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status]
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                        enum: ["True", "False", "Unknown"]
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time

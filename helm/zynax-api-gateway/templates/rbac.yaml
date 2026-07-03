@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Least-privilege RBAC for the embedded Workflow CRD controller (ADR-043, M8.E):
+# the api-gateway watches Workflow CRs and reconciles them through the existing
+# compile->submit path, writes a thin status, and uses a Lease for the
+# single-writer status reconciler election. Nothing else is granted — no write
+# access to Workflow spec, no Secret access, no endpointslices (reconcile is
+# compile->submit, not endpoint-derived).
+#
+# The controller is embedded in the api-gateway pod (ADR-043), so the Role binds
+# to the api-gateway ServiceAccount — which carries no other cluster RBAC, keeping
+# the granted identity minimal and namespaced. Created only when the controller
+# is enabled.
+{{- if and .Values.crdController.enabled .Values.crdController.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "zynax.fullname" . }}-workflow-controller
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+rules:
+  # Informer cache over Workflow CRs (read-only on spec).
+  - apiGroups: ["zynax.io"]
+    resources: ["workflows"]
+    verbs: ["get", "list", "watch"]
+  # Status subresource — written only by the Lease-elected reconciler.
+  - apiGroups: ["zynax.io"]
+    resources: ["workflows/status"]
+    verbs: ["get", "update", "patch"]
+  # Leader election for the single-writer status reconciler.
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Leader-election transition Events (observability only).
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "zynax.fullname" . }}-workflow-controller
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "zynax.fullname" . }}-workflow-controller
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "zynax.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end -}}
