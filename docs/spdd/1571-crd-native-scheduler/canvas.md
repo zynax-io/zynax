@@ -118,7 +118,7 @@ Consumers / neighbors
 > Each step = one story issue = one reviewable PR. 1:1 with the child issues of #1571.
 
 1. **Contract first** — `protos/zynax/v1/scheduler.proto` (`SelectAgent`) + committed BDD
-   `.feature`; stubs regenerated; `buf breaking` green. → #1578
+   `.feature`; stubs regenerated; `buf breaking` green. → #1578 ✅
 2. **`Agent` CRD + Helm RBAC** — promote the spike CRD with the full OpenAPI v3 schema (ported
    from `spec/schemas/agent-def.schema.json` + scoring hints + `endpointRef`); umbrella ships CRD
    + least-privilege Role; sample CRs green on kind. → #1579
