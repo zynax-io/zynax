@@ -55,6 +55,12 @@ spec:
             # SelectAgent + Lease-elected readiness reconciler.
             - name: ZYNAX_REGISTRY_CRD_INFORMER_ENABLED
               value: "true"
+            # Namespace scope for the informer cache + election Lease —
+            # matches the namespaced Role (no cluster-scope watches).
+            - name: ZYNAX_REGISTRY_WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             {{- if .Values.crdInformer.promUrl }}
             - name: ZYNAX_REGISTRY_PROM_URL
               value: {{ .Values.crdInformer.promUrl | quote }}

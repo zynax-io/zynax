@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/go-logr/logr"
@@ -52,10 +53,13 @@ type config struct {
 	// canvas O-step 4). Empty => selection runs in the degraded
 	// readiness-filtered mode (never fails on metrics).
 	PromURL string `envconfig:"PROM_URL"`
-	// Namespace holding the leader-election Lease for the single-writer
-	// status reconciler (ADR-039, canvas O-step 5). Empty in-cluster
-	// (auto-detected); required for out-of-cluster/local runs.
+	// Namespace the scheduler watches (Agent CRs + EndpointSlices) and
+	// holds its election Lease in. The chart injects the pod namespace via
+	// the downward API; in-cluster it falls back to the ServiceAccount
+	// namespace file; local runs set it explicitly. Namespaced RBAC makes
+	// this mandatory when the CRD informer is enabled (ADR-039).
 	ElectionNamespace string `envconfig:"ELECTION_NAMESPACE"`
+	WatchNamespace    string `envconfig:"WATCH_NAMESPACE"`
 }
 
 func main() {
@@ -185,7 +189,7 @@ func startCRDInformer(ctx context.Context, cfg config) (*scheduler.Index, error)
 		return nil, fmt.Errorf("load kubeconfig: %w", err)
 	}
 	idx := scheduler.NewIndex()
-	mgr, err := crd.NewManager(restCfg, idx, cfg.ElectionNamespace)
+	mgr, err := crd.NewManager(restCfg, idx, resolveWatchNamespace(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("build crd manager: %w", err)
 	}
@@ -199,6 +203,21 @@ func startCRDInformer(ctx context.Context, cfg config) (*scheduler.Index, error)
 		}
 	}()
 	return idx, nil
+}
+
+// resolveWatchNamespace picks the scheduler's namespace scope: explicit env,
+// else the in-cluster ServiceAccount namespace, else the election namespace
+// (local dev). NewManager rejects an empty result.
+func resolveWatchNamespace(cfg config) string {
+	if cfg.WatchNamespace != "" {
+		return cfg.WatchNamespace
+	}
+	if b, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+		if ns := strings.TrimSpace(string(b)); ns != "" {
+			return ns
+		}
+	}
+	return cfg.ElectionNamespace
 }
 
 // newScorer builds the selection pipeline with its metrics source: the
