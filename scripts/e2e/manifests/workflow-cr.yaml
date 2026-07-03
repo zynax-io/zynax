@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# e2e fixture: a Workflow custom resource (ADR-043, M8.E). e2e-workflow-crd.sh
+# applies this, and the api-gateway's embedded controller (crdController.enabled
+# in values-e2e.yaml) reconciles it through the existing compile->submit path.
+# No engine is pinned — the run uses whichever engine the leg deployed
+# (temporal or argo). The transition key is quoted ("on") for kubectl's YAML
+# reader; run state stays in the engine, never in this object.
+apiVersion: zynax.io/v1alpha1
+kind: Workflow
+metadata:
+  name: e2e-crd-echo
+spec:
+  initial_state: greet
+  states:
+    greet:
+      actions:
+        - capability: echo
+          input:
+            message: "Hello from the Workflow CRD e2e"
+      "on":
+        - event: echo.completed
+          goto: done
+    done:
+      type: terminal

@@ -33,6 +33,11 @@ zynax-api-gateway:
   service:
     type: NodePort
     nodePort: 30080
+  # Enable the embedded Workflow CRD controller (ADR-043, M8.E) so
+  # e2e-workflow-crd.sh can assert a Workflow CR reconciles to a dispatched run.
+  # WATCH_NAMESPACE resolves to the pod namespace via the downward API.
+  crdController:
+    enabled: true
 zynax-workflow-compiler:
   fullnameOverride: zynax-workflow-compiler
   image:
