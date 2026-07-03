@@ -124,7 +124,7 @@ Consumers / neighbors
    + least-privilege Role; sample CRs green on kind. → #1579 ✅
 3. **Informer + capability index** — controller-runtime manager with informer cache over Agent
    CRs; index mirrors today's `capIndex`; resync-on-restart integration test; existing gRPC
-   surface untouched. → #1580
+   surface untouched. → #1580 ✅
 4. **Scoring pipeline + `SelectAgent` live** — promote the spike scorer (ADR-039 §4 order,
    expert-strict); Prometheus at selection time via TTL cache; degradation path; structured
    rationale; step-1 `.feature` passes on kind. → #1581
