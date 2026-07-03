@@ -31,6 +31,7 @@ import (
 	"github.com/zynax-io/zynax/services/agent-registry/internal/infrastructure"
 	"github.com/zynax-io/zynax/services/agent-registry/internal/infrastructure/crd"
 	"github.com/zynax-io/zynax/services/agent-registry/internal/infrastructure/postgres"
+	"github.com/zynax-io/zynax/services/agent-registry/internal/infrastructure/promql"
 )
 
 type config struct {
@@ -47,6 +48,10 @@ type config struct {
 	// path consumes it (O-step 4); requires the Agent CRD + scheduler RBAC
 	// shipped by the chart (O-step 2).
 	CRDInformerEnabled bool `envconfig:"CRD_INFORMER_ENABLED" default:"false"`
+	// Prometheus HTTP API base URL for selection-time metrics (ADR-039 §3,
+	// canvas O-step 4). Empty => selection runs in the degraded
+	// readiness-filtered mode (never fails on metrics).
+	PromURL string `envconfig:"PROM_URL"`
 }
 
 func main() {
@@ -89,13 +94,16 @@ func run(cfg config) error {
 	defer closeRepo()
 	svc := domain.NewAgentRegistryService(repo)
 
+	var schedHandler *api.SchedulerHandler
 	if cfg.CRDInformerEnabled {
-		if err := startCRDInformer(ctx); err != nil {
+		idx, err := startCRDInformer(ctx)
+		if err != nil {
 			return fmt.Errorf("agent-registry: crd informer: %w", err)
 		}
+		schedHandler = api.NewSchedulerHandler(idx, newScorer(cfg))
 	}
 
-	srv := newGRPCServer(creds, svc)
+	srv := newGRPCServer(creds, svc, schedHandler)
 
 	healthSvc := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(srv, healthSvc)
@@ -125,7 +133,7 @@ func run(cfg config) error {
 // newGRPCServer builds the agent-registry gRPC server with OTEL tracing (server
 // stats handler + "<service>.<rpc>" span interceptors, canvas O.3) and the RED
 // metrics interceptor, then registers the service handler and reflection.
-func newGRPCServer(creds credentials.TransportCredentials, svc *domain.AgentRegistryService) *grpc.Server {
+func newGRPCServer(creds credentials.TransportCredentials, svc *domain.AgentRegistryService, sched *api.SchedulerHandler) *grpc.Server {
 	tracingUnary, tracingStream := zynaxobs.TracingServerInterceptors()
 	srv := grpc.NewServer(
 		grpc.Creds(creds),
@@ -135,6 +143,10 @@ func newGRPCServer(creds credentials.TransportCredentials, svc *domain.AgentRegi
 	)
 	reflection.Register(srv)
 	zynaxv1.RegisterAgentRegistryServiceServer(srv, api.NewHandler(svc))
+	if sched != nil {
+		zynaxv1.RegisterSchedulerServiceServer(srv, sched)
+		slog.Info("agent-registry: SchedulerService registered (SelectAgent live)")
+	}
 	return srv
 }
 
@@ -160,18 +172,18 @@ func newRepository(ctx context.Context, cfg config) (domain.AgentRepository, fun
 // The manager runs until ctx is cancelled; a manager error is fatal for the
 // informer only, not for the gRPC surface (logged, not propagated), so the
 // legacy registry path keeps serving during partial failures.
-func startCRDInformer(ctx context.Context) error {
+func startCRDInformer(ctx context.Context) (*scheduler.Index, error) {
 	// controller-runtime demands a logger before manager construction;
 	// bridge it into the service's structured slog output.
 	ctrl.SetLogger(logr.FromSlogHandler(slog.Default().Handler()))
 	restCfg, err := ctrl.GetConfig()
 	if err != nil {
-		return fmt.Errorf("load kubeconfig: %w", err)
+		return nil, fmt.Errorf("load kubeconfig: %w", err)
 	}
 	idx := scheduler.NewIndex()
 	mgr, err := crd.NewManager(restCfg, idx)
 	if err != nil {
-		return fmt.Errorf("build crd manager: %w", err)
+		return nil, fmt.Errorf("build crd manager: %w", err)
 	}
 	go func() {
 		slog.Info("agent-registry: crd informer started (Agent CRs -> capability index)")
@@ -179,7 +191,21 @@ func startCRDInformer(ctx context.Context) error {
 			slog.Error("crd informer exited", "err", err)
 		}
 	}()
-	return nil
+	return idx, nil
+}
+
+// newScorer builds the selection pipeline with its metrics source: the
+// Prometheus client (short-TTL cache) when configured, else the always-
+// degraded source — selection never fails on metrics (ADR-039 §3).
+func newScorer(cfg config) *scheduler.Scorer {
+	var src scheduler.MetricsSource = promql.Unavailable{}
+	if cfg.PromURL != "" {
+		src = promql.New(cfg.PromURL)
+		slog.Info("agent-registry: selection metrics from prometheus", "url", cfg.PromURL) //nolint:gosec // operator-controlled config
+	} else {
+		slog.Info("agent-registry: no prometheus configured — selection runs readiness-filtered (degraded mode)")
+	}
+	return &scheduler.Scorer{Metrics: src}
 }
 
 // setHealth sets both the overall "" key and the per-service named key to the
