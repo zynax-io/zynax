@@ -23,9 +23,3 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
-    {{- if .Values.db.secretName }}
-    # Postgres (ADR-021: Postgres-backed repository)
-    - ports:
-        - port: 5432
-          protocol: TCP
-    {{- end }}

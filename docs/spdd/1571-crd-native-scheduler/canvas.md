@@ -6,7 +6,7 @@
 **Issue:** #1571 · **Milestone:** M8 (v1.0.0)
 **Author:** M8 program plan
 **Date:** 2026-07-03
-**Status:** Aligned
+**Status:** Implemented
 
 ---
 
@@ -136,7 +136,7 @@ Consumers / neighbors
 7. **Push-path deprecation + stateless registry** — five registry RPCs `deprecated` →
    `UNIMPLEMENTED` with migration pointer; memory/Postgres adapters + api-gateway forward + Helm
    Postgres removed; adapters stop self-registering; migration guide + AGENTS/ARCHITECTURE
-   truth-pass; M9 hard-removal issue filed. **Hard gate: step 6's joint e2e green first.** → #1584
+   truth-pass; M9 hard-removal issue filed. **Hard gate: step 6's joint e2e green first.** → #1584 ✅
 
 ## N — Norms
 

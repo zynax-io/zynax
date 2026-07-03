@@ -19,9 +19,7 @@ resources:
     memory: 256Mi
 
 # Wire the Postgres DSN secret created by the Postgres subchart or external secret operator.
-db:
-  secretName: "agent-registry-db"
-  secretKey: "dsn"
+# Stateless since M8 (ADR-039): no database.
 
 # Wire the cert-manager issued certificate secret (ADR-020).
 tlsSecretName: "zynax-agent-registry-tls"

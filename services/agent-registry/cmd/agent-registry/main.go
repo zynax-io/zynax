@@ -40,8 +40,6 @@ type config struct {
 	TLSCert     string `envconfig:"TLS_CERT"`
 	TLSKey      string `envconfig:"TLS_KEY"`
 	TLSCA       string `envconfig:"TLS_CA"`
-	DBEnabled   bool   `envconfig:"DB_ENABLED" default:"false"`
-	DBDSN       string `envconfig:"DB_DSN"`
 	// CRD informer (ADR-039, canvas O-step 3): watch Agent CRs and maintain
 	// the scheduler capability index. Off by default until the SelectAgent
 	// path consumes it (O-step 4); requires the Agent CRD + scheduler RBAC

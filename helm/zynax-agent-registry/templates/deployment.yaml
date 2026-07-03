@@ -66,13 +66,6 @@ spec:
               value: {{ .Values.crdInformer.promUrl | quote }}
             {{- end }}
             {{- end }}
-            {{- if .Values.db.secretName }}
-            - name: ZYNAX_REGISTRY_DB_DSN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.db.secretName }}
-                  key: {{ .Values.db.secretKey }}
-            {{- end }}
             {{- if .Values.tlsSecretName }}
             - name: ZYNAX_REGISTRY_TLS_CERT
               value: /tls/tls.crt
