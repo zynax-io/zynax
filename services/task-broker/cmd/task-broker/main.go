@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package main is the entry point for the task-broker service.
-// It wires the repository (memory or Postgres), agent registry finder, agent executor,
+// It wires the repository (memory or Postgres), the scheduler selector (ADR-039), agent executor,
 // and gRPC server. All business logic lives in internal/.
 package main
 
@@ -75,11 +75,11 @@ func run(cfg config) error {
 	}
 
 	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
-	finder, finderCleanup, err := infrastructure.NewRegistryClient(cfg.RegistryAddr, callTimeout, creds)
+	selector, selectorCleanup, err := infrastructure.NewSchedulerClient(cfg.RegistryAddr, callTimeout, creds)
 	if err != nil {
 		return fmt.Errorf("task-broker: registry client: %w", err)
 	}
-	defer finderCleanup()
+	defer selectorCleanup()
 
 	repo, repoCleanup, err := newRepository(ctx, cfg)
 	if err != nil {
@@ -87,7 +87,7 @@ func run(cfg config) error {
 	}
 	defer repoCleanup()
 	executor := infrastructure.NewAgentExecutor(creds)
-	svc := domain.NewTaskService(repo, finder, executor)
+	svc := domain.NewTaskService(repo, selector, executor)
 
 	publisherCleanup, err := attachEventPublisher(svc, cfg, callTimeout, creds)
 	if err != nil {

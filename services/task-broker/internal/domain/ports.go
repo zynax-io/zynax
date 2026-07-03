@@ -12,9 +12,13 @@ type TaskRepository interface {
 	List(ctx context.Context, filter ListFilter) (ListResult, error)
 }
 
-// AgentFinder resolves which agents declare a given capability.
-type AgentFinder interface {
-	FindByCapability(ctx context.Context, capabilityName string) ([]AgentInfo, error)
+// AgentSelector asks the CRD-native scheduler for exactly one agent able to
+// execute a capability (ADR-039: SelectAgent replaces FindByCapability +
+// round-robin). expertTarget is the strict ADR-028 scope — empty means any
+// eligible agent. Implementations map "nothing survives selection" onto
+// ErrNoEligibleAgent so dispatch semantics stay contract-stable.
+type AgentSelector interface {
+	Select(ctx context.Context, capabilityName, expertTarget string) (AgentInfo, error)
 }
 
 // CapabilityExecutor invokes a capability on a specific agent and returns the outcome.

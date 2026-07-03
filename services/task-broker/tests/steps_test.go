@@ -89,10 +89,23 @@ func (f *fakeAgentFinder) add(capability, agentID string) {
 	f.agents[capability] = append(f.agents[capability], domain.AgentInfo{AgentID: agentID, Endpoint: "fake:///agent"})
 }
 
-func (f *fakeAgentFinder) FindByCapability(_ context.Context, capName string) ([]domain.AgentInfo, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.agents[capName], nil
+// Select implements domain.AgentSelector with the reference semantics of the
+// CRD-native scheduler: capability lookup, strict expert filter (no
+// fallback), first eligible agent deterministically.
+func (f *fakeAgentFinder) Select(_ context.Context, capName, expertTarget string) (domain.AgentInfo, error) {
+	agents := f.agents[capName]
+	if len(agents) == 0 {
+		return domain.AgentInfo{}, fmt.Errorf("%w: no agent declares capability %q", domain.ErrNoEligibleAgent, capName)
+	}
+	if expertTarget != "" {
+		for _, a := range agents {
+			if a.Name == expertTarget || a.AgentID == expertTarget {
+				return a, nil
+			}
+		}
+		return domain.AgentInfo{}, fmt.Errorf("%w: no agent %q", domain.ErrNoEligibleAgent, expertTarget)
+	}
+	return agents[0], nil
 }
 
 // ─── fakeCapabilityExecutor ──────────────────────────────────────────────────
