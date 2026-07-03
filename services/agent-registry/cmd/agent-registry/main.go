@@ -52,6 +52,10 @@ type config struct {
 	// canvas O-step 4). Empty => selection runs in the degraded
 	// readiness-filtered mode (never fails on metrics).
 	PromURL string `envconfig:"PROM_URL"`
+	// Namespace holding the leader-election Lease for the single-writer
+	// status reconciler (ADR-039, canvas O-step 5). Empty in-cluster
+	// (auto-detected); required for out-of-cluster/local runs.
+	ElectionNamespace string `envconfig:"ELECTION_NAMESPACE"`
 }
 
 func main() {
@@ -96,7 +100,7 @@ func run(cfg config) error {
 
 	var schedHandler *api.SchedulerHandler
 	if cfg.CRDInformerEnabled {
-		idx, err := startCRDInformer(ctx)
+		idx, err := startCRDInformer(ctx, cfg)
 		if err != nil {
 			return fmt.Errorf("agent-registry: crd informer: %w", err)
 		}
@@ -165,14 +169,14 @@ func newRepository(ctx context.Context, cfg config) (domain.AgentRepository, fun
 	return infrastructure.NewMemoryRepo(), func() {}, nil
 }
 
-// startCRDInformer builds and starts the controller-runtime manager whose
-// informer cache watches Agent CRs and maintains the scheduler capability
-// index (ADR-039, canvas O-step 3). The index becomes the SelectAgent data
-// source in O-step 4; until then it is a warmed, observable projection.
+// startCRDInformer builds and starts the controller-runtime manager: the
+// informer-fed capability index (every replica, O-step 3), the SelectAgent
+// data source (O-step 4), and the Lease-elected readiness reconciler that
+// derives Agent status from EndpointSlices (single writer, O-step 5).
 // The manager runs until ctx is cancelled; a manager error is fatal for the
 // informer only, not for the gRPC surface (logged, not propagated), so the
 // legacy registry path keeps serving during partial failures.
-func startCRDInformer(ctx context.Context) (*scheduler.Index, error) {
+func startCRDInformer(ctx context.Context, cfg config) (*scheduler.Index, error) {
 	// controller-runtime demands a logger before manager construction;
 	// bridge it into the service's structured slog output.
 	ctrl.SetLogger(logr.FromSlogHandler(slog.Default().Handler()))
@@ -181,12 +185,15 @@ func startCRDInformer(ctx context.Context) (*scheduler.Index, error) {
 		return nil, fmt.Errorf("load kubeconfig: %w", err)
 	}
 	idx := scheduler.NewIndex()
-	mgr, err := crd.NewManager(restCfg, idx)
+	mgr, err := crd.NewManager(restCfg, idx, cfg.ElectionNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("build crd manager: %w", err)
 	}
+	if err := crd.SetupReadiness(mgr); err != nil {
+		return nil, fmt.Errorf("setup readiness reconciler: %w", err)
+	}
 	go func() {
-		slog.Info("agent-registry: crd informer started (Agent CRs -> capability index)")
+		slog.Info("agent-registry: crd informer started (Agent CRs -> capability index; readiness reconciler Lease-elected)")
 		if err := mgr.Start(ctx); err != nil {
 			slog.Error("crd informer exited", "err", err)
 		}

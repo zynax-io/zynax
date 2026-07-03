@@ -21,8 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -67,16 +69,29 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return reconcile.Result{}, nil
 }
 
+// leaderElectionID is the Lease name for the single-writer status reconciler
+// election (ADR-039 Consequences). One Lease per deployment namespace.
+const leaderElectionID = "zynax-agent-registry-scheduler"
+
 // NewManager builds a controller-runtime manager whose informer cache watches
 // Agent CRs and feeds idx. The manager's own metrics/probe servers are
 // disabled — the service already serves Prometheus metrics via zynaxobs.
-// Leader election is deliberately NOT enabled here: the index is a read-only
-// projection every replica must maintain; only the status reconciler
-// (O-step 5) is single-writer.
-func NewManager(restCfg *rest.Config, idx *scheduler.Index) (manager.Manager, error) {
+//
+// Leader election is enabled at the manager level, but the INDEX controller
+// opts out (NeedLeaderElection=false): the index is a read-only projection
+// every replica must maintain, and the select path must serve on non-leaders
+// too. Only the readiness controller (SetupReadiness, default elected) is
+// gated on the Lease — the single status writer (ADR-039 Consequences).
+//
+// electionNamespace is required when running out-of-cluster (local dev);
+// in-cluster it may be empty (auto-detected from the ServiceAccount).
+func NewManager(restCfg *rest.Config, idx *scheduler.Index, electionNamespace string) (manager.Manager, error) {
 	mgr, err := ctrl.NewManager(restCfg, manager.Options{
-		Metrics:                metricsserver.Options{BindAddress: "0"},
-		HealthProbeBindAddress: "0",
+		Metrics:                 metricsserver.Options{BindAddress: "0"},
+		HealthProbeBindAddress:  "0",
+		LeaderElection:          true,
+		LeaderElectionID:        leaderElectionID,
+		LeaderElectionNamespace: electionNamespace,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("crd: create manager: %w", err)
@@ -84,6 +99,7 @@ func NewManager(restCfg *rest.Config, idx *scheduler.Index) (manager.Manager, er
 	watched := &unstructured.Unstructured{}
 	watched.SetGroupVersionKind(AgentGVK)
 	if err := ctrl.NewControllerManagedBy(mgr).For(watched).
+		WithOptions(controller.Options{NeedLeaderElection: ptr.To(false)}).
 		Complete(&Reconciler{Client: mgr.GetClient(), Index: idx}); err != nil {
 		return nil, fmt.Errorf("crd: build controller: %w", err)
 	}
