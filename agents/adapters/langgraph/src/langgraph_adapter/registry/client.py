@@ -36,6 +36,12 @@ class RegistrySettings(BaseSettings):
     grpc_port: int = Field(default=50058, alias="ZYNAX_LANGGRAPH_ADAPTER_GRPC_PORT", ge=1)
 
 
+def _is_unimplemented(exc: Exception) -> bool:
+    """Return True when exc is the CRD-era UNIMPLEMENTED answer (ADR-039)."""
+    code_fn = getattr(exc, "code", None)
+    return callable(code_fn) and code_fn() == grpc.StatusCode.UNIMPLEMENTED
+
+
 def _is_transient(exc: Exception) -> bool:
     """Return True when exc carries a retriable gRPC status code."""
     code_fn = getattr(exc, "code", None)
@@ -102,6 +108,15 @@ async def register_agent(agent_def: Any, stub: Any) -> None:
             log.info("agent registered", extra={"agent_id": agent_def.agent_id})
             return
         except Exception as exc:
+            # CRD-era registry (ADR-039): push registration is retired and the
+            # RPC answers UNIMPLEMENTED — discovery flows through the Agent
+            # custom resource instead. Keep serving; nothing to retry.
+            if _is_unimplemented(exc):
+                log.info(
+                    "push registration retired (ADR-039) — relying on Agent CR discovery",
+                    extra={"agent_id": agent_def.agent_id},
+                )
+                return
             if not _is_transient(exc):
                 raise
             last_exc = exc
@@ -120,5 +135,14 @@ async def deregister_agent(agent_id: str, stub: Any) -> None:
         stub: Async ``AgentRegistryServiceStub`` to call ``DeregisterAgent`` on.
     """
     req = agent_registry_pb2.DeregisterAgentRequest(agent_id=agent_id)
-    await stub.DeregisterAgent(req)
+    try:
+        await stub.DeregisterAgent(req)
+    except Exception as exc:
+        if _is_unimplemented(exc):
+            log.info(
+                "push deregistration retired (ADR-039) — Agent CR lifecycle owns removal",
+                extra={"agent_id": agent_id},
+            )
+            return
+        raise
     log.info("agent deregistered", extra={"agent_id": agent_id})

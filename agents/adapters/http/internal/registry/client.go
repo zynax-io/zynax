@@ -44,6 +44,13 @@ func RegisterAgent(ctx context.Context, stub zynaxv1.AgentRegistryServiceClient,
 			slog.Info("agent registered", "agent_id", def.AgentId)
 			return nil
 		}
+		// CRD-era registry (ADR-039): push registration is retired and the
+		// RPC answers UNIMPLEMENTED — discovery flows through the Agent
+		// custom resource instead. Keep serving; nothing to retry.
+		if status.Code(err) == codes.Unimplemented {
+			slog.Info("push registration retired (ADR-039) — relying on Agent CR discovery", "agent_id", def.AgentId)
+			return nil
+		}
 		if !isTransient(err) {
 			return fmt.Errorf("registry: register failed (non-transient): %w", err)
 		}
@@ -57,6 +64,10 @@ func RegisterAgent(ctx context.Context, stub zynaxv1.AgentRegistryServiceClient,
 // Propagates caller context cancellation.
 func DeregisterAgent(ctx context.Context, stub zynaxv1.AgentRegistryServiceClient, agentID string) error {
 	_, err := stub.DeregisterAgent(ctx, &zynaxv1.DeregisterAgentRequest{AgentId: agentID})
+	if status.Code(err) == codes.Unimplemented {
+		slog.Info("push deregistration retired (ADR-039) — Agent CR lifecycle owns removal", "agent_id", agentID)
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("registry: deregister failed: %w", err)
 	}
