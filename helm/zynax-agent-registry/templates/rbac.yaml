@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Least-privilege RBAC for the CRD-native scheduler (ADR-039): the service
+# watches Agent CRs to maintain its capability index, reconciles Agent status
+# from the backing Services' EndpointSlices, and uses a Lease for the
+# single-writer status reconciler election. Nothing else is granted — in
+# particular no write access to Agent spec and no Secret access.
+{{- if .Values.rbac.create }}
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "zynax.fullname" . }}-scheduler
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+rules:
+  # Informer cache over Agent CRs (read-only on spec).
+  - apiGroups: ["zynax.io"]
+    resources: ["agents"]
+    verbs: ["get", "list", "watch"]
+  # Status subresource — written only by the Lease-elected reconciler.
+  - apiGroups: ["zynax.io"]
+    resources: ["agents/status"]
+    verbs: ["get", "update", "patch"]
+  # Readiness source: EndpointSlices of the Services named by endpointRef.
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+  # Leader election for the single-writer status reconciler.
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "zynax.fullname" . }}-scheduler
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "zynax.fullname" . }}-scheduler
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "zynax.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end -}}

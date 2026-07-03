@@ -121,7 +121,7 @@ Consumers / neighbors
    `.feature`; stubs regenerated; `buf breaking` green. → #1578 ✅
 2. **`Agent` CRD + Helm RBAC** — promote the spike CRD with the full OpenAPI v3 schema (ported
    from `spec/schemas/agent-def.schema.json` + scoring hints + `endpointRef`); umbrella ships CRD
-   + least-privilege Role; sample CRs green on kind. → #1579
+   + least-privilege Role; sample CRs green on kind. → #1579 ✅
 3. **Informer + capability index** — controller-runtime manager with informer cache over Agent
    CRs; index mirrors today's `capIndex`; resync-on-restart integration test; existing gRPC
    surface untouched. → #1580

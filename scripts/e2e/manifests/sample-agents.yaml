@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Sample Agent custom resources (ADR-039) — adapted from the KIND-verified
+# spike samples (spike/adr-039-crd-scheduler-proof), with the spike's fake
+# metric annotations dropped: live load/latency come from Prometheus at
+# selection time, never from the CR (ADR-039 §3).
+#
+# Apply on a cluster with the Agent CRD installed (zynax-agent-registry chart):
+#   kubectl apply -f scripts/e2e/manifests/sample-agents.yaml
+#   kubectl get agents
+---
+apiVersion: zynax.io/v1alpha1
+kind: Agent
+metadata:
+  name: reviewer-fast
+  namespace: default
+spec:
+  endpointRef:
+    serviceName: reviewer-fast
+    port: 50061
+  replicas: 2
+  capabilities:
+    - id: review
+      description: "Reviews Go code (fast)"
+      inputSchema: '{"type":"object","properties":{"context_slice":{"type":"object"}}}'
+      selectors:
+        language: [go]
+        tags: [fast]
+      cost:
+        latencyClass: low
+      protocols: [A2A, HTTP]
+      models: [qwen2.5-coder:3b]
+---
+apiVersion: zynax.io/v1alpha1
+kind: Agent
+metadata:
+  name: reviewer-slow
+  namespace: default
+spec:
+  endpointRef:
+    serviceName: reviewer-slow
+    port: 50061
+  replicas: 1
+  capabilities:
+    - id: review
+      description: "Reviews Go code (thorough)"
+      inputSchema: '{"type":"object","properties":{"context_slice":{"type":"object"}}}'
+      selectors:
+        language: [go]
+        tags: [thorough]
+      cost:
+        latencyClass: high
+      protocols: [A2A, HTTP]
+      models: [qwen2.5-coder:3b]
