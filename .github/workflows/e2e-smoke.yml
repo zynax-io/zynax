@@ -174,6 +174,15 @@ jobs:
         # engine's own source of truth (#811).
         run: scripts/e2e/e2e-argo.sh
 
+      - name: Workflow CRD reconcile assertion
+        # Both engine legs (ADR-043, M8.E): kubectl apply a Workflow custom
+        # resource and assert the api-gateway's embedded controller reconciles
+        # it through the same compile->submit path to a Dispatched run, keeps a
+        # thin status (no run state in the CR), and is idempotent (a reconcile of
+        # the unchanged spec starts no new run). Runs on temporal AND argo since
+        # no engine is pinned in the CR.
+        run: scripts/e2e/e2e-workflow-crd.sh
+
       - name: Helm upgrade/rollback smoke
         if: matrix.engine == 'temporal'
         # Temporal leg only: helm-upgrade.sh re-applies values-e2e.yaml without
