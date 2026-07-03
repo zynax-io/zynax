@@ -19,6 +19,14 @@ serviceAccount:
 rbac:
   create: true
 
+# CRD-native scheduler (ADR-039): watch Agent CRs, serve SelectAgent, and
+# reconcile Agent readiness from EndpointSlices. promUrl points selection-time
+# metrics at a Prometheus HTTP API; empty runs the (correct) degraded
+# readiness-filtered mode.
+crdInformer:
+  enabled: false
+  promUrl: ""
+
 service:
   type: ClusterIP
   port: 50052

@@ -72,14 +72,29 @@ func (r *fakeRepo) List(_ context.Context, _ domain.ListFilter) (domain.ListResu
 
 type fakeFinder struct{ agents map[string][]domain.AgentInfo }
 
-func (f *fakeFinder) FindByCapability(_ context.Context, capName string) ([]domain.AgentInfo, error) {
-	return f.agents[capName], nil
+// Select implements domain.AgentSelector with the reference semantics of the
+// CRD-native scheduler: capability lookup, strict expert filter (no
+// fallback), first eligible agent deterministically.
+func (f *fakeFinder) Select(_ context.Context, capName, expertTarget string) (domain.AgentInfo, error) {
+	agents := f.agents[capName]
+	if len(agents) == 0 {
+		return domain.AgentInfo{}, fmt.Errorf("%w: no agent declares capability %q", domain.ErrNoEligibleAgent, capName)
+	}
+	if expertTarget != "" {
+		for _, a := range agents {
+			if a.Name == expertTarget || a.AgentID == expertTarget {
+				return a, nil
+			}
+		}
+		return domain.AgentInfo{}, fmt.Errorf("%w: no agent %q", domain.ErrNoEligibleAgent, expertTarget)
+	}
+	return agents[0], nil
 }
 
 type errorFinder struct{ err error }
 
-func (f *errorFinder) FindByCapability(_ context.Context, _ string) ([]domain.AgentInfo, error) {
-	return nil, f.err
+func (f *errorFinder) Select(_ context.Context, _, _ string) (domain.AgentInfo, error) {
+	return domain.AgentInfo{}, f.err
 }
 
 type fakeExecutor struct{}
@@ -112,7 +127,7 @@ type testEnv struct {
 	svc    *domain.TaskService
 }
 
-func newTestEnv(t *testing.T, finder domain.AgentFinder, exec domain.CapabilityExecutor) *testEnv {
+func newTestEnv(t *testing.T, finder domain.AgentSelector, exec domain.CapabilityExecutor) *testEnv {
 	t.Helper()
 	repo := newFakeRepo()
 	svc := domain.NewTaskService(repo, finder, exec)
@@ -138,7 +153,7 @@ func newTestEnv(t *testing.T, finder domain.AgentFinder, exec domain.CapabilityE
 	return &testEnv{client: zynaxv1.NewTaskBrokerServiceClient(conn), svc: svc}
 }
 
-func agentsWith(capability string) domain.AgentFinder {
+func agentsWith(capability string) domain.AgentSelector {
 	return &fakeFinder{agents: map[string][]domain.AgentInfo{
 		capability: {{AgentID: "agent-1", Endpoint: "localhost:9000"}},
 	}}

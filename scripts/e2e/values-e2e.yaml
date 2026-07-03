@@ -53,6 +53,11 @@ zynax-agent-registry:
   fullnameOverride: zynax-agent-registry
   image:
     tag: main
+  # CRD-native discovery path (ADR-039, #1571 O-step 6): the joint
+  # first-run-on-CRD-path gate — dispatch flows Agent CR -> informer ->
+  # SelectAgent; readiness reconciled from the echo-worker EndpointSlice.
+  crdInformer:
+    enabled: true
 # event-bus + memory-service (#1090): enabled so e2e-happy.sh can assert the
 # workflow.completed CloudEvent off NATS JetStream and a memory-service KV
 # roundtrip. Requests are kept minimal so the trimmed smoke stack still fits

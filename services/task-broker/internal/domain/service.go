@@ -11,23 +11,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
 // TaskService implements core broker logic: dispatch, acknowledge, cancel, and query.
 type TaskService struct {
 	repo      TaskRepository
-	finder    AgentFinder
+	selector  AgentSelector
 	executor  CapabilityExecutor
 	publisher TaskEventPublisher
 	bg        sync.WaitGroup
-	nextAgent atomic.Uint64
 }
 
 // NewTaskService constructs a TaskService with the given port implementations.
-func NewTaskService(repo TaskRepository, finder AgentFinder, executor CapabilityExecutor) *TaskService {
-	return &TaskService{repo: repo, finder: finder, executor: executor}
+func NewTaskService(repo TaskRepository, selector AgentSelector, executor CapabilityExecutor) *TaskService {
+	return &TaskService{repo: repo, selector: selector, executor: executor}
 }
 
 // WithEventPublisher attaches a best-effort lifecycle event publisher so the
@@ -51,20 +49,21 @@ func (s *TaskService) DispatchTask(ctx context.Context, task *Task) (taskID stri
 		return "", time.Time{}, fmt.Errorf("%w: input_payload must be valid JSON", ErrInvalidArgument)
 	}
 
-	agents, err := s.finder.FindByCapability(ctx, task.CapabilityName)
+	// Expert targeting rides the SelectAgent request (ADR-039 §4): the
+	// scheduler filters strictly, with no fallback (ADR-028).
+	expert, _ := expertTarget(task.InputPayload)
+	agent, err := s.selector.Select(ctx, task.CapabilityName, expert)
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("task-broker: find agents: %w", err)
-	}
-	if len(agents) == 0 {
-		return "", time.Time{}, fmt.Errorf("%w: no agent registered for capability %q", ErrNoEligibleAgent, task.CapabilityName)
+		return "", time.Time{}, fmt.Errorf("task-broker: select agent: %w", err)
 	}
 
 	// Context-slice injection binding (ADR-028, EPIC #881 O5): an
-	// expert-targeted payload is narrowed to exactly that expert and rewritten
-	// to carry only its declared slice. Binding happens before Save so the
+	// expert-targeted payload is rewritten to carry only the selected
+	// expert's declared slice, read from the input_schema the scheduler
+	// carried back in the response. Binding happens before Save so the
 	// persisted payload — and therefore any restart recovery — carries the
 	// bound slice durably.
-	agents, boundPayload, err := prepareExpertDispatch(task.InputPayload, agents)
+	_, boundPayload, err := prepareExpertDispatch(task.InputPayload, []AgentInfo{agent})
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -83,7 +82,7 @@ func (s *TaskService) DispatchTask(ctx context.Context, task *Task) (taskID stri
 		// detach preserves context values (request-ID, trace) without inheriting
 		// the parent's cancellation deadline — the RPC handler returns before the
 		// task finishes, so the goroutine must outlive it.
-		s.executeAsync(detach(ctx), task.TaskID, agents)
+		s.executeAsync(detach(ctx), task.TaskID, agent)
 	}()
 
 	return task.TaskID, task.CreatedAt, nil
@@ -208,21 +207,15 @@ func (s *TaskService) recoverByStatus(ctx context.Context, status TaskStatus) (i
 // routing, and a task targeted at a now-missing expert is left untouched
 // (never re-routed) for a later recovery pass.
 func (s *TaskService) relaunch(ctx context.Context, task *Task) bool {
-	agents, err := s.finder.FindByCapability(ctx, task.CapabilityName)
-	if err != nil || len(agents) == 0 {
+	expert, _ := expertTarget(task.InputPayload)
+	agent, err := s.selector.Select(ctx, task.CapabilityName, expert)
+	if err != nil {
 		return false
-	}
-	if expert, ok := expertTarget(task.InputPayload); ok {
-		agent, found := selectExpert(agents, expert)
-		if !found {
-			return false
-		}
-		agents = []AgentInfo{agent}
 	}
 	s.bg.Add(1)
 	go func() {
 		defer s.bg.Done()
-		s.executeAsync(detach(ctx), task.TaskID, agents)
+		s.executeAsync(detach(ctx), task.TaskID, agent)
 	}()
 	return true
 }
@@ -241,10 +234,7 @@ func (s *TaskService) publishEvent(ctx context.Context, task *Task) {
 // Intended for tests that need deterministic task-lifecycle assertions.
 func (s *TaskService) WaitBackground() { s.bg.Wait() }
 
-func (s *TaskService) executeAsync(ctx context.Context, taskID string, agents []AgentInfo) {
-	idx := s.nextAgent.Add(1) - 1
-	agent := agents[idx%uint64(len(agents))] //nolint:gosec // G115: idx bounded by len
-
+func (s *TaskService) executeAsync(ctx context.Context, taskID string, agent AgentInfo) {
 	task, err := s.repo.GetByID(ctx, taskID)
 	if err != nil || task.Status.IsTerminal() {
 		return

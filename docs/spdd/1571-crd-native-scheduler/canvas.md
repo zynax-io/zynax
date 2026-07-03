@@ -132,7 +132,7 @@ Consumers / neighbors
    election (single writer, select path always-serving); stale-liveness scenario green. → #1582 ✅
 6. **task-broker cutover** — `SelectAgent` replaces `FindByCapability` + round-robin; ADR-028
    binding regression green; rationale on the task record; **joint first-run-on-CRD-path e2e
-   (named CI scenario, both engine legs, run twice) — the #1572/ADR-041 gate**. → #1583
+   (named CI scenario, both engine legs, run twice) — the #1572/ADR-041 gate**. → #1583 ✅
 7. **Push-path deprecation + stateless registry** — five registry RPCs `deprecated` →
    `UNIMPLEMENTED` with migration pointer; memory/Postgres adapters + api-gateway forward + Helm
    Postgres removed; adapters stop self-registering; migration guide + AGENTS/ARCHITECTURE

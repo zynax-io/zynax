@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -83,15 +84,23 @@ const leaderElectionID = "zynax-agent-registry-scheduler"
 // too. Only the readiness controller (SetupReadiness, default elected) is
 // gated on the Lease — the single status writer (ADR-039 Consequences).
 //
-// electionNamespace is required when running out-of-cluster (local dev);
-// in-cluster it may be empty (auto-detected from the ServiceAccount).
-func NewManager(restCfg *rest.Config, idx *scheduler.Index, electionNamespace string) (manager.Manager, error) {
+// namespace scopes BOTH the informer cache and the election Lease: the
+// chart's RBAC is a namespaced Role (least privilege, no ClusterRole), so
+// cluster-scope watches would be forbidden — the scheduler is deliberately
+// namespace-scoped (multi-namespace is future scope). Required.
+func NewManager(restCfg *rest.Config, idx *scheduler.Index, namespace string) (manager.Manager, error) {
+	if namespace == "" {
+		return nil, fmt.Errorf("crd: watch namespace is required (namespaced RBAC forbids cluster-scope watches)")
+	}
 	mgr, err := ctrl.NewManager(restCfg, manager.Options{
 		Metrics:                 metricsserver.Options{BindAddress: "0"},
 		HealthProbeBindAddress:  "0",
 		LeaderElection:          true,
 		LeaderElectionID:        leaderElectionID,
-		LeaderElectionNamespace: electionNamespace,
+		LeaderElectionNamespace: namespace,
+		Cache: cache.Options{
+			DefaultNamespaces: map[string]cache.Config{namespace: {}},
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("crd: create manager: %w", err)
