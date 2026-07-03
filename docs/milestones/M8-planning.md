@@ -47,7 +47,7 @@ The K8s-native reduction is **not** new design work — it was decided and de-ri
 | `Agent` CRD as single source of truth; agent-registry → stateless informer-backed **Scheduler**; `SelectAgent` RPC; push registration removed | [ADR-039](../adr/ADR-039-crd-native-scheduler.md) | Accepted (2026-06-22) — **spike verified** on kind (`spike/adr-039-crd-scheduler-proof`) |
 | kind as the unified local/CI/prod runtime; Compose retired | [ADR-041](../adr/ADR-041-kind-native-unified-runtime.md) | Accepted (2026-06-25; amended 2026-07-01 with `zynax up/down`) — **Phase 1 delivered in M7** (kind-first docs, `make demo`, `zynax up`) |
 | Workflow CRD = thin authoring front-end only; execution stays engine-agnostic IR; etcd never holds run state | ADR-040 §3 → [ADR-043](../adr/ADR-043-workflow-crd-front-end.md) (M8.E story 1) | ✅ Accepted (2026-07-03) |
-| Edge/infra delegation beyond the ADR-040 list (gateway edge, admission policy, event-bus facade) | **three new ADRs required** (M8.F/G/H story 1s) | Open — each may be Rejected |
+| Edge/infra delegation beyond the ADR-040 list (gateway edge, admission policy, event-bus facade) | [ADR-044](../adr/ADR-044-gateway-api-edge-auth-ratelimit.md)/[ADR-045](../adr/ADR-045-admission-policy-delegation.md)/[ADR-046](../adr/ADR-046-direct-nats-jetstream.md) (M8.F/G/H story 1s) | ✅ All three Accepted (2026-07-03) |
 
 Already delegated per the ADR-040 audit — **no M8 work needed**: metrics (Prometheus), tracing/logs
 (OTel→Uptrace), auth transport (cert-manager mTLS + RBAC), config/secrets (ConfigMaps/Secrets+env),
@@ -72,7 +72,7 @@ Two governance EPICs pre-exist; six are added by this plan. Letters continue the
 | **M8.E** | Thin `Workflow` CRD front-end (GitOps authoring; zero run-state in etcd) | feat | **#1573** (new) | workflow-compiler, infra, cli | [ADR-043](../adr/ADR-043-workflow-crd-front-end.md) ✅ Accepted (story 1) |
 | **M8.F** | Edge delegation: gateway auth + rate-limit → Gateway API / Envoy | feat | **#1574** (new) | api-gateway, infra | [ADR-044](../adr/ADR-044-gateway-api-edge-auth-ratelimit.md) ✅ Accepted (story 1; amends ADR-040) |
 | **M8.G** | Admission policy: compiler routing/quota gate → Kyverno/OPA + quota | feat | **#1575** (new) | workflow-compiler, infra | [ADR-045](../adr/ADR-045-admission-policy-delegation.md) ✅ Accepted (story 1; amends ADR-040, depends on ADR-043) |
-| **M8.H** | Event-bus facade retirement → direct NATS JetStream | feat/refactor | **#1576** (new) | event-bus, protos, agents/sdk | **new ADR** (story 1, amends ADR-022; may be Rejected) |
+| **M8.H** | Event-bus facade retirement → direct NATS JetStream | feat/refactor | **#1576** (new) | event-bus, protos, agents/sdk | [ADR-046](../adr/ADR-046-direct-nats-jetstream.md) ✅ Accepted (story 1; amends ADR-022) |
 
 > Pre-existing unassigned M8 backlog reviewed with this plan: **#1501** (Compose runner removal)
 > becomes a child of M8.D. **#244** (Flux GitOps staging) and **#245** (Terraform bootstrap) stay
@@ -156,7 +156,7 @@ endangering the milestone.
 | Workflow CRD front-end | M8.E | [ADR-043](../adr/ADR-043-workflow-crd-front-end.md) ✅ Accepted (2026-07-03) — mandated by ADR-040 §3 |
 | Edge delegation: gateway auth + rate-limit → Gateway API/Envoy | M8.F | [ADR-044](../adr/ADR-044-gateway-api-edge-auth-ratelimit.md) ✅ Accepted (2026-07-03; amends ADR-040) |
 | Admission-delegated routing/quota policy | M8.G | [ADR-045](../adr/ADR-045-admission-policy-delegation.md) ✅ Accepted (2026-07-03) |
-| Direct-NATS eventing (amends ADR-022) | M8.H | Genuinely open — may be Rejected |
+| Direct-NATS eventing (amends ADR-022) | M8.H | [ADR-046](../adr/ADR-046-direct-nats-jetstream.md) ✅ Accepted (2026-07-03) |
 
 Per the repo decision-making guide: all four are one-way doors → ADR before any canvas alignment.
 
