@@ -127,7 +127,7 @@ Consumers / neighbors
    surface untouched. → #1580 ✅
 4. **Scoring pipeline + `SelectAgent` live** — promote the spike scorer (ADR-039 §4 order,
    expert-strict); Prometheus at selection time via TTL cache; degradation path; structured
-   rationale; step-1 `.feature` passes on kind. → #1581
+   rationale; step-1 `.feature` passes on kind. → #1581 ✅
 5. **Readiness reconciler** — EndpointSlice → `status.{ready,replicas,conditions}`; Lease leader
    election (single writer, select path always-serving); stale-liveness scenario green. → #1582
 6. **task-broker cutover** — `SelectAgent` replaces `FindByCapability` + round-robin; ADR-028
