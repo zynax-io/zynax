@@ -21,7 +21,7 @@ a release binary — see [local-dev.md](local-dev.md). The CLI talks to the api-
 HTTP REST only.
 
 **How do I run a workflow?**
-Bring the stack up (`make run-local`), then `zynax apply <file>`. Try a real example:
+Bring the stack up (`zynax up`, or `make demo`), then `zynax apply <file>`. Try a real example:
 ```bash
 zynax apply spec/workflows/examples/code-review.yaml
 ```

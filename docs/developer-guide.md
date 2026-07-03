@@ -23,13 +23,11 @@ make install-cli    # builds the zynax CLI → ~/bin/zynax (requires the Go tool
 
 | Command | What it does |
 |---------|-------------|
-| `make run-local` | Build images + start the stack (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS) |
-| `make logs-local` | Tail all stack logs |
-| `make stop-local` | Stop and remove the stack containers |
+| `zynax up` | kind cluster + Helm umbrella — the one local runtime (ADR-041) |
+| `make demo` | Same bring-up + the hero workflow ("Platform ready" banner) |
+| `zynax down` / `make kind-down` | Tear the cluster back down |
 
-Aliases: `make dev-up` / `make dev-logs` / `make dev-down`.
-
-After `make run-local`, point the CLI at the local gateway (it defaults to port `8080`):
+After `zynax up`, point the CLI at the gateway (port-forward; it defaults to port `8080`):
 
 ```bash
 export ZYNAX_API_URL=http://localhost:7080

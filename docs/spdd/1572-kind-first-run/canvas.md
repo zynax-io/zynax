@@ -6,7 +6,7 @@
 **Issue:** #1572 · **Milestone:** M8 (v1.0.0)
 **Author:** M8 program plan
 **Date:** 2026-07-03
-**Status:** Aligned
+**Status:** Implemented
 
 ---
 
@@ -40,7 +40,9 @@ zynax up / zynax down (cmd/zynax, ADR-041 amendment)  ← the ONE first-run entr
   └── scripts/e2e/cluster-up.sh → kind + Helm umbrella (Temporal or Argo)
 make demo                                             ← kept: CI/dev alias over the same path
 Compose runtime (RETIRED): docker-compose{,.services,.ollama,.eval-temporal,.observability}.yml
-Compose tools harness (KEPT): docker-compose.tools.yml, docker-compose.test.yml
+Compose harnesses (KEPT): docker-compose.tools.yml, docker-compose.test.yml,
+                        docker-compose.services.yml (test-integration backing — sync note:
+                        reclassified from "runtime" during O-step 2 delivery)
 First-run docs: README quickstart · docs/quickstart.md · docs/faq.md · troubleshooting
 ```
 
@@ -76,12 +78,12 @@ First-run docs: README quickstart · docs/quickstart.md · docs/faq.md · troubl
 
 1. **First-run promotion (feat)** — README + `docs/quickstart.md` lead with `zynax up`; FAQ and
    local-dev docs stop referencing Compose bring-up; `running-with-docker-compose.md` becomes the
-   retirement stub pointing at the migration path. → story issue filed by `/plan`
+   retirement stub pointing at the migration path. → #1600 ✅ (PR #1602)
 2. **Compose runtime purge, part 1 (chore, #1501)** — delete the five runtime compose files +
    `ollama/` + `observability/` + init sql; remove the Make targets/vars; retain the tools
-   harness; `make demo` and `make lint/test` still work (runtime evidence). → #1501
+   harness; `make demo` and `make lint/test` still work (runtime evidence). → #1501 ✅ (PR #1603)
 3. **Compose runtime purge, part 2 (chore, #1501)** — rewrite `infra/docker-compose/README.md`
-   as the tools-harness note; final sweep for dangling references (`grep` gate in the PR). → #1501
+   as the tools-harness note; final sweep for dangling references (`grep` gate in the PR). → #1501 ✅
 4. **(Delivered under #1571)** joint first-run-on-CRD-path e2e — the #1594 named scenario; kept
    as a required check. ✅ → #1583/#1594
 
