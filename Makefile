@@ -18,16 +18,8 @@ DURATION ?= 60s
 BENCH_BASELINE := tools/bench-baseline.txt
 # Auto-discovered from agents/examples/*/pyproject.toml — no manual update needed when adding a new agent.
 AGENTS        := $(shell find agents/examples -maxdepth 2 -name pyproject.toml -exec dirname {} \; 2>/dev/null | xargs -rI{} basename {} | sort)
-COMPOSE          := docker compose -f infra/docker-compose/docker-compose.yml
-COMPOSE_DEMO     := docker compose -f infra/docker-compose/docker-compose.yml -f infra/docker-compose/docker-compose.ollama.yml
-# Opt-in lightweight Temporal for the demo: `EVAL_TEMPORAL=1 make demo` swaps the durable
-# Temporal trio for a single in-memory `temporal server start-dev`. See infra/docker-compose/README.md.
-ifeq ($(EVAL_TEMPORAL),1)
-COMPOSE_DEMO     += -f infra/docker-compose/docker-compose.eval-temporal.yml
-endif
 COMPOSE_SERVICES := docker compose -f infra/docker-compose/docker-compose.services.yml
 COMPOSE_TOOLS    := docker compose -f infra/docker-compose/docker-compose.tools.yml
-COMPOSE_OBS      := docker compose --env-file infra/docker-compose/observability/.env.observability -f infra/docker-compose/docker-compose.observability.yml
 # Override to use a local build: make TOOLS_IMAGE=zynax/tools:local build-tools
 TOOLS_IMAGE   ?= ghcr.io/zynax-io/zynax/tools:latest
 REGISTRY      := ghcr.io/zynax-io
@@ -81,49 +73,8 @@ else
 		|| (echo "⬇️  Pulling $(TOOLS_IMAGE)..." && docker pull $(TOOLS_IMAGE))
 endif
 
-# ── Local environment ──────────────────────────────────────────────────────
-.PHONY: dev-up dev-down dev-logs dev-ps dev-reset dev-restart
-dev-up: run-local ## Start full local stack — alias for run-local
-
-dev-down:    ## Stop all services — alias for stop-local
-	$(COMPOSE) down
-dev-logs:    ## Tail all logs — alias for logs-local
-	$(COMPOSE) logs -f
-dev-ps:      ## Show service status
-	$(COMPOSE) ps
-dev-reset:   ## ⚠ Destroy data and restart
-	@read -p "Delete all volumes? [y/N] " ans && [ "$$ans" = y ]
-	$(COMPOSE) down -v --remove-orphans && $(MAKE) dev-up
-dev-restart: ## Rebuild one service: make dev-restart SVC=agent-registry
-	@test -n "$(SVC)" || (echo "Usage: make dev-restart SVC=<n>" && exit 1)
-	$(COMPOSE) up -d --build $(SVC)
-
-.PHONY: obs-up obs-down obs-logs
-obs-up: check-docker ## Start local Uptrace observability stack (UI → http://localhost:7020)
-	@test -f infra/docker-compose/observability/.env.observability || \
-	  (echo "Missing infra/docker-compose/observability/.env.observability — copy .env.observability.example and fill it in" && exit 1)
-	$(COMPOSE_OBS) up -d
-	@echo ""
-	@echo "  Uptrace UI  → http://localhost:7020"
-	@echo "  OTLP/gRPC   → export ZYNAX_OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:7017"
-obs-down:    ## Stop the observability stack
-	$(COMPOSE_OBS) down
-obs-logs:    ## Tail observability stack logs
-	$(COMPOSE_OBS) logs -f
-
-.PHONY: run-local stop-local logs-local install-cli install-ci-tools sync-images check-images
-run-local: check-docker ## ★ Build images + start local stack (api-gateway, engine-adapter, workflow-compiler, Temporal, NATS)
-	$(COMPOSE) up -d --build
-	@echo ""
-	@echo "  api-gateway  → http://localhost:7080"
-	@echo "  Temporal UI  → http://localhost:7088"
-	@echo "  export ZYNAX_API_URL=http://localhost:7080"
-
-stop-local: ## Stop and remove local stack containers
-	$(COMPOSE) down
-
-logs-local: ## Tail all local stack logs
-	$(COMPOSE) logs -f
+# ── Local environment (ADR-041: kind is the one runtime — see `make demo`) ──
+.PHONY: install-cli install-ci-tools sync-images check-images
 
 # ── One-command kind demo (ADR-041 — kind is the unified runtime) ────────────
 # `make demo` creates a single-node kind cluster, side-loads the local images,
@@ -131,9 +82,7 @@ logs-local: ## Tail all local stack logs
 # runs the hero workflow against the gateway, and prints "Platform ready" with
 # the next command — ONE command, on the same charts that run in production.
 # `make kind-up` / `make kind-down` front the cluster lifecycle directly.
-# The legacy Docker-Compose demo is preserved as `demo-compose` (deprecated per
-# ADR-041 — Compose is retired as the primary path and receives no new work).
-.PHONY: demo kind-up kind-down demo-compose demo-clean
+.PHONY: demo kind-up kind-down
 KIND_DEMO     := scripts/demo/kind-demo.sh
 CLUSTER_UP    := scripts/e2e/cluster-up.sh
 CLUSTER_DOWN  := scripts/e2e/cluster-down.sh
@@ -169,7 +118,7 @@ STREAM       ?=
 # Demo LLM model — read from the Ollama overlay config so the pre-flight check and
 # the config never drift. `make demo` ensures this is pulled on the host (the
 # ollama container reuses host models read-only), otherwise the codereview 404s.
-DEMO_MODEL   := $(shell awk '/^[[:space:]]*model:/{print $$2; exit}' infra/docker-compose/ollama/llm-adapter.config.yaml)
+DEMO_MODEL   := $(shell awk '/^[[:space:]]*model:/{print $$2; exit}' infra/ollama/llm-adapter.config.yaml)
 # Services the demo needs; `up --wait` boots their depends_on closure (workflow-compiler,
 # engine-adapter, task-broker, agent-registry, temporal, event-bus, nats, postgres*, ollama).
 # Deliberately EXCLUDES the git/ci/langgraph adapters — they require GITHUB_TOKEN or are unused, and
@@ -188,56 +137,6 @@ kind-up: check-docker ## Create the kind cluster + install the zynax-umbrella ch
 kind-down: ## Tear down the kind cluster (wraps scripts/e2e/cluster-down.sh)
 	@echo "🧹 Tearing down the kind cluster..."
 	$(CLUSTER_DOWN)
-
-demo-compose: check-docker ## [DEPRECATED — ADR-041] Legacy Docker-Compose Ollama demo (use `make demo` on kind)
-	@echo "⚠️  demo-compose is DEPRECATED (ADR-041 — Compose is retired). Prefer: make demo (kind)."
-	@command -v $(ZYNAX) >/dev/null 2>&1 || \
-	  (echo "❌ zynax CLI not found — run 'make install-cli' and ensure ~/bin is on your PATH" && exit 1)
-	@echo "🧠 Demo model: $(DEMO_MODEL)"
-	@if command -v ollama >/dev/null 2>&1; then \
-	   if ollama list 2>/dev/null | awk '{print $$1}' | grep -qx "$(DEMO_MODEL)"; then \
-	     echo "   ✓ model present on the host"; \
-	   else \
-	     echo "   📥 model not found — pulling once on the host (this can take a few minutes)..."; \
-	     ollama pull "$(DEMO_MODEL)" || { echo "❌ failed to pull $(DEMO_MODEL); pull it manually then re-run"; exit 1; }; \
-	   fi; \
-	 else \
-	   echo "   ⚠️  host 'ollama' not on PATH — ensure '$(DEMO_MODEL)' is available to the ollama container, else the codereview 404s"; \
-	 fi
-	@echo "🧹 Clean slate for a repeatable run (the agent-registry is persistent across runs)..."
-	@$(COMPOSE_DEMO) down -v --remove-orphans 2>/dev/null || true
-	@echo "🚀 Booting the demo services + Ollama overlay (building current images, waiting for health)..."
-	$(COMPOSE_DEMO) up -d --build --wait $(DEMO_SERVICES)
-	@if [ -n "$(PR)" ]; then \
-	   echo "📥 Reviewing GitHub PR #$(PR) — fetching diff (read-only, no changes to the PR)..."; \
-	   tools/pr-review-workflow.sh "$(PR)" > "$(DEMO_PR_FILE)" || { echo "❌ could not build the PR review workflow"; exit 1; }; \
-	 fi
-	@export ZYNAX_API_URL=http://localhost:7080; \
-	  echo "▶  zynax apply $(DEMO_TARGET)"; \
-	  run_id=$$($(ZYNAX) apply $(DEMO_TARGET) | sed -n 's/^run_id: //p' | tail -n1); \
-	  test -n "$$run_id" || (echo "❌ apply did not return a run_id" && exit 1); \
-	  echo "   run_id: $$run_id"; \
-	  echo "── output ──────────────────────────────────────────────"; \
-	  if [ -n "$(STREAM)" ]; then \
-	    echo "⏳ Streaming every step live (zynax logs --follow)..."; \
-	    $(ZYNAX) logs "$$run_id" --follow || echo "(stream ended early; inspect: ZYNAX_API_URL=$$ZYNAX_API_URL $(ZYNAX) logs $$run_id)"; \
-	  else \
-	    echo "⏳ Waiting for the final result (add STREAM=1 to see every step live)..."; \
-	    $(ZYNAX) result "$$run_id" || echo "(no result — the run did not complete; inspect: ZYNAX_API_URL=$$ZYNAX_API_URL $(ZYNAX) logs $$run_id)"; \
-	  fi; \
-	  echo "────────────────────────────────────────────────────────"
-	@echo ""
-	@echo "✅ Demo complete. Next steps:"
-	@echo "   • See every step:  make demo STREAM=1 DEMO_WORKFLOW=<file>  (live, all states)"
-	@echo "   • Inspect logs:    ZYNAX_API_URL=http://localhost:7080 zynax logs <run-id> --follow"
-	@echo "   • Run a scenario:  make demo SCENARIO=code-review  (see docs/scenarios/scenario-manifest.md)"
-	@echo "   • Review a real PR: make demo PR=<number>  (read-only — never changes the PR)"
-	@echo "   • Lighter Temporal: EVAL_TEMPORAL=1 make demo  (single in-memory start-dev, no Postgres/UI)"
-	@echo "   • Tear it all down: make demo-clean"
-
-demo-clean: ## Stop the legacy Compose demo stack + volumes (for the kind demo use `make kind-down`)
-	$(COMPOSE_DEMO) down -v --remove-orphans
-	@echo "✅ Compose demo stack removed (kind demo: make kind-down)"
 
 install-cli: ## Build and install zynax CLI to ~/bin/zynax (requires Go 1.26.3)
 	cd cmd/zynax && GOWORK=off go build -trimpath -o ~/bin/zynax .

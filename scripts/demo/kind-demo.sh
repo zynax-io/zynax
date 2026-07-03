@@ -64,7 +64,7 @@ PROFILE="${PROFILE:-full}"
 E2E_ENGINE="${E2E_ENGINE:-temporal}"
 # Default reference model — read from the single source (the llm-adapter config),
 # so the pre-flight and the runtime config never drift. Override with DEMO_MODEL.
-MODEL_CONFIG="${REPO_ROOT}/infra/docker-compose/ollama/llm-adapter.config.yaml"
+MODEL_CONFIG="${REPO_ROOT}/infra/ollama/llm-adapter.config.yaml"
 DEMO_MODEL="${DEMO_MODEL:-$(awk '/^[[:space:]]*model:/{print $2; exit}' "${MODEL_CONFIG}" 2>/dev/null)}"
 DEMO_MODEL="${DEMO_MODEL:-qwen2.5-coder:3b}"
 # Local port the script tunnels the gateway on (a NodePort can be reset by
