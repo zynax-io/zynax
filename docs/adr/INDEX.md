@@ -53,6 +53,7 @@ a PR against `docs/adr/`.
 | [ADR-040](ADR-040-kubernetes-native-delegation-boundary.md) | Kubernetes-native delegation boundary (thin-Zynax) — build only the AI-scheduling core, delegate generic primitives | Accepted | 2026-06-22 | Repo-wide design principle — delegation vs custom core; Workflow=thin CRD front-end; Loki out of scope — relates ADR-039/020/030/012/015 |
 | [ADR-041](ADR-041-kind-native-unified-runtime.md) | Local-Kubernetes (kind) as the unified runtime model — Docker Compose retired as the primary path | Accepted | 2026-06-25 | local/CI/prod runtime; `infra/docker-compose/` (deprecate→remove), `helm/`, `scripts/e2e/`, Makefile, README/docs — resolves EPIC #1370 O26/#1495; relates ADR-039/040/037/015 |
 | [ADR-042](ADR-042-workflow-level-output-capture.md) | Workflow-level output capture & return — terminal-state outputs surfaced as the workflow result (`zynax result`) | Accepted | 2026-06-30 | `protos/` StateIR.outputs/WorkflowRun.outputs, workflow-compiler, engine-adapter, api-gateway, cli — extends ADR-029 — M7 EPIC U (#1529) |
+| [ADR-043](ADR-043-workflow-crd-front-end.md) | Thin `Workflow` CRD front-end — GitOps authoring; controller reconciles through the existing compile→submit path; zero run-state in etcd | Accepted | 2026-07-03 | `zynax.io/v1alpha1` Workflow CRD, `helm/zynax-api-gateway` crds/+rbac, `services/api-gateway/internal/infrastructure/crd/` (new), `spec/schemas/workflow.schema.json`, cli — implements ADR-040 §3, mirrors ADR-039, relates ADR-020/034/041 — M8 EPIC E (#1573) |
 
 ---
 
