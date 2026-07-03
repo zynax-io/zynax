@@ -14,6 +14,11 @@ serviceAccount:
   create: true
   name: ""
 
+# RBAC for the CRD-native scheduler (ADR-039): read Agent CRs, write their
+# status subresource, read EndpointSlices, hold the reconciler Lease.
+rbac:
+  create: true
+
 service:
   type: ClusterIP
   port: 50052
