@@ -30,6 +30,13 @@ class _TransientError(Exception):
         return grpc.StatusCode.UNAVAILABLE
 
 
+class _UnimplementedError(Exception):
+    """Mimics the CRD-era registry answer (ADR-039): RPC retired."""
+
+    def code(self) -> grpc.StatusCode:
+        return grpc.StatusCode.UNIMPLEMENTED
+
+
 class _PermanentError(Exception):
     """Fake gRPC error with a non-retriable status code."""
 
@@ -129,6 +136,23 @@ class TestRegisterAgent:
         )
         await register_agent(_fake_def(), stub)
         assert stub.RegisterAgent.await_count == 3
+
+    @pytest.mark.asyncio
+    async def test_unimplemented_tolerated(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """CRD-era registry (ADR-039): UNIMPLEMENTED means keep serving, no retry."""
+        monkeypatch.setattr("langgraph_adapter.registry.client.asyncio.sleep", AsyncMock())
+        stub = MagicMock()
+        stub.RegisterAgent = AsyncMock(side_effect=_UnimplementedError())
+        await register_agent(_fake_def(), stub)
+        stub.RegisterAgent.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_deregister_unimplemented_tolerated(self) -> None:
+        """CRD-era registry (ADR-039): deregistration is a tolerated no-op."""
+        stub = MagicMock()
+        stub.DeregisterAgent = AsyncMock(side_effect=_UnimplementedError())
+        await deregister_agent("agent-x", stub)
+        stub.DeregisterAgent.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_raises_on_permanent_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
