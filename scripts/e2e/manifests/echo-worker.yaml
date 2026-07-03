@@ -83,3 +83,26 @@ spec:
       port: 50058
       targetPort: grpc
       protocol: TCP
+---
+# Agent CR for the echo-worker (ADR-039, canvas 1571 O-step 6): with the
+# CRD-native scheduler enabled (values-e2e*: crdInformer.enabled), dispatch
+# discovery flows kubectl-applied Agent CR -> informer index -> SelectAgent,
+# and readiness is reconciled from this Service's EndpointSlice — the joint
+# first-run-on-CRD-path gate required before any push-path removal (#1572).
+apiVersion: zynax.io/v1alpha1
+kind: Agent
+metadata:
+  name: echo-worker
+  labels:
+    app.kubernetes.io/name: echo-worker
+    app.kubernetes.io/part-of: zynax-e2e
+spec:
+  endpointRef:
+    serviceName: echo-worker
+    port: 50058
+  replicas: 1
+  capabilities:
+    - id: echo
+      description: "Echoes the input payload (e2e smoke capability)"
+      inputSchema: '{"type":"object"}'
+      protocols: [HTTP]

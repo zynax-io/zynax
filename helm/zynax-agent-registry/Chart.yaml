@@ -6,7 +6,7 @@ description: >
   registers and discovers adapters. Manages agent registrations and provides
   lookup for task-broker capability dispatch.
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "0.4.0"
 dependencies:
   - name: zynax-lib

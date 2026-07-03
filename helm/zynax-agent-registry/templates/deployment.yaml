@@ -50,6 +50,16 @@ spec:
                 configMapKeyRef:
                   name: {{ include "zynax.fullname" . }}
                   key: log-level
+            {{- if .Values.crdInformer.enabled }}
+            # CRD-native scheduler (ADR-039): informer-fed capability index +
+            # SelectAgent + Lease-elected readiness reconciler.
+            - name: ZYNAX_REGISTRY_CRD_INFORMER_ENABLED
+              value: "true"
+            {{- if .Values.crdInformer.promUrl }}
+            - name: ZYNAX_REGISTRY_PROM_URL
+              value: {{ .Values.crdInformer.promUrl | quote }}
+            {{- end }}
+            {{- end }}
             {{- if .Values.db.secretName }}
             - name: ZYNAX_REGISTRY_DB_DSN
               valueFrom:
