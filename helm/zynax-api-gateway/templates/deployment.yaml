@@ -83,6 +83,20 @@ spec:
                 configMapKeyRef:
                   name: {{ include "zynax.fullname" . }}
                   key: liveness-threshold-s
+            {{- if .Values.crdController.enabled }}
+            - name: ZYNAX_GW_CRD_CONTROLLER_ENABLED
+              value: "true"
+            - name: ZYNAX_GW_WATCH_NAMESPACE
+              {{- if .Values.crdController.watchNamespace }}
+              value: {{ .Values.crdController.watchNamespace | quote }}
+              {{- else }}
+              # Downward API: the controller watches its own namespace
+              # (namespaced RBAC; a cluster-scope watch is never used).
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+              {{- end }}
+            {{- end }}
             {{- if .Values.apiKeySecretName }}
             - name: ZYNAX_GW_API_KEY
               valueFrom:

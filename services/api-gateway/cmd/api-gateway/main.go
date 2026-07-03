@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/zynax-io/zynax/services/api-gateway/internal/api"
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
 	"github.com/zynax-io/zynax/services/api-gateway/internal/infrastructure"
+	"github.com/zynax-io/zynax/services/api-gateway/internal/infrastructure/crd"
 )
 
 type config struct {
@@ -37,6 +39,15 @@ type config struct {
 	TLSCert            string `envconfig:"TLS_CERT"`
 	TLSKey             string `envconfig:"TLS_KEY"`
 	TLSCA              string `envconfig:"TLS_CA"`
+	// Embedded Workflow CRD controller (ADR-043, M8.E). Off by default: when
+	// disabled, api-gateway serves only the REST apply path and starts no
+	// controller-runtime manager. When enabled, a namespaced, Lease-elected
+	// manager reconciles Workflow CRs (zynax.io/v1alpha1) through the existing
+	// compile->submit path. Requires the Workflow CRD + controller RBAC shipped
+	// by the chart (#1610).
+	CRDControllerEnabled bool   `envconfig:"CRD_CONTROLLER_ENABLED" default:"false"`
+	WatchNamespace       string `envconfig:"WATCH_NAMESPACE"`
+	ElectionNamespace    string `envconfig:"ELECTION_NAMESPACE"`
 }
 
 // validateConfig rejects an empty API key unless ZYNAX_GW_DEV_INSECURE=1 is set.
@@ -75,6 +86,9 @@ func main() {
 
 // run contains the service lifecycle. Deferred cleanups execute before returning.
 func run(cfg config) error {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
 	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
 	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, cfg.EventBusAddr, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
@@ -86,6 +100,16 @@ func run(cfg config) error {
 
 	svc := domain.NewApplyService(clients, clients, clients, clients)
 	handler := api.NewHandler(svc, cfg.APIKey)
+
+	// Start the embedded Workflow CRD controller when enabled. It reconciles
+	// Workflow CRs through the same ApplyService the REST path uses; a failure
+	// here is fatal to startup, but the manager itself is fault-isolated (its
+	// goroutine logs and exits without taking down the HTTP surface).
+	if cfg.CRDControllerEnabled {
+		if err := crd.StartController(ctx, resolveWatchNamespace(cfg)); err != nil {
+			return fmt.Errorf("api-gateway: workflow controller: %w", err)
+		}
+	}
 
 	tracerShutdown, err := zynaxobs.InitTracer(context.Background(), "api-gateway")
 	if err != nil {
@@ -110,13 +134,26 @@ func run(cfg config) error {
 	// Mark the service started: config parsed, clients dialed, server starting.
 	probes.MarkStarted()
 
-	return serveUntilShutdown(srv, cfg.HTTPPort)
+	return serveUntilShutdown(ctx, srv, cfg.HTTPPort)
 }
 
-func serveUntilShutdown(srv *http.Server, port int) error {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer stop()
+// resolveWatchNamespace picks the controller's namespace scope: explicit env,
+// else the in-cluster ServiceAccount namespace, else the election namespace
+// (local dev). NewManager rejects an empty result — a cluster-scope watch is
+// never used (namespaced RBAC). Mirrors the agent-registry scheduler.
+func resolveWatchNamespace(cfg config) string {
+	if cfg.WatchNamespace != "" {
+		return cfg.WatchNamespace
+	}
+	if b, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+		if ns := strings.TrimSpace(string(b)); ns != "" {
+			return ns
+		}
+	}
+	return cfg.ElectionNamespace
+}
 
+func serveUntilShutdown(ctx context.Context, srv *http.Server, port int) error {
 	go func() {
 		slog.Info("api-gateway started", "port", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -126,9 +163,12 @@ func serveUntilShutdown(srv *http.Server, port int) error {
 
 	<-ctx.Done()
 	slog.Info("shutting down")
+	// The drain context is deliberately NOT derived from ctx: ctx is already
+	// cancelled here (that is what woke us), so an inherited context would make
+	// Shutdown return immediately instead of draining for up to 10s.
 	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(shutCtx); err != nil {
+	if err := srv.Shutdown(shutCtx); err != nil { //nolint:contextcheck // graceful-drain context must outlive the cancelled parent
 		return fmt.Errorf("api-gateway: shutdown: %w", err)
 	}
 	return nil
