@@ -86,7 +86,7 @@ The lean profile pulls on **two independent levers** — together they roughly
 - Single measurement, at-rest + one warm demo run — directional, not a
   statistical benchmark. Absolute numbers scale with the host (this one is well
   above the 4 CPU / 8 GiB floor); the **ratios** are the takeaway.
-- agent-registry still runs Postgres here; ADR-039 (M8) makes it stateless and
+- DELIVERED in M8 (#1584): agent-registry is stateless — chart 0.4.0 dropped the Postgres wiring; the numbers below predate that cut and
   drops that DB — a further cut not yet reflected.
 
 ## Raw harness rows (auto-appended by `scripts/bench/stack-resources.sh`)

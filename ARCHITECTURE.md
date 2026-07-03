@@ -44,7 +44,7 @@ Zynax does the same for AI workflows:
 | Pod spec | AgentDef YAML |
 | Deployment | Workflow YAML |
 | kubelet | Engine Adapter |
-| etcd | Agent Registry |
+| etcd | `Agent` custom resource (the API server IS the registry — ADR-039; the agent-registry deployment is the stateless scheduler over it) |
 | kube-scheduler | Task Broker |
 
 Zynax does NOT build workflow engines. It builds the **control plane** that orchestrates them.

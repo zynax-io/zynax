@@ -67,7 +67,7 @@ Two governance EPICs pre-exist; six are added by this plan. Letters continue the
 |------|-------|------|--------------|--------------|------|
 | **M8.A** | Governance & community readiness (MAINTAINERS, troubleshooting, first-issue) | docs | **#470** (pre-existing) | docs | — |
 | **M8.B** | Post-M8 process transition: Fork A narrowing + CNCF submission | docs | **#471** (pre-existing) | docs | — |
-| **M8.C** | **CRD-native Scheduler** — `Agent` CRD source of truth; registry → stateless scheduler | feat | **#1571** (new) | agent-registry, task-broker, protos, infra | ADR-039 ✅ Accepted |
+| **M8.C** | **CRD-native Scheduler** — `Agent` CRD source of truth; registry → stateless scheduler | feat | **#1571** ✅ **DELIVERED** (PRs #1586, #1588–#1597; canvas Implemented; gate #1572 discharged) | agent-registry, task-broker, protos, infra | ADR-039 ✅ Accepted |
 | **M8.D** | kind runtime closeout: first-run on the CRD path + Compose runtime removal (absorbs #1501) | feat/chore | **#1572** (new) | infra, cli, ci, docs | ADR-041 ✅ Accepted (Phase 1 done, M7) |
 | **M8.E** | Thin `Workflow` CRD front-end (GitOps authoring; zero run-state in etcd) | feat | **#1573** (new) | workflow-compiler, infra, cli | **new ADR** (story 1) |
 | **M8.F** | Edge delegation: gateway auth + rate-limit → Gateway API / Envoy | feat | **#1574** (new) | api-gateway, infra | **new ADR** (story 1, may be Rejected) |

@@ -36,17 +36,10 @@ env:
   grpcPort: 50052
   logLevel: "info"
 
-# Postgres DSN — sourced from a K8s Secret (ADR-021).
-# Set db.secretName to the name of the Secret containing the DSN.
-# The Secret must contain a key matching db.secretKey (default: dsn).
-# Leave db.secretName empty to skip wiring ZYNAX_REGISTRY_DB_DSN (uses in-memory repo).
-#
-# Example Secret:
-#   kubectl create secret generic agent-registry-db \
-#     --from-literal=dsn="postgres://user:pass@postgres:5432/agent_registry?sslmode=require"
-db:
-  secretName: ""
-  secretKey: "dsn"
+# The registry is STATELESS (ADR-039): agent identity lives in the Agent
+# custom resource; on restart the scheduler resyncs its index from the API
+# server. There is no database. (The push-era Postgres wiring was removed
+# in M8; see docs/patterns/agent-crd-migration.md.)
 
 # mTLS secret — set to empty string to disable TLS (dev only).
 # When set, the secret must contain tls.crt, tls.key, and ca.crt.

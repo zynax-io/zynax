@@ -3,14 +3,15 @@ Zynax Agent Registry deployed as {{ include "zynax.fullname" . }}.
   Service (gRPC): {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}
   Health check:   grpc_health_probe -addr={{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}
 
-  Register an adapter via grpcurl:
+  Declare an agent (ADR-039 — the Agent CR is the source of truth):
+    kubectl apply -n {{ .Release.Namespace }} -f your-agent.yaml
+    kubectl get agents -n {{ .Release.Namespace }}
+
+  Select an agent via grpcurl (readiness- and metrics-aware):
     grpcurl -plaintext \
       {{ include "zynax.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }} \
-      zynax.v1.AgentRegistryService/RegisterAgent
+      zynax.v1.SchedulerService/SelectAgent
 
-{{- if not .Values.db.secretName }}
-
-  NOTE: Running with in-memory agent repository (db.secretName not set).
-  Wire ZYNAX_REGISTRY_DB_DSN from a K8s Secret for persistent storage (ADR-021).
-  See values.yaml db.* for configuration.
-{{- end }}
+  The service is STATELESS: no database; the scheduler resyncs its index
+  from the API server on restart. Push-era AgentRegistryService RPCs answer
+  UNIMPLEMENTED (migration: docs/patterns/agent-crd-migration.md).

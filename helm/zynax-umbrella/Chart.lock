@@ -13,7 +13,7 @@ dependencies:
   version: 0.1.0
 - name: zynax-agent-registry
   repository: file://../zynax-agent-registry
-  version: 0.3.0
+  version: 0.4.0
 - name: zynax-event-bus
   repository: file://../zynax-event-bus
   version: 0.1.0
@@ -35,5 +35,5 @@ dependencies:
 - name: zynax-uptrace
   repository: file://../charts/uptrace
   version: 0.1.0
-digest: sha256:f2b8031ed73d11aae235cfe041380bf35d11d9b7ec62eee0b0082581659c2fdb
-generated: "2026-07-03T17:27:34.245005042+02:00"
+digest: sha256:b1362b1f8853088d339607e99311dc82088aa0b5026c7cde10f82a9095128c4b
+generated: "2026-07-03T18:45:59.148775214+02:00"

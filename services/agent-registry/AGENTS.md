@@ -1,13 +1,23 @@
 # services/agent-registry — AGENTS.md
 
 > Go toolchain pinned in the workspace [`go.work`](../../go.work). Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M5 Complete.** gRPC service wired with in-memory round-robin store; compose-wired (#481); persistence deferred to M6 (#480 delivered).
+> **Status: M8 — CRD-native Scheduler (ADR-039, EPIC #1571).** The `Agent`
+> custom resource (zynax.io/v1alpha1) is the single source of truth; this
+> service is the STATELESS scheduler over it: informer-fed capability index,
+> `SchedulerService.SelectAgent` (readiness- and metrics-aware, structured
+> rationale), and a Lease-elected readiness reconciler deriving Agent status
+> from EndpointSlices. Push-era `AgentRegistryService` RPCs answer
+> UNIMPLEMENTED (migration: docs/patterns/agent-crd-migration.md); hard
+> removal lands in M9. No database.
 
 ---
 
 ## Purpose
 
-The Agent Registry is the **source of truth for agent identity and capability lookup** in the mesh.
+The agent-registry deployment hosts the **CRD-native scheduler** (ADR-039):
+the `Agent` custom resource is the source of truth for identity and
+capabilities; this service watches it and answers "which ONE agent should
+take this capability now?"
 
 - Registers agents with their capabilities, endpoint, and metadata on startup.
 - Discovers agents by capability name for task-broker dispatch routing.
