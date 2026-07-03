@@ -11,10 +11,11 @@
 
 > **Delivered (2026-07-03):** all 5 Operations steps merged — CRD+RBAC (#1615),
 > controller skeleton (#1616), reconcile+thin-status (#1617), CLI `--crd` (#1618),
-> e2e + docs (this PR). Reconcile→dispatch verified on kind against the live
+> e2e + docs (#1619). Reconcile→dispatch verified on kind against the live
 > Temporal platform (a CR reached `Dispatched=True` with a real run id; the
-> generation gate held on re-reconcile) and asserted on both engine legs by
-> `scripts/e2e/e2e-workflow-crd.sh`.
+> generation gate held on re-reconcile) and asserted in-cluster on the temporal
+> leg by `scripts/e2e/e2e-workflow-crd.sh`. Extending the assertion to the argo
+> leg is tracked in #1620.
 
 ---
 
