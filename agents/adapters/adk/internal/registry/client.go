@@ -40,7 +40,7 @@ func RegisterAgent(ctx context.Context, stub zynaxv1.AgentRegistryServiceClient,
 			}
 		}
 
-		_, err := stub.RegisterAgent(ctx, req)
+		_, err := stub.RegisterAgent(ctx, req) //nolint:staticcheck // SA1019: push-era client kept tolerant until the M9 hard RPC removal (ADR-039, #1598).
 		if err == nil {
 			slog.Info("agent registered", "agent_id", def.AgentId)
 			return nil
@@ -63,7 +63,7 @@ func RegisterAgent(ctx context.Context, stub zynaxv1.AgentRegistryServiceClient,
 
 // DeregisterAgent calls AgentRegistryService.DeregisterAgent once, no retry.
 func DeregisterAgent(ctx context.Context, stub zynaxv1.AgentRegistryServiceClient, agentID string) error {
-	_, err := stub.DeregisterAgent(ctx, &zynaxv1.DeregisterAgentRequest{AgentId: agentID})
+	_, err := stub.DeregisterAgent(ctx, &zynaxv1.DeregisterAgentRequest{AgentId: agentID}) //nolint:staticcheck // SA1019: push-era client kept tolerant until the M9 hard RPC removal (ADR-039, #1598).
 	if status.Code(err) == codes.Unimplemented {
 		slog.Info("push deregistration retired (ADR-039) — Agent CR lifecycle owns removal", "agent_id", agentID)
 		return nil

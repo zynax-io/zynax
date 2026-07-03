@@ -93,19 +93,16 @@ Feature: API Gateway
     When GET /api/v1/workflows/ghost-run is called
     Then the HTTP status is 404
 
-  # ── POST /api/v1/apply — AgentDef kind (M4 step 2, issue #316) ──────────
+  # ── POST /api/v1/apply — AgentDef kind retired (ADR-039, #1584) ─────────
+  # The Agent custom resource is the single source of truth; the gateway no
+  # longer forwards AgentDef manifests as push registrations. The route
+  # answers 410 Gone with a migration pointer until its M9 removal.
 
-  Scenario: POST /api/v1/apply with valid AgentDef YAML returns 201 with agent_id
+  Scenario: POST /api/v1/apply with kind AgentDef returns 410 with migration pointer
     Given an AgentRegistryService that accepts the registration
     When POST /api/v1/apply is called with a valid kind: AgentDef YAML body
-    Then the HTTP status is 201
-    And the response contains a non-empty agent_id
-
-  Scenario: POST /api/v1/apply with duplicate AgentDef returns 409
-    Given an AgentRegistryService that returns ALREADY_EXISTS
-    When POST /api/v1/apply is called with a valid kind: AgentDef YAML body
-    Then the HTTP status is 409
-    And the response code is "ALREADY_EXISTS"
+    Then the HTTP status is 410
+    And the response code is "AGENTDEF_RETIRED"
 
   # ── POST /api/v1/apply — Idempotent Apply (#485) ────────────────────────
 

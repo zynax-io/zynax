@@ -111,6 +111,10 @@ func (h *Handler) applyAgentDef(w http.ResponseWriter, r *http.Request, body []b
 	}
 	result, err := h.svc.ApplyAgentDef(r.Context(), req)
 	switch {
+	case errors.Is(err, domain.ErrAgentDefRetired):
+		writeError(w, http.StatusGone,
+			"AgentDef push registration retired (ADR-039) — apply a zynax.io/v1alpha1 Agent custom resource instead (docs/patterns/agent-crd-migration.md)",
+			"AGENTDEF_RETIRED")
 	case errors.Is(err, domain.ErrAgentAlreadyExists):
 		writeError(w, http.StatusConflict, "agent already registered", "ALREADY_EXISTS")
 	case err != nil:

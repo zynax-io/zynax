@@ -224,36 +224,21 @@ func TestApplyService_GetWorkflowStatus_NotFound(t *testing.T) {
 	}
 }
 
-func TestApplyService_ApplyAgentDef_Success(t *testing.T) {
+// CRD era (ADR-039): the AgentDef push forward is retired — every apply of
+// kind: AgentDef answers with the migration pointer, and the registry port is
+// never called (the stub would panic on use; nil registry proves no call).
+func TestApplyService_ApplyAgentDef_Retired(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{},
 		&stubEngine{},
 		&stubRegistry{reg: domain.AgentRegistration{AgentID: "agent-001"}},
 		nil,
 	)
-	result, err := svc.ApplyAgentDef(context.Background(), domain.ApplyRequest{
-		ManifestYAML: []byte("kind: AgentDef\n"),
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.AgentID != "agent-001" {
-		t.Errorf("agent_id: got %q, want agent-001", result.AgentID)
-	}
-}
-
-func TestApplyService_ApplyAgentDef_AlreadyExists(t *testing.T) {
-	svc := domain.NewApplyService(
-		&stubCompiler{},
-		&stubEngine{},
-		&stubRegistry{err: domain.ErrAgentAlreadyExists},
-		nil,
-	)
 	_, err := svc.ApplyAgentDef(context.Background(), domain.ApplyRequest{
 		ManifestYAML: []byte("kind: AgentDef\n"),
 	})
-	if !errors.Is(err, domain.ErrAgentAlreadyExists) {
-		t.Errorf("expected ErrAgentAlreadyExists, got %v", err)
+	if !errors.Is(err, domain.ErrAgentDefRetired) {
+		t.Fatalf("expected ErrAgentDefRetired, got %v", err)
 	}
 }
 

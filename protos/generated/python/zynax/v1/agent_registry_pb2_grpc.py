@@ -7,7 +7,13 @@ from zynax.v1 import agent_registry_pb2 as zynax_dot_v1_dot_agent__registry__pb2
 
 class AgentRegistryServiceStub:
     """AgentRegistryService is the platform's capability index.
-    Agents register on startup; the task broker queries at dispatch time.
+
+    DEPRECATED (ADR-039, M8): the Agent custom resource (zynax.io/v1alpha1) is
+    now the single source of truth for agent identity, and dispatch selection
+    moved to SchedulerService.SelectAgent (scheduler.proto). Every RPC below is
+    deprecated and answers UNIMPLEMENTED with a migration pointer
+    (docs/patterns/agent-crd-migration.md); hard removal is scheduled for M9.
+    The AgentDef/CapabilityDef messages live on — scheduler.proto reuses them.
     """
 
     def __init__(self, channel):
@@ -45,7 +51,13 @@ class AgentRegistryServiceStub:
 
 class AgentRegistryServiceServicer:
     """AgentRegistryService is the platform's capability index.
-    Agents register on startup; the task broker queries at dispatch time.
+
+    DEPRECATED (ADR-039, M8): the Agent custom resource (zynax.io/v1alpha1) is
+    now the single source of truth for agent identity, and dispatch selection
+    moved to SchedulerService.SelectAgent (scheduler.proto). Every RPC below is
+    deprecated and answers UNIMPLEMENTED with a migration pointer
+    (docs/patterns/agent-crd-migration.md); hard removal is scheduled for M9.
+    The AgentDef/CapabilityDef messages live on — scheduler.proto reuses them.
     """
 
     def RegisterAgent(self, request, context):
@@ -130,7 +142,13 @@ def add_AgentRegistryServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class AgentRegistryService:
     """AgentRegistryService is the platform's capability index.
-    Agents register on startup; the task broker queries at dispatch time.
+
+    DEPRECATED (ADR-039, M8): the Agent custom resource (zynax.io/v1alpha1) is
+    now the single source of truth for agent identity, and dispatch selection
+    moved to SchedulerService.SelectAgent (scheduler.proto). Every RPC below is
+    deprecated and answers UNIMPLEMENTED with a migration pointer
+    (docs/patterns/agent-crd-migration.md); hard removal is scheduled for M9.
+    The AgentDef/CapabilityDef messages live on — scheduler.proto reuses them.
     """
 
     @staticmethod

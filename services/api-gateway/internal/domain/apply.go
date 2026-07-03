@@ -138,14 +138,13 @@ func (s *ApplyService) submit(ctx context.Context, manifestYAML []byte, compiled
 	return ApplyResult{RunID: runID, Warnings: compiled.Warnings, Status: "new"}, nil
 }
 
-// ApplyAgentDef registers an AgentDef manifest with the agent registry.
-// Returns ErrAgentAlreadyExists when the registry reports ALREADY_EXISTS.
-func (s *ApplyService) ApplyAgentDef(ctx context.Context, req ApplyRequest) (ApplyResult, error) {
-	reg, err := s.registry.RegisterAgent(ctx, req.ManifestYAML, req.Namespace)
-	if err != nil {
-		return ApplyResult{}, fmt.Errorf("api-gateway: %w", err)
-	}
-	return ApplyResult{AgentID: reg.AgentID}, nil
+// ApplyAgentDef is retired (ADR-039, canvas 1571 O-step 7): the Agent custom
+// resource is the single source of truth for agent identity, so the gateway
+// no longer forwards AgentDef manifests as push registrations. The route
+// answers with a migration pointer; hard removal of the route follows the M9
+// registry-RPC deletion.
+func (s *ApplyService) ApplyAgentDef(_ context.Context, _ ApplyRequest) (ApplyResult, error) {
+	return ApplyResult{}, ErrAgentDefRetired
 }
 
 // GetWorkflowStatus returns the current status of a workflow run.

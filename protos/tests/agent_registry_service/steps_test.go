@@ -238,7 +238,8 @@ func (tc *testCtx) registerAgent(agentID, capability string, labels map[string]s
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	_, err := tc.client.RegisterAgent(ctx, &zynaxv1.RegisterAgentRequest{Agent: ag})
+	_, err := tc.client.RegisterAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+		ctx, &zynaxv1.RegisterAgentRequest{Agent: ag})
 	return err //nolint:wrapcheck
 }
 
@@ -323,7 +324,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^RegisterAgent is called with the AgentDef$`, func(ctx context.Context) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				resp, err := tc.client.RegisterAgent(callCtx, &zynaxv1.RegisterAgentRequest{Agent: tc.pendingAgent})
+				resp, err := tc.client.RegisterAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.RegisterAgentRequest{Agent: tc.pendingAgent})
 				tc.lastRegResp = resp
 				tc.grpcErr = err
 				return ctx, nil
@@ -338,7 +340,8 @@ func TestFeatures(t *testing.T) {
 				} else {
 					req = &zynaxv1.RegisterAgentRequest{}
 				}
-				resp, err := tc.client.RegisterAgent(callCtx, req)
+				resp, err := tc.client.RegisterAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, req)
 				tc.lastRegResp = resp
 				tc.grpcErr = err
 				return ctx, nil
@@ -357,7 +360,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^GetAgent for "([^"]*)" returns status REGISTERED$`, func(ctx context.Context, agentID string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				ag, err := tc.client.GetAgent(callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
+				ag, err := tc.client.GetAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
 				if err != nil {
 					return ctx, err //nolint:wrapcheck
 				}
@@ -370,7 +374,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^GetAgent for "([^"]*)" returns both declared capabilities$`, func(ctx context.Context, agentID string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				ag, err := tc.client.GetAgent(callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
+				ag, err := tc.client.GetAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
 				if err != nil {
 					return ctx, err //nolint:wrapcheck
 				}
@@ -383,7 +388,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^GetAgent for "([^"]*)" returns a non-zero registered_at timestamp$`, func(ctx context.Context, agentID string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				ag, err := tc.client.GetAgent(callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
+				ag, err := tc.client.GetAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
 				if err != nil {
 					return ctx, err //nolint:wrapcheck
 				}
@@ -419,7 +425,8 @@ func TestFeatures(t *testing.T) {
 				}
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				_, err := tc.client.RegisterAgent(callCtx, &zynaxv1.RegisterAgentRequest{Agent: ag})
+				_, err := tc.client.RegisterAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.RegisterAgentRequest{Agent: ag})
 				return ctx, err //nolint:wrapcheck
 			})
 
@@ -430,7 +437,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^FindByCapability is called with capability_name "([^"]*)"$`, func(ctx context.Context, capability string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				resp, err := tc.client.FindByCapability(callCtx, &zynaxv1.FindByCapabilityRequest{CapabilityName: capability})
+				resp, err := tc.client.FindByCapability( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.FindByCapabilityRequest{CapabilityName: capability})
 				tc.findResp = resp
 				tc.grpcErr = err
 				return ctx, nil
@@ -489,7 +497,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^ListAgents is called with label selector "([^"]*)"$`, func(ctx context.Context, sel string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				resp, err := tc.client.ListAgents(callCtx, &zynaxv1.ListAgentsRequest{LabelSelector: sel})
+				resp, err := tc.client.ListAgents( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.ListAgentsRequest{LabelSelector: sel})
 				tc.listResp = resp
 				tc.grpcErr = err
 				return ctx, nil
@@ -498,7 +507,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^ListAgents is called with no label selector$`, func(ctx context.Context) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				resp, err := tc.client.ListAgents(callCtx, &zynaxv1.ListAgentsRequest{})
+				resp, err := tc.client.ListAgents( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.ListAgentsRequest{})
 				tc.listResp = resp
 				tc.grpcErr = err
 				return ctx, nil
@@ -507,7 +517,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^GetAgent is called with agent_id "([^"]*)"$`, func(ctx context.Context, agentID string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				ag, err := tc.client.GetAgent(callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
+				ag, err := tc.client.GetAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
 				tc.lastAgent = ag
 				tc.grpcErr = err
 				return ctx, nil
@@ -558,7 +569,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^DeregisterAgent is called with agent_id "([^"]*)"$`, func(ctx context.Context, agentID string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				_, err := tc.client.DeregisterAgent(callCtx, &zynaxv1.DeregisterAgentRequest{AgentId: agentID})
+				_, err := tc.client.DeregisterAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.DeregisterAgentRequest{AgentId: agentID})
 				tc.grpcErr = err
 				return ctx, nil
 			})
@@ -566,7 +578,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^GetAgent for "([^"]*)" returns status DEREGISTERED$`, func(ctx context.Context, agentID string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				ag, err := tc.client.GetAgent(callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
+				ag, err := tc.client.GetAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.GetAgentRequest{AgentId: agentID})
 				if err != nil {
 					return ctx, err //nolint:wrapcheck
 				}
@@ -579,7 +592,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^DeregisterAgent has been called for "([^"]*)"$`, func(ctx context.Context, agentID string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				_, err := tc.client.DeregisterAgent(callCtx, &zynaxv1.DeregisterAgentRequest{AgentId: agentID})
+				_, err := tc.client.DeregisterAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.DeregisterAgentRequest{AgentId: agentID})
 				return ctx, err //nolint:wrapcheck
 			})
 
@@ -592,7 +606,8 @@ func TestFeatures(t *testing.T) {
 				}
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				_, err := tc.client.RegisterAgent(callCtx, &zynaxv1.RegisterAgentRequest{Agent: ag})
+				_, err := tc.client.RegisterAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.RegisterAgentRequest{Agent: ag})
 				tc.grpcErr = err
 				return ctx, nil
 			})
@@ -683,7 +698,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^a FindByCapabilityRequest with capability_name set to ""$`, func(ctx context.Context) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				resp, err := tc.client.FindByCapability(callCtx, &zynaxv1.FindByCapabilityRequest{CapabilityName: ""})
+				resp, err := tc.client.FindByCapability( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.FindByCapabilityRequest{CapabilityName: ""})
 				tc.findResp = resp
 				tc.grpcErr = err
 				return ctx, nil
@@ -696,7 +712,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^a GetAgentRequest with agent_id set to ""$`, func(ctx context.Context) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				ag, err := tc.client.GetAgent(callCtx, &zynaxv1.GetAgentRequest{AgentId: ""})
+				ag, err := tc.client.GetAgent( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.GetAgentRequest{AgentId: ""})
 				tc.lastAgent = ag
 				tc.grpcErr = err
 				return ctx, nil
@@ -746,7 +763,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^ListAgents is called with page_size (\d+) and no page_token$`, func(ctx context.Context, pageSize int) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				resp, err := tc.client.ListAgents(callCtx, &zynaxv1.ListAgentsRequest{PageSize: int32(pageSize)}) //nolint:gosec // bounded by test input
+				resp, err := tc.client.ListAgents( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.ListAgentsRequest{PageSize: int32(pageSize)}) //nolint:gosec // bounded by test input
 				tc.listResp = resp
 				tc.grpcErr = err
 				return ctx, nil
@@ -755,7 +773,8 @@ func TestFeatures(t *testing.T) {
 			sc.Step(`^ListAgents has been called with page_size (\d+) returning next_page_token "([^"]*)"$`, func(ctx context.Context, pageSize int, tokenLabel string) (context.Context, error) {
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				resp, err := tc.client.ListAgents(callCtx, &zynaxv1.ListAgentsRequest{PageSize: int32(pageSize)}) //nolint:gosec // bounded by test input
+				resp, err := tc.client.ListAgents( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.ListAgentsRequest{PageSize: int32(pageSize)}) //nolint:gosec // bounded by test input
 				if err != nil {
 					return ctx, err //nolint:wrapcheck
 				}
@@ -767,7 +786,8 @@ func TestFeatures(t *testing.T) {
 				token := tc.pageTokens[tokenLabel]
 				callCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
-				resp, err := tc.client.ListAgents(callCtx, &zynaxv1.ListAgentsRequest{PageSize: int32(pageSize), PageToken: token}) //nolint:gosec // bounded by test input
+				resp, err := tc.client.ListAgents( //nolint:staticcheck // SA1019: reference-stub spec of the deprecated push-era wire contract, kept until M9 removes the RPCs (ADR-039).
+					callCtx, &zynaxv1.ListAgentsRequest{PageSize: int32(pageSize), PageToken: token}) //nolint:gosec // bounded by test input
 				tc.listResp = resp
 				tc.grpcErr = err
 				return ctx, nil
