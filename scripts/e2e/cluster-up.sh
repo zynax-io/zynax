@@ -33,6 +33,12 @@
 #   ARGO_WORKFLOWS_CHART_VERSION
 #                         argo-helm argo-workflows chart version pin
 #                         (default: 0.47.5 → Argo Workflows v3.7.11)
+#   EDGE_ENABLED          install the Envoy Gateway edge (bearer auth + rate-limit
+#                         delegation, M8.F/ADR-044) before the umbrella: true|false
+#                         (default: false). Inherited by `zynax up` from the env.
+#   ENVOY_GATEWAY_CHART_VERSION
+#                         gateway-helm chart version pin — v1.5.0+ required for
+#                         apiKeyAuth (default: v1.5.0)
 #   PROFILE               stack profile: full|lite (default: full). lite is the
 #                         ADR-041 lean laptop profile — collapses Temporal to a
 #                         single in-memory start-dev pod (manifests/temporal-dev.
@@ -60,6 +66,13 @@ WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
 # Selection flows through umbrella values only — never hardcoded (ADR-015).
 E2E_ENGINE="${E2E_ENGINE:-temporal}"
 ARGO_WORKFLOWS_CHART_VERSION="${ARGO_WORKFLOWS_CHART_VERSION:-0.47.5}"
+# Edge (M8.F, ADR-044): when EDGE_ENABLED=true, install the Envoy Gateway edge as
+# an ordered prerequisite BEFORE the umbrella, so its Gateway/HTTPRoute/
+# SecurityPolicy CRs admit cleanly (controller Ready first). The gateway-helm
+# chart bundles the Gateway API CRDs, so a fresh cluster needs only this install.
+# apiKeyAuth (bearer auth at the edge) requires Envoy Gateway v1.5.0+.
+EDGE_ENABLED="${EDGE_ENABLED:-false}"
+ENVOY_GATEWAY_CHART_VERSION="${ENVOY_GATEWAY_CHART_VERSION:-v1.5.0}"
 # Stack profile (ADR-041). "full" (default, == CI) deploys the production-
 # mirroring topology: the 5-pod Temporal chart, event-bus, memory-service.
 # "lite" is the lean laptop profile — it collapses Temporal to ONE in-memory
@@ -271,6 +284,26 @@ if [[ "${E2E_ENGINE}" == "argo" ]]; then
   # (ZYNAX_ENGINE_ADAPTER_ARGO_WORKFLOW_TEMPLATE_REF → zynax-ir-interpreter).
   log "applying the zynax-ir-interpreter WorkflowTemplate…"
   kubectl -n "${NAMESPACE}" apply -f "${SCRIPT_DIR}/manifests/argo-ir-interpreter.yaml"
+fi
+
+# ── 2.7 [edge] install the Envoy Gateway edge (ordered prereq, M8.F/ADR-044) ─────
+
+# When EDGE_ENABLED=true, bearer auth + rate-limiting are delegated to a Gateway
+# API edge (Envoy Gateway) instead of api-gateway in-process middleware. The edge
+# controller and its CRDs (the Gateway API + Envoy Gateway extension CRDs are
+# bundled by the gateway-helm chart) must be Ready BEFORE the umbrella so the
+# Gateway/HTTPRoute/SecurityPolicy CRs the chart carries admit cleanly (ADR-044
+# §5). apiKeyAuth — the bearer check — requires Envoy Gateway v1.5.0+. Same
+# install-and-wait idiom as cert-manager/argo above; idempotent via upgrade
+# --install. Off by default until the edge resources + auth cutover land.
+if [[ "${EDGE_ENABLED}" == "true" ]]; then
+  log "installing Envoy Gateway edge (gateway-helm ${ENVOY_GATEWAY_CHART_VERSION})…"
+  helm upgrade --install eg oci://docker.io/envoyproxy/gateway-helm \
+    --version "${ENVOY_GATEWAY_CHART_VERSION}" \
+    --namespace envoy-gateway-system \
+    --create-namespace \
+    --wait \
+    --timeout "${WAIT_TIMEOUT}"
 fi
 
 # ── 3. deploy the full Zynax stack via the umbrella chart ────────────────────────
