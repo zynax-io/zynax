@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Edge bearer auth (M8.F, ADR-044). An Envoy Gateway SecurityPolicy attached to
+# the API HTTPRoute enforces API-key auth. It extracts the credential from the
+# `Authorization` header — Envoy strips the `Bearer ` scheme — and compares it to
+# the values in the referenced Secret, whose data maps client-name -> BARE key
+# (no `Bearer ` prefix). This keeps the CLI header (`Authorization: Bearer <key>`)
+# unchanged (ADR-044 §3), proven live on kind in the M8.F canvas spike.
+#
+# Requires Envoy Gateway v1.5.0+ (apiKeyAuth is absent in v1.4.x). The referenced
+# Secret is created out-of-band (cluster-up.sh, #1627), like the legacy api-key
+# Secret — a chart never ships secret material.
+{{- if .Values.edge.enabled }}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: {{ include "zynax.fullname" . }}-apikey
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "zynax.fullname" . }}-api
+  apiKeyAuth:
+    credentialRefs:
+      - group: ""
+        kind: Secret
+        name: {{ .Values.edge.apiKeySecretName }}
+    extractFrom:
+      - headers:
+          - Authorization
+{{- end }}

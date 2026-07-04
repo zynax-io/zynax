@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Gateway API edge (M8.F, ADR-044). When edge.enabled, an Envoy Gateway fronts
+# the api-gateway Service and enforces bearer auth (see securitypolicy.yaml) and
+# — profile-gated — a global rate-limit. The api-gateway keeps only its Zynax
+# core; its in-process auth/rate-limit are removed in the cutover (#1626).
+#
+# Two HTTPRoutes share the listener:
+#   * the API route (/api/v1/*) — the SecurityPolicy attaches here (auth required);
+#   * the probes/metrics route — deliberately OPEN so kubelet health checks and
+#     the kind host-contract check still pass without a key.
+#
+# The gateway-helm chart (installed as an ordered prereq by cluster-up.sh when
+# EDGE_ENABLED=true, #1623) provides the Gateway API + Envoy Gateway CRDs, so
+# these objects admit only after the controller is Ready.
+{{- if .Values.edge.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: {{ include "zynax.fullname" . }}-edge
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "zynax.fullname" . }}-edge
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  gatewayClassName: {{ include "zynax.fullname" . }}-edge
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: {{ .Values.edge.listenerPort }}
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+# API route — auth enforced here by the SecurityPolicy (securitypolicy.yaml).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "zynax.fullname" . }}-api
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ include "zynax.fullname" . }}-edge
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1
+      backendRefs:
+        - name: {{ include "zynax.fullname" . }}
+          port: {{ .Values.env.httpPort }}
+---
+# Probes/metrics route — OPEN (no SecurityPolicy) so kubelet + the kind
+# host-contract health check reach api-gateway without a bearer token.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "zynax.fullname" . }}-probes
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ include "zynax.fullname" . }}-edge
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: /healthz }
+        - path: { type: PathPrefix, value: /readyz }
+        - path: { type: PathPrefix, value: /livez }
+        - path: { type: PathPrefix, value: /startupz }
+        - path: { type: PathPrefix, value: /metrics }
+      backendRefs:
+        - name: {{ include "zynax.fullname" . }}
+          port: {{ .Values.env.httpPort }}
+{{- end }}
