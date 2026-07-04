@@ -200,7 +200,7 @@ if [[ "${RUNTIME}" == "kind" ]]; then
   WALL="skipped"
   if [[ -n "${RUN_WORKLOAD}" ]]; then
     command -v jq >/dev/null 2>&1 || die "jq required for workload timing (or pass --no-workload)"
-    api_key="$(kubectl -n "${NAMESPACE}" get secret zynax-gw-api-key -o jsonpath='{.data.api-key}' 2>/dev/null | base64 -d || true)"
+    api_key="$(kubectl -n "${NAMESPACE}" get secret zynax-edge-apikey -o jsonpath='{.data.zynax-cli}' 2>/dev/null | base64 -d || true)"
     kubectl -n "${NAMESPACE}" port-forward svc/zynax-api-gateway "${GW_LOCAL_PORT}:8080" >/dev/null 2>&1 &
     _PF_PIDS+=("$!"); sleep 4
     WALL="$(time_workflow "http://localhost:${GW_LOCAL_PORT}" "${api_key}")"

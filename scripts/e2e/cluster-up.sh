@@ -236,12 +236,13 @@ if ! kubectl -n "${NAMESPACE}" get secret temporal-db >/dev/null 2>&1; then
     --from-literal=password="${PG_PASSWORD}"
 fi
 
-# api-gateway refuses to start without ZYNAX_GW_API_KEY (it reads the `api-key`
-# key from the Secret named by api-gateway's apiKeySecretName, default
-# `zynax-gw-api-key`). Provision a throwaway key for the smoke cluster.
-if ! kubectl -n "${NAMESPACE}" get secret zynax-gw-api-key >/dev/null 2>&1; then
-  kubectl -n "${NAMESPACE}" create secret generic zynax-gw-api-key \
-    --from-literal=api-key="$(openssl rand -hex 16)"
+# Edge bearer auth (M8.F, ADR-044): the Envoy Gateway SecurityPolicy checks the
+# `zynax-cli` key of the `zynax-edge-apikey` Secret. It stores the BARE key (no
+# `Bearer ` prefix) — Envoy extracts the credential from the `Authorization`
+# header the CLI sends. Provision a throwaway key for the smoke cluster.
+if ! kubectl -n "${NAMESPACE}" get secret zynax-edge-apikey >/dev/null 2>&1; then
+  kubectl -n "${NAMESPACE}" create secret generic zynax-edge-apikey \
+    --from-literal=zynax-cli="$(openssl rand -hex 16)"
 fi
 
 # ── 2.6 [argo only] install Argo Workflows + the IR-interpreter template ────────
@@ -430,6 +431,28 @@ log "all ${#SERVICE_DEPLOYMENTS[@]} service deployments are healthy."
 log "deploying echo capability worker…"
 kubectl -n "${NAMESPACE}" apply -f "${SCRIPT_DIR}/manifests/echo-worker.yaml"
 kubectl -n "${NAMESPACE}" rollout status deployment/echo-worker --timeout "${WAIT_TIMEOUT}"
+
+# ── 5.5 [edge] wait for the Envoy proxy to be ready before the host assertion ────
+
+# Envoy Gateway creates the proxy Deployment only AFTER it reconciles the Gateway
+# CR (which the umbrella applied), so it lags the api-gateway rollout — and in the
+# resource-constrained CI runner it can take a few minutes. Wait for it explicitly;
+# otherwise the host:port assertion below races the edge coming up (M8.F).
+if [[ "${EDGE_ENABLED}" == "true" ]]; then
+  edge_sel="gateway.envoyproxy.io/owning-gateway-name=zynax-api-gateway-edge"
+  log "waiting for the Envoy Gateway edge proxy (${edge_sel}) to be ready…"
+  edge_ready=""
+  edge_deadline=$(( $(date +%s) + 300 ))
+  while [[ $(date +%s) -lt ${edge_deadline} ]]; do
+    if kubectl -n envoy-gateway-system get deploy -l "${edge_sel}" -o name 2>/dev/null | grep -q .; then
+      if kubectl -n envoy-gateway-system rollout status deploy -l "${edge_sel}" --timeout=20s >/dev/null 2>&1; then
+        edge_ready="yes"; break
+      fi
+    fi
+    sleep 3
+  done
+  [[ -n "${edge_ready}" ]] && log "  ✓ edge proxy is ready." || warn "edge proxy not confirmed ready in time — the host assertion will still retry."
+fi
 log "echo-worker is healthy and registered."
 
 kubectl -n "${NAMESPACE}" get pods -o wide
@@ -457,8 +480,13 @@ if command -v curl >/dev/null 2>&1; then
     fi
     sleep 2
   done
-  [[ -n "${host_ok}" ]] || die "api-gateway is NOT reachable on the host port (${HOST_GW_URL}/healthz never returned 200) — the kind extraPortMapping (host 8080 → nodePort 30080) and the Service nodePort (must be 30080) are out of sync (#1488). Check: kubectl -n ${NAMESPACE} get svc zynax-api-gateway -o jsonpath='{.spec.ports[0].nodePort}'"
-  log "  ✓ host NodePort path verified — ${HOST_GW_URL} reaches the api-gateway (HTTP 200)."
+  if [[ -z "${host_ok}" ]]; then
+    if [[ "${EDGE_ENABLED}" == "true" ]]; then
+      die "the Envoy Gateway edge is NOT reachable on the host port (${HOST_GW_URL}/healthz never returned 200, M8.F). The edge Envoy proxy Service must carry nodePort 30080 (host 8080 → 30080). Check: kubectl -n envoy-gateway-system get svc | grep envoy ; kubectl -n ${NAMESPACE} get gateway"
+    fi
+    die "api-gateway is NOT reachable on the host port (${HOST_GW_URL}/healthz never returned 200) — the kind extraPortMapping (host 8080 → nodePort 30080) and the Service nodePort (must be 30080) are out of sync (#1488). Check: kubectl -n ${NAMESPACE} get svc zynax-api-gateway -o jsonpath='{.spec.ports[0].nodePort}'"
+  fi
+  log "  ✓ host port path verified — ${HOST_GW_URL} reaches Zynax (HTTP 200)."
 else
   warn "curl not found — skipping the host NodePort reachability assertion (#1488)."
 fi

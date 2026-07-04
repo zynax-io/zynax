@@ -64,6 +64,9 @@ edge:
   # SecurityPolicy checks. Created out-of-band (cluster-up.sh), like the legacy
   # api-key Secret. Envoy extracts the credential from "Authorization: Bearer <key>".
   apiKeySecretName: zynax-edge-apikey
+  # Fixed NodePort for the Envoy proxy Service so the kind host:port contract
+  # reaches the edge. Empty => the proxy Service keeps its default type.
+  nodePort: null
 
 
 # mTLS secret — set to empty string to disable TLS (dev only).

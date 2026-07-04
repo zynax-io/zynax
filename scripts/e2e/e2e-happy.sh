@@ -149,12 +149,12 @@ if ! kubectl -n "${NAMESPACE}" get deployment \
 fi
 
 # Resolve the api-gateway bearer key. api-gateway requires ZYNAX_GW_API_KEY and
-# cluster-up.sh provisions a random one in the zynax-gw-api-key secret, so read
+# cluster-up.sh provisions a random one in the zynax-edge-apikey secret, so read
 # it from there when the caller did not supply ZYNAX_API_KEY (avoids a 401).
 if [[ -z "${ZYNAX_API_KEY}" ]]; then
-  ZYNAX_API_KEY=$(kubectl -n "${NAMESPACE}" get secret zynax-gw-api-key \
-    -o jsonpath='{.data.api-key}' 2>/dev/null | base64 -d || true)
-  [[ -n "${ZYNAX_API_KEY}" ]] && log "using api-gateway key from the zynax-gw-api-key secret."
+  ZYNAX_API_KEY=$(kubectl -n "${NAMESPACE}" get secret zynax-edge-apikey \
+    -o jsonpath='{.data.zynax-cli}' 2>/dev/null | base64 -d || true)
+  [[ -n "${ZYNAX_API_KEY}" ]] && log "using api-gateway key from the zynax-edge-apikey secret."
 fi
 
 # Verify the event-bus and memory-service deployments exist. These are REQUIRED

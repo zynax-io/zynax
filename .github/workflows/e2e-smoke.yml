@@ -141,6 +141,9 @@ jobs:
         # control plane (pinned argo-helm chart) before the umbrella deploy.
         env:
           E2E_ENGINE: ${{ matrix.engine }}
+          # Install the Envoy Gateway edge before the umbrella (M8.F, ADR-044):
+          # bearer auth + rate-limit are delegated to the edge, not in-process.
+          EDGE_ENABLED: "true"
         run: scripts/e2e/cluster-up.sh
 
       - name: Happy-path workflow assertion

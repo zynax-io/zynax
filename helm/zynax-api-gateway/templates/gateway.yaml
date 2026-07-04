@@ -22,6 +22,15 @@ metadata:
     {{- include "zynax.labels" . | nindent 4 }}
 spec:
   controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  {{- if .Values.edge.nodePort }}
+  # Pin the Envoy proxy Service to a fixed NodePort so the kind host:port
+  # contract (host 8080 -> nodePort) reaches the edge (ADR-044 §5).
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: {{ include "zynax.fullname" . }}-edge
+    namespace: {{ .Release.Namespace }}
+  {{- end }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
