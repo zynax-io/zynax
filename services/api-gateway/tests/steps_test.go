@@ -154,7 +154,7 @@ func (e *testEnv) setup() {
 	e.eventbus = &fakeEventBus{}
 	e.apiKey = "test-api-key"
 	svc := domain.NewApplyService(e.compiler, e.engine, e.registry, e.eventbus)
-	h := api.NewHandler(svc, e.apiKey)
+	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 	e.server = httptest.NewServer(mux)
@@ -291,12 +291,6 @@ func TestFeatures(t *testing.T) {
 						return ctx, fmt.Errorf("body missing capability event: %s", env.lastBody)
 					}
 					return ctx, nil
-				})
-
-			// ── Auth ──────────────────────────────────────────────────────────
-			sc.Step(`^any API endpoint is called without Authorization header$`,
-				func(ctx context.Context) (context.Context, error) {
-					return ctx, env.do(http.MethodPost, "/api/v1/apply", []byte(workflowYAML), "")
 				})
 
 			// ── Status assertion ──────────────────────────────────────────────

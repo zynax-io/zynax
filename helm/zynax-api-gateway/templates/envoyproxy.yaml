@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pins the Envoy proxy Service to a fixed NodePort (M8.F, ADR-044 §5) so kind's
+# `host 8080 -> nodePort` extraPortMapping reaches the edge listener — the same
+# port the api-gateway Service vacates when it reverts to ClusterIP behind the
+# edge. Referenced by the GatewayClass parametersRef (gateway.yaml). Only
+# rendered when edge.nodePort is set; otherwise the proxy Service keeps its
+# default type (LoadBalancer).
+{{- if and .Values.edge.enabled .Values.edge.nodePort }}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: {{ include "zynax.fullname" . }}-edge
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              type: NodePort
+              # Cluster (not the Envoy Gateway default Local) so a nodePort hit on
+              # any node — e.g. kind's host:8080 -> control-plane:30080 mapping —
+              # routes cross-node to the proxy pod (M8.F). Local would drop it
+              # unless the proxy happened to land on that node.
+              externalTrafficPolicy: Cluster
+              ports:
+                - port: {{ .Values.edge.listenerPort }}
+                  nodePort: {{ .Values.edge.nodePort }}
+{{- end }}

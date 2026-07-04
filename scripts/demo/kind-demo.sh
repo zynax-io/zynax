@@ -203,8 +203,8 @@ if [[ -z "${SKIP_RUN:-}" ]]; then
   require jq
   # Resolve the gateway bearer key cluster-up.sh provisioned (avoids a 401).
   if [[ -z "${ZYNAX_API_KEY:-}" ]]; then
-    ZYNAX_API_KEY="$(kubectl -n "${NAMESPACE}" get secret zynax-gw-api-key \
-      -o jsonpath='{.data.api-key}' 2>/dev/null | base64 -d || true)"
+    ZYNAX_API_KEY="$(kubectl -n "${NAMESPACE}" get secret zynax-edge-apikey \
+      -o jsonpath='{.data.zynax-cli}' 2>/dev/null | base64 -d || true)"
   fi
   # Tunnel the gateway. The kind NodePort maps host 8080 → 30080, but a
   # port-forward is environment-independent (kube-proxy can reset the NodePort on

@@ -78,12 +78,8 @@ func newServer(c domain.CompilerPort, e domain.EnginePort) *httptest.Server {
 }
 
 func newServerWithRegistry(c domain.CompilerPort, e domain.EnginePort, r domain.RegistryPort) *httptest.Server {
-	return newServerWithAuth(c, e, r, "")
-}
-
-func newServerWithAuth(c domain.CompilerPort, e domain.EnginePort, r domain.RegistryPort, apiKey string) *httptest.Server {
 	svc := domain.NewApplyService(c, e, r, nil)
-	h := api.NewHandler(svc, apiKey)
+	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 	return httptest.NewServer(mux)
@@ -559,7 +555,7 @@ func TestHandler_WorkflowLogs_NotFound_Returns404(t *testing.T) {
 
 func newServerWithRequestID(c domain.CompilerPort, e domain.EnginePort) *httptest.Server {
 	svc := domain.NewApplyService(c, e, &stubRegistry{}, nil)
-	h := api.NewHandler(svc, "")
+	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 	return httptest.NewServer(api.RequestIDMiddleware(mux))
@@ -597,120 +593,6 @@ func TestRequestIDMiddleware_GeneratesID_WhenAbsent(t *testing.T) {
 	}
 }
 
-// ── Bearer-token auth middleware ──────────────────────────────────────────
-
-func TestHandler_Auth_CorrectKey_Passes(t *testing.T) {
-	srv := newServerWithAuth(
-		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
-		&stubEngine{submitID: "run-auth"},
-		&stubRegistry{},
-		"secret-key",
-	)
-	defer srv.Close()
-
-	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/apply", bytes.NewBufferString(workflowYAML))
-	req.Header.Set("Content-Type", "application/yaml")
-	req.Header.Set("Authorization", "Bearer secret-key")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusAccepted {
-		t.Errorf("status: got %d, want 202", resp.StatusCode)
-	}
-}
-
-func TestHandler_Auth_MissingKey_Returns401(t *testing.T) {
-	srv := newServerWithAuth(
-		&stubCompiler{},
-		&stubEngine{},
-		&stubRegistry{},
-		"secret-key",
-	)
-	defer srv.Close()
-
-	resp, err := http.Post(srv.URL+"/api/v1/apply", "application/yaml", bytes.NewBufferString(workflowYAML))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("status: got %d, want 401", resp.StatusCode)
-	}
-	body := decodeBody(t, resp)
-	if body["code"] != "UNAUTHORIZED" {
-		t.Errorf("code: got %v, want UNAUTHORIZED", body["code"])
-	}
-}
-
-func TestHandler_Auth_WrongKey_Returns401(t *testing.T) {
-	srv := newServerWithAuth(
-		&stubCompiler{},
-		&stubEngine{},
-		&stubRegistry{},
-		"secret-key",
-	)
-	defer srv.Close()
-
-	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/apply", bytes.NewBufferString(workflowYAML))
-	req.Header.Set("Content-Type", "application/yaml")
-	req.Header.Set("Authorization", "Bearer wrong-key")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("status: got %d, want 401", resp.StatusCode)
-	}
-}
-
-func TestHandler_Auth_EmptyAPIKey_DisablesGate(t *testing.T) {
-	// When ZYNAX_API_KEY is empty, auth is disabled — unauthenticated requests must pass.
-	srv := newServerWithAuth(
-		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
-		&stubEngine{submitID: "run-noauth"},
-		&stubRegistry{},
-		"",
-	)
-	defer srv.Close()
-
-	resp, err := http.Post(srv.URL+"/api/v1/apply", "application/yaml", bytes.NewBufferString(workflowYAML))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusAccepted {
-		t.Errorf("status: got %d, want 202 (auth disabled)", resp.StatusCode)
-	}
-}
-
-func TestHandler_Auth_DeleteWithKey_Returns401(t *testing.T) {
-	srv := newServerWithAuth(
-		&stubCompiler{},
-		&stubEngine{},
-		&stubRegistry{},
-		"secret-key",
-	)
-	defer srv.Close()
-
-	req, _ := http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/workflows/run-abc", nil)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("status: got %d, want 401", resp.StatusCode)
-	}
-}
-
 // ── Body size enforcement ─────────────────────────────────────────────────
 
 func TestHandler_Apply_OversizedBody_Returns413(t *testing.T) {
@@ -725,27 +607,6 @@ func TestHandler_Apply_OversizedBody_Returns413(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusRequestEntityTooLarge {
 		t.Errorf("got %d, want 413", resp.StatusCode)
-	}
-}
-
-func TestHandler_Auth_GetNotProtected(t *testing.T) {
-	// GET endpoints must remain open even when ZYNAX_API_KEY is set.
-	srv := newServerWithAuth(
-		&stubCompiler{},
-		&stubEngine{statusRun: domain.WorkflowRunSummary{RunID: "r1", Status: "RUNNING"}},
-		&stubRegistry{},
-		"secret-key",
-	)
-	defer srv.Close()
-
-	resp, err := http.Get(srv.URL + "/api/v1/workflows/r1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("status: got %d, want 200 (GET must not require auth)", resp.StatusCode)
 	}
 }
 
@@ -771,7 +632,7 @@ func (s *stubEventBus) PublishEvent(_ context.Context, ev domain.EventPublish) (
 
 func newServerWithEventBus(b domain.EventBusPort) *httptest.Server {
 	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, b)
-	h := api.NewHandler(svc, "")
+	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 	return httptest.NewServer(mux)
@@ -838,7 +699,7 @@ func TestHandler_PublishEvent_InvalidJSON_Returns400(t *testing.T) {
 func TestHandler_PublishEvent_NoEventBus_Returns503(t *testing.T) {
 	// nil event bus → service returns ErrEngineUnavailable → 503.
 	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, nil)
-	h := api.NewHandler(svc, "")
+	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
 	srv := httptest.NewServer(mux)
@@ -851,40 +712,5 @@ func TestHandler_PublishEvent_NoEventBus_Returns503(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("status: got %d, want 503", resp.StatusCode)
-	}
-}
-
-func TestHandler_PublishEvent_RateLimited_Returns429PastBurst(t *testing.T) {
-	// burst=1 so the second request from the same client must be rejected.
-	// Env is read once when RegisterRoutes builds the limiter, so set it first.
-	t.Setenv("RATE_LIMIT_RPS", "0.001")
-	t.Setenv("RATE_LIMIT_BURST", "1")
-	srv := newServerWithEventBus(&stubEventBus{publishID: "evt-rl"})
-	defer srv.Close()
-
-	body := `{"event_type":"review.approved"}`
-
-	// First request consumes the single token.
-	resp1, err := http.Post(srv.URL+"/api/v1/workflows/run-7/events", "application/json", strings.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp1.Body.Close() }()
-	if resp1.StatusCode != http.StatusAccepted {
-		t.Fatalf("first request: got %d, want 202", resp1.StatusCode)
-	}
-
-	// Second request from the same client must be rate-limited.
-	resp2, err := http.Post(srv.URL+"/api/v1/workflows/run-7/events", "application/json", strings.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp2.Body.Close() }()
-	if resp2.StatusCode != http.StatusTooManyRequests {
-		t.Errorf("second request: got %d, want 429", resp2.StatusCode)
-	}
-	m := decodeBody(t, resp2)
-	if m["code"] != "RATE_LIMITED" {
-		t.Errorf("code: got %v, want RATE_LIMITED", m["code"])
 	}
 }

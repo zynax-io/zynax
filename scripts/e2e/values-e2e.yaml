@@ -28,10 +28,14 @@ zynax-api-gateway:
   fullnameOverride: zynax-api-gateway
   image:
     tag: main
-  # Expose api-gateway on the kind host port (#1087). kind-config.yaml maps host
-  # 8080 -> nodePort 30080, so e2e-happy.sh can POST /api/v1/apply on localhost:8080.
+  # Behind the Gateway API edge (M8.F, ADR-044): api-gateway is ClusterIP; the
+  # Envoy Gateway edge takes the host-mapped NodePort 30080, so kind's
+  # host 8080 -> nodePort 30080 mapping now reaches the edge (kind-config.yaml
+  # unchanged). e2e/demo/bench hit localhost:8080 -> edge -> api-gateway.
   service:
-    type: NodePort
+    type: ClusterIP
+  edge:
+    enabled: true
     nodePort: 30080
   # Enable the embedded Workflow CRD controller (ADR-043, M8.E) so
   # e2e-workflow-crd.sh can assert a Workflow CR reconciles to a dispatched run.

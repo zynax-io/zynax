@@ -195,12 +195,12 @@ if ! kubectl -n "${NAMESPACE}" get deployment \
   fail "api-gateway deployment not found in namespace '${NAMESPACE}' — run cluster-up.sh first"
 fi
 
-# Resolve the api-gateway bearer key from the zynax-gw-api-key secret (random,
+# Resolve the api-gateway bearer key from the zynax-edge-apikey secret (random,
 # provisioned by cluster-up.sh) when the caller did not supply one (avoids 401).
 if [[ -z "${ZYNAX_API_KEY}" ]]; then
-  ZYNAX_API_KEY=$(kubectl -n "${NAMESPACE}" get secret zynax-gw-api-key \
-    -o jsonpath='{.data.api-key}' 2>/dev/null | base64 -d || true)
-  [[ -n "${ZYNAX_API_KEY}" ]] && log "using api-gateway key from the zynax-gw-api-key secret."
+  ZYNAX_API_KEY=$(kubectl -n "${NAMESPACE}" get secret zynax-edge-apikey \
+    -o jsonpath='{.data.zynax-cli}' 2>/dev/null | base64 -d || true)
+  [[ -n "${ZYNAX_API_KEY}" ]] && log "using api-gateway key from the zynax-edge-apikey secret."
 fi
 
 # Verify event-bus exists — the workflow.failed CloudEvent assertion needs it.

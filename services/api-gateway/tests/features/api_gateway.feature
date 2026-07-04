@@ -9,10 +9,8 @@ Feature: API Gateway
     Then the HTTP status is 201
     And the response contains a non-empty agent_id
 
-  Scenario: Missing auth token returns 401
-    When any API endpoint is called without Authorization header
-    Then the HTTP status is 401
-    And the response code is "UNAUTHENTICATED"
+  # Bearer auth is enforced at the Gateway API edge (ADR-044/M8.F), not in the
+  # api-gateway — so there is no in-process 401 to assert here.
 
   Scenario: Insufficient permissions returns 403
     Given a token with permissions ["tasks:read"]
