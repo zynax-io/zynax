@@ -52,6 +52,19 @@ env:
   grpcCallTimeoutS: 30
   livenessThresholdS: 60
 
+# Gateway API edge (M8.F, ADR-044). When enabled, an Envoy Gateway fronts the
+# api-gateway and enforces bearer auth (SecurityPolicy) + a profile-gated global
+# rate-limit — replacing the in-process middleware. Off by default; the Envoy
+# Gateway controller must be installed first (cluster-up.sh EDGE_ENABLED, #1623).
+edge:
+  enabled: false
+  # Gateway HTTP listener port (the Envoy proxy fronts the api-gateway Service).
+  listenerPort: 80
+  # Secret (Opaque, client-name -> BARE key; no "Bearer " prefix) the
+  # SecurityPolicy checks. Created out-of-band (cluster-up.sh), like the legacy
+  # api-key Secret. Envoy extracts the credential from "Authorization: Bearer <key>".
+  apiKeySecretName: zynax-edge-apikey
+
 # Secret references — never store values here
 # ZYNAX_GW_API_KEY is read from this secret's "api-key" key.
 # Set to empty string to skip mounting (dev-insecure mode only).
