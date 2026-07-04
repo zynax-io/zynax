@@ -21,33 +21,26 @@ const maxBodyBytes = 1 << 20 // 1 MB
 
 // Handler handles HTTP requests for POST /api/v1/apply and GET /api/v1/workflows/{id}.
 type Handler struct {
-	svc    *domain.ApplyService
-	apiKey string
+	svc *domain.ApplyService
 }
 
 // NewHandler creates a Handler backed by the given ApplyService.
-// apiKey is the value of ZYNAX_API_KEY; an empty string disables bearer auth.
-func NewHandler(svc *domain.ApplyService, apiKey string) *Handler {
-	return &Handler{svc: svc, apiKey: apiKey}
+func NewHandler(svc *domain.ApplyService) *Handler {
+	return &Handler{svc: svc}
 }
 
 // RegisterRoutes registers all HTTP routes on mux. Requires Go 1.22+ ServeMux.
-// Mutating endpoints (POST, DELETE) are protected by bearer-token auth when
-// ZYNAX_API_KEY is set; read-only endpoints (GET) are always open.
-// The mutating POST endpoints /api/v1/apply and /api/v1/workflows/{id}/events
-// are additionally protected by a per-IP token-bucket rate limiter (see
-// ratelimit.go); parameters are configured via RATE_LIMIT_RPS and
-// RATE_LIMIT_BURST environment variables.
+// Edge concerns — bearer authentication and rate-limiting — are enforced by the
+// Gateway API edge (Envoy Gateway, ADR-044/M8.F), not in-process. The
+// api-gateway is reachable only through that edge (NetworkPolicy lockdown), so
+// these routes carry no auth/rate-limit middleware of their own.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
-	rl := newIPRateLimiter()
-	applyHandler := rl.Middleware(http.HandlerFunc(requireBearer(h.apiKey, h.handleApply)))
-	mux.Handle("POST /api/v1/apply", applyHandler)
+	mux.HandleFunc("POST /api/v1/apply", h.handleApply)
 	mux.HandleFunc("GET /api/v1/workflows/{id}/logs", h.handleWorkflowLogs)
 	mux.HandleFunc("GET /api/v1/workflows/{id}/outputs", h.handleWorkflowOutputs)
-	eventsHandler := rl.Middleware(http.HandlerFunc(requireBearer(h.apiKey, h.handlePublishEvent)))
-	mux.Handle("POST /api/v1/workflows/{id}/events", eventsHandler)
+	mux.HandleFunc("POST /api/v1/workflows/{id}/events", h.handlePublishEvent)
 	mux.HandleFunc("GET /api/v1/workflows/{id}", h.handleGetWorkflow)
-	mux.HandleFunc("DELETE /api/v1/workflows/{id}", requireBearer(h.apiKey, h.handleDeleteWorkflow))
+	mux.HandleFunc("DELETE /api/v1/workflows/{id}", h.handleDeleteWorkflow)
 }
 
 func (h *Handler) handleApply(w http.ResponseWriter, r *http.Request) {

@@ -97,14 +97,6 @@ spec:
                   fieldPath: metadata.namespace
               {{- end }}
             {{- end }}
-            {{- if .Values.apiKeySecretName }}
-            - name: ZYNAX_GW_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.apiKeySecretName }}
-                  key: api-key
-                  optional: true
-            {{- end }}
             {{- if .Values.tlsSecretName }}
             - name: ZYNAX_GW_TLS_CERT
               value: /tls/tls.crt

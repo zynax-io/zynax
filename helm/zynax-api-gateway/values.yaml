@@ -65,10 +65,6 @@ edge:
   # api-key Secret. Envoy extracts the credential from "Authorization: Bearer <key>".
   apiKeySecretName: zynax-edge-apikey
 
-# Secret references — never store values here
-# ZYNAX_GW_API_KEY is read from this secret's "api-key" key.
-# Set to empty string to skip mounting (dev-insecure mode only).
-apiKeySecretName: "zynax-gw-api-key"
 
 # mTLS secret — set to empty string to disable TLS (dev only).
 # When set, the secret must contain tls.crt, tls.key, and ca.crt.

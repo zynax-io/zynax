@@ -13,9 +13,24 @@ spec:
     - Ingress
     - Egress
   ingress:
+    {{- if .Values.edge.enabled }}
+    # ADR-044 §4a: with the edge enabled, the api-gateway HTTP port is reachable
+    # ONLY from the Envoy Gateway edge — no unauthenticated in-cluster bypass of
+    # the now-deleted in-process auth.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+      ports:
+        - port: {{ .Values.env.httpPort }}
+          protocol: TCP
+    {{- else }}
     - ports:
         - port: {{ .Values.env.httpPort }}
           protocol: TCP
+    {{- end }}
+    # metrics scrape (Prometheus) — always open.
+    - ports:
         - port: 9090
           protocol: TCP
   egress:

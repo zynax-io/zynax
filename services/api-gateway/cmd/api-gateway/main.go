@@ -32,8 +32,6 @@ type config struct {
 	RegistryAddr       string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
 	EventBusAddr       string `envconfig:"EVENT_BUS_ADDR" default:"localhost:50056"`
 	LogLevel           string `envconfig:"LOG_LEVEL" default:"info"`
-	APIKey             string `envconfig:"API_KEY"`
-	DevInsecure        bool   `envconfig:"DEV_INSECURE"`
 	GRPCCallTimeoutS   int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
 	LivenessThresholdS int    `envconfig:"LIVENESS_THRESHOLD_S" default:"60"`
 	TLSCert            string `envconfig:"TLS_CERT"`
@@ -50,18 +48,6 @@ type config struct {
 	ElectionNamespace    string `envconfig:"ELECTION_NAMESPACE"`
 }
 
-// validateConfig rejects an empty API key unless ZYNAX_GW_DEV_INSECURE=1 is set.
-// Keeps production deployments from silently accepting all requests on misconfiguration.
-func validateConfig(cfg config) error {
-	if cfg.APIKey == "" && !cfg.DevInsecure {
-		return fmt.Errorf(
-			"ZYNAX_GW_API_KEY is not set; refusing to start " +
-				"(set ZYNAX_GW_DEV_INSECURE=1 to allow an empty key in development)",
-		)
-	}
-	return nil
-}
-
 func main() {
 	var cfg config
 	if err := envconfig.Process("ZYNAX_GW", &cfg); err != nil {
@@ -71,13 +57,8 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: parseLogLevel(cfg.LogLevel),
 	})))
-	if err := validateConfig(cfg); err != nil {
-		slog.Error("startup validation failed", "err", err)
-		os.Exit(1)
-	}
-	if cfg.APIKey == "" {
-		slog.Warn("ZYNAX_GW_API_KEY not set — auth disabled (dev-insecure mode)")
-	}
+	// Bearer auth is enforced at the Gateway API edge (ADR-044/M8.F), not here;
+	// the api-gateway is reachable only through that edge (NetworkPolicy lockdown).
 	if err := run(cfg); err != nil {
 		slog.Error("fatal error", "err", err)
 		os.Exit(1)
@@ -99,7 +80,7 @@ func run(cfg config) error {
 	probes := api.NewProbes(int64(cfg.LivenessThresholdS), clients.ConnectionsReady)
 
 	svc := domain.NewApplyService(clients, clients, clients, clients)
-	handler := api.NewHandler(svc, cfg.APIKey)
+	handler := api.NewHandler(svc)
 
 	// Start the embedded Workflow CRD controller when enabled. It reconciles
 	// Workflow CRs through the same ApplyService the REST path uses; a failure
