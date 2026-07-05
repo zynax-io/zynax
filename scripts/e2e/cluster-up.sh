@@ -487,6 +487,15 @@ if command -v curl >/dev/null 2>&1; then
     die "api-gateway is NOT reachable on the host port (${HOST_GW_URL}/healthz never returned 200) — the kind extraPortMapping (host 8080 → nodePort 30080) and the Service nodePort (must be 30080) are out of sync (#1488). Check: kubectl -n ${NAMESPACE} get svc zynax-api-gateway -o jsonpath='{.spec.ports[0].nodePort}'"
   fi
   log "  ✓ host port path verified — ${HOST_GW_URL} reaches Zynax (HTTP 200)."
+  # Edge auth (M8.F, ADR-044): an unauthenticated API request must be rejected AT
+  # THE EDGE (401) — the api-gateway itself no longer authenticates. /healthz is a
+  # separate, open route, so a 200 there and a 401 here together prove the edge is
+  # both fronting the platform and enforcing bearer auth.
+  if [[ "${EDGE_ENABLED}" == "true" ]]; then
+    code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 "${HOST_GW_URL}/api/v1/workflows/none" 2>/dev/null || true)"
+    [[ "${code}" == "401" ]] || die "edge auth NOT enforced: an unauthenticated ${HOST_GW_URL}/api/v1/workflows/none returned ${code}, expected 401 (M8.F). The SecurityPolicy on the API HTTPRoute may not be Accepted — check: kubectl -n ${NAMESPACE} get securitypolicy"
+    log "  ✓ edge auth enforced — an unauthenticated /api/v1 request is rejected at the edge (HTTP 401)."
+  fi
 else
   warn "curl not found — skipping the host NodePort reachability assertion (#1488)."
 fi
