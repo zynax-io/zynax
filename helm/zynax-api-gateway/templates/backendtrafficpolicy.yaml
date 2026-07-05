@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Global rate-limit at the edge (M8.F, ADR-044 §2). One shared limit across ALL
+# api-gateway replicas — not per-pod — fixing the HPA N×RPS multiplication of the
+# deleted in-process limiter. It needs Envoy's global rate-limit service + a Redis
+# store, enabled at the Envoy Gateway install (cluster-up.sh RATE_LIMIT_ENABLED),
+# so it is PROFILE-GATED: off by default and in the #1370 quickstart (ADR-041),
+# on in the HPA/CI/prod profile where scale-out makes a coordinated limit matter.
+{{- if and .Values.edge.enabled .Values.edge.rateLimit.enabled }}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: {{ include "zynax.fullname" . }}-ratelimit
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "zynax.fullname" . }}-api
+  rateLimit:
+    type: Global
+    global:
+      rules:
+        - limit:
+            requests: {{ .Values.edge.rateLimit.requests }}
+            unit: {{ .Values.edge.rateLimit.unit }}
+{{- end }}

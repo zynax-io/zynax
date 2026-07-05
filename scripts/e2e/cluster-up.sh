@@ -39,6 +39,8 @@
 #   ENVOY_GATEWAY_CHART_VERSION
 #                         gateway-helm chart version pin — v1.5.0+ required for
 #                         apiKeyAuth (default: v1.5.0)
+#   RATE_LIMIT_ENABLED    enable the edge global rate-limit (Redis + Envoy rate-
+#                         limit service): true|false (default: false; needs EDGE_ENABLED)
 #   PROFILE               stack profile: full|lite (default: full). lite is the
 #                         ADR-041 lean laptop profile — collapses Temporal to a
 #                         single in-memory start-dev pod (manifests/temporal-dev.
@@ -73,6 +75,10 @@ ARGO_WORKFLOWS_CHART_VERSION="${ARGO_WORKFLOWS_CHART_VERSION:-0.47.5}"
 # apiKeyAuth (bearer auth at the edge) requires Envoy Gateway v1.5.0+.
 EDGE_ENABLED="${EDGE_ENABLED:-false}"
 ENVOY_GATEWAY_CHART_VERSION="${ENVOY_GATEWAY_CHART_VERSION:-v1.5.0}"
+# Profile-gated global rate-limit at the edge (M8.F, ADR-044 §2a): deploy Redis
+# + enable Envoy Gateway's rate-limit service. Requires EDGE_ENABLED=true. Off by
+# default (the quickstart stays light).
+RATE_LIMIT_ENABLED="${RATE_LIMIT_ENABLED:-false}"
 # Stack profile (ADR-041). "full" (default, == CI) deploys the production-
 # mirroring topology: the 5-pod Temporal chart, event-bus, memory-service.
 # "lite" is the lean laptop profile — it collapses Temporal to ONE in-memory
@@ -298,11 +304,23 @@ fi
 # install-and-wait idiom as cert-manager/argo above; idempotent via upgrade
 # --install. Off by default until the edge resources + auth cutover land.
 if [[ "${EDGE_ENABLED}" == "true" ]]; then
+  # Profile-gated global rate-limit (ADR-044 §2a): when RATE_LIMIT_ENABLED, deploy
+  # a Redis store and enable Envoy Gateway's global rate-limit service (which
+  # shares counters across proxy replicas via Redis). Off by default so the
+  # minimal #1370 quickstart stays light.
+  eg_extra_args=()
+  if [[ "${RATE_LIMIT_ENABLED}" == "true" ]]; then
+    log "deploying Redis for the edge global rate-limit service…"
+    kubectl apply -f "${SCRIPT_DIR}/manifests/ratelimit-redis.yaml"
+    eg_extra_args+=(--set config.envoyGateway.rateLimit.backend.type=Redis)
+    eg_extra_args+=(--set "config.envoyGateway.rateLimit.backend.redis.url=redis.redis-system.svc.cluster.local:6379")
+  fi
   log "installing Envoy Gateway edge (gateway-helm ${ENVOY_GATEWAY_CHART_VERSION})…"
   helm upgrade --install eg oci://docker.io/envoyproxy/gateway-helm \
     --version "${ENVOY_GATEWAY_CHART_VERSION}" \
     --namespace envoy-gateway-system \
     --create-namespace \
+    "${eg_extra_args[@]+"${eg_extra_args[@]}"}" \
     --wait \
     --timeout "${WAIT_TIMEOUT}"
 fi

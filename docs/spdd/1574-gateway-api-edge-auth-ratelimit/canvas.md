@@ -6,7 +6,14 @@
 **Issue:** #1574
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-07-04
-**Status:** Aligned
+**Status:** Implemented
+
+> **Delivered (2026-07-06):** all 6 Operations steps merged — Envoy install (#1629),
+> Gateway/SecurityPolicy (#1630), the auth cutover + edge fronting (#1631, both
+> engines), the edge-401 assertion + docs (#1632), and the profile-gated global
+> rate-limit (this PR). The apiKeyAuth bare-key mechanic, the EnvoyProxy fixed
+> NodePort (externalTrafficPolicy=Cluster), and the global rate-limit (burst past
+> the limit → 429) were each proven live on kind.
 
 ---
 

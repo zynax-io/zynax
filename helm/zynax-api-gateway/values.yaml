@@ -67,6 +67,13 @@ edge:
   # Fixed NodePort for the Envoy proxy Service so the kind host:port contract
   # reaches the edge. Empty => the proxy Service keeps its default type.
   nodePort: null
+  # Global rate-limit (BackendTrafficPolicy) across all replicas — off by
+  # default. Needs Envoy's rate-limit service + Redis (cluster-up.sh
+  # RATE_LIMIT_ENABLED); profile-gated, off in the #1370 quickstart (ADR-041 §2a).
+  rateLimit:
+    enabled: false
+    requests: 100
+    unit: Minute
 
 
 # mTLS secret — set to empty string to disable TLS (dev only).
