@@ -222,7 +222,7 @@ jobs:
             exit 0
           fi
 
-          echo "feat: PR detected — checking for REASONS Canvas (ADR-019)..."
+          echo "feat: PR detected — checking for REASONS Canvas (ADR-019, as amended 2026-07-06: required for multi-PR epics, recommended otherwise)..."
 
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.event.pull_request.head.sha }}"
@@ -232,9 +232,9 @@ jobs:
 
           if [ -z "$canvas_in_pr" ] && [ -z "$canvas_existing" ]; then
             echo ""
-            echo "❌ No REASONS Canvas found for this feat: PR."
+            echo "❌ No REASONS Canvas found anywhere in docs/spdd/."
             echo ""
-            echo "Every feat: PR requires a Canvas committed before implementation."
+            echo "Multi-PR feat: epics require a Canvas committed before implementation (ADR-019 as amended)."
             echo "Steps:"
             echo "  1. Run /spdd-analysis <issue> to research the feature"
             echo "  2. Run /spdd-reasons-canvas <issue> to generate the Canvas"

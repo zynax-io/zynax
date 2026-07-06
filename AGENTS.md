@@ -108,10 +108,13 @@ No magic numbers. No dead code. No `panic` in production. All errors wrapped.
 Unit/property tests for domain logic (≥ 90% coverage). `buf breaking` as CI gate.
 See ADR-016.
 
-**5 — SPDD (feat: PRs only):** Every `feat:` PR requires a REASONS Canvas at
-`docs/spdd/<issue>-<slug>/canvas.md` committed before any implementation code.
-Fix the prompt first — logic corrections update the Canvas, then patch code.
-Canvas content is Tier 1 (public-safe) only. See ADR-019 and `docs/patterns/spdd-guide.md`.
+**5 — SPDD (multi-PR `feat:` epics):** Every multi-PR `feat:` epic requires a
+REASONS Canvas at `docs/spdd/<issue>-<slug>/canvas.md` committed before any
+implementation code; single-PR `feat:` changes are exempt (ADR-019 amendment,
+2026-07-06) though a Canvas stays recommended when the reasoning is not obvious
+from the PR. Fix the prompt first — logic corrections update the Canvas, then
+patch code. Canvas content is Tier 1 (public-safe) only. See ADR-019 and
+`docs/patterns/spdd-guide.md`.
 
 ---
 
@@ -128,7 +131,7 @@ A feature is DONE when **all** are true:
 - [ ] Proto change: backward-compatible OR new version + migration guide
 - [ ] ADR created for any architectural decision
 - [ ] Required approvals obtained (see `GOVERNANCE.md §2`)
-- [ ] For `feat:` PRs: REASONS Canvas at `docs/spdd/<issue>-<slug>/canvas.md` (Tier 1 only, run `/spdd-security-review` before committing)
+- [ ] For multi-PR `feat:` epics: REASONS Canvas at `docs/spdd/<issue>-<slug>/canvas.md` (Tier 1 only, run `/spdd-security-review` before committing; single-PR `feat:` exempt per the ADR-019 amendment)
 
 ---
 
