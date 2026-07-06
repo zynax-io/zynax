@@ -11,6 +11,14 @@
 
 **Child issues:** #801 (E.1) · #802 (E.2) · #803 (E.3) · #804 (E.4)
 
+> **Partially superseded (2026-07-06, ADR-045 / M8.G #1575):** the single-gate design this canvas
+> delivered has been split. The HTTP rate limit moved to the Envoy Gateway edge (ADR-044, M8.F).
+> The engine allow-list is dual-guarded: a `ValidatingAdmissionPolicy` guards the `Workflow` CR
+> path while the compiler's `checkRoutingPolicy` stays live for REST (ADR-045 §3). The compiler's
+> capability-quota check — never enforced in production (`counter = nil`) — was **removed without
+> replacement**; quota is unenforced on both gates until the engine-adapter `QuotaChecker` is
+> wired live (ADR-045 §2). See `docs/spdd/1575-admission-policy/canvas.md`.
+
 ---
 
 ## R — Requirements
