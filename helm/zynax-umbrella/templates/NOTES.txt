@@ -17,7 +17,7 @@ Enabled components:
   agent-registry (gRPC):     {{ .Release.Name }}-zynax-agent-registry.{{ .Release.Namespace }}:50052
 {{- end }}
 {{- if index .Values "zynax-nats" "enabled" }}
-  NATS JetStream:            {{ .Release.Name }}-zynax-nats.{{ .Release.Namespace }}:4222
+  NATS JetStream:            {{ .Release.Name }}-nats.{{ .Release.Namespace }}:4222
 {{- end }}
 {{- if index .Values "zynax-postgres" "enabled" }}
   Postgres 17:               {{ .Release.Name }}-postgresql.{{ .Release.Namespace }}:5432
