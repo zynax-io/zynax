@@ -8,7 +8,11 @@
 # compile->submit path the REST /api/v1/apply uses. The assertions:
 #   1. status reaches Dispatched=True with a runID (reconcile -> dispatched run);
 #   2. status is a thin mirror only — no run state leaks into the CR (ADR-040 §3);
-#   3. idempotency — a reconcile of the unchanged spec starts NO new run.
+#   3. idempotency — a reconcile of the unchanged spec starts NO new run;
+#   4. admission (ADR-045, M8.G): a CR whose spec.engine is OUTSIDE the
+#      namespace allow-list is DENIED at admission by the engine-allowlist
+#      ValidatingAdmissionPolicy; an allowed engine admits. Skipped with a
+#      warning when the VAP is not installed (admissionPolicy.enabled=false).
 #
 # Runs on both engine legs (temporal, argo): no engine is pinned in the CR, so
 # the run uses whichever engine the leg deployed.
@@ -96,5 +100,76 @@ gen2=$(wf 'jsonpath={.status.observedGeneration}')
 [[ "${run1}" == "${run2}" && "${gen1}" == "${gen2}" ]] \
   || fail "duplicate dispatch on reconcile of an unchanged spec (runID ${run1} -> ${run2})"
 pass "idempotent — reconcile of the unchanged CR started no new run"
+
+# ── Admission: engine allow-list VAP (ADR-045, M8.G #1637) ──────────────────
+# values-e2e.yaml enables admissionPolicy with allowedEngines [temporal, argo].
+# A CR pinning an engine outside that list must be rejected AT ADMISSION —
+# kubectl apply itself fails with the policy message; the controller never
+# sees the object. An allowed engine admits. Skip (warn) when the VAP is not
+# installed so the script still works against a policy-less cluster.
+VAP_NAME="zynax-api-gateway-engine-allowlist"
+if kubectl get validatingadmissionpolicy "${VAP_NAME}" >/dev/null 2>&1; then
+  log "asserting the engine allow-list VAP denies a disallowed spec.engine"
+  DENIED_CR_NAME="e2e-crd-denied"
+  set +e
+  deny_out=$(kubectl -n "${NAMESPACE}" apply -f - 2>&1 <<EOF
+apiVersion: zynax.io/v1alpha1
+kind: Workflow
+metadata:
+  name: ${DENIED_CR_NAME}
+spec:
+  engine: forbidden-engine
+  initial_state: greet
+  states:
+    greet:
+      actions:
+        - capability: echo
+          input:
+            message: "must never be admitted"
+      "on":
+        - event: echo.completed
+          goto: done
+    done:
+      type: terminal
+EOF
+)
+  deny_rc=$?
+  set -e
+  if [[ ${deny_rc} -eq 0 ]]; then
+    kubectl -n "${NAMESPACE}" delete workflow "${DENIED_CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true
+    fail "a CR with spec.engine=forbidden-engine was ADMITTED — the engine-allowlist VAP is not enforcing"
+  fi
+  echo "${deny_out}" | grep -qi "allow-list" \
+    || fail "the denial did not carry the allow-list policy message (got: ${deny_out})"
+  pass "disallowed engine denied at admission with the policy message"
+
+  # An ALLOWED engine admits (admission only — delete before it dispatches a
+  # run; this leg's active engine may differ from the pinned hint).
+  ALLOWED_CR_NAME="e2e-crd-allowed"
+  kubectl -n "${NAMESPACE}" apply -f - >/dev/null <<EOF
+apiVersion: zynax.io/v1alpha1
+kind: Workflow
+metadata:
+  name: ${ALLOWED_CR_NAME}
+spec:
+  engine: temporal
+  initial_state: greet
+  states:
+    greet:
+      actions:
+        - capability: echo
+          input:
+            message: "admitted by the allow-list"
+      "on":
+        - event: echo.completed
+          goto: done
+    done:
+      type: terminal
+EOF
+  kubectl -n "${NAMESPACE}" delete workflow "${ALLOWED_CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true
+  pass "allowed engine admitted by the allow-list VAP"
+else
+  log "engine-allowlist VAP not installed (admissionPolicy.enabled=false?) — skipping admission assertions"
+fi
 
 pass "Workflow CRD reconcile assertion complete"
