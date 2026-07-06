@@ -10,7 +10,7 @@ data:
   compiler-addr: {{ .Values.env.compilerAddr | quote }}
   engine-addr: {{ .Values.env.engineAddr | quote }}
   registry-addr: {{ .Values.env.registryAddr | quote }}
-  event-bus-addr: {{ .Values.env.eventBusAddr | quote }}
+  nats-url: {{ .Values.env.natsURL | quote }}
   log-level: {{ .Values.env.logLevel | quote }}
   grpc-call-timeout-s: {{ .Values.env.grpcCallTimeoutS | quote }}
   liveness-threshold-s: {{ .Values.env.livenessThresholdS | quote }}

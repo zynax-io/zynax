@@ -43,11 +43,13 @@ env:
   compilerAddr: "zynax-workflow-compiler:50054"
   engineAddr: "zynax-engine-adapter:50055"
   registryAddr: "zynax-agent-registry:50052"
-  # EventBusService gRPC address consumed by the /logs SSE merge (#1182) to
-  # stream per-workflow capability CloudEvents (ADR-022). The gRPC client is
-  # lazy and the subscription is best-effort, so an unreachable address falls
-  # back to engine-history-only logs (e.g. when zynax-event-bus is disabled).
-  eventBusAddr: "zynax-event-bus:50056"
+  # NATS JetStream URL consumed by the /logs SSE merge (#1182) to stream
+  # per-workflow capability CloudEvents — direct via the shared events client
+  # (ADR-046; the EventBusService gRPC facade is deprecated). The connection
+  # retries in the background and the subscription is best-effort, so an
+  # unreachable broker falls back to engine-history-only logs (e.g. the
+  # ADR-041 lite profile, which ships no NATS).
+  natsURL: "nats://zynax-nats:4222"
   logLevel: "info"
   grpcCallTimeoutS: 30
   livenessThresholdS: 60
