@@ -53,8 +53,14 @@ description = "Hostname with internal TLD (.internal, .local, .corp, .lan) — i
 regex       = '''[a-zA-Z0-9\-]+\.(internal|local|corp|lan|intranet)\b'''
 tags        = ["infrastructure"]
 [rules.allowlist]
-# 'local' as a standalone word or in NATS URLs is fine (dev environment docs)
-regexes     = ['''nats://localhost|nats://local\b|description.*[Ll]ocal''']
+# 'local' as a standalone word or in NATS URLs is fine (dev environment docs).
+# `*.svc.cluster.local` is the standard Kubernetes cluster-domain service DNS
+# form (public convention, not an internal hostname) — it appears in shell
+# scripts too (e.g. the Envoy rate-limit Redis URL in cluster-up.sh), so it is
+# allowlisted by pattern, not by path. regexTarget "line" because the rule's
+# captured secret is just the TLD token, which no useful pattern can match.
+regexTarget = "line"
+regexes     = ['''nats://localhost|nats://local\b|description.*[Ll]ocal''', '''\.svc\.cluster\.local\b''']
 # .dockerignore / .gitignore list glob patterns — never real hostnames
 # infra/AGENTS.md and agents/*/AGENTS.md document Docker bridge hostnames (host.docker.internal)
 # Policy doc uses counter-examples
