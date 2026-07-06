@@ -259,6 +259,14 @@ jobs:
     if: needs.changes.outputs.proto == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # The AI-context scan below diffs origin/main...HEAD; a depth-1
+          # checkout has no origin/main, so the diff always failed and the
+          # fail-safe ran gitleaks over the WHOLE tree instead of the changed
+          # AI-context files — any repo-wide string could then fail every
+          # proto-touching PR (first bitten by the K8s cluster-domain service
+          # DNS suffix in cluster-up.sh).
+          fetch-depth: 0
 
       - name: Trust workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
