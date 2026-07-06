@@ -3,11 +3,13 @@ module github.com/zynax-io/zynax/services/task-broker
 go 1.26.4
 
 require (
-	github.com/cucumber/godog v0.14.1
+	github.com/cucumber/godog v0.15.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/nats-io/nats.go v1.52.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	github.com/zynax-io/zynax/libs/zynaxconfig v0.0.0-00010101000000-000000000000
+	github.com/zynax-io/zynax/libs/zynaxevents v0.0.0-00010101000000-000000000000
 	github.com/zynax-io/zynax/protos/generated/go v0.0.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
@@ -18,6 +20,8 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/nats-io/nkeys v0.4.15 // indirect
+	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/prometheus/client_golang v1.20.5 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
@@ -72,7 +76,7 @@ require (
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect
-	github.com/moby/moby/api v1.54.1 // indirect
+	github.com/moby/moby/api v1.54.2 // indirect
 	github.com/moby/moby/client v0.4.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
@@ -83,11 +87,11 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
+	github.com/shirou/gopsutil/v4 v4.26.5 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.7 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
-	github.com/testcontainers/testcontainers-go v0.42.0 // indirect
+	github.com/testcontainers/testcontainers-go v0.43.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
@@ -111,3 +115,5 @@ replace github.com/zynax-io/zynax/libs/zynaxconfig => ../../libs/zynaxconfig
 replace github.com/zynax-io/zynax/protos/generated/go => ../../protos/generated/go
 
 replace github.com/zynax-io/zynax/libs/zynaxobs => ../../libs/zynaxobs
+
+replace github.com/zynax-io/zynax/libs/zynaxevents => ../../libs/zynaxevents

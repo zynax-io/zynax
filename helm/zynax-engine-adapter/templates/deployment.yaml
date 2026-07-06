@@ -78,11 +78,11 @@ spec:
                 configMapKeyRef:
                   name: {{ include "zynax.fullname" . }}
                   key: task-broker-addr
-            - name: ZYNAX_ENGINE_ADAPTER_EVENTBUS_ADDR
+            - name: ZYNAX_ENGINE_ADAPTER_NATS_URL
               valueFrom:
                 configMapKeyRef:
                   name: {{ include "zynax.fullname" . }}
-                  key: event-bus-addr
+                  key: nats-url
             - name: ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE
               valueFrom:
                 configMapKeyRef:

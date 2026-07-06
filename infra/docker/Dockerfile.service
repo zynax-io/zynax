@@ -32,11 +32,13 @@ ARG SVC
 WORKDIR /workspace
 COPY protos/generated/go/go.mod protos/generated/go/go.sum ./protos/generated/go/
 COPY libs/zynaxconfig/go.mod libs/zynaxconfig/go.sum ./libs/zynaxconfig/
+COPY libs/zynaxevents/go.mod libs/zynaxevents/go.sum ./libs/zynaxevents/
 COPY libs/zynaxobs/go.mod libs/zynaxobs/go.sum ./libs/zynaxobs/
 COPY services/${SVC}/go.mod services/${SVC}/go.sum ./services/${SVC}/
 RUN cd services/${SVC} && GOWORK=off go mod download
 COPY protos/generated/go/ ./protos/generated/go/
 COPY libs/zynaxconfig/ ./libs/zynaxconfig/
+COPY libs/zynaxevents/ ./libs/zynaxevents/
 COPY libs/zynaxobs/ ./libs/zynaxobs/
 COPY services/${SVC}/ ./services/${SVC}/
 COPY tools/healthcheck/ ./tools/healthcheck/

@@ -8,27 +8,21 @@ import (
 	"strings"
 	"testing"
 
-	"google.golang.org/grpc"
-
-	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
+	"github.com/zynax-io/zynax/libs/zynaxevents"
 )
 
 // stubEventBusPublisher is a test stub that records calls to Publish.
 type stubEventBusPublisher struct {
 	publishErr error
-	reqs       []*zynaxv1.PublishRequest
-	resp       *zynaxv1.PublishResponse
+	events     []zynaxevents.CloudEvent
 }
 
-func (s *stubEventBusPublisher) Publish(_ context.Context, in *zynaxv1.PublishRequest, _ ...grpc.CallOption) (*zynaxv1.PublishResponse, error) {
-	s.reqs = append(s.reqs, in)
+func (s *stubEventBusPublisher) Publish(_ context.Context, event zynaxevents.CloudEvent) (string, error) {
+	s.events = append(s.events, event)
 	if s.publishErr != nil {
-		return nil, s.publishErr
+		return "", s.publishErr
 	}
-	if s.resp != nil {
-		return s.resp, nil
-	}
-	return &zynaxv1.PublishResponse{EventId: "test-event-id"}, nil
+	return "TEST_STREAM:1", nil
 }
 
 func newTestActivityWorker(stub *stubEventBusPublisher) *ActivityWorker {
@@ -43,10 +37,10 @@ func TestPublishLifecycleEventActivity_TopicFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(stub.reqs) != 1 {
-		t.Fatalf("expected 1 Publish call, got %d", len(stub.reqs))
+	if len(stub.events) != 1 {
+		t.Fatalf("expected 1 Publish call, got %d", len(stub.events))
 	}
-	got := stub.reqs[0].Event.GetType()
+	got := stub.events[0].Type
 	want := "zynax.v1.engine-adapter.workflow.submitted"
 	if got != want {
 		t.Errorf("event type = %q; want %q", got, want)
@@ -61,21 +55,20 @@ func TestPublishLifecycleEventActivity_WorkflowIDInEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(stub.reqs) != 1 {
-		t.Fatalf("expected 1 Publish call, got %d", len(stub.reqs))
+	if len(stub.events) != 1 {
+		t.Fatalf("expected 1 Publish call, got %d", len(stub.events))
 	}
-	ev := stub.reqs[0].Event
-	if ev.GetWorkflowId() != "wf-99" {
-		t.Errorf("workflow_id = %q; want %q", ev.GetWorkflowId(), "wf-99")
+	ev := stub.events[0]
+	if ev.WorkflowID != "wf-99" {
+		t.Errorf("workflow_id = %q; want %q", ev.WorkflowID, "wf-99")
 	}
-	if ev.GetSubject() != "state-2" {
-		t.Errorf("subject = %q; want %q", ev.GetSubject(), "state-2")
+	// The old proto Subject (stateID) was always dropped before the wire
+	// envelope by the facade — the direct path has no Subject attribute.
+	if ev.SpecVersion != "1.0" {
+		t.Errorf("specversion = %q; want 1.0", ev.SpecVersion)
 	}
-	if ev.GetSpecversion() != "1.0" {
-		t.Errorf("specversion = %q; want 1.0", ev.GetSpecversion())
-	}
-	if !strings.HasPrefix(ev.GetSource(), "/zynax/engine-adapter/wf-99") {
-		t.Errorf("source = %q; want prefix /zynax/engine-adapter/wf-99", ev.GetSource())
+	if !strings.HasPrefix(ev.Source, "/zynax/engine-adapter/wf-99") {
+		t.Errorf("source = %q; want prefix /zynax/engine-adapter/wf-99", ev.Source)
 	}
 }
 
@@ -89,12 +82,12 @@ func TestPublishLifecycleEventActivity_AllEventTypes(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(stub.reqs) != 1 {
-				t.Fatalf("expected 1 Publish call, got %d", len(stub.reqs))
+			if len(stub.events) != 1 {
+				t.Fatalf("expected 1 Publish call, got %d", len(stub.events))
 			}
 			wantTopic := "zynax.v1.engine-adapter.workflow." + eventType
-			if stub.reqs[0].Event.GetType() != wantTopic {
-				t.Errorf("topic = %q; want %q", stub.reqs[0].Event.GetType(), wantTopic)
+			if stub.events[0].Type != wantTopic {
+				t.Errorf("topic = %q; want %q", stub.events[0].Type, wantTopic)
 			}
 		})
 	}
@@ -120,10 +113,10 @@ func TestPublishLifecycleEventActivity_InterpreterEventTypes_NoDoublePrefix(t *t
 			if err := w.PublishLifecycleEventActivity(context.Background(), eventType, "wf-1149", "s1", nil); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(stub.reqs) != 1 {
-				t.Fatalf("expected 1 Publish call, got %d", len(stub.reqs))
+			if len(stub.events) != 1 {
+				t.Fatalf("expected 1 Publish call, got %d", len(stub.events))
 			}
-			got := stub.reqs[0].Event.GetType()
+			got := stub.events[0].Type
 			if got != wantTopic {
 				t.Errorf("topic = %q; want %q", got, wantTopic)
 			}
@@ -153,17 +146,17 @@ func TestPublishLifecycleEventActivity_CloudEventFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	ev := stub.reqs[0].Event
+	ev := stub.events[0]
 	// id must be a non-empty UUID
-	if ev.GetId() == "" {
+	if ev.ID == "" {
 		t.Error("CloudEvent id must be non-empty")
 	}
 	// datacontenttype
-	if ev.GetDatacontenttype() != "application/json" {
-		t.Errorf("datacontenttype = %q; want application/json", ev.GetDatacontenttype())
+	if ev.DataContentType != "application/json" {
+		t.Errorf("datacontenttype = %q; want application/json", ev.DataContentType)
 	}
-	// time must be set
-	if ev.GetTime() == nil {
+	// time must be set (client attribute only — never marshaled to the wire)
+	if ev.Time.IsZero() {
 		t.Error("CloudEvent time must be set")
 	}
 }

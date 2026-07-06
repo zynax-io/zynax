@@ -13,18 +13,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/zynax-io/zynax/libs/zynaxevents"
 	"github.com/zynax-io/zynax/libs/zynaxobs"
-	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 )
 
 // EventBusPublisher is the minimal interface this package requires for publishing
-// lifecycle events. It is satisfied by the generated zynaxv1.EventBusServiceClient
-// and can be replaced with a test stub without a live gRPC server.
+// lifecycle events directly to NATS JetStream through the shared events client
+// (ADR-046 — the EventBusService gRPC facade is deprecated). It is satisfied by
+// *zynaxevents.Client and can be replaced with a test stub without a live broker.
 type EventBusPublisher interface {
-	Publish(ctx context.Context, in *zynaxv1.PublishRequest, opts ...grpc.CallOption) (*zynaxv1.PublishResponse, error)
+	Publish(ctx context.Context, event zynaxevents.CloudEvent) (string, error)
 }
 
 // ActivityWorker holds cross-cutting dependencies for Temporal activities and
@@ -53,31 +52,32 @@ func lifecycleTopic(eventType string) string {
 }
 
 // PublishLifecycleEventActivity is registered with the Temporal worker and called
-// by IRInterpreterWorkflow to emit workflow lifecycle events to EventBusService.
-// Publication is best-effort: errors are logged but not returned so that event-bus
-// unavailability never interrupts the workflow state machine.
+// by IRInterpreterWorkflow to emit workflow lifecycle events straight to
+// JetStream via the shared events client (ADR-046). Publication is best-effort:
+// errors are logged but not returned so that broker unavailability never
+// interrupts the workflow state machine.
 //
 // Topic format: zynax.v1.engine-adapter.workflow.<event_type> (see lifecycleTopic).
+// The old proto Subject (stateID) and Time attributes were always dropped by the
+// facade before the wire envelope — the direct path keeps the wire bytes
+// identical (golden-gated); stateID stays in the structured logs only.
 func (a *ActivityWorker) PublishLifecycleEventActivity(ctx context.Context, eventType, workflowID, stateID string, payload []byte) error {
 	topic := lifecycleTopic(eventType)
 
-	req := &zynaxv1.PublishRequest{
-		Event: &zynaxv1.CloudEvent{
-			Id:              uuid.New().String(),
-			Source:          fmt.Sprintf("/zynax/engine-adapter/%s", workflowID),
-			Specversion:     "1.0",
-			Type:            topic,
-			Datacontenttype: "application/json",
-			Subject:         stateID,
-			Time:            timestamppb.New(time.Now()),
-			WorkflowId:      workflowID,
-			// Typed terminal payload {"outputs": {...}} on the completed event
-			// (nil for transition events) (ADR-042, M7.U).
-			Data: payload,
-		},
+	event := zynaxevents.CloudEvent{
+		ID:              uuid.New().String(),
+		Source:          fmt.Sprintf("/zynax/engine-adapter/%s", workflowID),
+		SpecVersion:     "1.0",
+		Type:            topic,
+		DataContentType: "application/json",
+		Time:            time.Now(),
+		WorkflowID:      workflowID,
+		// Typed terminal payload {"outputs": {...}} on the completed event
+		// (nil for transition events) (ADR-042, M7.U).
+		Data: payload,
 	}
 
-	resp, err := a.EventBus.Publish(ctx, req)
+	eventID, err := a.EventBus.Publish(ctx, event)
 	if err != nil {
 		// Best-effort: log the error but do not fail the activity so that
 		// event-bus unavailability never interrupts workflow execution.
@@ -98,7 +98,7 @@ func (a *ActivityWorker) PublishLifecycleEventActivity(ctx context.Context, even
 		"workflow_id", workflowID,
 		"state_id", stateID,
 		"topic", topic,
-		"event_id", resp.GetEventId(),
+		"event_id", eventID,
 	)
 	return nil
 }

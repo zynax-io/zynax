@@ -33,7 +33,7 @@ import (
 type config struct {
 	zynaxconfig.Base
 	RegistryAddr     string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
-	EventBusAddr     string `envconfig:"EVENTBUS_ADDR"`
+	NATSURL          string `envconfig:"NATS_URL"`
 	GRPCCallTimeoutS int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
 	TLSCert          string `envconfig:"TLS_CERT"`
 	TLSKey           string `envconfig:"TLS_KEY"`
@@ -89,7 +89,7 @@ func run(cfg config) error {
 	executor := infrastructure.NewAgentExecutor(creds)
 	svc := domain.NewTaskService(repo, selector, executor)
 
-	publisherCleanup, err := attachEventPublisher(svc, cfg, callTimeout, creds)
+	publisherCleanup, err := attachEventPublisher(svc, cfg, callTimeout)
 	if err != nil {
 		return err
 	}
@@ -131,19 +131,20 @@ func newRepository(ctx context.Context, cfg config) (domain.TaskRepository, func
 	return pgRepo, func() { pgRepo.Close() }, nil
 }
 
-// attachEventPublisher wires the optional EventBus lifecycle publisher so
-// capability fan-outs are observable over the bus (EPIC #881 O5). An empty
-// address disables publication. The returned cleanup must be deferred.
-func attachEventPublisher(svc *domain.TaskService, cfg config, callTimeout time.Duration, creds credentials.TransportCredentials) (func(), error) {
-	if cfg.EventBusAddr == "" {
+// attachEventPublisher wires the optional task lifecycle publisher — direct
+// JetStream via the shared events client (ADR-046) — so capability fan-outs
+// are observable over the bus (EPIC #881 O5). An empty NATS URL disables
+// publication. The returned cleanup must be deferred.
+func attachEventPublisher(svc *domain.TaskService, cfg config, callTimeout time.Duration) (func(), error) {
+	if cfg.NATSURL == "" {
 		return func() {}, nil
 	}
-	publisher, cleanup, err := infrastructure.NewEventPublisher(cfg.EventBusAddr, callTimeout, creds)
+	publisher, cleanup, err := infrastructure.NewEventPublisher(cfg.NATSURL, callTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("task-broker: event publisher: %w", err)
 	}
 	svc.WithEventPublisher(publisher)
-	slog.Info("task-broker: publishing task events", "eventbus_addr", cfg.EventBusAddr)
+	slog.Info("task-broker: publishing task events", "nats_url", cfg.NATSURL)
 	return cleanup, nil
 }
 
