@@ -57,6 +57,10 @@ zynax-agent-registry:
     secretName: ""
 
 # Placeholder — disabled until EPIC I (#772) implementation merges.
+# DEPRECATED (ADR-046, M8.H): services publish/subscribe directly over NATS
+# JetStream via libs/zynaxevents; this gRPC facade is kept deployable through
+# M8 only and is hard-removed in M9 together with its chart. Do not enable
+# for new deployments.
 zynax-event-bus:
   enabled: false
 

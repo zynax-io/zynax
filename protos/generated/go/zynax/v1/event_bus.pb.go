@@ -394,11 +394,11 @@ const file_zynax_v1_event_bus_proto_rawDesc = "" +
 	"\x12UnsubscribeRequest\x12#\n" +
 	"\rsubscriber_id\x18\x01 \x01(\tR\fsubscriberId\"Z\n" +
 	"\x13UnsubscribeResponse\x12C\n" +
-	"\x0funsubscribed_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0eunsubscribedAt2\xe5\x01\n" +
-	"\x0fEventBusService\x12>\n" +
-	"\aPublish\x12\x18.zynax.v1.PublishRequest\x1a\x19.zynax.v1.PublishResponse\x12F\n" +
-	"\tSubscribe\x12\x1a.zynax.v1.SubscribeRequest\x1a\x1b.zynax.v1.SubscribeResponse0\x01\x12J\n" +
-	"\vUnsubscribe\x12\x1c.zynax.v1.UnsubscribeRequest\x1a\x1d.zynax.v1.UnsubscribeResponseB3Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1b\x06proto3"
+	"\x0funsubscribed_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0eunsubscribedAt2\xf9\x01\n" +
+	"\x0fEventBusService\x12C\n" +
+	"\aPublish\x12\x18.zynax.v1.PublishRequest\x1a\x19.zynax.v1.PublishResponse\"\x03\x88\x02\x01\x12K\n" +
+	"\tSubscribe\x12\x1a.zynax.v1.SubscribeRequest\x1a\x1b.zynax.v1.SubscribeResponse\"\x03\x88\x02\x010\x01\x12O\n" +
+	"\vUnsubscribe\x12\x1c.zynax.v1.UnsubscribeRequest\x1a\x1d.zynax.v1.UnsubscribeResponse\"\x03\x88\x02\x01\x1a\x03\x88\x02\x01B3Z1github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1b\x06proto3"
 
 var (
 	file_zynax_v1_event_bus_proto_rawDescOnce sync.Once

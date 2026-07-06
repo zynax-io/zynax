@@ -8,6 +8,11 @@ from zynax.v1 import event_bus_pb2 as zynax_dot_v1_dot_event__bus__pb2
 class EventBusServiceStub:
     """EventBusService provides async event publish/subscribe for workflow-driven
     state transitions and cross-service communication.
+
+    DEPRECATED (ADR-046, M8.H): publishers and subscribers use NATS JetStream
+    directly through the shared libs/zynaxevents client; this gRPC facade is
+    kept deployable through M8 and is hard-removed in M9 together with
+    services/event-bus/ and these generated stubs. Do not add new callers.
     """
 
     def __init__(self, channel):
@@ -36,6 +41,11 @@ class EventBusServiceStub:
 class EventBusServiceServicer:
     """EventBusService provides async event publish/subscribe for workflow-driven
     state transitions and cross-service communication.
+
+    DEPRECATED (ADR-046, M8.H): publishers and subscribers use NATS JetStream
+    directly through the shared libs/zynaxevents client; this gRPC facade is
+    kept deployable through M8 and is hard-removed in M9 together with
+    services/event-bus/ and these generated stubs. Do not add new callers.
     """
 
     def Publish(self, request, context):
@@ -95,6 +105,11 @@ def add_EventBusServiceServicer_to_server(servicer, server):
 class EventBusService:
     """EventBusService provides async event publish/subscribe for workflow-driven
     state transitions and cross-service communication.
+
+    DEPRECATED (ADR-046, M8.H): publishers and subscribers use NATS JetStream
+    directly through the shared libs/zynaxevents client; this gRPC facade is
+    kept deployable through M8 and is hard-removed in M9 together with
+    services/event-bus/ and these generated stubs. Do not add new callers.
     """
 
     @staticmethod
