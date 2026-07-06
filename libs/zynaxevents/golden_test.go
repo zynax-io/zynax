@@ -216,3 +216,26 @@ func TestIsTerminalEventType(t *testing.T) {
 		}
 	}
 }
+
+// TestGolden_DLQNaming pins the dead-letter naming conventions.
+func TestGolden_DLQNaming(t *testing.T) {
+	var g struct {
+		Cases []struct {
+			EventType         string `json:"eventType"`
+			DLQStreamName     string `json:"dlqStreamName"`
+			DLQDeliverSubject string `json:"dlqDeliverSubject"`
+		} `json:"cases"`
+	}
+	loadGolden(t, "stream_derivation.json", &g)
+	if len(g.Cases) == 0 {
+		t.Fatal("no golden cases loaded")
+	}
+	for _, c := range g.Cases {
+		if got := dlqStreamName(StreamName(c.EventType)); got != c.DLQStreamName {
+			t.Errorf("dlqStreamName(%q) = %q, golden %q", c.EventType, got, c.DLQStreamName)
+		}
+		if got := dlqDeliverSubject(c.EventType); got != c.DLQDeliverSubject {
+			t.Errorf("dlqDeliverSubject(%q) = %q, golden %q", c.EventType, got, c.DLQDeliverSubject)
+		}
+	}
+}
