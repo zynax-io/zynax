@@ -54,3 +54,10 @@ docs/spdd/**/canvas.private.md
 
 # DevAuto orchestrator decision logs — CI artifact, never committed
 .automation/decision-logs/
+
+# Built Helm subchart dependencies (#1521). First-party file:// subcharts are
+# rebuilt from source by `helm dependency build` at every install/lint path, so
+# vendoring the built .tgz in VCS only invites silent drift from source (the
+# #1488 nodePort regression). Upstream third-party tgz under helm/charts/*/charts/
+# ARE vendored intentionally (offline/pinned installs) and are NOT ignored here.
+helm/zynax-umbrella/charts/*.tgz
