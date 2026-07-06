@@ -65,6 +65,11 @@ type SubscribeRequest struct {
 // ErrSubscriberNotFound is returned when Unsubscribe targets an unknown subscriber ID.
 var ErrSubscriberNotFound = errors.New("subscriber not found")
 
+// ErrReservedPrefix is returned when publishing under a reserved event-type namespace.
+var ErrReservedPrefix = errors.New("reserved event type prefix")
+
+const reservedDLQPrefix = "zynax.dlq."
+
 // terminalWorkflowVerbs are the workflow lifecycle event-type verbs that mark a
 // run as finished. They mirror the engine-adapter lifecycle events
 // ("zynax.workflow.completed"/"failed", see engine-adapter interpreter) plus the

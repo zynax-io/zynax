@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	nats "github.com/nats-io/nats.go"
 
@@ -59,6 +60,10 @@ func (c *Client) ensureStream(eventType string) error {
 func (c *Client) Publish(ctx context.Context, event CloudEvent) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", fmt.Errorf("context: %w", err)
+	}
+
+	if strings.HasPrefix(event.Type, reservedDLQPrefix) {
+		return "", fmt.Errorf("nats publish: %w: %s", ErrReservedPrefix, event.Type)
 	}
 
 	if err := c.ensureStream(event.Type); err != nil {
