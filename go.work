@@ -11,6 +11,7 @@ use (
 	./agents/adapters/http
 	./agents/adapters/llm
 	./libs/zynaxconfig
+	./libs/zynaxevents
 	./libs/zynaxobs
 	./protos/generated/go
 	./services/agent-registry
