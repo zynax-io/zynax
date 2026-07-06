@@ -30,7 +30,9 @@ env:
   # EventBusService gRPC address for lifecycle CloudEvents (ADR-022). The gRPC
   # client is lazy and publication is best-effort, so an unreachable address
   # never blocks workflow execution (e.g. when zynax-event-bus is disabled).
-  eventBusAddr: "zynax-event-bus:50056"
+  # Direct JetStream events (ADR-046): the shared client dials NATS; the
+  # EventBusService gRPC facade is deprecated and no longer a peer.
+  natsURL: "nats://zynax-nats:4222"
   activeEngine: "temporal"
   # ArgoEngine connection settings — consumed only when activeEngine=argo
   # (ADR-015 pluggable engines). The configmap/deployment templates gate these

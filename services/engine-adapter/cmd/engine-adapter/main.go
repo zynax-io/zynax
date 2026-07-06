@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	nats "github.com/nats-io/nats.go"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/interceptor"
 	"go.temporal.io/sdk/worker"
@@ -28,6 +29,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/zynax-io/zynax/libs/zynaxevents"
 	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/engine-adapter/internal/api"
@@ -44,7 +46,7 @@ type config struct {
 	TemporalNamespace   string
 	TemporalTaskQueue   string
 	TaskBrokerAddr      string
-	EventBusAddr        string
+	NATSURL             string
 	ActiveEngine        string
 	ArgoServerURL       string
 	ArgoToken           string
@@ -69,7 +71,7 @@ func loadConfig() config {
 		TemporalNamespace:   getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_NAMESPACE", "default"),
 		TemporalTaskQueue:   getEnv("ZYNAX_ENGINE_ADAPTER_TEMPORAL_TASK_QUEUE", "engine-adapter"),
 		TaskBrokerAddr:      getEnv("ZYNAX_ENGINE_ADAPTER_TASK_BROKER_ADDR", "localhost:50053"),
-		EventBusAddr:        getEnv("ZYNAX_ENGINE_ADAPTER_EVENTBUS_ADDR", "localhost:50056"),
+		NATSURL:             getEnv("ZYNAX_ENGINE_ADAPTER_NATS_URL", "nats://localhost:4222"),
 		ActiveEngine:        getEnv("ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE", "temporal"),
 		ArgoServerURL:       getEnv("ZYNAX_ENGINE_ADAPTER_ARGO_SERVER_URL", "http://localhost:2746"),
 		ArgoToken:           getEnv("ZYNAX_ENGINE_ADAPTER_ARGO_TOKEN", ""),
@@ -233,16 +235,29 @@ func buildTemporalEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.Clien
 		return nil, func() {}, nil, fmt.Errorf("temporal client: %w", err)
 	}
 
-	brokerConn, eventBusConn, err := dialGRPCClients(cfg)
+	brokerConn, err := dialGRPCClients(cfg)
 	if err != nil {
 		tc.Close()
 		return nil, func() {}, nil, err
 	}
 
+	// Direct JetStream publisher (ADR-046): the shared events client replaces
+	// the EventBusService gRPC hop. RetryOnFailedConnect keeps startup
+	// broker-independent — the old gRPC dial was lazy, and a NATS-less profile
+	// (e.g. the ADR-041 lite profile) must still boot; publishes stay
+	// best-effort until the broker is reachable.
+	eventsClient, err := zynaxevents.New(cfg.NATSURL,
+		nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1))
+	if err != nil {
+		tc.Close()
+		_ = brokerConn.Close()
+		return nil, func() {}, nil, fmt.Errorf("events client: %w", err)
+	}
+
 	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
 	dispatcher := domain.NewCapabilityDispatcher(zynaxv1.NewTaskBrokerServiceClient(brokerConn), callTimeout)
 	activityWorker := &infrastructure.ActivityWorker{
-		EventBus: zynaxv1.NewEventBusServiceClient(eventBusConn),
+		EventBus: eventsClient,
 	}
 
 	w := worker.New(tc, cfg.TemporalTaskQueue, worker.Options{
@@ -258,7 +273,7 @@ func buildTemporalEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.Clien
 	if err := w.Start(); err != nil {
 		tc.Close()
 		_ = brokerConn.Close()
-		_ = eventBusConn.Close()
+		eventsClient.Close()
 		return nil, func() {}, nil, fmt.Errorf("temporal worker: %w", err)
 	}
 
@@ -266,18 +281,20 @@ func buildTemporalEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.Clien
 		w.Stop()
 		tc.Close()
 		_ = brokerConn.Close()
-		_ = eventBusConn.Close()
+		eventsClient.Close()
 	}
 
 	return infrastructure.NewTemporalEngine(tc, cfg.TemporalTaskQueue, cfg.TemporalNamespace), cleanup, brokerConn, nil
 }
 
-// dialGRPCClients creates lazy gRPC connections to task-broker and event-bus.
-// grpc.NewClient never blocks — connections are established on first use (lazy dial).
-func dialGRPCClients(cfg config) (*grpc.ClientConn, *grpc.ClientConn, error) {
+// dialGRPCClients creates the lazy gRPC connection to task-broker.
+// grpc.NewClient never blocks — connections are established on first use (lazy
+// dial). The event bus is no longer a gRPC peer: lifecycle events go straight
+// to JetStream through libs/zynaxevents (ADR-046).
+func dialGRPCClients(cfg config) (*grpc.ClientConn, error) {
 	creds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
-		return nil, nil, fmt.Errorf("tls credentials: %w", err)
+		return nil, fmt.Errorf("tls credentials: %w", err)
 	}
 	tracingUnary, tracingStream := zynaxobs.TracingClientInterceptors()
 	dialOpts := func(c credentials.TransportCredentials) []grpc.DialOption {
@@ -290,21 +307,9 @@ func dialGRPCClients(cfg config) (*grpc.ClientConn, *grpc.ClientConn, error) {
 	}
 	brokerConn, err := grpc.NewClient(cfg.TaskBrokerAddr, dialOpts(creds)...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("task-broker dial: %w", err)
+		return nil, fmt.Errorf("task-broker dial: %w", err)
 	}
-	// Dial EventBusService with lazy connection — a non-reachable event bus must
-	// not prevent startup. grpc.NewClient defers connection until first RPC call.
-	eventBusCreds, err := infrastructure.TLSCreds(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
-	if err != nil {
-		_ = brokerConn.Close()
-		return nil, nil, fmt.Errorf("event-bus tls credentials: %w", err)
-	}
-	eventBusConn, err := grpc.NewClient(cfg.EventBusAddr, dialOpts(eventBusCreds)...)
-	if err != nil {
-		_ = brokerConn.Close()
-		return nil, nil, fmt.Errorf("event-bus dial: %w", err)
-	}
-	return brokerConn, eventBusConn, nil
+	return brokerConn, nil
 }
 
 func startGRPC(cfg config, engine domain.WorkflowEngine, probes *api.Probes) (*grpc.Server, *health.Server, error) {

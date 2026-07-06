@@ -13,7 +13,7 @@ data:
   temporal-namespace: {{ .Values.env.temporalNamespace | quote }}
   temporal-task-queue: {{ .Values.env.temporalTaskQueue | quote }}
   task-broker-addr: {{ .Values.env.taskBrokerAddr | quote }}
-  event-bus-addr: {{ .Values.env.eventBusAddr | quote }}
+  nats-url: {{ .Values.env.natsURL | quote }}
   active-engine: {{ .Values.env.activeEngine | quote }}
   {{- if eq .Values.env.activeEngine "argo" }}
   argo-server-url: {{ .Values.env.argoServerURL | quote }}

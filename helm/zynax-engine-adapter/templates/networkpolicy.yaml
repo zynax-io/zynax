@@ -33,3 +33,7 @@ spec:
     - ports:
         - port: 50053
           protocol: TCP
+    # NATS JetStream — direct lifecycle-event publish (ADR-046)
+    - ports:
+        - port: 4222
+          protocol: TCP
