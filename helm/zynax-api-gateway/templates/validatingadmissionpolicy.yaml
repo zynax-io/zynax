@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Engine allow-list admission policy (M8.G, ADR-045). A CEL
+# ValidatingAdmissionPolicy bound to the Workflow CR (zynax.io/v1alpha1,
+# ADR-043) denies a CR whose `spec.engine` is not in the namespace's
+# allow-list. An UNSET or empty `spec.engine` always admits — it means the
+# platform default engine. An empty `allowedEngines` value means "no
+# restriction", mirroring the compiler gate's semantics.
+#
+# This guards ONLY the Kubernetes CR path (kubectl / GitOps). The REST path
+# (`zynax apply` → gateway → compiler) never touches the API server and stays
+# guarded by the compiler's checkRoutingPolicy — the ADR-045 §3 dual-guard.
+#
+# Requires Kubernetes ≥ 1.30 (admissionregistration.k8s.io/v1 GA). Note the
+# behaviour change vs the compiler gate: admission is FAIL-CLOSED
+# (failurePolicy: Fail) where the compiler gate is fail-open — enabling this
+# flag is a deliberate per-deployment choice, default off.
+#
+# Per-namespace policy: the binding below scopes enforcement to the release
+# namespace and reads that namespace's allow-list from a params ConfigMap.
+# Additional namespaces get their own binding + params object (ADR-045).
+{{- if .Values.admissionPolicy.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ include "zynax.fullname" . }}-engine-allowlist
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["zynax.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["workflows"]
+  paramKind:
+    apiVersion: v1
+    kind: ConfigMap
+  validations:
+    - expression: >-
+        !has(object.spec.engine) || object.spec.engine == "" ||
+        !('allowedEngines' in params.data) || params.data.allowedEngines == "" ||
+        object.spec.engine in params.data.allowedEngines.split(",")
+      messageExpression: >-
+        "engine '" + object.spec.engine + "' is not in this namespace's
+        allow-list [" + params.data.allowedEngines + "] (ADR-045); omit
+        spec.engine to use the platform default"
+      message: "spec.engine is not in this namespace's engine allow-list (ADR-045)"
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ include "zynax.fullname" . }}-engine-allowlist-{{ .Release.Namespace }}
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+spec:
+  policyName: {{ include "zynax.fullname" . }}-engine-allowlist
+  validationActions: [Deny]
+  paramRef:
+    name: {{ include "zynax.fullname" . }}-engine-allowlist-params
+    namespace: {{ .Release.Namespace }}
+    # A missing params ConfigMap admits (no restriction) instead of blocking
+    # every Workflow CR — the params object is policy config, not a gate.
+    parameterNotFoundAction: Allow
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zynax.fullname" . }}-engine-allowlist-params
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "zynax.labels" . | nindent 4 }}
+data:
+  # Comma-separated engine allow-list for this namespace. Empty = no
+  # restriction (mirrors the compiler gate's RoutingPolicyConfig semantics).
+  allowedEngines: {{ join "," .Values.admissionPolicy.allowedEngines | quote }}
+{{- end }}
