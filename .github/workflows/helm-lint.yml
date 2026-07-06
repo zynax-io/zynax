@@ -71,10 +71,27 @@ jobs:
           helm repo add jetstack https://charts.jetstack.io
           helm repo update
 
+      - name: Guard — no vendored first-party subchart tgz in VCS (#1521)
+        run: |
+          # First-party file:// subchart .tgz must NOT be committed — they drift
+          # from source (the #1488 nodePort regression) and reach any consumer
+          # that installs the umbrella without `helm dependency build`. They are
+          # rebuilt from source below. Fail if any are tracked so drift can never
+          # return to main. Upstream third-party tgz (helm/charts/*/charts/) are
+          # intentionally vendored for offline installs and are exempt.
+          tracked=$(git ls-files 'helm/zynax-umbrella/charts/*.tgz')
+          if [ -n "$tracked" ]; then
+            echo "::error::Vendored umbrella subchart tgz committed to VCS — remove them; source is the single source of truth (#1521):"
+            echo "$tracked"
+            exit 1
+          fi
+          echo "OK — no vendored umbrella subchart tgz tracked."
+
       - name: Build chart dependencies
         run: |
-          # Build file:// dependencies so ct lint can render dependent charts.
-          # The .tgz files are already committed; this is a no-op if satisfied.
+          # Build file:// dependencies from source so ct lint renders the CURRENT
+          # subchart templates. The built .tgz are gitignored (#1521), so this is
+          # the authoritative render — never a stale committed artifact.
           for dir in helm/zynax-*/; do
             if [ -f "$dir/Chart.yaml" ] && grep -q "file://" "$dir/Chart.yaml" 2>/dev/null; then
               echo "Building deps for $dir"

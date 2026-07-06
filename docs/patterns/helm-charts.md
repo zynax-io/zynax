@@ -38,6 +38,32 @@ charts stay consistent when the library is updated.
 
 ---
 
+## Subchart Dependencies — never vendor built `.tgz` (#1521)
+
+First-party subcharts are wired as `file://` dependencies (the umbrella depends on
+each service chart; service charts depend on `zynax-lib`). Their **built `.tgz`
+artifacts are gitignored, not committed** — source is the single source of truth.
+
+- **Why:** a committed `charts/*.tgz` silently drifts from its subchart source. A
+  consumer that runs `helm template`/`helm install` on the umbrella **without**
+  `helm dependency build` first would render the *stale* templates — this is exactly
+  how the pinned api-gateway `nodePort: 30080` went missing and broke host access
+  (#1488). Gitignoring the built tgz removes the drift class entirely.
+- **Rule:** every install/lint/package path MUST run `helm dependency build` from
+  source first. `scripts/e2e/cluster-up.sh`, `scripts/e2e/helm-upgrade.sh`, and the
+  `helm-lint` CI job already do; a `helm-lint` guard fails the build if any
+  `helm/zynax-umbrella/charts/*.tgz` is ever re-committed.
+- **Exempt:** genuine **upstream** third-party charts under `helm/charts/*/charts/`
+  (`nats`, `temporal`) stay vendored — they are pinned and enable offline installs.
+
+```bash
+# Regenerate locally before rendering/inspecting the umbrella:
+helm dependency build helm/zynax-umbrella/
+helm template zynax helm/zynax-umbrella/ | grep -A20 'kind: Service'   # sees CURRENT source
+```
+
+---
+
 ## Required Chart Structure
 
 Every service chart MUST include all of the following:
