@@ -5,6 +5,15 @@
 > Zynax follows CNCF governance best practices and is working toward CNCF Sandbox
 > submission. Governance is neutral — no single company controls decisions.
 
+> **Current operating mode: single maintainer** (see [MAINTAINERS.md](MAINTAINERS.md)).
+> This document describes the full governance the project grows into. Today the
+> **Solo Maintainer Phase rules in §2 apply**; the multi-party mechanics —
+> supermajority voting thresholds (§2), the full RFC review quorum (§4), and the
+> maintainer-vote paths in §9–§10 — are **deferred and activate when the project
+> has more than 5 regular contributors** from at least 2 organisations. Until
+> then, the solo maintainer decides after CI is green, with every decision
+> recorded in ADRs, issues, and PRs exactly as the full process requires.
+
 ---
 
 ## Table of Contents
