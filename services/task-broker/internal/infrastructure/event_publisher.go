@@ -43,9 +43,14 @@ type EventPublisher struct {
 // RetryOnFailedConnect keeps startup broker-independent (the old gRPC dial
 // was lazy; a NATS-less profile must still boot) — publishes stay best-effort
 // until the broker is reachable. The returned cleanup drains the connection.
-func NewEventPublisher(natsURL string, callTimeout time.Duration) (*EventPublisher, func(), error) {
-	client, err := zynaxevents.New(natsURL,
-		nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1))
+func NewEventPublisher(natsURL string, callTimeout time.Duration, tlsCert, tlsKey, tlsCA string) (*EventPublisher, func(), error) {
+	opts := []nats.Option{nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1)}
+	if tlsCert != "" {
+		// Dial with the service's cert-manager identity (verify_and_map,
+		// ADR-046 Decision #4) — same PEMs as gRPC mTLS.
+		opts = append(opts, zynaxevents.TLSIdentity(tlsCert, tlsKey, tlsCA)...)
+	}
+	client, err := zynaxevents.New(natsURL, opts...)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("task-broker: events client: %w", err)
 	}

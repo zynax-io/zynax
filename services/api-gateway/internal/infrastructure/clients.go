@@ -96,8 +96,13 @@ func NewGatewayClients(compilerAddr, engineAddr, registryAddr, natsURL string, c
 	// broker-independent — the old gRPC dial was lazy, and a NATS-less
 	// profile (ADR-041 lite) must still boot; the /logs event merge is
 	// best-effort until the broker is reachable.
-	events, err := zynaxevents.New(natsURL,
-		nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1))
+	eventsOpts := []nats.Option{nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1)}
+	if tlsCertFile != "" {
+		// Dial with the gateway's cert-manager identity (verify_and_map,
+		// ADR-046 Decision #4) — same PEMs as gRPC mTLS.
+		eventsOpts = append(eventsOpts, zynaxevents.TLSIdentity(tlsCertFile, tlsKeyFile, tlsCAFile)...)
+	}
+	events, err := zynaxevents.New(natsURL, eventsOpts...)
 	if err != nil {
 		_ = compConn.Close()
 		_ = engConn.Close()

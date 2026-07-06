@@ -246,8 +246,13 @@ func buildTemporalEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.Clien
 	// broker-independent — the old gRPC dial was lazy, and a NATS-less profile
 	// (e.g. the ADR-041 lite profile) must still boot; publishes stay
 	// best-effort until the broker is reachable.
-	eventsClient, err := zynaxevents.New(cfg.NATSURL,
-		nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1))
+	eventsOpts := []nats.Option{nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1)}
+	if cfg.TLSCert != "" {
+		// Dial the broker with the service's cert-manager identity
+		// (verify_and_map, ADR-046 Decision #4) — same PEMs as gRPC mTLS.
+		eventsOpts = append(eventsOpts, zynaxevents.TLSIdentity(cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)...)
+	}
+	eventsClient, err := zynaxevents.New(cfg.NATSURL, eventsOpts...)
 	if err != nil {
 		tc.Close()
 		_ = brokerConn.Close()

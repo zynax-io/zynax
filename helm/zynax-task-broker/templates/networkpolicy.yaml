@@ -17,6 +17,10 @@ spec:
         - port: {{ .Values.env.grpcPort }}
           protocol: TCP
   egress:
+    # NATS JetStream — direct task-event publish when enabled (ADR-046)
+    - ports:
+        - port: 4222
+          protocol: TCP
     # DNS resolution
     - ports:
         - port: 53

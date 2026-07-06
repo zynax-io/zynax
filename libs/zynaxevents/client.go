@@ -36,3 +36,16 @@ func New(url string, natsOpts ...nats.Option) (*Client, error) {
 func (c *Client) Close() {
 	_ = c.conn.Drain()
 }
+
+// TLSIdentity returns the nats.Options that make the client dial the broker
+// over TLS with its cert-manager-issued service identity (ADR-046 Decision #4):
+// the client certificate + key back the broker's verify_and_map user mapping,
+// and the platform CA verifies the broker's server certificate. Pass the same
+// PEM paths the service already mounts for gRPC mTLS (ADR-020) — eventing
+// reuses that identity, never a second secret system.
+func TLSIdentity(certFile, keyFile, caFile string) []nats.Option {
+	return []nats.Option{
+		nats.ClientCert(certFile, keyFile),
+		nats.RootCAs(caFile),
+	}
+}

@@ -139,7 +139,7 @@ func attachEventPublisher(svc *domain.TaskService, cfg config, callTimeout time.
 	if cfg.NATSURL == "" {
 		return func() {}, nil
 	}
-	publisher, cleanup, err := infrastructure.NewEventPublisher(cfg.NATSURL, callTimeout)
+	publisher, cleanup, err := infrastructure.NewEventPublisher(cfg.NATSURL, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
 		return nil, fmt.Errorf("task-broker: event publisher: %w", err)
 	}
