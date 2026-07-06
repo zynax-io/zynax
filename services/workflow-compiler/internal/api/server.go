@@ -35,9 +35,9 @@ func New() *Server {
 	return &Server{generateID: generateWorkflowID}
 }
 
-// NewWithPolicy creates a Server with a PolicyGate that enforces routing
-// policies and capability quotas at compile time. Pass nil to disable
-// policy enforcement (equivalent to New()).
+// NewWithPolicy creates a Server with a PolicyGate that enforces the
+// namespace engine allow-list at compile time — the REST-path dual-guard of
+// ADR-045 §3. Pass nil to disable policy enforcement (equivalent to New()).
 func NewWithPolicy(gate *domain.PolicyGate) *Server {
 	return &Server{generateID: generateWorkflowID, policyGate: gate}
 }
@@ -65,7 +65,8 @@ func (s *Server) CompileWorkflow(ctx context.Context, req *zynaxv1.CompileWorkfl
 		manifest.Namespace = req.Namespace
 	}
 
-	// Policy gate: routing policy and capability quota enforcement.
+	// Policy gate: engine allow-list enforcement for the REST path (ADR-045 §3
+	// dual-guard; the CR path is guarded by a ValidatingAdmissionPolicy).
 	// Runs after parsing (so we know namespace + annotations) and before the
 	// graph build (fail fast on policy violations).
 	if s.policyGate != nil {
@@ -76,14 +77,11 @@ func (s *Server) CompileWorkflow(ctx context.Context, req *zynaxv1.CompileWorkfl
 		// Build a minimal graph-like struct for the gate — only Namespace is
 		// needed at this stage; the full graph is built next.
 		stub := &domain.WorkflowGraph{Namespace: manifest.Namespace}
-		if gateErr := s.policyGate.Check(ctx, stub, annotations); gateErr != nil {
+		if gateErr := s.policyGate.Check(stub, annotations); gateErr != nil {
 			switch gateErr.Kind {
 			case domain.PolicyViolationRouting:
 				return nil, status.Errorf(codes.PermissionDenied,
 					"routing policy violation: %s", gateErr.Message)
-			case domain.PolicyViolationQuota:
-				return nil, status.Errorf(codes.ResourceExhausted,
-					"capability quota exceeded: %s", gateErr.Message)
 			default:
 				return nil, status.Errorf(codes.Internal,
 					"policy gate error: %s", gateErr.Message)

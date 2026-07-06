@@ -3,7 +3,6 @@
 package domain
 
 import (
-	"context"
 	"fmt"
 )
 
@@ -30,10 +29,6 @@ const (
 	// PolicyViolationRouting indicates the engine hint is not in the
 	// namespace's allowed-engine list. The API layer returns PERMISSION_DENIED.
 	PolicyViolationRouting PolicyViolationKind = iota + 1
-	// PolicyViolationQuota indicates the namespace has exceeded its
-	// concurrent capability invocation quota. The API layer returns
-	// RESOURCE_EXHAUSTED.
-	PolicyViolationQuota
 )
 
 // RoutingPolicyConfig describes which engines a namespace is allowed to use.
@@ -47,83 +42,40 @@ type RoutingPolicyConfig struct {
 	AllowedEngines []string
 }
 
-// CapabilityQuotaConfig describes the concurrent invocation limit for a
-// namespace. MaxConcurrent == 0 means "no quota configured" (unbounded).
-// This is the domain representation — the API layer maps the proto
-// CapabilityQuota message to this struct.
-type CapabilityQuotaConfig struct {
-	// Namespace this quota applies to. Empty disables enforcement.
-	Namespace string
-	// MaxConcurrent is the hard ceiling for concurrent capability invocations.
-	// Zero means "no quota configured".
-	MaxConcurrent int32
-}
-
-// ActiveInvocationCounter is the port (interface) the policy gate uses to
-// query the current number of active capability invocations for a namespace.
-// The infrastructure layer provides the concrete implementation; unit tests
-// supply a simple stub.
-type ActiveInvocationCounter interface {
-	// ActiveCount returns the number of in-flight capability invocations for
-	// the given namespace.
-	ActiveCount(ctx context.Context, namespace string) (int32, error)
-}
-
-// PolicyGate enforces routing policies and capability quotas at compile time.
-// It is stateless except for the injected counter and the policy configs it
-// holds — it is safe for concurrent use once constructed.
+// PolicyGate enforces the namespace engine allow-list at compile time for the
+// REST submission path. It is the interim dual-guard of ADR-045 §3: the
+// Kubernetes CR path is guarded by a ValidatingAdmissionPolicy on the Workflow
+// CR, while this gate covers `zynax apply` → gateway → compiler, which never
+// touches the API server. The concurrent-invocation quota check that used to
+// live here was removed by ADR-045 §2 — it was never enforced in production
+// (the gate was always constructed with a nil counter) and quota remains
+// unenforced until the engine-adapter QuotaChecker is wired live.
 //
+// The gate is stateless once constructed and safe for concurrent use.
 // Use NewPolicyGate to create an instance.
 type PolicyGate struct {
-	routingPolicies map[string]RoutingPolicyConfig   // keyed by namespace
-	quotaConfigs    map[string]CapabilityQuotaConfig // keyed by namespace
-	counter         ActiveInvocationCounter
+	routingPolicies map[string]RoutingPolicyConfig // keyed by namespace
 }
 
-// NewPolicyGate constructs a PolicyGate from the given per-namespace
-// routing policies and capability quota configs. Policies or quotas with an
-// empty Namespace are silently ignored. counter may be nil — when nil the gate
-// skips quota checks (treats every namespace as unconstrained).
-func NewPolicyGate(
-	policies []RoutingPolicyConfig,
-	quotas []CapabilityQuotaConfig,
-	counter ActiveInvocationCounter,
-) *PolicyGate {
+// NewPolicyGate constructs a PolicyGate from the given per-namespace routing
+// policies. Policies with an empty Namespace are silently ignored.
+func NewPolicyGate(policies []RoutingPolicyConfig) *PolicyGate {
 	pg := &PolicyGate{
 		routingPolicies: make(map[string]RoutingPolicyConfig, len(policies)),
-		quotaConfigs:    make(map[string]CapabilityQuotaConfig, len(quotas)),
-		counter:         counter,
 	}
 	for _, p := range policies {
 		if p.Namespace != "" {
 			pg.routingPolicies[p.Namespace] = p
 		}
 	}
-	for _, q := range quotas {
-		if q.Namespace != "" {
-			pg.quotaConfigs[q.Namespace] = q
-		}
-	}
 	return pg
 }
 
-// Check runs all policy gates against the given WorkflowGraph and returns a
-// *PolicyGateError if any gate rejects the compilation, or nil if the graph
-// is allowed through.
-//
-// Order of checks:
-//  1. Routing policy — engine hint vs. namespace allow-list
-//  2. Capability quota — active invocation count vs. namespace ceiling
-//
-// The first violation encountered is returned; subsequent checks are skipped.
-func (pg *PolicyGate) Check(ctx context.Context, g *WorkflowGraph, annotations map[string]string) *PolicyGateError {
-	if err := pg.checkRoutingPolicy(g.Namespace, annotations); err != nil {
-		return err
-	}
-	if err := pg.checkCapabilityQuota(ctx, g.Namespace); err != nil {
-		return err
-	}
-	return nil
+// Check runs the policy gate against the given WorkflowGraph and returns a
+// *PolicyGateError if the routing policy rejects the compilation, or nil if
+// the graph is allowed through.
+func (pg *PolicyGate) Check(g *WorkflowGraph, annotations map[string]string) *PolicyGateError {
+	return pg.checkRoutingPolicy(g.Namespace, annotations)
 }
 
 // checkRoutingPolicy returns a PolicyGateError with Kind==PolicyViolationRouting
@@ -160,43 +112,4 @@ func (pg *PolicyGate) checkRoutingPolicy(namespace string, annotations map[strin
 			hint, namespace, policy.AllowedEngines,
 		),
 	}
-}
-
-// checkCapabilityQuota returns a PolicyGateError with Kind==PolicyViolationQuota
-// if the namespace has reached its concurrent invocation ceiling. Returns nil
-// when:
-//   - no quota is configured for the namespace
-//   - max_concurrent is zero (unbounded)
-//   - the counter is nil (quota enforcement is disabled)
-//   - the active count is below the ceiling
-func (pg *PolicyGate) checkCapabilityQuota(ctx context.Context, namespace string) *PolicyGateError {
-	if pg.counter == nil {
-		return nil
-	}
-	quota, ok := pg.quotaConfigs[namespace]
-	if !ok {
-		return nil // no quota for this namespace
-	}
-	if quota.MaxConcurrent == 0 {
-		return nil // unbounded
-	}
-
-	active, err := pg.counter.ActiveCount(ctx, namespace)
-	if err != nil {
-		// Counter errors are not policy violations; they are treated as
-		// "quota check unavailable" and the gate passes to avoid blocking
-		// compilations when the counter backend is temporarily unreachable.
-		return nil
-	}
-
-	if active >= quota.MaxConcurrent {
-		return &PolicyGateError{
-			Kind: PolicyViolationQuota,
-			Message: fmt.Sprintf(
-				"capability quota exceeded for namespace %q: %d active invocations, limit is %d",
-				namespace, active, quota.MaxConcurrent,
-			),
-		}
-	}
-	return nil
 }
