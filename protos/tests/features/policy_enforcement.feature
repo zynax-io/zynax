@@ -3,21 +3,30 @@
 #
 # This file is the SPECIFICATION. It is written BEFORE the implementation
 # (ADR-016: contracts before code). It describes the policy-enforcement
-# contract the control plane must honour once RoutingPolicy, RateLimit, and
-# CapabilityQuota (protos/zynax/v1/policy.proto) are enforced.
-# See protos/AGENTS.md §7 for contract test rules.
+# contract the control plane must honour for RoutingPolicy and RateLimit
+# (protos/zynax/v1/policy.proto). See protos/AGENTS.md §7 for contract rules.
+#
+# CapabilityQuota scenarios REMOVED (ADR-045 §2, M8.G #1636): the compiler's
+# quota check was never enforced in production (the gate was always built with
+# a nil invocation counter) and was deleted rather than delegated. The quota
+# contract deliberately does NOT migrate to the engine-adapter QuotaChecker
+# while that component has no production caller — a green contract against
+# dead code would advertise protection that does not exist (ADR-020). Restore
+# a quota contract only when a live enforcement path exists.
+#
+# The RateLimit scenarios are enforced at the Envoy Gateway edge since M8.F
+# (ADR-044); the RoutingPolicy scenarios cover the compiler's REST-path
+# dual-guard (ADR-045 §3 — the CR path is guarded by a
+# ValidatingAdmissionPolicy on the Workflow CR).
 #
 # Business context: the control plane needs an enforcement layer so that a
-# single badly-behaved workflow cannot saturate the api-gateway, exhaust
-# task-broker capacity, or route work to an engine a namespace is not allowed
-# to use. The three policy primitives — RateLimit (per-source-IP token
-# bucket), CapabilityQuota (concurrent invocations per namespace), and
-# RoutingPolicy (allowed engines per namespace) — are static config in M6
-# (no admin API). (REASONS Canvas #768)
+# single badly-behaved workflow cannot saturate the api-gateway or route work
+# to an engine a namespace is not allowed to use. (REASONS Canvas #768,
+# partially superseded by docs/spdd/1575-admission-policy/canvas.md)
 
-Feature: Policy enforcement — rate limits, capability quotas, and routing policies
+Feature: Policy enforcement — rate limits and routing policies
   As a platform operator protecting shared control-plane capacity
-  I want routing policies, rate limits, and capability quotas enforced
+  I want routing policies and rate limits enforced
   So that no single workflow or namespace can starve or misuse the platform
 
   Background:
@@ -38,23 +47,6 @@ Feature: Policy enforcement — rate limits, capability quotas, and routing poli
     And source IP "203.0.113.11" has made no requests
     When source IP "203.0.113.11" sends POST "/api/v1/apply"
     Then the response HTTP status is 202
-
-  # ─── CapabilityQuota: concurrent invocations → RESOURCE_EXHAUSTED ──────────
-
-  Scenario: Submission exceeding the namespace capability quota is rejected
-    Given a CapabilityQuota of 2 max_concurrent for namespace "team-a"
-    And namespace "team-a" already has 2 capability invocations in flight
-    When a workflow for namespace "team-a" is submitted for compilation
-    Then the gRPC status is RESOURCE_EXHAUSTED
-    And the error message contains "team-a"
-    And no WorkflowIR is emitted
-
-  Scenario: Submission within the namespace capability quota is admitted
-    Given a CapabilityQuota of 2 max_concurrent for namespace "team-b"
-    And namespace "team-b" has 0 capability invocations in flight
-    When a workflow for namespace "team-b" is submitted for compilation
-    Then the workflow is compiled successfully
-    And a WorkflowIR is emitted
 
   # ─── RoutingPolicy: allowed engines → PERMISSION_DENIED ────────────────────
 

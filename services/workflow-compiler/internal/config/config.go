@@ -24,9 +24,11 @@ type Config struct {
 	// TLSCA is the path to the CA certificate bundle PEM file for verifying peers.
 	TLSCA string `envconfig:"ZYNAX_TLS_CA"`
 
-	// ── Policy configuration (M6) ──────────────────────────────────────────
-	// Routing policies and capability quotas are read from env vars in M6.
-	// A policy administration API is deferred to M7+.
+	// ── Policy configuration (M6; quota removed by ADR-045 in M8) ─────────
+	// The engine allow-list is read from env vars — the REST-path dual-guard
+	// of ADR-045 §3. The ZYNAX_POLICY_MAX_CONCURRENT quota knob was removed:
+	// the compiler quota check was never enforced in production (nil counter)
+	// and quota is unenforced until the engine-adapter QuotaChecker is wired.
 
 	// PolicyNamespace is the namespace these policy settings apply to.
 	// Leave empty to disable policy enforcement for all namespaces.
@@ -37,11 +39,6 @@ type Config struct {
 	// An empty value means "no restriction" (any engine is permitted).
 	// Only evaluated when ZYNAX_POLICY_NAMESPACE is set.
 	PolicyAllowedEngines string `envconfig:"ZYNAX_POLICY_ALLOWED_ENGINES"`
-
-	// PolicyMaxConcurrent is the maximum number of concurrent capability
-	// invocations for the namespace. Zero means "no quota configured" (unbounded).
-	// Only evaluated when ZYNAX_POLICY_NAMESPACE is set.
-	PolicyMaxConcurrent int32 `envconfig:"ZYNAX_POLICY_MAX_CONCURRENT" default:"0"`
 }
 
 // Load reads Config from environment variables.
@@ -53,15 +50,15 @@ func Load() (*Config, error) {
 	return &cfg, nil
 }
 
-// PolicyGates returns the routing-policy and quota configs derived from the
-// environment-variable-backed Config. Returns nil slices when policy
+// PolicyGates returns the routing-policy configs derived from the
+// environment-variable-backed Config. Returns a nil slice when policy
 // enforcement is disabled (ZYNAX_POLICY_NAMESPACE is unset).
 //
-// Only a single namespace policy is supported in M6. Multi-namespace policies
-// and a policy administration API are deferred to M7+.
-func (c *Config) PolicyGates() ([]domain.RoutingPolicyConfig, []domain.CapabilityQuotaConfig) {
+// Only a single namespace policy is supported. Multi-namespace policy for the
+// CR path is expressed as multiple ValidatingAdmissionPolicyBindings (ADR-045).
+func (c *Config) PolicyGates() []domain.RoutingPolicyConfig {
 	if c.PolicyNamespace == "" {
-		return nil, nil
+		return nil
 	}
 
 	var engines []string
@@ -74,15 +71,8 @@ func (c *Config) PolicyGates() ([]domain.RoutingPolicyConfig, []domain.Capabilit
 		}
 	}
 
-	routing := []domain.RoutingPolicyConfig{{
+	return []domain.RoutingPolicyConfig{{
 		Namespace:      c.PolicyNamespace,
 		AllowedEngines: engines,
 	}}
-
-	quotas := []domain.CapabilityQuotaConfig{{
-		Namespace:     c.PolicyNamespace,
-		MaxConcurrent: c.PolicyMaxConcurrent,
-	}}
-
-	return routing, quotas
 }

@@ -142,16 +142,15 @@ func drainAndStop(srv *grpc.Server, h *health.Server) {
 
 // buildPolicyGate constructs a domain.PolicyGate from the environment-backed
 // config. Returns nil when policy enforcement is disabled (no namespace set).
+// The gate is the REST-path engine allow-list dual-guard of ADR-045 §3; the
+// capability-quota half was removed (never enforced in production).
 func buildPolicyGate(cfg *config.Config) *domain.PolicyGate {
-	routing, quotas := cfg.PolicyGates()
-	if len(routing) == 0 && len(quotas) == 0 {
+	routing := cfg.PolicyGates()
+	if len(routing) == 0 {
 		return nil
 	}
-	slog.Info("policy gate enabled",
-		"routing_policies", len(routing),
-		"quota_configs", len(quotas),
-	)
-	return domain.NewPolicyGate(routing, quotas, nil)
+	slog.Info("policy gate enabled", "routing_policies", len(routing))
+	return domain.NewPolicyGate(routing)
 }
 
 func parseLogLevel(level string) slog.Level {
