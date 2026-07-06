@@ -1,0 +1,17 @@
+{
+  "_comment": "Golden pins for subscription glob semantics (ADR-046 byte-compat gate, M8.H #1644): '*' matches exactly one dot-segment, '**' matches zero or more segments. Any future re-implementation (including the deferred Python SDK path) must reproduce these verdicts exactly.",
+  "cases": [
+    { "pattern": "zynax.v1.engine-adapter.workflow.*", "eventType": "zynax.v1.engine-adapter.workflow.completed", "matches": true },
+    { "pattern": "zynax.v1.engine-adapter.workflow.*", "eventType": "zynax.v1.engine-adapter.workflow.state.entered", "matches": false },
+    { "pattern": "zynax.v1.engine-adapter.workflow.**", "eventType": "zynax.v1.engine-adapter.workflow.state.entered", "matches": true },
+    { "pattern": "zynax.v1.engine-adapter.workflow.**", "eventType": "zynax.v1.engine-adapter.workflow", "matches": true },
+    { "pattern": "zynax.v1.**", "eventType": "zynax.v1.task-broker.task.dispatched", "matches": true },
+    { "pattern": "**", "eventType": "anything.at.all", "matches": true },
+    { "pattern": "zynax.v1.*.workflow.completed", "eventType": "zynax.v1.engine-adapter.workflow.completed", "matches": true },
+    { "pattern": "zynax.v1.*.workflow.completed", "eventType": "zynax.v1.engine-adapter.task.completed", "matches": false },
+    { "pattern": "zynax.v1.engine-adapter.workflow.completed", "eventType": "zynax.v1.engine-adapter.workflow.completed", "matches": true },
+    { "pattern": "zynax.v1.engine-adapter.workflow.completed", "eventType": "zynax.v1.engine-adapter.workflow", "matches": false },
+    { "pattern": "*", "eventType": "ping", "matches": true },
+    { "pattern": "*", "eventType": "a.b", "matches": false }
+  ]
+}

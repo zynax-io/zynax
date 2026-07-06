@@ -1,0 +1,61 @@
+{
+  "_comment": "Golden pins for the JetStream naming conventions (ADR-046 byte-compat gate, M8.H #1644). Source of truth: services/event-bus/internal/infrastructure/nats.go — depth-4 stream derivation with the #1149 disjoint-filter rule, DLQ_<src> stream names, exact zynax.dlq.<prefix>.dead deliver subjects. Both the facade and libs/zynaxevents must produce EXACTLY these values.",
+  "cases": [
+    {
+      "eventType": "zynax.v1.engine-adapter.workflow.completed",
+      "streamName": "ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW",
+      "subjectFilter": "zynax.v1.engine-adapter.workflow.>",
+      "streamSubjects": ["zynax.v1.engine-adapter.workflow", "zynax.v1.engine-adapter.workflow.>"],
+      "dlqStreamName": "DLQ_ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW",
+      "dlqDeliverSubject": "zynax.dlq.zynax.v1.engine-adapter.workflow.dead"
+    },
+    {
+      "_comment": "the #1149 case: a deeper verb under the SAME entity prefix maps to the SAME stream",
+      "eventType": "zynax.v1.engine-adapter.workflow.state.entered",
+      "streamName": "ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW",
+      "subjectFilter": "zynax.v1.engine-adapter.workflow.>",
+      "streamSubjects": ["zynax.v1.engine-adapter.workflow", "zynax.v1.engine-adapter.workflow.>"],
+      "dlqStreamName": "DLQ_ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW",
+      "dlqDeliverSubject": "zynax.dlq.zynax.v1.engine-adapter.workflow.dead"
+    },
+    {
+      "eventType": "zynax.v1.agent-registry.agent.registered",
+      "streamName": "ZYNAX_V1_AGENT_REGISTRY_AGENT",
+      "subjectFilter": "zynax.v1.agent-registry.agent.>",
+      "streamSubjects": ["zynax.v1.agent-registry.agent", "zynax.v1.agent-registry.agent.>"],
+      "dlqStreamName": "DLQ_ZYNAX_V1_AGENT_REGISTRY_AGENT",
+      "dlqDeliverSubject": "zynax.dlq.zynax.v1.agent-registry.agent.dead"
+    },
+    {
+      "eventType": "zynax.v1.task-broker.task.dispatched",
+      "streamName": "ZYNAX_V1_TASK_BROKER_TASK",
+      "subjectFilter": "zynax.v1.task-broker.task.>",
+      "streamSubjects": ["zynax.v1.task-broker.task", "zynax.v1.task-broker.task.>"],
+      "dlqStreamName": "DLQ_ZYNAX_V1_TASK_BROKER_TASK",
+      "dlqDeliverSubject": "zynax.dlq.zynax.v1.task-broker.task.dead"
+    },
+    {
+      "_comment": "exactly taxonomy-depth: literal subject, no wildcard (cannot overlap a fixed-depth filter)",
+      "eventType": "zynax.v1.api-gateway.workflow",
+      "streamName": "ZYNAX_V1_API_GATEWAY_WORKFLOW",
+      "subjectFilter": "zynax.v1.api-gateway.workflow",
+      "streamSubjects": ["zynax.v1.api-gateway.workflow"],
+      "dlqStreamName": "DLQ_ZYNAX_V1_API_GATEWAY_WORKFLOW",
+      "dlqDeliverSubject": "zynax.dlq.zynax.v1.api-gateway.workflow.dead"
+    },
+    {
+      "_comment": "shorter than taxonomy depth: used verbatim",
+      "eventType": "ping",
+      "streamName": "PING",
+      "subjectFilter": "ping",
+      "streamSubjects": ["ping"],
+      "dlqStreamName": "DLQ_PING",
+      "dlqDeliverSubject": "zynax.dlq.ping.dead"
+    }
+  ],
+  "patternSubjects": [
+    { "pattern": "zynax.v1.engine-adapter.workflow.*", "concreteSubject": "zynax.v1.engine-adapter.workflow.x" },
+    { "pattern": "zynax.v1.**", "concreteSubject": "zynax.v1.x" },
+    { "pattern": "zynax.v1.workflow.completed", "concreteSubject": "zynax.v1.workflow.completed" }
+  ]
+}

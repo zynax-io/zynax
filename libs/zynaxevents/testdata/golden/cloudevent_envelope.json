@@ -1,0 +1,39 @@
+{
+  "_comment": "Golden pins for the CloudEvents v1.0 JSON wire envelope + NATS message shape (ADR-046 byte-compat gate, M8.H #1644). wantJSON is the EXACT byte sequence json.Marshal must produce (field order pinned). The domain Time field is deliberately NOT on the wire. The NATS message subject is the event Type; headers carry Content-Type application/cloudevents+json plus ce-id / ce-type / ce-source (and the W3C traceparent when a span is active).",
+  "wantHeaders": {
+    "Content-Type": "application/cloudevents+json",
+    "ce-id": "<event.ID>",
+    "ce-type": "<event.Type>",
+    "ce-source": "<event.Source>"
+  },
+  "wantSubject": "<event.Type>",
+  "publishAckID": "<STREAM>:<sequence>",
+  "cases": [
+    {
+      "name": "fully populated event",
+      "event": {
+        "id": "evt-0001",
+        "source": "zynax://engine-adapter",
+        "specVersion": "1.0",
+        "type": "zynax.v1.engine-adapter.workflow.completed",
+        "dataContentType": "application/json",
+        "workflowID": "wf-abc123",
+        "runID": "run-xyz789",
+        "namespace": "team-a",
+        "capabilityName": "echo",
+        "dataBase64": "eyJyZXN1bHQiOiJvayJ9"
+      },
+      "wantJSON": "{\"specversion\":\"1.0\",\"id\":\"evt-0001\",\"source\":\"zynax://engine-adapter\",\"type\":\"zynax.v1.engine-adapter.workflow.completed\",\"datacontenttype\":\"application/json\",\"workflowid\":\"wf-abc123\",\"runid\":\"run-xyz789\",\"namespace\":\"team-a\",\"capabilityname\":\"echo\",\"data\":\"eyJyZXN1bHQiOiJvayJ9\"}"
+    },
+    {
+      "name": "minimal event (omitempty drops optional attributes)",
+      "event": {
+        "id": "evt-min",
+        "source": "zynax://test",
+        "specVersion": "1.0",
+        "type": "ping"
+      },
+      "wantJSON": "{\"specversion\":\"1.0\",\"id\":\"evt-min\",\"source\":\"zynax://test\",\"type\":\"ping\"}"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "_comment": "Golden pins for durable consumer name sanitizing (ADR-046 byte-compat gate, M8.H #1644): keep [a-zA-Z0-9-], replace every other rune with underscore, truncate at 200 bytes.",
+  "cases": [
+    {
+      "subscriberID": "api-gateway.watch.wf-abc123",
+      "durable": "api-gateway_watch_wf-abc123"
+    },
+    {
+      "subscriberID": "sub with spaces & (parens)",
+      "durable": "sub_with_spaces____parens_"
+    },
+    {
+      "subscriberID": "simple-subscriber-1",
+      "durable": "simple-subscriber-1"
+    },
+    {
+      "subscriberID": "uni.çode/sub",
+      "durable": "uni__ode_sub"
+    },
+    {
+      "subscriberID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "durable": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}

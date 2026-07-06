@@ -1,0 +1,23 @@
+{
+  "_comment": "Golden pins for the consumer retry/DLQ policy (ADR-046 byte-compat gate, M8.H #1644): MaxDeliver aligned with the backoff schedule; after the fifth delivery attempt the message routes to the DLQ deliver subject. DLQ streams use WorkQueuePolicy (each message consumed once), FileStorage, MaxMsgs unlimited, MaxConsumers 1. Primary streams use LimitsPolicy, FileStorage, Replicas 1. Consumers are durable, DeliverLast, AckExplicit.",
+  "maxDeliver": 5,
+  "backoff": ["1s", "5s", "30s", "2m0s", "5m0s"],
+  "durableNameByteCap": 200,
+  "dlq": {
+    "retention": "WorkQueuePolicy",
+    "storage": "FileStorage",
+    "replicas": 1,
+    "maxMsgs": -1,
+    "maxConsumers": 1
+  },
+  "primaryStream": {
+    "retention": "LimitsPolicy",
+    "storage": "FileStorage",
+    "replicas": 1
+  },
+  "consumer": {
+    "durable": true,
+    "deliverPolicy": "DeliverLast",
+    "ackPolicy": "AckExplicit"
+  }
+}
