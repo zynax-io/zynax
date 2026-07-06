@@ -76,6 +76,20 @@ edge:
     unit: Minute
 
 
+# Engine allow-list admission policy (M8.G, ADR-045). When enabled, a CEL
+# ValidatingAdmissionPolicy bound to the Workflow CR (ADR-043) denies a CR
+# whose spec.engine is not in allowedEngines; unset/empty spec.engine always
+# admits (platform default engine). Requires Kubernetes >= 1.30 (VAP GA).
+# Default OFF: admission is fail-closed where the compiler's REST-path gate is
+# fail-open — enabling is a deliberate per-deployment choice. The REST path
+# stays guarded by the compiler gate (ADR-045 §3 dual-guard). Multi-namespace
+# policy = one binding + params object per namespace.
+admissionPolicy:
+  enabled: false
+  # Engines this release namespace may use. Empty list = no restriction
+  # (mirrors the compiler gate semantics).
+  allowedEngines: []
+
 # mTLS secret — set to empty string to disable TLS (dev only).
 # When set, the secret must contain tls.crt, tls.key, and ca.crt.
 tlsSecretName: ""

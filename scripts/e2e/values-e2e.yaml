@@ -42,6 +42,13 @@ zynax-api-gateway:
   # WATCH_NAMESPACE resolves to the pod namespace via the downward API.
   crdController:
     enabled: true
+  # Engine allow-list VAP (ADR-045, M8.G): both matrix engines are allowed so
+  # the existing CR happy-path admits on either leg; e2e-workflow-crd.sh
+  # asserts a CR with an engine OUTSIDE this list is denied at admission.
+  # Requires the kind ≥ 1.30 node image (#1634).
+  admissionPolicy:
+    enabled: true
+    allowedEngines: [temporal, argo]
 zynax-workflow-compiler:
   fullnameOverride: zynax-workflow-compiler
   image:
