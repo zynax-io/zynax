@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	nats "github.com/nats-io/nats.go"
+
+	"github.com/zynax-io/zynax/libs/zynaxevents"
 	"github.com/zynax-io/zynax/libs/zynaxobs"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"github.com/zynax-io/zynax/services/api-gateway/internal/domain"
@@ -21,7 +24,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
 )
 
@@ -31,7 +33,7 @@ type GatewayClients struct {
 	compiler    zynaxv1.WorkflowCompilerServiceClient
 	engine      zynaxv1.EngineAdapterServiceClient
 	registry    zynaxv1.AgentRegistryServiceClient
-	eventbus    zynaxv1.EventBusServiceClient
+	events      *zynaxevents.Client
 	conns       []*grpc.ClientConn
 	callTimeout time.Duration
 }
@@ -57,12 +59,13 @@ func (c *GatewayClients) ConnectionsReady() bool {
 	return true
 }
 
-// NewGatewayClients dials all three downstream gRPC services. callTimeout is
-// applied as a per-call deadline on every unary RPC (streaming Watch excluded).
-// tlsCertFile, tlsKeyFile, tlsCAFile are paths to PEM files for mTLS; pass empty
-// strings to fall back to insecure credentials (dev/test).
-// The returned cleanup function closes all connections and must be deferred by the caller.
-func NewGatewayClients(compilerAddr, engineAddr, registryAddr, eventBusAddr string, callTimeout time.Duration, tlsCertFile, tlsKeyFile, tlsCAFile string) (*GatewayClients, func(), error) {
+// NewGatewayClients dials the three downstream gRPC services and connects the
+// shared JetStream events client (ADR-046 — eventing is no longer a gRPC
+// peer). callTimeout is applied as a per-call deadline on every unary RPC
+// (streaming Watch excluded). tlsCertFile, tlsKeyFile, tlsCAFile are paths to
+// PEM files for mTLS; pass empty strings to fall back to insecure credentials
+// (dev/test). The returned cleanup closes everything and must be deferred.
+func NewGatewayClients(compilerAddr, engineAddr, registryAddr, natsURL string, callTimeout time.Duration, tlsCertFile, tlsKeyFile, tlsCAFile string) (*GatewayClients, func(), error) {
 	creds, err := tlsCreds(tlsCertFile, tlsKeyFile, tlsCAFile)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("api-gateway: tls credentials: %w", err)
@@ -89,22 +92,32 @@ func NewGatewayClients(compilerAddr, engineAddr, registryAddr, eventBusAddr stri
 		_ = engConn.Close()
 		return nil, func() {}, fmt.Errorf("api-gateway: registry dial: %w", err)
 	}
-	busConn, err := grpc.NewClient(eventBusAddr, dialOpts...)
+	// Direct JetStream (ADR-046): RetryOnFailedConnect keeps startup
+	// broker-independent — the old gRPC dial was lazy, and a NATS-less
+	// profile (ADR-041 lite) must still boot; the /logs event merge is
+	// best-effort until the broker is reachable.
+	events, err := zynaxevents.New(natsURL,
+		nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1))
 	if err != nil {
 		_ = compConn.Close()
 		_ = engConn.Close()
 		_ = regConn.Close()
-		return nil, func() {}, fmt.Errorf("api-gateway: event-bus dial: %w", err)
+		return nil, func() {}, fmt.Errorf("api-gateway: events client: %w", err)
 	}
 	c := &GatewayClients{
 		compiler:    zynaxv1.NewWorkflowCompilerServiceClient(compConn),
 		engine:      zynaxv1.NewEngineAdapterServiceClient(engConn),
 		registry:    zynaxv1.NewAgentRegistryServiceClient(regConn),
-		eventbus:    zynaxv1.NewEventBusServiceClient(busConn),
-		conns:       []*grpc.ClientConn{compConn, engConn, regConn, busConn},
+		events:      events,
+		conns:       []*grpc.ClientConn{compConn, engConn, regConn},
 		callTimeout: callTimeout,
 	}
-	cleanup := func() { _ = compConn.Close(); _ = engConn.Close(); _ = regConn.Close(); _ = busConn.Close() }
+	cleanup := func() {
+		_ = compConn.Close()
+		_ = engConn.Close()
+		_ = regConn.Close()
+		events.Close()
+	}
 	return c, cleanup, nil
 }
 
@@ -210,45 +223,38 @@ func (c *GatewayClients) WatchWorkflow(ctx context.Context, runID string, send f
 }
 
 // SubscribeWorkflowEvents implements domain.EventBusPort. It opens a
-// workflow-scoped EventBusService.Subscribe stream and bridges each delivered
-// CloudEvent to a domain.WatchEvent, keeping gRPC and proto types out of the
-// domain layer. The subscriber_id is derived from the workflow ID plus a
-// monotonic suffix so concurrent followers of the same run do not collide.
+// workflow-scoped durable JetStream subscription through the shared events
+// client (ADR-046 — the Subscribe→REST bridge is in-process now) and bridges
+// each delivered CloudEvent to a domain.WatchEvent, keeping broker types out
+// of the domain layer. The subscriber_id is derived from the workflow ID plus
+// a monotonic suffix so concurrent followers of the same run do not collide.
+// The channel closes on ctx cancel or on the run's terminal lifecycle event
+// (the library's workflow-scoped terminal-close) — the same stream-end
+// semantics the facade enforced server-side.
 func (c *GatewayClients) SubscribeWorkflowEvents(ctx context.Context, workflowID string, send func(domain.WatchEvent) error) error {
-	req := &zynaxv1.SubscribeRequest{
-		SubscriberId: fmt.Sprintf("api-gateway-logs-%s-%d", workflowID, time.Now().UnixNano()),
+	ch, err := c.events.Subscribe(ctx, zynaxevents.SubscribeRequest{
+		SubscriberID: fmt.Sprintf("api-gateway-logs-%s-%d", workflowID, time.Now().UnixNano()),
 		TypePattern:  capabilityEventPattern,
-		WorkflowId:   workflowID,
-	}
-	stream, err := c.eventbus.Subscribe(ctx, req)
+		WorkflowID:   workflowID,
+	})
 	if err != nil {
-		return mapEngineGRPCError(err)
+		return fmt.Errorf("api-gateway: events subscribe: %w", err)
 	}
-	for {
-		resp, err := stream.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return mapEngineGRPCError(err)
-		}
-		ce := resp.GetEvent()
-		if ce == nil {
-			continue
-		}
+	for ce := range ch {
 		we := domain.WatchEvent{
-			RunID:     ce.GetWorkflowId(),
-			EventType: ce.GetType(),
+			RunID:     ce.WorkflowID,
+			EventType: ce.Type,
 			Status:    "capability_event",
-			Payload:   string(ce.GetData()),
+			Payload:   string(ce.Data),
 		}
-		if ts := ce.GetTime(); ts != nil {
-			we.Timestamp = ts.AsTime().Format(time.RFC3339)
-		}
+		// The wire envelope has never carried a time attribute (the facade
+		// dropped it before marshalling), so Timestamp stays empty exactly
+		// as before.
 		if err := send(we); err != nil {
 			return err
 		}
 	}
+	return nil
 }
 
 // eventSource is the CloudEvent `source` attribute stamped on every event the
@@ -260,28 +266,27 @@ const eventSource = "/zynax/api-gateway/cli"
 const cloudEventSpecVersion = "1.0"
 
 // PublishEvent implements domain.EventBusPort. It wraps the domain event in a
-// CloudEvent envelope — filling the bus-required id, source, specversion, and
-// time attributes — and calls EventBusService.Publish. The bus-assigned
-// event_id is returned to the caller.
+// CloudEvent envelope — filling the required id, source, and specversion
+// attributes — and publishes straight to JetStream (ADR-046). The
+// STREAM:sequence composite id is returned to the caller, exactly as the
+// facade returned it.
 func (c *GatewayClients) PublishEvent(ctx context.Context, ev domain.EventPublish) (string, error) {
 	callCtx, cancel := context.WithTimeout(ctx, c.callTimeout)
 	defer cancel()
-	resp, err := c.eventbus.Publish(callCtx, &zynaxv1.PublishRequest{
-		Event: &zynaxv1.CloudEvent{
-			Id:          uuid.NewString(),
-			Source:      eventSource,
-			Specversion: cloudEventSpecVersion,
-			Type:        ev.Type,
-			Time:        timestamppb.Now(),
-			Data:        ev.Data,
-			WorkflowId:  ev.RunID,
-			RunId:       ev.RunID,
-		},
+	eventID, err := c.events.Publish(callCtx, zynaxevents.CloudEvent{
+		ID:          uuid.NewString(),
+		Source:      eventSource,
+		SpecVersion: cloudEventSpecVersion,
+		Type:        ev.Type,
+		Time:        time.Now(),
+		Data:        ev.Data,
+		WorkflowID:  ev.RunID,
+		RunID:       ev.RunID,
 	})
 	if err != nil {
-		return "", mapEngineGRPCError(err)
+		return "", fmt.Errorf("api-gateway: event publish: %w", err)
 	}
-	return resp.GetEventId(), nil
+	return eventID, nil
 }
 
 // RegisterAgent implements domain.RegistryPort.

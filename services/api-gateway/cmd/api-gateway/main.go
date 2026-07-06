@@ -30,7 +30,7 @@ type config struct {
 	CompilerAddr       string `envconfig:"COMPILER_ADDR" default:"localhost:50054"`
 	EngineAddr         string `envconfig:"ENGINE_ADDR" default:"localhost:50055"`
 	RegistryAddr       string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
-	EventBusAddr       string `envconfig:"EVENT_BUS_ADDR" default:"localhost:50056"`
+	NATSURL            string `envconfig:"NATS_URL" default:"nats://localhost:4222"`
 	LogLevel           string `envconfig:"LOG_LEVEL" default:"info"`
 	GRPCCallTimeoutS   int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
 	LivenessThresholdS int    `envconfig:"LIVENESS_THRESHOLD_S" default:"60"`
@@ -71,7 +71,7 @@ func run(cfg config) error {
 	defer stop()
 
 	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
-	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, cfg.EventBusAddr, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, cfg.NATSURL, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
 	if err != nil {
 		return fmt.Errorf("gateway clients: %w", err)
 	}

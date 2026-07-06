@@ -48,3 +48,7 @@ spec:
           protocol: TCP
         - port: 50055
           protocol: TCP
+    # NATS JetStream — direct event publish + the /logs SSE merge (ADR-046)
+    - ports:
+        - port: 4222
+          protocol: TCP
