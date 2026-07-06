@@ -129,3 +129,27 @@ SPDD applies to all `feat:` PRs. It does NOT apply to:
   - PR template updated with Canvas link field (issue #209).
   - Canvas validator added (`make validate-canvas`, issue #211).
   - CI freshness gate added for `feat:` PRs (issue #212).
+
+---
+
+## Amendment (2026-07-06, M8.B #471 — post-M8 process transition)
+
+**The Canvas gate narrows from "every `feat:` PR" to "every multi-PR `feat:`
+epic".** Single-PR `feat:` changes no longer require a Canvas — one remains
+*recommended* whenever the reasoning would not be obvious from the PR itself.
+
+Rationale: ADR-019 was written when the Canvas was the only drift-prevention
+mechanism. Post-M8 the repo carries layered gates the original decision did not
+have — BDD contracts at every boundary (ADR-016), a dual-engine e2e matrix,
+golden byte-compat fixtures, expert-dispatch prompts, and per-layer AGENTS.md
+contracts — while the single-maintainer reality (see MAINTAINERS.md) makes the
+extra alignment round the binding cost on small features. The "Canvas optional /
+best-effort" option this ADR originally rejected is NOT what this amendment
+adopts: for multi-PR epics the gate is unchanged and `/lib:spdd-generate` still
+refuses to run from an unaligned Canvas. What changes is only the blanket
+requirement on single-PR features.
+
+Surfaces updated with this amendment: `AGENTS.md` §Hard Constraints mandate 5,
+`CLAUDE.md` §SPDD, and the `pr-checks.yml` Canvas-freshness message text (the
+job's hard-fail path was already dead in practice — it only fired when zero
+canvases existed repo-wide).

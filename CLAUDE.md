@@ -82,8 +82,10 @@ Tiers (ADR-016): BDD at gRPC boundaries (`protos/tests/`), unit ≥ 90% on `inte
 
 ## SPDD — feat: PR Workflow
 
-Every `feat:` PR **requires a REASONS Canvas committed before any implementation code.**
-This is enforced by ADR-019 and `/lib:spdd-generate` will refuse to run from an unaligned Canvas.
+Every **multi-PR `feat:` epic** requires a REASONS Canvas committed before any
+implementation code (single-PR `feat:` changes are exempt — ADR-019 amendment,
+2026-07-06 — though a Canvas stays recommended when the reasoning is not obvious
+from the PR). `/lib:spdd-generate` will refuse to run from an unaligned Canvas.
 
 **Prompt-first rule:** requirements change → update Canvas → then patch code. Never the reverse.
 
@@ -111,7 +113,7 @@ The `/lib:spdd-*` building blocks the verbs call (invoke directly only for fine-
 ```
 
 Canvas is **Tier 1 only** (public-safe). Move sensitive context to `canvas.private.md` (gitignored).
-**Scope:** `feat:` PRs only — `fix:`, `refactor:`, `docs:`, `ci:`, `chore:` are exempt.
+**Scope:** multi-PR `feat:` epics — single-PR `feat:`, `fix:`, `refactor:`, `docs:`, `ci:`, `chore:` are exempt (ADR-019 amendment).
 Full guide: `docs/patterns/spdd-guide.md` · Template: `docs/spdd/CANVAS_TEMPLATE.md`
 
 ## Per-Milestone Scope

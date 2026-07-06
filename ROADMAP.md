@@ -2,7 +2,11 @@
 
 # Zynax Roadmap
 
-> Zynax is the declarative control plane for AI agent workflows.
+> **Write your agent workflow once — run it on Temporal or Argo without a rewrite.**
+> Zynax is the engine-portability layer for agentic automation: the best declarative
+> YAML manifest layer over interchangeable workflow engines, with portability proved
+> by a conformance suite — not claimed (the "honest YAML layer", 2026-05 architectural
+> review Fork A; canonical framing in [docs/product/positioning.md](docs/product/positioning.md)).
 > This document is the **narrative roadmap** — it explains the goals and sequence.
 > The **execution roadmap** (issue tracking, progress, and assignments) lives in the
 > [GitHub Project board](https://github.com/orgs/zynax-io/projects/1).
@@ -250,15 +254,41 @@ intelligent context-loading at scale and a discoverable Documentation Portal.
 
 ## Milestone 8 — CNCF Sandbox Submission
 
-**Goal:** Community, governance, and technical maturity for CNCF Sandbox.
+**Goal:** Community, governance, and technical maturity for CNCF Sandbox — and the
+thin-Zynax K8s-native reduction (ADR-040: scheduler on CRDs, Workflow CRD front-end,
+edge auth/rate-limit on Gateway API, admission-policy allow-list, direct JetStream
+eventing).
 
 > Label: `milestone: M8`
 
-- [ ] ≥ 2 maintainers from different organisations
-- [ ] External security audit (CNCF security framework)
-- [ ] Production reference deployment documented and tested
-- [ ] Multi-cloud E2E validation (GKE + EKS + AKS)
-- [ ] CNCF TOC application filed
+- [x] Governance honesty: `MAINTAINERS.md` + single-maintainer operating mode (#494)
+- [x] Troubleshooting guide + curated `good first issue` entry points (#495)
+- [x] Thin-Zynax reduction epics (M8.C–M8.H: ADR-039/041/043/044/045/046)
+- [ ] CNCF Sandbox application prepared and filed (submission is a maintainer action;
+      prep: [docs/cncf/sandbox-submission.md](docs/cncf/sandbox-submission.md))
+- [ ] ≥ 2 maintainers from different organisations *(Sandbox nice-to-have, required
+      for Incubation — community building continues past M8)*
+
+### Engine-portability conformance (Fork A)
+
+The portability claim is **proved, not asserted**: the e2e matrix runs the same
+workflow manifests (`spec/workflows/examples/`) through the identical
+compile→IR→dispatch path on **Temporal and Argo** on every infra/service PR
+(`e2e-smoke.yml`), including the Workflow CRD GitOps path. Formalising this into a
+named, versioned **conformance suite** (published pass/fail matrix per engine per
+release) is the follow-on milestone item below.
+
+## Milestone 9 — Hard removals + conformance suite
+
+**Goal:** Delete the paths deprecated across M8 (agent-registry push registration,
+the EventBusService facade) per each ADR's removal clause, and formalise the
+dual-engine e2e into a named conformance suite.
+
+> Label: `milestone: M9`
+
+- [ ] agent-registry push path hard-removal (ADR-039)
+- [ ] `services/event-bus/` facade hard-removal (ADR-046)
+- [ ] Named engine-conformance suite over the existing dual-engine e2e
 
 ---
 
@@ -272,7 +302,9 @@ intelligent context-loading at scale and a discoverable Documentation Portal.
 | v0.4.0 | M5 | Adapter library |
 | v0.5.0 | M6 | K8s production-ready |
 | v0.6.0 | M7 | Usable workflows + observability |
-| v1.0.0 | M8 | CNCF Sandbox submission |
+| v0.7.0 | M8 | Thin-Zynax reduction + CNCF Sandbox prep |
+| v0.8.0 | M9 | Hard removals + conformance suite |
+| v1.0.0 | CNCF acceptance | Cut when the Sandbox application is accepted |
 
 ---
 

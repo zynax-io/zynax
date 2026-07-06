@@ -7,9 +7,29 @@
 **Issue:** #471
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-18
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #496 (ROADMAP Fork A positioning)
+
+> **Delivered (2026-07-06, M8.B) — with two DoD items synced to repo reality:**
+> - README §1 Fork A/wedge framing: already delivered by the M7 positioning pass
+>   (docs/product/positioning.md is the canonical rule; README leads with
+>   "write once — run on Temporal or Argo").
+> - ROADMAP: wedge framing + engine-portability conformance section + M9
+>   conformance-suite milestone + honest version plan (v0.7.0 for M8; v1.0.0
+>   reserved for CNCF acceptance).
+> - **Sync note:** the original DoD said "conformance on Temporal and
+>   LangGraph" — LangGraph was superseded by **Argo** as the second engine
+>   (ADR-015; M6 ArgoEngine). The standing conformance evidence is the
+>   dual-engine e2e matrix (same manifests through temporal + argo legs on
+>   every infra/service PR); formalising it into a *named* suite is the M9
+>   roadmap item.
+> - ADR-019 amended: Canvas required for multi-PR feat: epics, exempt for
+>   single-PR feat: (AGENTS.md/CLAUDE.md/pr-checks message updated in the
+>   same diff).
+> - CNCF Sandbox application + landscape entry PREPARED at
+>   docs/cncf/sandbox-submission.md — **filing is a maintainer action**,
+>   surfaced on #471; not claimed as done.
 
 ---
 
