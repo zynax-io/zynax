@@ -60,9 +60,11 @@ CLUSTER_NAME="${CLUSTER_NAME:-zynax-e2e}"
 NAMESPACE="${NAMESPACE:-zynax}"
 RELEASE_NAME="${RELEASE_NAME:-zynax}"
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.14.5}"
-# kind node image — pin to a digest in CI for reproducibility. The default tag
-# tracks the kind release that the harness is validated against.
-KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.29.2}"
+# kind node image — digest-pinned for reproducibility. v1.30.0 is the default
+# node image validated for the pinned kind v0.23.0 binary, and the first with
+# ValidatingAdmissionPolicy GA/default-on (admissionregistration.k8s.io/v1),
+# which the ADR-045 engine allow-list requires (M8.G #1634).
+KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-600s}"
 # Engine matrix axis (#1071, EPIC #771): which engine the deployed stack runs.
 # Selection flows through umbrella values only — never hardcoded (ADR-015).

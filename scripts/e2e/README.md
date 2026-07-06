@@ -92,7 +92,7 @@ full list):
 | `NAMESPACE`            | `zynax`            | release namespace |
 | `RELEASE_NAME`         | `zynax`            | Helm release name |
 | `CERT_MANAGER_VERSION` | `v1.14.5`          | cert-manager chart version |
-| `KIND_NODE_IMAGE`      | `kindest/node:v1.29.2` | kind node image (digest-pinnable in CI) |
+| `KIND_NODE_IMAGE`      | `kindest/node:v1.30.0@sha256:047357ac…` | kind node image — v1.30.0 is the pair validated for the pinned kind v0.23.0 binary; ≥ 1.30 required for the GA `ValidatingAdmissionPolicy` (ADR-045) |
 | `WAIT_TIMEOUT`         | `600s`             | per-resource rollout wait |
 | `ZYNAX_CAPABILITY_TIMEOUT` | `30s`          | capability dispatch timeout asserted by `e2e-failure.sh` |
 | `E2E_ENGINE`           | `temporal`         | engine for the deployed stack (`temporal` \| `argo`, #1071/ADR-015). `argo` layers `values-e2e-argo.yaml` and installs the Argo Workflows control plane |

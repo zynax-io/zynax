@@ -62,7 +62,10 @@ jobs:
     env:
       HELM_VERSION: v3.17.3
       KIND_VERSION: v0.23.0
-      KIND_NODE_IMAGE: kindest/node:v1.29.2
+      # v1.30.0: the node image validated for kind v0.23.0; first with
+      # ValidatingAdmissionPolicy GA (ADR-045, M8.G #1634). Keep in lockstep
+      # with the cluster-up.sh default and the kubectl download below.
+      KIND_NODE_IMAGE: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
       GRPCURL_VERSION: "1.9.3"
     steps:
       - name: Checkout
@@ -112,7 +115,7 @@ jobs:
           kind version
 
           curl -sSLo /tmp/kubectl \
-            "https://dl.k8s.io/release/v1.29.2/bin/linux/amd64/kubectl"
+            "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl"
           sudo install /tmp/kubectl /usr/local/bin/kubectl
           kubectl version --client
 
