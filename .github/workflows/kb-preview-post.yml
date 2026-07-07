@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: Apache-2.0
+# Trusted poster for the KB content preview (the write half of kb-preview.yml).
+#
+# kb-preview.yml runs on pull_request and is read-only, so PRs from forks can
+# render the preview but cannot comment or set the kb-content-previsualized
+# status. It uploads a kb-preview-payload artifact; this workflow_run job posts
+# the comment and sets the status from the trusted base-repo context.
+#
+# Like pr-comment.yml / pr-sarif.yml: no PR/fork code is checked out or run, the
+# poster script comes from this ref, and only data artifacts are read. Effective
+# only once on the default branch (workflow_run always runs from there).
+
+name: KB Preview Post
+
+on:
+  workflow_run:
+    workflows: ["KB Previsualization"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  post:
+    name: Post KB preview comment + status
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read          # checkout the trusted poster script (this ref)
+      actions: read           # download the artifact from the triggering run
+      issues: write           # upsert the preview comment
+      pull-requests: write
+      statuses: write         # set the kb-content-previsualized commit status
+    steps:
+      - name: Check out trusted scripts (base repo default branch)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download KB preview payload
+        id: dl
+        continue-on-error: true   # no artifact (e.g. non-KB PR) → nothing to post
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: kb-preview-payload
+          path: kb-preview
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post preview comment
+        if: steps.dl.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const post = require('./.github/scripts/post-pr-comment.js');
+
+            const raw = fs.existsSync('kb-preview/meta.json')
+              ? fs.readFileSync('kb-preview/meta.json', 'utf8')
+              : '';
+            let meta;
+            try { meta = JSON.parse(raw); } catch { meta = null; }
+            if (!meta || !Number.isInteger(meta.pr) || meta.pr <= 0) {
+              core.setFailed(`Invalid or missing KB preview metadata: "${raw}"`);
+              return;
+            }
+
+            // Only when the producer rendered a comment (KB additions present).
+            await post({ github, context, core, issueNumber: meta.pr,
+              bodyPath: 'kb-preview/comment.md', marker: '<!-- zynax-kb-preview -->' });
+
+      - name: Set kb-content-previsualized status
+        if: steps.dl.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SHA=$(jq -r '.sha' kb-preview/meta.json)
+          HAS=$(jq -r '.has_additions' kb-preview/meta.json)
+          if [ "${HAS}" = "true" ]; then
+            DESC="Preview posted — reviewer must read it before approving"
+          else
+            DESC="No KB additions to preview"
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+            --method POST \
+            --field state=success \
+            --field context=kb-content-previsualized \
+            --field description="${DESC}"
