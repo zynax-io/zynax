@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	nats "github.com/nats-io/nats.go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -72,7 +73,7 @@ func run(cfg config) error {
 
 	var bus domain.EventBus
 	if cfg.NATSUrl != "" {
-		nb, err := infrastructure.NewNATSEventBus(cfg.NATSUrl)
+		nb, err := infrastructure.NewNATSEventBus(cfg.NATSUrl, natsTLSOptions(cfg)...)
 		if err != nil {
 			return fmt.Errorf("event-bus: nats: %w", err)
 		}
@@ -122,4 +123,17 @@ func run(cfg config) error {
 func setHealth(h *health.Server, st grpc_health_v1.HealthCheckResponse_ServingStatus) {
 	h.SetServingStatus("", st)
 	h.SetServingStatus(zynaxv1.EventBusService_ServiceDesc.ServiceName, st)
+}
+
+// natsTLSOptions returns the client-certificate dial options when the facade
+// has a TLS identity configured — it dials the TLS/verify_and_map broker with
+// its own cert-manager identity (ADR-046), the same PEMs as gRPC mTLS.
+func natsTLSOptions(cfg config) []nats.Option {
+	if cfg.TLSCert == "" {
+		return nil
+	}
+	return []nats.Option{
+		nats.ClientCert(cfg.TLSCert, cfg.TLSKey),
+		nats.RootCAs(cfg.TLSCA),
+	}
 }

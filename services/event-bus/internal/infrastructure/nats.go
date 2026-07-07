@@ -32,8 +32,11 @@ type NATSEventBus struct {
 
 // NewNATSEventBus connects to NATS at url, creates a JetStream context, and
 // returns a ready-to-use NATSEventBus. Caller must call Close when done.
-func NewNATSEventBus(url string) (*NATSEventBus, error) {
-	nc, err := nats.Connect(url)
+// natsOpts are passed through to nats.Connect — the deprecated facade dials
+// the TLS/verify_and_map broker with its own cert-manager identity until its
+// M9 removal (ADR-046).
+func NewNATSEventBus(url string, natsOpts ...nats.Option) (*NATSEventBus, error) {
+	nc, err := nats.Connect(url, natsOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("nats connect: %w", err)
 	}

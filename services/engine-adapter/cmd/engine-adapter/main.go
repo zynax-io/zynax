@@ -59,6 +59,9 @@ type config struct {
 	TLSCert             string
 	TLSKey              string
 	TLSCA               string
+	EventsTLSCert       string
+	EventsTLSKey        string
+	EventsTLSCA         string
 }
 
 func loadConfig() config {
@@ -84,6 +87,13 @@ func loadConfig() config {
 		TLSCert:             getEnv("ZYNAX_TLS_CERT", ""),
 		TLSKey:              getEnv("ZYNAX_TLS_KEY", ""),
 		TLSCA:               getEnv("ZYNAX_TLS_CA", ""),
+		// The JetStream client identity (ADR-046 Decision #4) is deliberately
+		// decoupled from the service-wide TLS flag: the broker can be
+		// fail-closed mTLS while the gRPC mesh profile stays unchanged.
+		// Falls back to the service identity when both are configured.
+		EventsTLSCert: getEnv("ZYNAX_ENGINE_ADAPTER_EVENTS_TLS_CERT", getEnv("ZYNAX_TLS_CERT", "")),
+		EventsTLSKey:  getEnv("ZYNAX_ENGINE_ADAPTER_EVENTS_TLS_KEY", getEnv("ZYNAX_TLS_KEY", "")),
+		EventsTLSCA:   getEnv("ZYNAX_ENGINE_ADAPTER_EVENTS_TLS_CA", getEnv("ZYNAX_TLS_CA", "")),
 	}
 }
 
@@ -246,8 +256,13 @@ func buildTemporalEngine(cfg config) (domain.WorkflowEngine, func(), *grpc.Clien
 	// broker-independent — the old gRPC dial was lazy, and a NATS-less profile
 	// (e.g. the ADR-041 lite profile) must still boot; publishes stay
 	// best-effort until the broker is reachable.
-	eventsClient, err := zynaxevents.New(cfg.NATSURL,
-		nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1))
+	eventsOpts := []nats.Option{nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1)}
+	if cfg.EventsTLSCert != "" {
+		// Dial the broker with the service's cert-manager identity
+		// (verify_and_map, ADR-046 Decision #4).
+		eventsOpts = append(eventsOpts, zynaxevents.TLSIdentity(cfg.EventsTLSCert, cfg.EventsTLSKey, cfg.EventsTLSCA)...)
+	}
+	eventsClient, err := zynaxevents.New(cfg.NATSURL, eventsOpts...)
 	if err != nil {
 		tc.Close()
 		_ = brokerConn.Close()

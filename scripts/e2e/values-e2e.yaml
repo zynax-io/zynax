@@ -49,6 +49,12 @@ zynax-api-gateway:
   admissionPolicy:
     enabled: true
     allowedEngines: [temporal, argo]
+  # JetStream client identity (ADR-046 Decision #4): the broker is fail-closed
+  # verify_and_map; the events client dials with the gateway's cert-manager
+  # certificate. Decoupled from tlsSecretName — the e2e gRPC mesh profile is
+  # unchanged.
+  eventsTls:
+    secretName: zynax-api-gateway-tls
 zynax-workflow-compiler:
   fullnameOverride: zynax-workflow-compiler
   image:
@@ -61,6 +67,10 @@ zynax-engine-adapter:
     # Temporal frontend Service for release `zynax` is `zynax-temporal-frontend`
     # (subchart naming); the umbrella default is wrong, so correct it here.
     temporalHostPort: "zynax-temporal-frontend:7233"
+  # JetStream client identity for the lifecycle-event publisher (ADR-046
+  # Decision #4) — see the api-gateway eventsTls note above.
+  eventsTls:
+    secretName: zynax-engine-adapter-tls
 zynax-task-broker:
   fullnameOverride: zynax-task-broker
   image:
@@ -83,6 +93,10 @@ zynax-event-bus:
   fullnameOverride: zynax-event-bus
   image:
     tag: main
+  # The deprecated facade must dial the fail-closed verify_and_map broker with
+  # its own cert-manager identity until its M9 removal (ADR-046): mounting the
+  # secret sets the ZYNAX_EVENTBUS_TLS_* envs its NATS client-cert dial reads.
+  tlsSecretName: zynax-event-bus-tls
   resources:
     requests:
       cpu: 25m
@@ -137,6 +151,53 @@ zynax-nats:
         fileStore:
           pvc:
             size: 1Gi
+      # JetStream link TLS with cert-manager identities (ADR-046 Decision #4,
+      # M8.H #1649): the broker requires client certificates and maps each to
+      # a NATS user by subject DN (verify_and_map); per-identity subject
+      # permissions bound the blast radius of any single compromised service.
+      # The zynax-nats-tls / *-tls secrets are auto-issued by the
+      # zynax-cert-manager subchart — zero manual secret steps (ADR-041).
+      nats:
+        tls:
+          enabled: true
+          secretName: zynax-nats-tls
+          merge:
+            ca_file: /etc/nats-certs/nats/ca.crt
+            verify_and_map: true
+      merge:
+        authorization:
+          users:
+            - user: CN=zynax-engine-adapter
+              permissions:
+                publish: ["zynax.v1.engine-adapter.>", "$JS.API.>"]
+                subscribe: ["_INBOX.>"]
+            - user: CN=zynax-task-broker
+              permissions:
+                publish: ["zynax.v1.task-broker.>", "$JS.API.>"]
+                subscribe: ["_INBOX.>"]
+            - user: CN=zynax-api-gateway
+              permissions:
+                publish: ["zynax.v1.>", "$JS.API.>", "$JS.ACK.>"]
+                subscribe: ["_INBOX.>", "zynax.dlq.>"]
+            # The deprecated facade serves arbitrary publish/subscribe until
+            # its M9 removal — widest identity, removed with it (ADR-046).
+            - user: CN=zynax-event-bus
+              permissions:
+                publish: [">"]
+                subscribe: [">"]
+            # nats-box carries the e2e assertion CLI.
+            - user: CN=zynax-natsbox
+              permissions:
+                publish: [">"]
+                subscribe: [">"]
+    natsBox:
+      contexts:
+        default:
+          tls:
+            secretName: zynax-natsbox-tls
+          merge:
+            url: tls://zynax-nats:4222
+            ca: /etc/nats-certs/default/ca.crt
     container:
       resources:
         requests:

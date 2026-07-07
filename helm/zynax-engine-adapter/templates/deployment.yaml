@@ -133,6 +133,14 @@ spec:
             - name: ZYNAX_TLS_CA
               value: /tls/ca.crt
             {{- end }}
+            {{- if .Values.eventsTls.secretName }}
+            - name: ZYNAX_ENGINE_ADAPTER_EVENTS_TLS_CERT
+              value: /events-tls/tls.crt
+            - name: ZYNAX_ENGINE_ADAPTER_EVENTS_TLS_KEY
+              value: /events-tls/tls.key
+            - name: ZYNAX_ENGINE_ADAPTER_EVENTS_TLS_CA
+              value: /events-tls/ca.crt
+            {{- end }}
           startupProbe:
             httpGet:
               path: /startupz
@@ -155,17 +163,31 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.tlsSecretName }}
+          {{- if or .Values.tlsSecretName .Values.eventsTls.secretName }}
           volumeMounts:
+            {{- if .Values.tlsSecretName }}
             - name: tls
               mountPath: /tls
               readOnly: true
+            {{- end }}
+            {{- if .Values.eventsTls.secretName }}
+            - name: events-tls
+              mountPath: /events-tls
+              readOnly: true
+            {{- end }}
           {{- end }}
-      {{- if .Values.tlsSecretName }}
+      {{- if or .Values.tlsSecretName .Values.eventsTls.secretName }}
       volumes:
+        {{- if .Values.tlsSecretName }}
         - name: tls
           secret:
             secretName: {{ .Values.tlsSecretName }}
+        {{- end }}
+        {{- if .Values.eventsTls.secretName }}
+        - name: events-tls
+          secret:
+            secretName: {{ .Values.eventsTls.secretName }}
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

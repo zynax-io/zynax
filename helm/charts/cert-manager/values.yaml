@@ -49,3 +49,12 @@ certificates:
     memory-service:
       enabled: true
       secretName: zynax-memory-service-tls
+    # NATS JetStream link TLS (ADR-046 Decision #4): the broker's server cert
+    # (dnsNames zynax-nats*) and a client identity for the nats-box CLI used
+    # by the e2e assertions. Service clients reuse their own certs above.
+    nats:
+      enabled: true
+      secretName: zynax-nats-tls
+    natsbox:
+      enabled: true
+      secretName: zynax-natsbox-tls

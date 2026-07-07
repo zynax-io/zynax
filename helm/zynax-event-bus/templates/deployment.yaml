@@ -64,23 +64,26 @@ spec:
             - name: ZYNAX_EVENTBUS_TLS_CA
               value: /tls/ca.crt
             {{- end }}
+          # TCP probes, not kubelet-native gRPC probes: the kubelet gRPC probe
+          # is plaintext-only, and with tlsSecretName set this deprecated
+          # facade serves TLS on its gRPC port (ADR-046 step 6) — the gRPC
+          # probe would fail the handshake and the pod could never turn Ready.
+          # A TCP connect is the adequate liveness signal for a caller-less
+          # facade that is hard-removed in M9.
           startupProbe:
-            grpc:
+            tcpSocket:
               port: {{ .Values.env.grpcPort }}
-              service: ""
             failureThreshold: 30
             periodSeconds: 2
           readinessProbe:
-            grpc:
+            tcpSocket:
               port: {{ .Values.env.grpcPort }}
-              service: ""
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
           livenessProbe:
-            grpc:
+            tcpSocket:
               port: {{ .Values.env.grpcPort }}
-              service: ""
             initialDelaySeconds: 15
             periodSeconds: 30
             failureThreshold: 3
