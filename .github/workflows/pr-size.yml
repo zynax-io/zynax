@@ -64,26 +64,40 @@ jobs:
               lines <= 400  ? 'size/M'  :
               lines <= 900  ? 'size/L'  : 'size/XL';
 
-            // Remove any existing size/* labels then apply the new one
-            const { data: existing } = await github.rest.issues.listLabelsOnIssue({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            for (const lbl of existing.filter(l => l.name.startsWith('size/'))) {
-              await github.rest.issues.removeLabel({
+            // Apply the size/* label as a best-effort side effect. PRs from forks
+            // run with a read-only GITHUB_TOKEN regardless of the job's requested
+            // `pull-requests: write` scope, so the label write-back 403s. That must
+            // NOT fail this required check — the size *enforcement* below still runs
+            // on read-only access. Swallow the write error and warn instead.
+            try {
+              // Remove any existing size/* labels then apply the new one
+              const { data: existing } = await github.rest.issues.listLabelsOnIssue({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                name: lbl.name,
               });
+              for (const lbl of existing.filter(l => l.name.startsWith('size/'))) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: lbl.name,
+                });
+              }
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [sizeLabel],
+              });
+            } catch (err) {
+              // Fork PRs get a read-only token → 403. Not fatal: the size gate below
+              // still enforces the limit. Any other status is surfaced as a warning.
+              core.warning(
+                `Could not write the ${sizeLabel} label (status ${err.status ?? 'unknown'}): ${err.message}. ` +
+                `This is expected for PRs from forks (read-only GITHUB_TOKEN); size enforcement still applies.`
+              );
             }
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              labels: [sizeLabel],
-            });
 
             core.info(`PR changes: ${lines} lines (excluding generated/lock files) → ${sizeLabel}`);
 
