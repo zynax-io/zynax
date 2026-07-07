@@ -50,7 +50,11 @@ jobs:
     name: "Delete staging: ${{ matrix.service }}"
     # Merged PRs are cleaned by release.yml retag-on-merge AFTER promotion —
     # deleting here would race the retag and strand the merge unpromoted.
-    if: github.event.pull_request.merged == false
+    # Fork PRs never pushed a staging image (read-only token — see ci.yml
+    # build-images), so there is nothing to delete and packages:write would 403.
+    if: >-
+      github.event.pull_request.merged == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false

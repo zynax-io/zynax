@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# KB Previsualization — posts a human-readable preview of AI knowledge base
-# additions as a PR comment.
+# KB Previsualization — renders a human-readable preview of AI knowledge base
+# additions. This workflow (on pull_request) stays read-only and uploads the
+# preview as an artifact; kb-preview-post.yml posts the comment and sets the
+# kb-content-previsualized status on workflow_run, from the trusted base-repo
+# context — so PRs from forks (read-only token) get the preview too (#1668).
 #
 # Triggered only on PRs that touch KB paths (ADR-018):
 #   CLAUDE.md · AGENTS.md · docs/ai-assistant-setup.md · .ai/ · .claude/
@@ -44,9 +47,7 @@ jobs:
     name: kb-content-previsualized
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
-      pull-requests: write   # posts the KB content preview comment
-      statuses: write        # sets the kb-content-previsualized commit status
+      contents: read   # read-only; the comment + status are set by kb-preview-post.yml (workflow_run)
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -74,15 +75,21 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Post KB content preview comment
+      # Render the preview comment body to the payload dir (fork PRs run with a
+      # read-only token and cannot comment or set a status here). kb-preview-post.yml
+      # posts the comment and sets the kb-content-previsualized status on
+      # workflow_run, from the trusted base-repo context.
+      - name: Render KB content preview comment
         if: steps.extract.outputs.has_additions == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           ADDITIONS: ${{ steps.extract.outputs.additions }}
         with:
           script: |
+            const fs = require('fs');
             const additions = process.env.ADDITIONS;
             const body = [
+              '<!-- zynax-kb-preview -->',
               '## 🔍 Knowledge Base Content Preview',
               '',
               'The following content will become **publicly visible** on merge.',
@@ -100,35 +107,25 @@ jobs:
               '_Policy: [docs/knowledge-base-policy.md](docs/knowledge-base-policy.md)_',
               '_Before approving the PR, confirm all items in the KB Security Review checklist._',
             ].join('\n');
+            fs.mkdirSync('kb-preview', { recursive: true });
+            fs.writeFileSync('kb-preview/comment.md', body);
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body,
-            });
-
-      - name: Set success status — preview posted
-        if: steps.extract.outputs.has_additions == 'true'
-        run: |
-          gh api \
-            "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
-            --method POST \
-            --field state=success \
-            --field context=kb-content-previsualized \
-            --field description="Preview posted — reviewer must read it before approving"
+      # Metadata for the trusted poster: PR number, head SHA, and whether a
+      # comment was rendered (drives the status description).
+      - name: Record KB preview metadata
         env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Set success status — no KB additions
-        if: steps.extract.outputs.has_additions == 'false'
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HAS_ADDITIONS: ${{ steps.extract.outputs.has_additions }}
         run: |
-          echo "ℹ️  No KB content additions detected (deletions or renames only)."
-          gh api \
-            "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
-            --method POST \
-            --field state=success \
-            --field context=kb-content-previsualized \
-            --field description="No KB additions to preview"
-        env:
-          GH_TOKEN: ${{ github.token }}
+          mkdir -p kb-preview
+          printf '{"pr":%s,"sha":"%s","has_additions":%s}\n' \
+            "$PR_NUMBER" "$HEAD_SHA" "$HAS_ADDITIONS" > kb-preview/meta.json
+
+      - name: Upload KB preview payload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kb-preview-payload
+          path: kb-preview/
+          if-no-files-found: ignore
+          retention-days: 1
