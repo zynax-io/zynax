@@ -113,8 +113,10 @@ LABEL org.opencontainers.image.title="Zynax CI Runner" \
       com.zynax.image.role="ci-runner" \
       com.zynax.image.usage="container: { image: ghcr.io/zynax-io/zynax/ci-runner@<digest> } in GitHub Actions jobs"
 
-# Alpine system deps — curl intentionally absent from this stage
-RUN apk add --no-cache git bash ca-certificates python3 py3-pip libstdc++ libgcc
+# Alpine system deps — curl intentionally absent from this stage.
+# tar (GNU) + zstd: required by actions/cache inside container: jobs —
+# busybox tar cannot restore/save GitHub cache archives.
+RUN apk add --no-cache git bash ca-certificates python3 py3-pip libstdc++ libgcc tar zstd
 
 # ── Go toolchain — bin + stdlib src + compiled pkg + lib ─────────────────────
 # go/src is required by govulncheck: it calls go list -json -deps which resolves
