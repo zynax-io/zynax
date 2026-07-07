@@ -6,7 +6,7 @@
 **Issue:** #1575
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-07-06
-**Status:** Aligned
+**Status:** Implemented
 
 > Story issues: step 1 → #1634 · step 2 → #1635 · step 3 → #1636 · step 4 → #1637
 
