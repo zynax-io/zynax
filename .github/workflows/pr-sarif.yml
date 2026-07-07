@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: Apache-2.0
+# Fork-PR Trivy SARIF poster — the trusted half of the build-images gate.
+#
+# ci.yml → build-images scans fork-PR images locally (the CRITICAL/HIGH Trivy
+# gate still fails the PR inline), but it runs with the fork's read-only token
+# and cannot upload SARIF to the Security tab (security-events is denied). It
+# stashes each SARIF as a `trivy-sarif-<svc>` artifact; this workflow_run job
+# uploads them from the trusted base-repo context.
+#
+# Like pr-comment.yml, it checks out no PR/fork code and reads only data
+# artifacts. The Security-tab upload is best-effort: fork-PR code-scanning
+# association is inherently limited, and the security *gate* already ran inline,
+# so a rejected upload must not fail anything.
+#
+# Effective only once on the default branch (workflow_run always runs from there).
+
+name: PR SARIF
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  upload-sarif:
+    name: Upload fork-PR Trivy SARIF
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read           # checkout for the codeql-action
+      actions: read            # download artifacts from the triggering CI run
+      security-events: write   # upload SARIF to the Security tab
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download stashed SARIF artifacts
+        id: dl
+        continue-on-error: true   # same-repo PRs upload inline → no artifacts here
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: trivy-sarif-*
+          path: sarifs
+          merge-multiple: true
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve fork PR ref
+        id: pr
+        if: steps.dl.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(ls -A sarifs 2>/dev/null)" ]; then
+            echo "has_sarif=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  No SARIF artifacts — same-repo PR or no docker changes."
+            exit 0
+          fi
+          PR=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/pulls" --jq '.[0].number // empty')
+          if [ -z "${PR}" ]; then
+            echo "has_sarif=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No PR resolved for ${HEAD_SHA} — skipping SARIF upload."
+            exit 0
+          fi
+          echo "has_sarif=true" >> "$GITHUB_OUTPUT"
+          echo "ref=refs/pull/${PR}/merge" >> "$GITHUB_OUTPUT"
+
+      - name: Upload SARIF to the Security tab (best-effort)
+        if: steps.pr.outputs.has_sarif == 'true'
+        continue-on-error: true   # fork-PR code-scanning association is limited; gate already ran
+        uses: github/codeql-action/upload-sarif@03e4368ac7daa2bd82b3e85262f3bf87ee112f57 # v3.36.0
+        with:
+          sarif_file: sarifs
+          ref: ${{ steps.pr.outputs.ref }}
+          sha: ${{ github.event.workflow_run.head_sha }}
+          category: staging-fork
