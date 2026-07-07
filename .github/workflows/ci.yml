@@ -559,8 +559,7 @@ jobs:
       needs.lint-proto.result != 'failure'
     uses: ./.github/workflows/_test-go.yml
     permissions:
-      contents: read
-      pull-requests: write
+      contents: read   # comments are posted by pr-comment.yml (workflow_run), not here
     with:
       engine_adapter:    ${{ needs.changes.outputs.engine_adapter }}
       workflow_compiler: ${{ needs.changes.outputs.workflow_compiler }}

@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Reusable workflow — Go unit tests, BDD contract tests, coverage gates.
 # Called by the test-go job in ci.yml.
-# Publishes BDD + coverage PR comments.
+# Renders the BDD + coverage PR-comment bodies and uploads them as an artifact;
+# the trusted pr-comment.yml workflow posts them (workflow_run). This job stays
+# read-only so fork PRs work without a write token in fork context (#1668).
 
 name: _test-go (reusable)
 
@@ -40,8 +42,7 @@ jobs:
     name: test-go
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
-      pull-requests: write   # posts BDD + coverage report comments on the PR
+      contents: read   # tests only; PR comments are posted by pr-comment.yml (workflow_run)
     container:
       image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
       options: --user root
@@ -248,8 +249,9 @@ jobs:
         if: steps.go-detect.outputs.has_svc_bdd == '0'
         run: echo "ℹ️  No service BDD step implementations — feature specs are spec-only."
 
-      # ── Post BDD PR comment ───────────────────────────────────────────────
-      - name: Post BDD contract test report on PR
+      # ── Render BDD PR-comment body ────────────────────────────────────────
+      # Write the comment body to the payload dir; pr-comment.yml posts it.
+      - name: Render BDD contract test report comment
         if: always() && inputs.event_name == 'pull_request' && steps.go-detect.outputs.has_bdd_impl != '0'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
@@ -257,10 +259,11 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SHA: ${{ github.sha }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fn = require('./.github/scripts/post-bdd-comment.js');
-            await fn({ github, context, core });
+            const fs = require('fs');
+            const { buildBddComment } = require('./.github/scripts/build-bdd-comment.js');
+            fs.mkdirSync('pr-comment', { recursive: true });
+            fs.writeFileSync('pr-comment/bdd.md', buildBddComment());
 
       # ── Go adapter unit tests ─────────────────────────────────────────────
       - name: Go adapter unit tests
@@ -370,23 +373,35 @@ jobs:
             echo "::error::coverage.out not found for cmd/zynax-ci — test step likely failed"; exit 1
           fi
 
-      # ── Coverage comment ──────────────────────────────────────────────────
-      - name: Build coverage comment
+      # ── Render coverage PR-comment body ───────────────────────────────────
+      # cmd/zynax-ci writes the markdown (marker included) to $OUT; pr-comment.yml
+      # posts it. OUT is absolute so `go -C` does not resolve it relative to the
+      # tool dir.
+      - name: Render coverage report comment
         if: always() && inputs.event_name == 'pull_request'
         env:
           RUN_NUMBER: ${{ github.run_number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SHA: ${{ github.sha }}
-        run: GOWORK=off go -C cmd/zynax-ci run . coverage-comment >/dev/null
+          OUT: ${{ github.workspace }}/pr-comment/coverage.md
+        run: |
+          mkdir -p "$(dirname "$OUT")"
+          GOWORK=off go -C cmd/zynax-ci run . coverage-comment >/dev/null
 
-      - name: Post coverage report on PR
+      # ── Publish the PR-comment payload for the trusted poster ─────────────
+      - name: Record PR number for the comment poster
         if: always() && inputs.event_name == 'pull_request'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p pr-comment
+          printf '%s\n' "$PR_NUMBER" > pr-comment/pr-number.txt
+
+      - name: Upload PR-comment payload
+        if: always() && inputs.event_name == 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fn = require('./.github/scripts/post-coverage-comment.js');
-            await fn({ github, context, core });
+          name: pr-comment-payload
+          path: pr-comment/
+          if-no-files-found: ignore
+          retention-days: 1

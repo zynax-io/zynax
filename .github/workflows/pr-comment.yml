@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: Apache-2.0
+# Trusted poster for PR test-report comments (BDD contract report + coverage).
+#
+# Why this exists: the CI "test-go" job runs with the pull request's token,
+# which is READ-ONLY for PRs opened from forks. It therefore cannot post a
+# comment on the PR — the direct-post attempt 403'd and reddened the check
+# (#1668). The naive fix (pull_request_target with a write token) would run
+# fork-controlled code with a writable token — the classic "pwn request".
+#
+# Instead the CI job stays read-only and uploads the rendered comment bodies as
+# an artifact; this workflow reposts them. It is safe because it:
+#   • holds the only write-scoped token, in the trusted base-repo context;
+#   • never checks out or executes PR/fork code — it reads only data files
+#     (markdown bodies + an integer PR number) from the artifact;
+#   • runs the poster script from THIS ref (base repo default branch), not the
+#     artifact, so no attacker-supplied code executes with the write token.
+#
+# Because workflow_run workflows are always taken from the default branch, this
+# only takes effect once merged to main; fork PRs benefit on their next CI run.
+
+name: PR Comment
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+# Least-privilege default — the single job escalates below (#1116).
+permissions:
+  contents: read
+
+jobs:
+  post-comments:
+    name: Post PR test-report comments
+    # Only for CI runs triggered by a pull_request (skip push/main and dispatch).
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read          # checkout the trusted poster scripts (this ref)
+      actions: read           # download the artifact from the triggering CI run
+      issues: write           # upsert the PR comment
+      pull-requests: write
+    steps:
+      - name: Check out trusted scripts (base repo default branch)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download PR-comment payload
+        id: dl
+        continue-on-error: true   # no artifact (e.g. docs-only PR) → nothing to post
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: pr-comment-payload
+          path: pr-comment
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post BDD + coverage comments
+        if: steps.dl.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const post = require('./.github/scripts/post-pr-comment.js');
+
+            // The PR number comes from the artifact (workflow_run.pull_requests
+            // is empty for forks). Treat it as untrusted: require a bare integer.
+            const raw = fs.existsSync('pr-comment/pr-number.txt')
+              ? fs.readFileSync('pr-comment/pr-number.txt', 'utf8').trim()
+              : '';
+            if (!/^[0-9]+$/.test(raw)) {
+              core.setFailed(`Invalid or missing PR number in artifact: "${raw}"`);
+              return;
+            }
+            const issueNumber = parseInt(raw, 10);
+
+            await post({ github, context, core, issueNumber,
+              bodyPath: 'pr-comment/bdd.md',      marker: '<!-- zynax-bdd-report -->' });
+            await post({ github, context, core, issueNumber,
+              bodyPath: 'pr-comment/coverage.md', marker: '<!-- zynax-coverage-report -->' });
