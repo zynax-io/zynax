@@ -65,7 +65,7 @@ func (c *GatewayClients) ConnectionsReady() bool {
 // (streaming Watch excluded). tlsCertFile, tlsKeyFile, tlsCAFile are paths to
 // PEM files for mTLS; pass empty strings to fall back to insecure credentials
 // (dev/test). The returned cleanup closes everything and must be deferred.
-func NewGatewayClients(compilerAddr, engineAddr, registryAddr, natsURL string, callTimeout time.Duration, tlsCertFile, tlsKeyFile, tlsCAFile string) (*GatewayClients, func(), error) {
+func NewGatewayClients(compilerAddr, engineAddr, registryAddr, natsURL string, callTimeout time.Duration, tlsCertFile, tlsKeyFile, tlsCAFile, eventsTLSCert, eventsTLSKey, eventsTLSCA string) (*GatewayClients, func(), error) {
 	creds, err := tlsCreds(tlsCertFile, tlsKeyFile, tlsCAFile)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("api-gateway: tls credentials: %w", err)
@@ -97,10 +97,10 @@ func NewGatewayClients(compilerAddr, engineAddr, registryAddr, natsURL string, c
 	// profile (ADR-041 lite) must still boot; the /logs event merge is
 	// best-effort until the broker is reachable.
 	eventsOpts := []nats.Option{nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1)}
-	if tlsCertFile != "" {
+	if eventsTLSCert != "" {
 		// Dial with the gateway's cert-manager identity (verify_and_map,
-		// ADR-046 Decision #4) — same PEMs as gRPC mTLS.
-		eventsOpts = append(eventsOpts, zynaxevents.TLSIdentity(tlsCertFile, tlsKeyFile, tlsCAFile)...)
+		// ADR-046 Decision #4) — decoupled from the gRPC TLS profile.
+		eventsOpts = append(eventsOpts, zynaxevents.TLSIdentity(eventsTLSCert, eventsTLSKey, eventsTLSCA)...)
 	}
 	events, err := zynaxevents.New(natsURL, eventsOpts...)
 	if err != nil {

@@ -37,6 +37,12 @@ type config struct {
 	TLSCert            string `envconfig:"TLS_CERT"`
 	TLSKey             string `envconfig:"TLS_KEY"`
 	TLSCA              string `envconfig:"TLS_CA"`
+	// JetStream client identity (ADR-046 Decision #4), decoupled from the
+	// service-wide TLS flag so the broker can be fail-closed mTLS while the
+	// gRPC mesh profile stays unchanged. Falls back to TLS_* when unset.
+	EventsTLSCert string `envconfig:"EVENTS_TLS_CERT"`
+	EventsTLSKey  string `envconfig:"EVENTS_TLS_KEY"`
+	EventsTLSCA   string `envconfig:"EVENTS_TLS_CA"`
 	// Embedded Workflow CRD controller (ADR-043, M8.E). Off by default: when
 	// disabled, api-gateway serves only the REST apply path and starts no
 	// controller-runtime manager. When enabled, a namespaced, Lease-elected
@@ -71,7 +77,11 @@ func run(cfg config) error {
 	defer stop()
 
 	callTimeout := time.Duration(cfg.GRPCCallTimeoutS) * time.Second
-	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, cfg.NATSURL, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA)
+	eventsTLSCert, eventsTLSKey, eventsTLSCA := cfg.EventsTLSCert, cfg.EventsTLSKey, cfg.EventsTLSCA
+	if eventsTLSCert == "" {
+		eventsTLSCert, eventsTLSKey, eventsTLSCA = cfg.TLSCert, cfg.TLSKey, cfg.TLSCA
+	}
+	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, cfg.NATSURL, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA, eventsTLSCert, eventsTLSKey, eventsTLSCA)
 	if err != nil {
 		return fmt.Errorf("gateway clients: %w", err)
 	}

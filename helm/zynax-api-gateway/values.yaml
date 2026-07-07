@@ -96,6 +96,13 @@ admissionPolicy:
 # When set, the secret must contain tls.crt, tls.key, and ca.crt.
 tlsSecretName: ""
 
+# JetStream client identity for direct eventing (ADR-046 Decision #4) —
+# deliberately decoupled from tlsSecretName so the broker can require mTLS
+# (verify_and_map) while the gRPC mesh profile stays unchanged. Set to the
+# service's cert-manager secret to dial NATS with its client certificate.
+eventsTls:
+  secretName: ""
+
 resources:
   requests:
     cpu: 100m

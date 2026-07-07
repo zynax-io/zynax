@@ -49,6 +49,12 @@ zynax-api-gateway:
   admissionPolicy:
     enabled: true
     allowedEngines: [temporal, argo]
+  # JetStream client identity (ADR-046 Decision #4): the broker is fail-closed
+  # verify_and_map; the events client dials with the gateway's cert-manager
+  # certificate. Decoupled from tlsSecretName — the e2e gRPC mesh profile is
+  # unchanged.
+  eventsTls:
+    secretName: zynax-api-gateway-tls
 zynax-workflow-compiler:
   fullnameOverride: zynax-workflow-compiler
   image:
@@ -61,6 +67,10 @@ zynax-engine-adapter:
     # Temporal frontend Service for release `zynax` is `zynax-temporal-frontend`
     # (subchart naming); the umbrella default is wrong, so correct it here.
     temporalHostPort: "zynax-temporal-frontend:7233"
+  # JetStream client identity for the lifecycle-event publisher (ADR-046
+  # Decision #4) — see the api-gateway eventsTls note above.
+  eventsTls:
+    secretName: zynax-engine-adapter-tls
 zynax-task-broker:
   fullnameOverride: zynax-task-broker
   image:

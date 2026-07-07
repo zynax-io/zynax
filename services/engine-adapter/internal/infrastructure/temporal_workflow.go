@@ -110,6 +110,15 @@ func (p *temporalEventPublisher) Publish(_ context.Context, eventType, workflowI
 	actCtx := workflow.WithActivityOptions(p.ctx, workflow.ActivityOptions{
 		TaskQueue:           workflow.GetInfo(p.ctx).TaskQueueName,
 		StartToCloseTimeout: 5 * time.Second,
+		// Best-effort means ONE attempt: without an explicit policy Temporal
+		// retries a timed-out activity forever while .Get blocks the workflow
+		// — a broker in connect-limbo (e.g. TLS misconfig) would stall every
+		// run indefinitely. The gRPC facade hop used to fail fast and hid
+		// this; the direct JetStream calls wait out their 5s API timeouts
+		// (ADR-046 step 6 exposed it, see #1667).
+		RetryPolicy: &temporal.RetryPolicy{
+			MaximumAttempts: 1,
+		},
 	})
 	_ = workflow.ExecuteActivity(actCtx, publishEventActivityName, eventType, workflowID, stateID, payload).Get(p.ctx, nil)
 	return nil
