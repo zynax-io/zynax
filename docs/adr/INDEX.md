@@ -30,9 +30,9 @@ a PR against `docs/adr/`.
 | [ADR-017](ADR-017-contract-test-isolation.md) | Contract test isolation — GOWORK=off | Accepted | 2026-04-21 | `protos/tests/`, `services/*/` — all `go test` invocations |
 | [ADR-018](ADR-018-ai-kb-authorization-model.md) | AI knowledge base authorization model | Accepted | 2026-04-24 | `CLAUDE.md`, `AGENTS.md`, `.ai/`, `.claude/` — KB paths |
 | [ADR-019](ADR-019-spdd-prompt-governance.md) | Structured Prompt-Driven Development (SPDD) | Accepted | 2026-04-30 | `feat:` PRs — Canvas before code, `docs/spdd/`, slash commands |
-| [ADR-020](ADR-020-zero-trust-auth.md) | mTLS with cert-manager for inter-service gRPC auth | Accepted | 2026-05-21 | All inter-service gRPC in K8s — #240 #488 |
-| [ADR-021](ADR-021-horizontal-scale.md) | Postgres-backed repositories for horizontal scaling | Accepted | 2026-05-21 | task-broker + agent-registry repos — #578 #626 |
-| [ADR-022](ADR-022-event-bus-architecture.md) | EventBusService gRPC wrapper over NATS JetStream | Accepted | 2026-06-02 | `services/event-bus/`, `protos/zynax/v1/event_bus.proto`, EPIC I (#772) |
+| [ADR-020](ADR-020-zero-trust-auth.md) | mTLS with cert-manager for inter-service gRPC auth | Accepted | 2026-05-21 | All inter-service gRPC in K8s — #240 #488 — edge bearer-auth half relocated by ADR-044; OIDC/RBAC clause addressed by ADR-049 (Proposed) |
+| [ADR-021](ADR-021-horizontal-scale.md) | Postgres-backed repositories for horizontal scaling | Accepted | 2026-05-21 | task-broker + agent-registry repos — #578 #626 — agent-registry half reversed by ADR-039 (CRD-native scheduler); task-broker half stands |
+| [ADR-022](ADR-022-event-bus-architecture.md) | EventBusService gRPC wrapper over NATS JetStream | Accepted | 2026-06-02 | `services/event-bus/`, `protos/zynax/v1/event_bus.proto`, EPIC I (#772) — reversed by ADR-046 (facade retired; conventions live in `libs/zynaxevents`) |
 | [ADR-023](ADR-023-restrict-direct-pushes-to-main.md) | Restrict direct pushes to `main`; rebase-merge only | Accepted | 2026-06-03 | All branches, PRs, and merge operations |
 | [ADR-024](ADR-024-image-reference-management.md) | Container image reference management — `images.yaml` source of truth | Accepted | 2026-06-08 | `images/images.yaml`, all CI workflow files, Dockerfiles, `config/ci-runner-digest.txt` |
 | [ADR-025](ADR-025-slsa-provenance-attestation.md) | SLSA provenance attestation: keep vs disable | Accepted | 2026-06-08 | `tools-image.yml`, `release.yml` — all `docker/build-push-action` steps |
@@ -58,6 +58,10 @@ a PR against `docs/adr/`.
 | [ADR-045](ADR-045-admission-policy-delegation.md) | Admission-policy delegation — engine allow-list to a K8s-native `ValidatingAdmissionPolicy`; the concurrent-invocation quota stays custom | Accepted | 2026-07-03 | `services/workflow-compiler/` policy_gate (allow-list), engine-adapter `QuotaChecker` (quota stays custom, wiring required), `helm/` VAP — amends ADR-040 — depends on ADR-043 — M8 EPIC G (#1575) |
 | [ADR-046](ADR-046-direct-nats-jetstream.md) | Direct NATS JetStream via a shared client library — the EventBusService gRPC facade retired | Accepted | 2026-07-03 | `services/event-bus/` + `protos/zynax/v1/event_bus.proto` (deprecate M8 / remove M9), `libs/zynaxevents` (new), `spec/asyncapi/zynax-events.yaml`, engine-adapter/task-broker/api-gateway callers, `agents/sdk` — amends ADR-022 — M8 EPIC H (#1576) |
 | [ADR-047](ADR-047-github-merge-queue.md) | GitHub merge queue (squash) replaces the strict up-to-date requirement | Accepted | 2026-07-08 | `main` ruleset (merge_queue rule, strict false), `.github/workflows/` merge_group reporter legs, digest-sync debounce, CONTRIBUTING + deliver commands — supersedes the merge-queue deferral in ADR-023 (rest of ADR-023 stands) — M8 EPIC I (#1680) |
+| [ADR-048](ADR-048-api-versioning-deprecation-policy.md) | API versioning and deprecation policy for REST and gRPC surfaces | Proposed | 2026-07-08 | `protos/zynax/v1/`, `/api/v1` REST, `spec/asyncapi/` — codifies the ADR-039/046 removal-clause convention — proposal #1693, policy doc #1415 |
+| [ADR-049](ADR-049-oidc-jwt-edge-authn-authz.md) | OIDC/JWT authentication with role-based authorization at the Envoy Gateway edge | Proposed | 2026-07-08 | Envoy Gateway `SecurityPolicy`, `helm/` edge values, `zynax` CLI auth — completes ADR-020's "Planned" clause, extends ADR-044 — proposal #1694, candidate #1419 |
+| [ADR-050](ADR-050-fuzz-testing-strategy.md) | Fuzz-testing strategy for untrusted-input surfaces (retroactive) | Proposed | 2026-07-08 | YAML/CEL/proto/glob parse surfaces, `testdata/fuzz/` corpora, CI fuzz budget — extends ADR-016 — proposal #1695, inventory #1417 #1659 |
+| [ADR-051](ADR-051-load-slo-failure-injection.md) | Load-testing harness, SLO acceptance criteria, and failure-injection strategy | Proposed | 2026-07-08 | e2e/kind load harness, per-release SLO gate, ADR-039/044/046 degradation verification — extends ADR-016 — proposal #1696, candidate #1420 |
 
 ---
 
@@ -69,3 +73,4 @@ a PR against `docs/adr/`.
 | **Accepted** | Binding — all new code must comply |
 | **Deprecated** | No longer recommended — existing code may still follow it |
 | **Superseded** | Replaced by a newer ADR (noted in the entry) |
+| **Rejected** | Considered and decided against — recorded so the question is not re-litigated (e.g. ADR-037) |
