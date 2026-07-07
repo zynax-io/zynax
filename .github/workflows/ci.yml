@@ -866,7 +866,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
+      # PRs from forks run with a read-only GITHUB_TOKEN: they cannot log in to
+      # push, nor push to the staging lane, nor upload SARIF to the Security tab.
+      # For a fork PR this job builds WITHOUT pushing (image loaded locally so
+      # Trivy still scans it and the CRITICAL/HIGH gate still fails the build),
+      # and its SARIF is routed to the Security tab by pr-sarif.yml (workflow_run).
+      # A fork's image is simply never promoted on merge — release.yml's retag
+      # skips absent staging tags (image-less PR), so main is never broken.
       - name: Log in to GHCR
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: ghcr.io
@@ -875,7 +883,9 @@ jobs:
 
       # cache scope matches release.yml's amd64 build so PR builds reuse the
       # layer cache populated on main (same Dockerfile, same context).
-      - name: Build and push to staging lane
+      # push (staging lane) for same-repo / non-PR; fork PRs `load` locally so
+      # Trivy + SBOM can read the image without a registry.
+      - name: Build image (push to staging lane, or load locally for fork PRs)
         id: build
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
@@ -883,7 +893,8 @@ jobs:
           file: ${{ matrix.dockerfile || 'infra/docker/Dockerfile.service' }}
           build-args: SVC=${{ matrix.service }}
           platforms: linux/amd64
-          push: true
+          push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          load: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
           tags: ${{ steps.ref.outputs.image }}
           labels: |
             org.opencontainers.image.revision=${{ steps.ref.outputs.head_sha }}
@@ -910,12 +921,26 @@ jobs:
           trivyignores: .trivyignore
 
       # Upload even on a failed scan so findings are visible in the Security tab.
+      # Same-repo / non-PR only: security-events:write is denied to fork PRs.
       - name: Upload Trivy SARIF to GitHub Security tab
-        if: always() && steps.trivy.outcome != 'skipped'
+        if: always() && steps.trivy.outcome != 'skipped' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: github/codeql-action/upload-sarif@03e4368ac7daa2bd82b3e85262f3bf87ee112f57 # v3.36.0
         with:
           sarif_file: trivy-staging-${{ matrix.service }}.sarif
           category: staging-${{ matrix.service }}
+
+      # Fork PRs can't write to the Security tab from this read-only context.
+      # Stash the SARIF as an artifact; pr-sarif.yml (workflow_run) uploads it
+      # from the trusted base-repo context. The build still failed above on
+      # CRITICAL/HIGH — the gate does not depend on this upload.
+      - name: Stash Trivy SARIF for the fork-PR poster
+        if: always() && steps.trivy.outcome != 'skipped' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: trivy-sarif-${{ matrix.service }}
+          path: trivy-staging-${{ matrix.service }}.sarif
+          if-no-files-found: ignore
+          retention-days: 1
 
       # SBOM from the pushed staging image — generated even when Trivy fails so
       # the inventory of a blocked PR is still auditable.
