@@ -192,7 +192,12 @@ jobs:
 
           while IFS= read -r f; do
             [ -z "$f" ] && continue
-            if echo "$f" | grep -qE '^(services/|agents/|cmd/|protos/|go\.work(\.sum)?$)'; then
+            # libs/ carries shared Go modules (zynaxevents/zynaxobs/zynaxconfig)
+            # consumed by every service. A libs-only change used to set go=true but
+            # NOT code=true, so test-go and the required test-integration gate both
+            # SKIPPED — shipping libs changes with zero test coverage (#1668). Treat
+            # libs/ as code so both lanes run.
+            if echo "$f" | grep -qE '^(services/|agents/|cmd/|protos/|libs/|go\.work(\.sum)?$)'; then
               code=true
             fi
             # docker: any path that ends up inside a container image (#1118 / ADR-027).

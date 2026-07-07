@@ -110,11 +110,30 @@ jobs:
           svc_bdd_count=$(find services/ -path "*/tests/*" -name "*_test.go" 2>/dev/null | wc -l)
           adapter_count=$(find agents/adapters/ -name "*.go" 2>/dev/null | wc -l)
           cli_count=$(find cmd/ -name "*_test.go" 2>/dev/null | wc -l)
+          libs_count=$(find libs/ -name "*_test.go" 2>/dev/null | wc -l)
           echo "has_services=$svc_count" >> "$GITHUB_OUTPUT"
           echo "has_bdd_impl=$bdd_count" >> "$GITHUB_OUTPUT"
           echo "has_svc_bdd=$svc_bdd_count" >> "$GITHUB_OUTPUT"
           echo "has_adapters=$adapter_count" >> "$GITHUB_OUTPUT"
           echo "has_cli=$cli_count" >> "$GITHUB_OUTPUT"
+          echo "has_libs=$libs_count" >> "$GITHUB_OUTPUT"
+
+      # ── Shared library unit tests (libs/*) ────────────────────────────────
+      # libs/* are standalone Go modules (own go.mod) consumed by every service,
+      # so they are never part of the go.work-driven service loop. Discover and
+      # test each one directly. Without this lane a libs-only change ran test-go
+      # but exercised zero libs code — the #1668 coverage gap. GOWORK=off is
+      # mandatory for these modules (ADR-017).
+      - name: Go shared-library unit tests (libs/*)
+        if: steps.go-detect.outputs.has_libs != '0'
+        run: |
+          failed=false
+          while IFS= read -r mod; do
+            dir=$(dirname "$mod")
+            echo "── test: ${dir}"
+            ( cd "$dir" && GOWORK=off go test ./... -v -timeout 60s -count=1 ) || failed=true
+          done < <(find libs -maxdepth 2 -name go.mod | sort)
+          $failed && exit 1 || echo "✅ Go shared-library tests passed"
 
       # ── Go service unit tests ─────────────────────────────────────────────
       - name: Go service unit tests
