@@ -8,8 +8,9 @@
 > by a conformance suite — not claimed (the "honest YAML layer", 2026-05 architectural
 > review Fork A; canonical framing in [docs/product/positioning.md](docs/product/positioning.md)).
 > This document is the **narrative roadmap** — it explains the goals and sequence.
-> The **execution roadmap** (issue tracking, progress, and assignments) lives in the
-> [GitHub Project board](https://github.com/orgs/zynax-io/projects/1).
+> The **execution roadmap** (issue tracking, progress, and assignments) lives in
+> [GitHub Milestones](https://github.com/zynax-io/zynax/milestones), the per-milestone
+> plans under `docs/milestones/`, and [state/current-milestone.md](state/current-milestone.md).
 
 ---
 
@@ -24,46 +25,52 @@
 
 ---
 
-## GitHub Projects Setup
+## Execution Tracking
 
-The board is at: **https://github.com/orgs/zynax-io/projects/1**
-
-### Board Views
-
-| View | Purpose |
-|------|---------|
-| **Kanban** | Day-to-day work: `Backlog → Ready → In Progress → In Review → Done` |
-| **Milestone Table** | All open issues grouped by milestone with status |
-| **Roadmap Timeline** | Milestone swimlanes for release planning |
+> **Note (2026-07-08):** execution tracking moved from GitHub Projects to **GitHub
+> Milestones + `docs/milestones/<name>-planning.md` + `state/milestone.yaml`** during M6.
+> The M5-era board ([org project #2](https://github.com/orgs/zynax-io/projects/2)) is
+> historical and no longer maintained.
 
 ### Issue → Roadmap Mapping
 
 Every actionable item in this file must have a corresponding GitHub Issue:
 
 1. Create the issue using the **Feature Request** template.
-2. Set the `milestone:` label matching the milestone below (e.g., `milestone: M1`).
+2. Set the `milestone:` label matching the milestone below (e.g., `milestone: M9`)
+   AND assign the GitHub milestone.
 3. Set the `area:` label for the service or layer.
-4. When implementation begins, assign to a contributor and move to "In Progress".
+4. When implementation begins, the delivery flow sets `status: in-progress` + assignee.
 
 ### Milestones on GitHub
 
 Each roadmap milestone maps to a GitHub Milestone:
 
-| GitHub Milestone | Roadmap Milestone | Target version |
+| GitHub Milestone | Roadmap Milestone | Version shipped/target |
 |-----------------|------------------|---------------|
-| Contracts Foundation | M1 | v0.1.0 |
-| Workflow IR | M2 | v0.1.0 |
-| Temporal Execution | M3 | v0.2.0 |
-| YAML System + CLI | M4 | v0.3.0 |
-| Adapter Library | M5 | v0.4.0 |
-| K8s Production | M6 | v0.5.0 |
-| Usable Workflows + Observability | M7 (reframed — first-run UX closeout) | v0.6.0 |
-| User Experience | M-UX (forward UX program) | v0.7.0 |
-| Developer Experience | M-dx (contributor / SDK / AI tooling) | v0.8.0 |
-| CNCF Sandbox | M8 | v1.0.0 |
+| Contracts Foundation (#1) | M1 | v0.1.0 |
+| Workflow IR (#2) | M2 | v0.1.0 |
+| Temporal Execution (#3) | M3 | v0.2.0 |
+| YAML System + CLI (#4) | M4 | v0.3.0 |
+| Adapter Library (#5) | M5 | v0.4.0 |
+| K8s Production (#6) | M6 | v0.5.0 |
+| Usable Workflows + Observability (#7) | M7 (reframed — first-run UX closeout) | v0.7.0¹ |
+| CNCF Sandbox (#8) | M8 (+ thin-Zynax reduction) | v0.7.0¹ |
+| Hard Removals + Conformance (#11) | **M9 — active** | v0.8.0 |
+| Developer Experience (#9) | M-dx (contributor / SDK / AI tooling) | unversioned program bucket² |
+| User Experience (#10) | M-UX (forward UX program) | unversioned program bucket² |
 
-> **UX program (2026-06-18):** the milestone program runs M7 → **M-UX** → M-dx → M8.
-> See [docs/product/2026-06-18-ux-roadmap-realignment.md](docs/product/2026-06-18-ux-roadmap-realignment.md).
+> ¹ **M7 and M8 ship together as one signed v0.7.0 release** — M7 closed at 0 open issues but
+> was never tagged; its v0.6.0 target was skipped to keep tags monotonic. v1.0.0 is reserved
+> for CNCF **acceptance** (the M8 milestone covers submission *prep*; filing is a maintainer
+> action). GitHub milestone numbers ≠ M-numbers from M9 on (M9 = milestone **#11**) —
+> `state/milestone.yaml` `github_milestone_number` is the source of truth.
+>
+> ² **UX program (2026-06-18, re-sequenced by events):** the plan was M7 → M-UX → M-dx → M8;
+> in practice M8's thin-Zynax reduction and M9's hard removals were executed immediately after
+> M7. M-dx/M-UX remain planned program buckets (skeletons: `docs/milestones/M-dx-planning.md`,
+> `docs/milestones/M-UX-planning.md`); their work ships inside whichever numbered release is
+> active when it lands. See [docs/product/2026-06-18-ux-roadmap-realignment.md](docs/product/2026-06-18-ux-roadmap-realignment.md).
 
 ---
 
@@ -199,25 +206,26 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 7 — Usable Workflows + Observability 🚧 Active
+## Milestone 7 — Usable Workflows + Observability ✅ Delivered (ships in v0.7.0)
 
 **Goal:** A developer authors a real multi-step workflow, runs it locally (`docker compose up`
 incl. Uptrace), and watches it execute state→state with data-flow, streamed logs, and a connected
 distributed trace in the Uptrace UI — with green `make ci`. First of the M7 → M-dx → M8 program.
 
-> Label: `milestone: M7` · Target: v0.6.0 · Plan: [docs/milestones/M7-planning.md](docs/milestones/M7-planning.md)
-> Live per-EPIC status: [state/current-milestone.md](state/current-milestone.md)
+> Label: `milestone: M7` · GitHub milestone #7: **0 open / 172 closed** · Ships in **v0.7.0**
+> (v0.6.0 skipped — see the version footnote above) · Plan: [docs/milestones/M7-planning.md](docs/milestones/M7-planning.md)
+> Live status: [state/current-milestone.md](state/current-milestone.md)
 
-- [ ] Workflow data-flow — output/input bindings across steps (keystone, #1167)
-- [ ] Execution log/event streaming — `/logs` + `zynax logs --follow` (#468)
-- [ ] Observability — OTEL + Uptrace traces/metrics/logs/APM, compose & Helm (#467)
-- [ ] Context propagation — trace, data, and correlation across all hops (#1168)
-- [ ] Git MCP shim over git-adapter capabilities (#1169)
-- [ ] Expert-agent substrate + `agents/examples` reference agents (#1170)
-- [ ] Reusable templates + first real runnable workflows (#1171)
-- [ ] Quality & supply-chain fixes — audit closeout (#1172)
-- [ ] Test rigor — benchmarks, fuzz tests, request correlation (#469)
-- [ ] Quick-start, authoring, and observability docs (#1173)
+- [x] Workflow data-flow — output/input bindings across steps (keystone, #1167)
+- [x] Execution log/event streaming — `/logs` + `zynax logs --follow` (#468)
+- [x] Observability — OTEL + Uptrace traces/metrics/logs/APM, compose & Helm (#467)
+- [x] Context propagation — trace, data, and correlation across all hops (#1168)
+- [x] Git MCP shim over git-adapter capabilities (#1169)
+- [x] Expert-agent substrate + `agents/examples` reference agents (#1170)
+- [x] Reusable templates + first real runnable workflows (#1171)
+- [x] Quality & supply-chain fixes — audit closeout (#1172)
+- [x] Test rigor — benchmarks, fuzz tests, request correlation (#469)
+- [x] Quick-start, authoring, and observability docs (#1173)
 
 **First-run UX closeout (reframed 2026-06-18).** M7's remaining work is the **first-run User
 Experience**, owned by the canonical epic **#1370** — *clone (or no-clone) → one command → meaningful
@@ -232,7 +240,8 @@ from M-dx. Stories: #1371–#1381, #1385–#1388. Map: [docs/product/2026-06-18-
 **Goal:** The **forward** User-Experience program — experience Zynax's value with **no clone**, with
 intelligent context-loading at scale and a discoverable Documentation Portal.
 
-> Label: GitHub milestone "User Experience (M-UX)" (#10) · Target: v0.7.0
+> Label: GitHub milestone "User Experience (M-UX)" (#10) · Planning skeleton:
+> [docs/milestones/M-UX-planning.md](docs/milestones/M-UX-planning.md)
 
 - [ ] No-clone try-it / hosted playground path (epic #1389)
 - [ ] Intelligent context-loading architecture — metadata + required/optional/lazy policy (#1389)
@@ -244,7 +253,8 @@ intelligent context-loading at scale and a discoverable Documentation Portal.
 
 **Goal:** Make contributing and building on Zynax delightful — distinct from end-user UX.
 
-> Label: GitHub milestone "Developer Experience (M-dx)" (#9) · Target: v0.8.0
+> Label: GitHub milestone "Developer Experience (M-dx)" (#9) · Planning skeleton:
+> [docs/milestones/M-dx-planning.md](docs/milestones/M-dx-planning.md)
 
 - [ ] Contributor Experience — fast-lane, PR ergonomics, automation (epic #1391)
 - [ ] SDK & Adapter-Author Experience (epic #1392)
@@ -252,18 +262,21 @@ intelligent context-loading at scale and a discoverable Documentation Portal.
 
 ---
 
-## Milestone 8 — CNCF Sandbox Submission
+## Milestone 8 — CNCF Sandbox Submission ✅ Delivered (ships in v0.7.0; tail: M8.I)
 
 **Goal:** Community, governance, and technical maturity for CNCF Sandbox — and the
 thin-Zynax K8s-native reduction (ADR-040: scheduler on CRDs, Workflow CRD front-end,
 edge auth/rate-limit on Gateway API, admission-policy allow-list, direct JetStream
 eventing).
 
-> Label: `milestone: M8`
+> Label: `milestone: M8` · Ships in **v0.7.0** (jointly with M7) · Plan:
+> [docs/milestones/M8-planning.md](docs/milestones/M8-planning.md)
 
 - [x] Governance honesty: `MAINTAINERS.md` + single-maintainer operating mode (#494)
 - [x] Troubleshooting guide + curated `good first issue` entry points (#495)
 - [x] Thin-Zynax reduction epics (M8.C–M8.H: ADR-039/041/043/044/045/046)
+- [ ] M8.I — GitHub merge queue (epic #1680, stories #1681–#1685; ADR-047 reserved) —
+      the milestone's open tail
 - [ ] CNCF Sandbox application prepared and filed (submission is a maintainer action;
       prep: [docs/cncf/sandbox-submission.md](docs/cncf/sandbox-submission.md))
 - [ ] ≥ 2 maintainers from different organisations *(Sandbox nice-to-have, required
@@ -278,17 +291,18 @@ compile→IR→dispatch path on **Temporal and Argo** on every infra/service PR
 named, versioned **conformance suite** (published pass/fail matrix per engine per
 release) is the follow-on milestone item below.
 
-## Milestone 9 — Hard removals + conformance suite
+## Milestone 9 — Hard removals + conformance suite 🚧 Active
 
 **Goal:** Delete the paths deprecated across M8 (agent-registry push registration,
 the EventBusService facade) per each ADR's removal clause, and formalise the
 dual-engine e2e into a named conformance suite.
 
-> Label: `milestone: M9`
+> Label: `milestone: M9` · GitHub milestone **#11** · Target **v0.8.0** · Plan:
+> [docs/milestones/M9-planning.md](docs/milestones/M9-planning.md)
 
-- [ ] agent-registry push path hard-removal (ADR-039)
-- [ ] `services/event-bus/` facade hard-removal (ADR-046)
-- [ ] Named engine-conformance suite over the existing dual-engine e2e
+- [ ] agent-registry push path hard-removal (ADR-039) — epic #1674
+- [ ] `services/event-bus/` facade hard-removal (ADR-046) — epic #1675
+- [ ] Named engine-conformance suite over the existing dual-engine e2e — epic #1692
 
 ---
 
@@ -301,10 +315,13 @@ dual-engine e2e into a named conformance suite.
 | v0.3.0 | M4 | `zynax apply` + CLI |
 | v0.4.0 | M5 | Adapter library |
 | v0.5.0 | M6 | K8s production-ready |
-| v0.6.0 | M7 | Usable workflows + observability |
-| v0.7.0 | M8 | Thin-Zynax reduction + CNCF Sandbox prep |
+| ~~v0.6.0~~ | — | Skipped — M7 was never tagged at v0.6.0; kept tags monotonic |
+| v0.7.0 | **M7 + M8** | Usable workflows + observability · thin-Zynax reduction + CNCF Sandbox prep (one joint signed release) |
 | v0.8.0 | M9 | Hard removals + conformance suite |
 | v1.0.0 | CNCF acceptance | Cut when the Sandbox application is accepted |
+
+> M-dx and M-UX are unversioned program buckets — their work ships inside whichever
+> numbered release is active when it lands.
 
 ---
 
