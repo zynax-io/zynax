@@ -61,3 +61,6 @@ docs/spdd/**/canvas.private.md
 # #1488 nodePort regression). Upstream third-party tgz under helm/charts/*/charts/
 # ARE vendored intentionally (offline/pinned installs) and are NOT ignored here.
 helm/zynax-umbrella/charts/*.tgz
+# Stamp written by cluster-up.sh to skip `helm dependency build` when nothing
+# under helm/ changed since the previous build (content hash of helm/**).
+helm/zynax-umbrella/charts/.dep-hash
