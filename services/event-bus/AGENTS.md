@@ -1,5 +1,13 @@
 # services/event-bus — AGENTS.md
 
+> **DEPRECATED (ADR-046, M8.H — removed in M9).** Publishers and subscribers
+> use NATS JetStream directly through `libs/zynaxevents`, which carries this
+> service's `nats.go` conventions verbatim (golden byte-compat gated on both
+> until removal). This facade stays deployable and its tests stay green through
+> M8; `services/event-bus/`, `protos/zynax/v1/event_bus.proto`, and the
+> generated stubs are hard-removed in M9 once no caller references them.
+> **Do not add new callers or features here.**
+
 > Go toolchain pinned in the workspace [`go.work`](../../go.work). Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
 > **Status: M6 EPIC I (#772) — implementation pending.** Architecture decided by ADR-022: full gRPC `EventBusService` wrapping NATS JetStream; the service is a stateless Deployment (all durability in JetStream). BDD contract tests exist in `protos/tests/`. `PublishLifecycleEventActivity` in engine-adapter is a log-only stub until EPIC I ships.
 

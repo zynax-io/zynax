@@ -37,22 +37,35 @@ option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
 
 // EventBusService provides async event publish/subscribe for workflow-driven
 // state transitions and cross-service communication.
+//
+// DEPRECATED (ADR-046, M8.H): publishers and subscribers use NATS JetStream
+// directly through the shared libs/zynaxevents client; this gRPC facade is
+// kept deployable through M8 and is hard-removed in M9 together with
+// services/event-bus/ and these generated stubs. Do not add new callers.
 service EventBusService {
+  option deprecated = true;
+
   // Publish submits a CloudEvent to the bus for delivery to all matching
   // subscribers. Returns INVALID_ARGUMENT if the CloudEvent envelope is
   // missing or has empty required fields (id, source, type).
-  rpc Publish(PublishRequest) returns (PublishResponse);
+  rpc Publish(PublishRequest) returns (PublishResponse) {
+    option deprecated = true;
+  }
 
   // Subscribe opens a server-streaming channel that delivers CloudEvents
   // matching the subscriber's type_pattern and optional workflow_id scope.
   // The stream remains open until Unsubscribe is called or the server closes
   // it. Returns INVALID_ARGUMENT if subscriber_id or type_pattern is empty.
-  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse) {
+    option deprecated = true;
+  }
 
   // Unsubscribe closes the active Subscribe stream for a subscriber_id and
   // stops event delivery. Returns NOT_FOUND if the subscriber_id is unknown.
   // Returns INVALID_ARGUMENT if subscriber_id is empty.
-  rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
+  rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse) {
+    option deprecated = true;
+  }
 }
 
 // PublishRequest carries the CloudEvent to publish to the bus.

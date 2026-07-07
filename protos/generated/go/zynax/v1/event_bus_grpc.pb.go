@@ -58,16 +58,26 @@ const (
 //
 // EventBusService provides async event publish/subscribe for workflow-driven
 // state transitions and cross-service communication.
+//
+// DEPRECATED (ADR-046, M8.H): publishers and subscribers use NATS JetStream
+// directly through the shared libs/zynaxevents client; this gRPC facade is
+// kept deployable through M8 and is hard-removed in M9 together with
+// services/event-bus/ and these generated stubs. Do not add new callers.
+//
+// Deprecated: Do not use.
 type EventBusServiceClient interface {
+	// Deprecated: Do not use.
 	// Publish submits a CloudEvent to the bus for delivery to all matching
 	// subscribers. Returns INVALID_ARGUMENT if the CloudEvent envelope is
 	// missing or has empty required fields (id, source, type).
 	Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*PublishResponse, error)
+	// Deprecated: Do not use.
 	// Subscribe opens a server-streaming channel that delivers CloudEvents
 	// matching the subscriber's type_pattern and optional workflow_id scope.
 	// The stream remains open until Unsubscribe is called or the server closes
 	// it. Returns INVALID_ARGUMENT if subscriber_id or type_pattern is empty.
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SubscribeResponse], error)
+	// Deprecated: Do not use.
 	// Unsubscribe closes the active Subscribe stream for a subscriber_id and
 	// stops event delivery. Returns NOT_FOUND if the subscriber_id is unknown.
 	// Returns INVALID_ARGUMENT if subscriber_id is empty.
@@ -78,10 +88,12 @@ type eventBusServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
+// Deprecated: Do not use.
 func NewEventBusServiceClient(cc grpc.ClientConnInterface) EventBusServiceClient {
 	return &eventBusServiceClient{cc}
 }
 
+// Deprecated: Do not use.
 func (c *eventBusServiceClient) Publish(ctx context.Context, in *PublishRequest, opts ...grpc.CallOption) (*PublishResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PublishResponse)
@@ -92,6 +104,7 @@ func (c *eventBusServiceClient) Publish(ctx context.Context, in *PublishRequest,
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *eventBusServiceClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SubscribeResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &EventBusService_ServiceDesc.Streams[0], EventBusService_Subscribe_FullMethodName, cOpts...)
@@ -111,6 +124,7 @@ func (c *eventBusServiceClient) Subscribe(ctx context.Context, in *SubscribeRequ
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type EventBusService_SubscribeClient = grpc.ServerStreamingClient[SubscribeResponse]
 
+// Deprecated: Do not use.
 func (c *eventBusServiceClient) Unsubscribe(ctx context.Context, in *UnsubscribeRequest, opts ...grpc.CallOption) (*UnsubscribeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UnsubscribeResponse)
@@ -127,16 +141,26 @@ func (c *eventBusServiceClient) Unsubscribe(ctx context.Context, in *Unsubscribe
 //
 // EventBusService provides async event publish/subscribe for workflow-driven
 // state transitions and cross-service communication.
+//
+// DEPRECATED (ADR-046, M8.H): publishers and subscribers use NATS JetStream
+// directly through the shared libs/zynaxevents client; this gRPC facade is
+// kept deployable through M8 and is hard-removed in M9 together with
+// services/event-bus/ and these generated stubs. Do not add new callers.
+//
+// Deprecated: Do not use.
 type EventBusServiceServer interface {
+	// Deprecated: Do not use.
 	// Publish submits a CloudEvent to the bus for delivery to all matching
 	// subscribers. Returns INVALID_ARGUMENT if the CloudEvent envelope is
 	// missing or has empty required fields (id, source, type).
 	Publish(context.Context, *PublishRequest) (*PublishResponse, error)
+	// Deprecated: Do not use.
 	// Subscribe opens a server-streaming channel that delivers CloudEvents
 	// matching the subscriber's type_pattern and optional workflow_id scope.
 	// The stream remains open until Unsubscribe is called or the server closes
 	// it. Returns INVALID_ARGUMENT if subscriber_id or type_pattern is empty.
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[SubscribeResponse]) error
+	// Deprecated: Do not use.
 	// Unsubscribe closes the active Subscribe stream for a subscriber_id and
 	// stops event delivery. Returns NOT_FOUND if the subscriber_id is unknown.
 	// Returns INVALID_ARGUMENT if subscriber_id is empty.
@@ -170,6 +194,7 @@ type UnsafeEventBusServiceServer interface {
 	mustEmbedUnimplementedEventBusServiceServer()
 }
 
+// Deprecated: Do not use.
 func RegisterEventBusServiceServer(s grpc.ServiceRegistrar, srv EventBusServiceServer) {
 	// If the following call panics, it indicates UnimplementedEventBusServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an

@@ -34,11 +34,29 @@ info:
 
     All channels in this file are currently at schema revision v1. The current
     stable suffix for all channels is unversioned (implicit v1).
+
+    ## Access path (ADR-046, M8.H)
+
+    Services publish and subscribe **directly over NATS JetStream** through the
+    shared client (`libs/zynaxevents` in Go), which realises the conventions
+    this spec pins (stream derivation, DLQ naming, CloudEvents envelope). The
+    former `EventBusService` gRPC facade is **deprecated**
+    (`x-zynax-deprecated: true`, removal milestone M9) — the channels below are
+    unchanged and remain the single contract of record.
   license:
     name: Apache-2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
 
   # Versioning scheme extension — documents the active policy
+  # Access-path lifecycle (ADR-046): the gRPC facade is deprecated; the spec's
+  # channels are realised by the shared direct-JetStream client.
+  x-zynax-access-path:
+    grpc-facade:
+      service: EventBusService
+      x-zynax-deprecated: true
+      x-zynax-removal-milestone: M9
+    direct-client: libs/zynaxevents
+
   x-zynax-versioning:
     scheme: channel-suffix
     current-revision: v1
@@ -51,7 +69,9 @@ servers:
   production:
     url: nats://nats:4222
     protocol: nats
-    description: NATS JetStream broker (production). TLS required in prod.
+    description: >-
+      NATS JetStream broker. TLS with cert-manager client identities and
+      verify_and_map user mapping (ADR-046 Decision 4).
   local:
     url: nats://localhost:4222
     protocol: nats
