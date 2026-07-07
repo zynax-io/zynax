@@ -14,7 +14,7 @@
 #   gitleaks-scan        → secrets scan across full PR commit range
 #   milestone-state      → ADVISORY: state/milestone.yaml schema check (issue #1110)
 #
-# PR size labeling is in pr-size.yml (separate workflow) to avoid feedback loops.
+# The PR size gate lives in pr-size.yml (separate workflow, job "PR size label").
 #
 # Required status checks: GitHub Actions workflow lint · Conventional Commit title
 #   PR size label · Secret scan (gitleaks)

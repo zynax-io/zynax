@@ -1,14 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
-# PR Size Labeling — auto-labels PRs with size/S · size/M · size/L · size/XL
-# based on net lines changed, excluding generated code, lock files, and docs.
+# PR Size gate — enforces the 900-line hard limit (warning at 400) based on
+# net lines changed, excluding generated code, lock files, and docs.
 #
-# Deliberately kept in its own workflow so that the label write-back does NOT
-# re-trigger pr-checks.yml. The previous design embedded this job inside
-# pr-checks.yml (which also listened on `edited`), causing a feedback loop:
-#   label applied → pull_request edited event → pr-checks.yml re-runs
+# The size/* label write-back was removed: fork PRs (e.g. #1668) run with a
+# read-only GITHUB_TOKEN, so the label write 403'd — failing the check until
+# #1670 downgraded the write to best-effort. Nothing consumes size/* labels,
+# so the write-back is gone entirely: the gate is read-only and needs no
+# write scope or checkout.
 #
-# This file triggers only on code-change events (opened / synchronize / reopened),
-# so the label write-back fires a `labeled` event that no workflow here subscribes to.
+# The job name stays "PR size label" — it is a required status check context
+# in the main branch ruleset; renaming the job would orphan that requirement.
 
 name: PR Size
 
@@ -20,7 +21,7 @@ concurrency:
   group: pr-size-${{ github.ref }}
   cancel-in-progress: true
 
-# Least-privilege default — jobs that need more escalate per-job below (#1116).
+# Least-privilege (#1116) — the gate only reads PR file metadata.
 permissions:
   contents: read
 
@@ -29,15 +30,8 @@ jobs:
     name: PR size label
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      pull-requests: write   # applies/removes size/* labels on the PR
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Label PR by size and enforce 800-line limit
+      - name: Enforce PR size limits
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -59,47 +53,7 @@ jobs:
               .filter(f => !skipPattern.test(f.filename))
               .reduce((total, f) => total + f.additions + f.deletions, 0);
 
-            const sizeLabel =
-              lines <= 100  ? 'size/S'  :
-              lines <= 400  ? 'size/M'  :
-              lines <= 900  ? 'size/L'  : 'size/XL';
-
-            // Apply the size/* label as a best-effort side effect. PRs from forks
-            // run with a read-only GITHUB_TOKEN regardless of the job's requested
-            // `pull-requests: write` scope, so the label write-back 403s. That must
-            // NOT fail this required check — the size *enforcement* below still runs
-            // on read-only access. Swallow the write error and warn instead.
-            try {
-              // Remove any existing size/* labels then apply the new one
-              const { data: existing } = await github.rest.issues.listLabelsOnIssue({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-              });
-              for (const lbl of existing.filter(l => l.name.startsWith('size/'))) {
-                await github.rest.issues.removeLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  name: lbl.name,
-                });
-              }
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                labels: [sizeLabel],
-              });
-            } catch (err) {
-              // Fork PRs get a read-only token → 403. Not fatal: the size gate below
-              // still enforces the limit. Any other status is surfaced as a warning.
-              core.warning(
-                `Could not write the ${sizeLabel} label (status ${err.status ?? 'unknown'}): ${err.message}. ` +
-                `This is expected for PRs from forks (read-only GITHUB_TOKEN); size enforcement still applies.`
-              );
-            }
-
-            core.info(`PR changes: ${lines} lines (excluding generated/lock files) → ${sizeLabel}`);
+            core.info(`PR changes: ${lines} lines (excluding generated/lock files)`);
 
             if (lines > 900) {
               core.setFailed(
