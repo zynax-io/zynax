@@ -376,12 +376,20 @@ audit: ensure-tools ## Dependency vulnerability audit (govulncheck + pip-audit);
 
 # ── Build images ───────────────────────────────────────────────────────────
 .PHONY: build build-svc build-agent
-build: check-docker ## Build all Docker images
-	@for svc in $(GO_SERVICES); do docker build -f infra/docker/Dockerfile.service --build-arg SVC=$$svc -t $(REGISTRY)/zynax-$$svc:local .; done
+# Service images are dual-tagged: <registry>/zynax-<svc>:local (scan-image /
+# sbom compatibility) AND <registry>/zynax/<svc>:main — the exact name the kind
+# side-load lane expects (cluster-up.sh KIND_LOAD_REGISTRY/KIND_LOAD_TAG
+# defaults, values-e2e.yaml, echo-worker.yaml). Without the second tag,
+# `make demo` / `make kind-up` never find local builds and pull :main from
+# GHCR. A locally built zynax/<svc>:main shadows GHCR's inside the cluster —
+# that is the side-load design (IfNotPresent); `docker pull` refreshes it.
+build: check-docker ## Build all Docker images (side-load-ready for make demo / kind-up)
+	@for svc in $(GO_SERVICES); do docker build -f infra/docker/Dockerfile.service --build-arg SVC=$$svc -t $(REGISTRY)/zynax-$$svc:local -t $(REGISTRY)/zynax/$$svc:main .; done
+	@docker build -f agents/adapters/langgraph/Dockerfile -t $(REGISTRY)/zynax/langgraph-adapter:main .
 	@for a in $(AGENTS); do [ -f "agents/examples/$$a/Dockerfile" ] && docker build agents/examples/$$a -t $(REGISTRY)/zynax-agent-$$a:local || true; done
 
 build-svc: ## Build one service image: make build-svc SVC=agent-registry
-	docker build -f infra/docker/Dockerfile.service --build-arg SVC=$(SVC) -t $(REGISTRY)/zynax-$(SVC):local .
+	docker build -f infra/docker/Dockerfile.service --build-arg SVC=$(SVC) -t $(REGISTRY)/zynax-$(SVC):local -t $(REGISTRY)/zynax/$(SVC):main .
 
 build-agent: ## Build one agent image: make build-agent AGENT=summarizer
 	docker build agents/examples/$(AGENT) -t $(REGISTRY)/zynax-agent-$(AGENT):local
