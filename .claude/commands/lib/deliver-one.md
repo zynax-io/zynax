@@ -622,7 +622,11 @@ the command's contract is end-to-end autonomous delivery, not a fire-and-forget 
 >
 > **Merge-ready signal:** all *required* checks green is the gate. `mergeStateStatus` of
 > `CLEAN` is ready; `UNSTABLE` with only non-required checks pending is ALSO ready — do not
-> deadlock waiting for advisory checks. `BEHIND` means rebase onto origin/main and re-run.
+> deadlock waiting for advisory checks. `BEHIND` is ALSO ready — the merge queue validates
+> the PR against current main on its turn (ADR-047); never rebase for freshness, a
+> force-push ejects a queued PR. `DIRTY` means real conflicts: rebase with `--signoff`,
+> `--force-with-lease`, re-run. *Fallback (no merge-queue rule on main — pre-cutover or
+> rollback): `BEHIND` means rebase onto origin/main and re-run, as before.*
 
 ```bash
 echo "Waiting for CI on PR #$PR_N (this may take 5–20 minutes)..."
@@ -646,8 +650,8 @@ while [ $ELAPSED -lt 1800 ]; do
     exit 1
   fi
 
-  if [ "$PENDING" = "false" ] && [ "$MERGE_STATE" = "CLEAN" ]; then
-    echo "All required CI checks passed. PR #$PR_N is CLEAN."
+  if [ "$PENDING" = "false" ] && { [ "$MERGE_STATE" = "CLEAN" ] || [ "$MERGE_STATE" = "BEHIND" ]; }; then
+    echo "All required CI checks passed. PR #$PR_N is $MERGE_STATE (BEHIND is fine — the queue handles freshness, ADR-047)."
     CI_PASSED=true
     break
   fi
@@ -718,30 +722,54 @@ fi
 
 ---
 
-## STEP 12 — Rebase + squash-merge
+## STEP 12 — Queue squash-merge (ADR-047)
+
+Never rebase for freshness — a force-push ejects the PR from the merge queue. `DIRTY`
+(real conflicts) is the only reason to touch the branch. *Fallback (no merge-queue rule on
+main — pre-cutover or rollback): rebase onto origin/main + `--force-with-lease`, then arm
+`--auto`, as before.*
 
 ```bash
 CURRENT_STEP="12-MERGE"; check_ctx_budget
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] MERGE: CI green — rebasing and squash-merging PR #$PR_N  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-git fetch origin --prune
-git checkout "$BRANCH"
-git rebase origin/main || {
-  echo "CONFLICT during rebase on $BRANCH — resolve conflicts, then:"
-  echo "  git rebase --continue && git push --force-with-lease"
-  echo "Then re-run STEP 12."
+echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] MERGE: CI green — queueing squash-merge of PR #$PR_N  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
+
+if [ "$(gh pr view "$PR_N" --json mergeStateStatus --jq .mergeStateStatus)" = "DIRTY" ]; then
+  echo "CONFLICT: PR #$PR_N is DIRTY — resolve real conflicts:"
+  echo "  git fetch origin && git checkout $BRANCH && git rebase --signoff origin/main"
+  echo "  git push --force-with-lease   # then re-run STEP 12"
   exit 1
-}
-git push --force-with-lease
+fi
 
-gh pr merge "$PR_N" --squash
+gh pr merge "$PR_N" --squash --auto   # enqueue (merge when ready)
+
+# Queue latency ≈ one CI wall-time; a red entry ahead restarts the group.
+# One re-queue retry if a flaky check ejects the PR (auto-merge disarms on ejection).
+REQUEUED=false
+Q_ELAPSED=0
 until [ "$(gh pr view "$PR_N" --json state --jq .state)" = "MERGED" ]; do
-  echo "Waiting for merge to settle..."
-  sleep 10
+  if [ $Q_ELAPSED -ge 2700 ]; then
+    echo "Queue wait timed out (45 min) — check PR #$PR_N manually."
+    exit 1
+  fi
+  ARMED=$(gh api "repos/{owner}/{repo}/pulls/$PR_N" --jq '.auto_merge != null' 2>/dev/null || echo "true")
+  if [ "$ARMED" = "false" ]; then
+    if [ "$REQUEUED" = "false" ]; then
+      echo "PR #$PR_N ejected from the queue (flaky check?) — re-queueing once."
+      gh pr merge "$PR_N" --squash --auto
+      REQUEUED=true
+    else
+      echo "PR #$PR_N ejected twice — investigate the failing queue check before re-queueing."
+      exit 1
+    fi
+  fi
+  echo "Queued... (${Q_ELAPSED}s)"
+  sleep 30
+  Q_ELAPSED=$((Q_ELAPSED + 30))
 done
-echo "PR #$PR_N merged."
+echo "PR #$PR_N merged via the queue."
 
-# Delete the remote branch
-git push origin --delete "$BRANCH" 2>/dev/null || true
+# Remote branch is auto-deleted on merge; sync local state
+git fetch origin --prune
 git checkout main && git pull --rebase origin main
 git branch -D "$BRANCH" 2>/dev/null || true
 ```
@@ -828,5 +856,6 @@ echo "Worktree $WORKTREE_PATH removed."
 | Local build/test failure | Stop — fix before committing; soft claim remains |
 | CI red on PR | Stop — report failing checks; remove soft claim |
 | CI timeout (>30 min) | Stop — check manually; remove soft claim |
-| Rebase conflict | Stop — resolve manually; re-run STEP 12 |
+| PR DIRTY (real conflicts) | Stop — `git rebase --signoff origin/main` manually; re-run STEP 12 |
+| Ejected from merge queue twice | Stop — investigate the flaky queue check before re-queueing |
 | Branch delete fails | Continue — non-fatal; clean up manually |

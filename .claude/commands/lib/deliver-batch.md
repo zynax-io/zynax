@@ -92,27 +92,24 @@ REMOTE_BRANCHES=$(git ls-remote origin 'refs/heads/*' \
 
 ## STEP 2 — Quick merge pass (≤60 s)
 
-Before claiming new work, merge any open PRs that are already CLEAN. This runs inside the
-coordinator worktree `$COORD_WT` (created in STEP 1) — never the user's checkout. Use
-`git checkout --detach origin/main`, not `git checkout main`: `main` is checked out in the
-user's primary worktree and git refuses to check it out a second time.
+Before claiming new work, arm the merge queue on any open PRs that are already green
+(ADR-047). `BEHIND` is fine — the queue validates each PR against current main on its turn;
+never rebase for freshness (a force-push ejects a queued PR). Only `DIRTY` (real conflicts)
+needs a manual `--signoff` rebase. *Fallback (no merge-queue rule on main — pre-cutover or
+rollback): rebase `origin/main` + `--force-with-lease` in `$COORD_WT` before arming, as
+before.*
 
 ```bash
 OPEN_PRS_JSON=$(gh pr list --author "@me" --state open \
-  --json number,headRefName,mergeStateStatus,statusCheckRollup \
+  --json number,mergeStateStatus,statusCheckRollup \
   --jq 'sort_by(.number) | .[]')
 
 while IFS= read -r PR; do
   PR_N=$(echo "$PR" | jq -r .number)
   MERGE_STATE=$(echo "$PR" | jq -r .mergeStateStatus)
   FAILED=$(echo "$PR" | jq '[.statusCheckRollup[]? | select(.isRequired==true) | .conclusion] | any(. == "FAILURE" or . == "ERROR")')
-  if [[ "$MERGE_STATE" == "CLEAN" ]] && [[ "$FAILED" == "false" ]]; then
-    BR=$(echo "$PR" | jq -r .headRefName)
-    git checkout -B "$BR" "origin/$BR" && git rebase origin/main && git push --force-with-lease
-    gh pr merge "$PR_N" --squash
-    until [ "$(gh pr view "$PR_N" --json state --jq .state)" = "MERGED" ]; do sleep 10; done
-    git push origin --delete "$BR" 2>/dev/null || true
-    git fetch origin --prune && git checkout --detach origin/main
+  if [[ "$MERGE_STATE" == "CLEAN" || "$MERGE_STATE" == "BEHIND" ]] && [[ "$FAILED" == "false" ]]; then
+    gh pr merge "$PR_N" --squash --auto   # enqueue; the queue merges it on its turn
   fi
 done <<< "$OPEN_PRS_JSON"
 ```
@@ -304,11 +301,13 @@ Agent({
        (canvas Aligned + security-review PASS). Leave the "Post-merge digest sync → main" evidence
        line as a placeholder — STEP 7.5's verifier fills it after the release pipeline runs.
     4. Wait for CI (`gh pr checks <PR> --watch --interval 30`). When green and required checks
-       pass, squash-merge (`gh pr merge <PR> --squash`; never `--rebase`). If the PR is `BEHIND`
-       (sequential batch merges advance main; required up-to-date + `required_signatures` block
-       GitHub's unsigned "Update branch"), rebase your single commit onto `origin/main` and
-       `git push --force-with-lease` (SSH signing is preserved via `rebase.gpgSign`), re-validate,
-       then merge. Report the result.
+       pass, arm the queue merge (`gh pr merge <PR> --squash --auto`; never `--rebase`) — the
+       merge queue validates the PR against current main (ADR-047), so `BEHIND` needs no action
+       and a force-push would eject a queued PR. Only `DIRTY` (real conflicts) needs
+       `git rebase --signoff origin/main` + `git push --force-with-lease` (SSH signing is
+       preserved via `rebase.gpgSign`), then re-arm. Report the result. *Fallback (no
+       merge-queue rule on main — pre-cutover or rollback): rebase onto `origin/main` +
+       force-with-lease, re-validate, then merge, as before.*
     5. Cleanup — your LAST action, always, success or failure (a SINGLE Bash call, literal path):
        ```bash
        git -C <REPO> worktree remove /tmp/zynax-orch-<RUN_ID>-<N> --force
@@ -463,8 +462,9 @@ git -C "$WT" status --short                      # uncommitted work?
 #   uncommitted → review the diff, run the local gates, then `git -C "$WT" commit -s -F <msgfile>`
 #   committed   → already done; just push
 git -C "$WT" push -u origin "<type>/${N}"        # fast-forward (the empty claim is already there);
-#   if rejected because origin advanced → rebase onto origin/main + push --force-with-lease (see
-#   STEP 6 delivery contract step 4 — the BEHIND rule).
+#   if rejected because the branch ref on origin advanced → rebase onto the remote branch +
+#   push --force-with-lease (claim-commit recovery; main-freshness is the merge queue's job —
+#   ADR-047, see STEP 6 delivery contract step 4).
 # Then open the PR (canonical template body), wait for CI, squash-merge. NOW the tree is safe to sweep.
 ```
 

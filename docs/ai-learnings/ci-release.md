@@ -174,6 +174,7 @@ If a merged PR references the issue: stop immediately, report the merge SHA and 
   Fix: `git fetch origin main && git rebase origin/main && git push --force-with-lease origin <branch>`.
   If GitHub still shows `BEHIND`: use `gh pr merge --squash --auto` and wait for self-resolution.
   Seen in: #838 (release.yml changes landed in ADR-024 PR #970). Date: 2026-06-08.
+  *Update (ADR-047, 2026-07-08): the update-branch prohibition stands; the freshness-rebase fix is obsolete — main uses a merge queue, `BEHIND` is cosmetic, arm `--squash --auto`.*
 
 - **`gh` CLI is NOT installed in the `ci-runner` container.**
   Jobs needing `gh` (PR comments, API calls) must run on `ubuntu-24.04` (hosted runner),
@@ -516,12 +517,13 @@ Post-merge verification of an engine-adapter change. Outcome: SKIP — image pub
 - **Multi-arch tools-image build leaves a stranded partial tag on a single-arch leg failure:** the build splits into per-arch matrix jobs; when the arm64 leg failed, GHCR was left with a stranded `amd64-<sha>` SHA tag and an un-updated `latest`. Always confirm the `latest` tag specifically — a fresh version row alone is insufficient (it may be a partial single-arch push). `apk add` exit 255 under arm64 QEMU emulation is the common transient mode here; amd64 succeeding on the identical Dockerfile is strong signal it is environmental — a `gh run rerun <id> --failed` is the right remediation, not a code change (post-merge #1224).
 
 ### Failed approaches
-- **`gh api .../pulls/<N>/update-branch` to satisfy strict up-to-date branch protection breaks DCO:** its server-side merge commit has no `Signed-off-by` and fails the `dco` check. With required_signatures + DCO + strict-up-to-date all enabled, the only clean path is `git rebase origin/main` + `git push --force-with-lease` (re-signs, stays signed-off), then `gh pr merge --squash --auto` to win concurrent-merge races on busy main (#1212, #1213).
+- **`gh api .../pulls/<N>/update-branch` to satisfy strict up-to-date branch protection breaks DCO:** its server-side merge commit has no `Signed-off-by` and fails the `dco` check. With required_signatures + DCO + strict-up-to-date all enabled, the only clean path is `git rebase origin/main` + `git push --force-with-lease` (re-signs, stays signed-off), then `gh pr merge --squash --auto` to win concurrent-merge races on busy main (#1212, #1213). *Update (ADR-047, 2026-07-08): the update-branch prohibition stands; the freshness rebase does not — main uses a merge queue, so arm `--squash --auto` and rebase only for `DIRTY` conflicts.*
 
 ### Proposed expert prompt update
 - Rule: To satisfy a "branch is behind base" / strict-up-to-date merge requirement on this repo, do NOT use `gh api .../pulls/<N>/update-branch` — its merge commit lacks `Signed-off-by` and fails `dco`. Instead `git rebase origin/main` + `git push --force-with-lease`, then `gh pr merge --squash --auto`.
   Category: structural-workaround
   Reason: This repo enforces DCO + required_signatures + strict-up-to-date simultaneously; the API update-branch path silently violates DCO and manual squash-merge loses races on high-traffic main.
+  *Update (ADR-047, 2026-07-08): superseded except the update-branch prohibition — strict up-to-date is off and main uses a merge queue; arm `--squash --auto`, never rebase for freshness (a force-push ejects a queued PR), rebase `--signoff` only for `DIRTY` conflicts.*
 - Rule: After a post-merge multi-arch tools/ci-runner image build, verify the `latest` tag moved (not just that a new version row exists) — a single-arch matrix leg failure strands an `<arch>-<sha>` tag while `latest` stays on the old image. For an `apk add` exit-255 arm64-QEMU failure, remediate with `gh run rerun <id> --failed` (transient), not a Dockerfile change.
   Category: domain
   Reason: Prevents declaring a CVE-bump "live" when the consumed `:latest` image still carries the vulnerable toolchain.
@@ -644,7 +646,7 @@ Story: Q.4 — verify + document Go module consumption path (pkg.go.dev). PR #12
 - Before editing docs that claim a CLI command/flag does NOT exist, confirm against source twice: grep the cobra `Use:` strings AND run `GOWORK=off go -C cmd/zynax run . --help`. Issue bodies describing the CLI surface go stale fast as intervening PRs merge — reconcile to the live surface, do not blindly delete real commands.
 
 ### Cross-cutting (structural)
-- On this repo's fast-moving main (up-to-date required, no merge queue), after the final rebase + force-push run `gh pr merge <PR> --squash --auto` rather than polling-then-merging — armed auto-merge fires the instant the branch is green AND current, avoiding the BEHIND race a manual merge keeps losing. (structural-workaround)
+- ~~On this repo's fast-moving main (up-to-date required, no merge queue), after the final rebase + force-push run `gh pr merge <PR> --squash --auto` rather than polling-then-merging — armed auto-merge fires the instant the branch is green AND current, avoiding the BEHIND race a manual merge keeps losing. (structural-workaround)~~ **Superseded by ADR-047 (2026-07-08):** main uses a merge queue — arm `gh pr merge <PR> --squash --auto` early and never rebase for freshness (a force-push ejects a queued PR); the rebase-then-arm race is gone. The struck-through workaround remains valid only pre-cutover or under queue rollback (no merge-queue rule on main).
 
 ## Session — 2026-06-25 (post-merge verify — M7.K CLI pair)
 

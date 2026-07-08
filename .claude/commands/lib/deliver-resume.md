@@ -39,9 +39,12 @@ story issue automatically on squash-merge. Every PR flips its own story-issue ro
 
 ## Branch discipline (non-negotiable — ADR-023)
 
-- **Rebase before every merge.** `git rebase origin/main` immediately before `gh pr merge`.
-  Never merge a branch that has diverged from `main`. Resolve all conflicts, then
-  `git push --force-with-lease` before merging.
+- **Never rebase for freshness — arm the merge queue (ADR-047).**
+  `gh pr merge <PR> --squash --auto` enqueues on green; the queue validates the PR against
+  current main on its turn (`BEHIND` is cosmetic; a force-push ejects a queued PR). Rebase
+  only for real conflicts (`DIRTY`): `git rebase --signoff origin/main` +
+  `git push --force-with-lease`. *Fallback (no merge-queue rule on main — pre-cutover or
+  rollback): rebase immediately before merging, as before.*
 - **Merge strategy: `--squash` only.** Use `gh pr merge <PR> --squash`. Never `--merge`
   (creates a merge commit, violates `required_linear_history`). `--rebase` is blocked by
   `required_signatures` — GitHub cannot auto-sign replayed commits.
@@ -113,10 +116,8 @@ git push -u origin HEAD
 gh pr create --title "docs(milestones): reconcile ${MILESTONE_NAME} planning table" \
   --body "Reconcile open/closed issue state with delivery table." \
   --label "type: docs" --label "$MILESTONE_LABEL"
-gh pr checks <PR> --watch
-git fetch origin main && git rebase origin/main && git push --force-with-lease
-gh pr merge <PR> --squash
-git push origin --delete docs/milestone-sync-$(date +%Y%m%d)
+gh pr merge <PR> --squash --auto   # merge queue handles freshness (ADR-047);
+                                   # remote branch auto-deleted on merge
 ```
 
 **1.4 Detect in-flight + health gate**
@@ -144,20 +145,19 @@ OPEN_PRS=$(gh pr list --author "@me" --state open \
      ([ .statusCheckRollup[]? | select(.isRequired==true) | .conclusion ] | unique | tostring)
     ] | @tsv')
 
-# Merge only PRs where mergeStateStatus=="CLEAN" and no required check failed
+# Arm the merge queue on green PRs (ADR-047): CLEAN or BEHIND both qualify —
+# the queue handles freshness; never rebase for freshness (a force-push
+# ejects a queued PR). DIRTY needs a manual --signoff rebase first.
 while IFS=$'\t' read -r PR_N BR MERGE_STATE REQ_CONCLUSIONS; do
-  if [[ "$MERGE_STATE" == "CLEAN" ]] && ! echo "$REQ_CONCLUSIONS" | grep -qE 'FAILURE|ERROR|TIMED_OUT'; then
-    echo "Merging PR #$PR_N ($BR) — all required checks green"
-    git fetch origin --prune
-    git checkout "$BR" && git rebase origin/main && git push --force-with-lease
-    gh pr merge "$PR_N" --squash
-    until [ "$(gh pr view "$PR_N" --json state --jq .state)" = "MERGED" ]; do sleep 10; done
-    git push origin --delete "$BR" 2>/dev/null || true
-    git checkout main && git pull --rebase origin main
+  if [[ "$MERGE_STATE" == "CLEAN" || "$MERGE_STATE" == "BEHIND" ]] && ! echo "$REQ_CONCLUSIONS" | grep -qE 'FAILURE|ERROR|TIMED_OUT'; then
+    echo "Arming queue merge on PR #$PR_N ($BR) — all required checks green"
+    gh pr merge "$PR_N" --squash --auto
   else
     echo "Skipping PR #$PR_N ($BR) — not yet green (state=$MERGE_STATE)"
   fi
 done <<< "$OPEN_PRS"
+# Fallback (no merge-queue rule on main — pre-cutover or rollback): rebase
+# each green branch onto origin/main + --force-with-lease before arming.
 ```
 
 After the pass: if all your PRs merged and the EPIC is complete → STEP 10 + stop.
@@ -455,25 +455,19 @@ Open **all** cluster story PRs before STEP 9. Verify no other open PR of yours h
 
 ## STEP 9 — Enable auto-merge + stop (do NOT block on CI)
 
-Once all story PRs are open, rebase each branch off `origin/main`, enable auto-merge on the
-**first** O-step PR, then **stop the session**. CI runs asynchronously. The STEP 1.5 merge pass
-in the next session detects green PRs, merges them in O-step order, and enables auto-merge on the
-next PR in sequence.
+Once all story PRs are open, arm the merge queue (ADR-047) on the **first** O-step PR, then
+**stop the session**. CI runs asynchronously. The STEP 1.5 merge pass in the next session
+detects green PRs and arms the next PR in sequence. Never rebase for freshness — the queue
+validates each PR against current main, and a force-push ejects a queued PR; only `DIRTY`
+PRs need a manual `--signoff` rebase.
 
 ```bash
-# Rebase every branch off current origin/main before enabling auto-merge
-for BR in <branch_1> <branch_2> ...; do
-  git fetch origin --prune
-  git checkout "$BR"
-  git rebase origin/main || { echo "CONFLICT on $BR — resolve before stopping"; exit 1; }
-  git push --force-with-lease
-done
-git checkout main
-
-# Enable auto-merge on O-step 1 only; subsequent PRs get auto-merge enabled by the merge pass
+# Arm the queue on O-step 1 only; subsequent PRs get armed by the merge pass
 # after the preceding PR merges (to respect O-step order).
 gh pr merge <pr_1> --auto --squash
-echo "Auto-merge enabled on PR #<pr_1>. Session complete — CI is running."
+echo "Queue merge armed on PR #<pr_1>. Session complete — CI is running."
+# Fallback (no merge-queue rule on main — pre-cutover or rollback): rebase each
+# branch off origin/main + push --force-with-lease before arming, as before.
 ```
 
 **Why stop here?** `gh pr checks --watch` freezes the session slot (typically 5–15 min) without
