@@ -12,8 +12,8 @@ everything; the runtime underneath is now Kubernetes.
 ## One command
 
 ```bash
-make demo                 # full prod-mirroring stack on kind, runs the hero workflow
-make demo PROFILE=lite    # the lean stack — same workflow, far lighter (see below)
+make demo                 # lean (lite) stack on kind, runs the hero workflow — the default
+make demo PROFILE=full    # the prod-mirroring stack CI runs — same workflow, heavier (see below)
 ```
 
 `make demo` creates a kind cluster, side-loads the local service images,
@@ -62,7 +62,7 @@ export ZYNAX_API_KEY=$(kubectl -n zynax get secret zynax-gw-api-key -o jsonpath=
 
 ## Two profiles
 
-| | `PROFILE=full` (default) | `PROFILE=lite` |
+| | `PROFILE=full` (kind-up default) | `PROFILE=lite` (demo default) |
 |---|--------------------------|----------------|
 | Topology | 3-node (`kind-config.yaml`) | **single-node** (`kind-config-lite.yaml`) |
 | Temporal | 5-pod chart + admintools + schema Job | **1** in-memory `start-dev` pod (`scripts/e2e/manifests/temporal-dev.yaml`) |

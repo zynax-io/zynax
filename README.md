@@ -44,9 +44,10 @@ API key needed for first success**. Add `--profile lite` for a lean laptop, or `
 run the same workflows on the Argo engine (the wedge, live). `zynax down` tears it back down.
 
 > Prefer `make`? `make demo` drives the same bring-up from the repo root and additionally runs the
-> hero workflow, ending in a **Platform ready** banner (`PROFILE=lite make demo` for the lean
-> stack; `ENGINE=argo make demo` for the Argo leg). Both entries wrap the same script — one
-> runtime, two spellings. See [local dev on kind](docs/local-dev-kind.md).
+> hero workflow, ending in a **Platform ready** banner (lean `lite` profile by default;
+> `PROFILE=full make demo` for the prod-mirroring stack; `ENGINE=argo make demo` for the Argo
+> leg). Both entries wrap the same script — one runtime, two spellings. See
+> [local dev on kind](docs/local-dev-kind.md).
 
 ### 2. Reach the gateway and run your first workflow
 

@@ -83,8 +83,11 @@ func runUp(ctx context.Context, stdout, stderr io.Writer, deps clusterDeps) erro
 }
 
 func init() {
-	upCmd.Flags().StringVar(&upProfile, "profile", "full",
-		"cluster profile: full (3-node, prod-mirroring) or lite (1-node, lean)")
+	// lite is the first-run default (#1716, parity with `make demo`): same
+	// charts and hero workflow at half the footprint. --profile full gives the
+	// prod-mirroring topology (what CI e2e runs).
+	upCmd.Flags().StringVar(&upProfile, "profile", "lite",
+		"cluster profile: lite (1-node, lean — default) or full (3-node, prod-mirroring)")
 	upCmd.Flags().StringVar(&upEngine, "engine", "temporal",
 		"workflow engine to run on: temporal or argo")
 	upCmd.Flags().BoolVar(&upNoLoad, "no-load-images", false,
