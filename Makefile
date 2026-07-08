@@ -24,8 +24,19 @@ COMPOSE_TOOLS    := docker compose -f infra/docker-compose/docker-compose.tools.
 TOOLS_IMAGE   ?= ghcr.io/zynax-io/zynax/tools:latest
 REGISTRY      := ghcr.io/zynax-io
 GHCR_TOOLS    := ghcr.io/zynax-io/zynax/tools:latest
+# Named-volume caches for the tools containers: Go module/build, uv, and
+# golangci-lint caches survive the --rm container lifecycle. Without these,
+# every tool-backed target recompiles from a cold cache (the caches lived and
+# died inside each ephemeral container). Named volumes — not host bind mounts —
+# keep the root-owned cache files off the host checkout. Paths match the ENV
+# baked into Dockerfile.tools / .env.tools (GOPATH=/root/go,
+# GOCACHE=/root/.cache/go-build, UV_CACHE_DIR=/root/.cache/uv); golangci-lint
+# defaults to $HOME/.cache/golangci-lint. Reclaim disk: make clean-caches.
+TOOLS_CACHES  := -v zynax-gomod:/root/go/pkg/mod -v zynax-gobuild:/root/.cache/go-build \
+                   -v zynax-uv:/root/.cache/uv -v zynax-golangci:/root/.cache/golangci-lint
 TOOLS_RUN     := docker run --rm -v ".:/workspace" -w /workspace --env-file infra/docker/.env.tools \
                    -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/workspace \
+                   $(TOOLS_CACHES) \
                    $(TOOLS_IMAGE)
 
 .PHONY: help
@@ -395,13 +406,16 @@ build-agent: ## Build one agent image: make build-agent AGENT=summarizer
 	docker build agents/examples/$(AGENT) -t $(REGISTRY)/zynax-agent-$(AGENT):local
 
 # ── Cleanup ────────────────────────────────────────────────────────────────
-.PHONY: clean clean-all clean-tools
+.PHONY: clean clean-all clean-tools clean-caches
 clean:      ## Remove cache files
 	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null; true
 	@find . -name "*.pyc" -delete 2>/dev/null; true && echo "✅ Clean"
 clean-tools: ## Remove tools image
 	docker rmi $(TOOLS_IMAGE) 2>/dev/null || true
-clean-all: clean dev-down clean-tools ## ⚠ Remove everything
+clean-caches: ## Remove the named Docker volumes holding the Go/uv tool caches
+	@docker volume rm -f zynax-gomod zynax-gobuild zynax-uv zynax-golangci >/dev/null 2>&1 || true
+	@echo "✅ Tool cache volumes removed"
+clean-all: clean dev-down clean-tools clean-caches ## ⚠ Remove everything
 
 # ── Spec validation ───────────────────────────────────────────────────────────
 .PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping validate-canvas validate-milestone-state dry-run
