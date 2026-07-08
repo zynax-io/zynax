@@ -487,22 +487,28 @@ jobs:
           done
           $failed && exit 1 || echo "✅ CLI tool lint passed"
 
+      # The three zynax-ci checks below run the binary baked into the runner
+      # image; they compile from source only when the PR touches cmd/zynax-ci
+      # (CLI_CHANGED) so CLI changes still self-test in the same run (#1715).
       - name: zynax-ci check deps (go.mod version alignment)
+        env:
+          CLI_CHANGED: ${{ needs.changes.outputs.cli }}
         run: |
-          cd cmd/zynax-ci
-          GOWORK=off go run . check deps --root "$GITHUB_WORKSPACE"
+          bash tools/ci/zynax-ci-run.sh check deps --root "$GITHUB_WORKSPACE"
           echo "✅ go.mod version alignment check passed"
 
       - name: zynax-ci check protobuf-runtime (Python runtime >= gencode)
+        env:
+          CLI_CHANGED: ${{ needs.changes.outputs.cli }}
         run: |
-          cd cmd/zynax-ci
-          GOWORK=off go run . check protobuf-runtime --root "$GITHUB_WORKSPACE"
+          bash tools/ci/zynax-ci-run.sh check protobuf-runtime --root "$GITHUB_WORKSPACE"
           echo "✅ protobuf runtime/gencode alignment check passed"
 
       - name: zynax-ci check images (digest drift detection)
+        env:
+          CLI_CHANGED: ${{ needs.changes.outputs.cli }}
         run: |
-          cd cmd/zynax-ci
-          GOWORK=off go run . images check --root "$GITHUB_WORKSPACE"
+          bash tools/ci/zynax-ci-run.sh images check --root "$GITHUB_WORKSPACE"
           echo "✅ Image digest alignment check passed"
 
 # ── Lint: Python agents and SDK ───────────────────────────────────────────────
@@ -572,9 +578,11 @@ jobs:
       # authoring experts (read-only), agents/examples runtime agents, and the
       # ADR-033 mapping table. Always runs in this lane (no agents/ files needed).
       - name: Expert mapping drift guard (ADR-033)
-        # From source until the ci-runner image carries the verb (parity with
-        # images sync/meta); this lane already runs in the ci-runner container.
-        run: cd cmd/zynax-ci && GOWORK=off go run . check expert-mapping --root "$GITHUB_WORKSPACE"
+        # Baked runner binary; compiles from source only when the PR touches
+        # cmd/zynax-ci so CLI changes self-test in the same run (#1715).
+        env:
+          CLI_CHANGED: ${{ needs.changes.outputs.cli }}
+        run: bash tools/ci/zynax-ci-run.sh check expert-mapping --root "$GITHUB_WORKSPACE"
 
 # ── Tests: Go ─────────────────────────────────────────────────────────────────
 # Calls _test-go.yml reusable workflow (Go unit + BDD + coverage gates).
