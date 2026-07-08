@@ -185,15 +185,25 @@ kubectl config use-context "kind-${CLUSTER_NAME}" >/dev/null
 # the same diagnostics as the GHCR path.
 if [[ -n "${KIND_LOAD_IMAGES}" ]]; then
   log "side-loading local images into kind cluster '${CLUSTER_NAME}' (tag: ${KIND_LOAD_TAG})…"
+  # Loads run in parallel: each `kind load` streams the image into every node's
+  # containerd (3× on the full profile), so serializing them was the dominant
+  # cost of a warm bring-up. Failures are surfaced per-image on wait below.
+  load_pids=()
+  load_imgs=()
   for svc in api-gateway workflow-compiler engine-adapter task-broker \
              agent-registry event-bus memory-service langgraph-adapter; do
     img="${KIND_LOAD_REGISTRY}/${svc}:${KIND_LOAD_TAG}"
     if docker image inspect "${img}" >/dev/null 2>&1; then
       log "  → loading ${img}"
-      kind load docker-image "${img}" --name "${CLUSTER_NAME}"
+      kind load docker-image "${img}" --name "${CLUSTER_NAME}" &
+      load_pids+=("$!")
+      load_imgs+=("${img}")
     else
       warn "  host image not found, skipping (will pull from registry): ${img}"
     fi
+  done
+  for i in "${!load_pids[@]}"; do
+    wait "${load_pids[$i]}" || die "kind load failed for ${load_imgs[$i]}"
   done
   log "image side-load complete."
 fi
@@ -329,19 +339,31 @@ fi
 
 # ── 3. deploy the full Zynax stack via the umbrella chart ────────────────────────
 
-# ALWAYS (re)build chart dependencies from the live subchart sources before the
-# install. The umbrella vendors its subcharts as packaged `.tgz` files under
-# charts/, and those committed artifacts can drift from the subchart source —
-# e.g. the api-gateway tgz once predated the template that renders
-# service.nodePort, so the deployed Service silently dropped the pinned NodePort
-# 30080 and fell back to a kube-proxy-random nodePort the kind extraPortMapping
-# (host 8080 → 30080) does not target, leaving http://localhost:8080 unreachable
-# out of the box (#1488). A prior guard only rebuilt when charts/ was EMPTY, so a
-# stale-but-present tgz was deployed verbatim. Rebuilding unconditionally makes
-# the subchart source the single source of truth — it is idempotent and fast
-# (file:// deps, no network), and CI's helm-lint already rebuilds the same way.
-log "building umbrella chart dependencies from source (subchart source is the SoT)…"
-helm dependency build "${UMBRELLA_CHART}"
+# (Re)build chart dependencies from the live subchart sources before the
+# install — the subchart source is the single source of truth (#1488: a stale
+# built tgz once dropped the pinned NodePort 30080, leaving localhost:8080
+# unreachable; a prior guard that only rebuilt when charts/ was EMPTY deployed
+# the stale artifact verbatim). The build is skipped ONLY when a content hash
+# of every file under helm/ (paths + contents, excluding the build output in
+# zynax-umbrella/charts/) matches the stamp from the previous build — any edit,
+# rename, or Chart.lock change anywhere in helm/ changes the hash and forces a
+# rebuild, so the #1488 failure mode cannot recur. openssl is already a
+# preflight-required tool.
+DEP_STAMP="${UMBRELLA_CHART}/charts/.dep-hash"
+dep_hash="$(cd "${REPO_ROOT}" \
+  && find helm -type f -not -path "helm/zynax-umbrella/charts/*" -print0 \
+  | LC_ALL=C sort -z \
+  | xargs -0 openssl dgst -sha256 -r \
+  | openssl dgst -sha256 -r | awk '{print $1}')"
+if [[ -f "${DEP_STAMP}" \
+      && "$(cat "${DEP_STAMP}")" == "${dep_hash}" \
+      && -n "$(ls "${UMBRELLA_CHART}/charts/"*.tgz 2>/dev/null)" ]]; then
+  log "umbrella chart dependencies unchanged (helm/ content hash match) — skipping rebuild."
+else
+  log "building umbrella chart dependencies from source (subchart source is the SoT)…"
+  helm dependency build "${UMBRELLA_CHART}"
+  printf '%s\n' "${dep_hash}" > "${DEP_STAMP}"
+fi
 
 log "deploying zynax-umbrella as release '${RELEASE_NAME}' in namespace '${NAMESPACE}' (engine: ${E2E_ENGINE})…"
 # values-e2e.yaml carries the e2e-only overrides (shared with helm-upgrade.sh so
@@ -430,14 +452,30 @@ fi
 # ── 4. wait for the profile's service deployments to become healthy ──────────────
 
 log "waiting for ${#SERVICE_DEPLOYMENTS[@]} service deployments to roll out (profile: ${PROFILE})…"
+# Waits run in parallel — the deployments become Ready independently, so the
+# wall-clock is the slowest rollout instead of the sum, and a failing/stuck
+# deployment is named as soon as ALL waits settle rather than after every
+# deployment ahead of it in the list has been waited on serially.
+rollout_pids=()
+rollout_deps=()
 for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
   if ! kubectl -n "${NAMESPACE}" get deployment "${dep}" >/dev/null 2>&1; then
     die "expected deployment not found: ${dep} (umbrella values out of sync?)"
   fi
   log "  → ${dep}"
   kubectl -n "${NAMESPACE}" rollout status "deployment/${dep}" \
-    --timeout "${WAIT_TIMEOUT}"
+    --timeout "${WAIT_TIMEOUT}" &
+  rollout_pids+=("$!")
+  rollout_deps+=("${dep}")
 done
+rollout_failed=""
+for i in "${!rollout_pids[@]}"; do
+  if ! wait "${rollout_pids[$i]}"; then
+    warn "rollout failed or timed out: ${rollout_deps[$i]}"
+    rollout_failed="yes"
+  fi
+done
+[[ -z "${rollout_failed}" ]] || die "one or more service deployments failed to roll out"
 
 log "all ${#SERVICE_DEPLOYMENTS[@]} service deployments are healthy."
 
