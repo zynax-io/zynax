@@ -26,8 +26,8 @@ images:
 
   - name: golang-alpine
     ref: golang
-    tag: "1.26.4-alpine"
-    digest: sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f
+    tag: "1.26.5-alpine"
+    digest: sha256:111d79159b2326f7e80c4a4706e1ba166acb0e2611df853955f3621828cd49e8
     consumers:
       - agents/adapters/adk/Dockerfile
       - agents/adapters/ci/Dockerfile
