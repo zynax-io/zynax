@@ -19,6 +19,11 @@
 # The argo leg is intentionally NOT shimmed: it stays advisory until it
 # accumulates a stable green history (decision recorded on #1092,
 # 2026-06-12) — promote it by adding the same shim job + ruleset entry.
+#
+# Merge-queue leg (ADR-047): path filters do NOT apply to merge_group
+# events, so the shim fires on EVERY gh-readonly-queue/* ref and satisfies
+# the required context. Real e2e runs on the PR leg only — an accepted
+# residual risk in ADR-047; post-merge verification is the e2e backstop.
 
 name: e2e-smoke-skip
 
@@ -31,6 +36,7 @@ on:
       - "engine-adapter/**"
       - "scripts/e2e/**"
       - ".github/workflows/e2e-smoke.yml"
+  merge_group:
 
 permissions:
   contents: read
@@ -40,5 +46,5 @@ jobs:
     name: "e2e smoke (temporal)"
     runs-on: ubuntu-24.04
     steps:
-      - name: No e2e-relevant paths changed
-        run: echo "No e2e-relevant paths in this PR — required check satisfied by shim (#1092)."
+      - name: Required e2e check satisfied by shim
+        run: echo "Shim satisfied (#1092) — no e2e-relevant paths on the PR leg, or merge-queue ref (ADR-047; real e2e runs on the PR leg)."

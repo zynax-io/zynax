@@ -27,6 +27,9 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Merge-queue leg (ADR-047): every required check must report on
+  # gh-readonly-queue/* refs or queued PRs stall on "Expected" and time out.
+  merge_group:
   workflow_dispatch:
     inputs:
       force:
@@ -70,7 +73,7 @@ jobs:
       - name: Verify Signed-off-by on every commit
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "ℹ️  Push to main — DCO already verified in PR gate; squash-merge commit is exempt."
+            echo "ℹ️  ${{ github.event_name }} event — DCO already verified in PR gate; squash/queue merge commits are exempt."
             echo "✅ All commits carry Signed-off-by"
             exit 0
           fi
@@ -103,7 +106,9 @@ jobs:
 
 # ── Change Detection ──────────────────────────────────────────────────────────
 # Outputs coarse-grained (code/proto/go/python) and per-service flags.
-# On push to main uses git diff HEAD^1 HEAD; on PR uses the PR diff range.
+# On push to main uses git diff HEAD^1 HEAD; on PR uses the PR diff range;
+# on merge_group uses the queue ref's base_sha..head_sha range (ADR-047 —
+# without it the unknown-event fail-safe runs ALL lanes on every queue entry).
   changes:
     name: changes
     runs-on: ubuntu-24.04
@@ -163,6 +168,11 @@ jobs:
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="${{ github.event.pull_request.base.sha }}"
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          elif [ "${{ github.event_name }}" = "merge_group" ]; then
+            # Merge-queue ref (ADR-047): diff what this queue group adds on
+            # top of its base so lanes stay as narrow as the PR leg.
+            BASE="${{ github.event.merge_group.base_sha }}"
+            HEAD_SHA="${{ github.event.merge_group.head_sha }}"
           else
             {
               echo "code=true"; echo "proto=true"; echo "go=true"; echo "python=true"

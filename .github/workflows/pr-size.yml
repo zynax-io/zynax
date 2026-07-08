@@ -16,6 +16,11 @@ name: PR Size
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  # Merge-queue leg (ADR-047): the job guard skips on merge_group — a skipped
+  # job satisfies the required "PR size label" context (size was already
+  # enforced on the PR leg). Without this trigger queued PRs stall on
+  # "Expected".
+  merge_group:
 
 concurrency:
   group: pr-size-${{ github.ref }}
