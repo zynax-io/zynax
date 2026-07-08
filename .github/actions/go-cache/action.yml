@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+# go-cache — restore/save the Go module, build, and golangci-lint caches in
+# ci-runner container jobs (#1713; pipeline speed-up analysis #1687).
+#
+# Why: no CI job persisted GOMODCACHE/GOCACHE, so every container job
+# cold-downloaded the module graph and recompiled (lint-go measured at 5.1 min,
+# test-go at 5.5 — mostly compilation).
+#
+# actions/cache shells out to GNU tar + zstd inside the job container. The
+# ci-runner ships both since #1688; the apk step below is an idempotent no-op
+# there and a ~3 s fallback if this action ever runs on an older runner digest.
+#
+# Cache scoping: caches saved by push-to-main runs are readable by every PR
+# (base-branch scoping); PR-saved caches stay scoped to that PR. The key hashes
+# every go.sum + go.work.sum, so a dependency change starts a fresh entry and
+# restore-keys falls back to the newest same-prefix cache.
+#
+# Paths are the ENV baked into Dockerfile.ci-runner (GOPATH=/root/go,
+# GOCACHE=/root/.cache/go-build) — NOT $HOME, which GitHub rewrites to
+# /github/home in container jobs. golangci-lint DOES follow $HOME, so jobs
+# using it must also set GOLANGCI_LINT_CACHE=/root/.cache/golangci-lint.
+name: go-cache
+description: Restore/save Go module + build + golangci-lint caches in ci-runner container jobs
+inputs:
+  key-prefix:
+    description: >-
+      Cache key prefix — one per lane (e.g. go-lint / go-test / go-security) so
+      the lanes' differently-shaped build caches don't churn one another.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Ensure GNU tar + zstd (no-op on the current ci-runner)
+      shell: bash
+      run: command -v zstd >/dev/null 2>&1 || apk add --no-cache tar zstd
+
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          /root/go/pkg/mod
+          /root/.cache/go-build
+          /root/.cache/golangci-lint
+        key: ${{ inputs.key-prefix }}-${{ runner.os }}-${{ hashFiles('go.work.sum', '**/go.sum') }}
+        restore-keys: |
+          ${{ inputs.key-prefix }}-${{ runner.os }}-

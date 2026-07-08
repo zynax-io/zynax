@@ -61,6 +61,11 @@ jobs:
       - name: Trust workspace (git safe.directory for root container)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      - name: Restore Go caches
+        uses: ./.github/actions/go-cache
+        with:
+          key-prefix: go-test
+
       - name: Initialize coverage results file
         run: echo "" > /tmp/coverage-results.txt
 
