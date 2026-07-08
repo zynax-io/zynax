@@ -517,6 +517,16 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      # UV_CACHE_DIR is pinned to /root/.cache/uv by the runner image ENV, so
+      # every `uv run` below re-resolves and re-downloads without this (#1714).
+      - name: Restore uv cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: /root/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('agents/**/uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
       - name: Detect Python agents
         id: py-detect
         run: |
@@ -800,6 +810,12 @@ jobs:
 
       - name: trivy filesystem scan (go.mod + pyproject.toml CVEs)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          # Same DB pin + severity-source policy as build-images/release (#1022),
+          # so the cached DB is deterministic across runs (#1714).
+          # renovate: datasource=docker depName=ghcr.io/aquasecurity/trivy-db
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2@sha256:225c785a3ce630d8f8b75ab23f4d7b0b1402f94a54dfe6441e6711c7deb8dec8
+          TRIVY_VULN_SEVERITY_SOURCE: nvd,ghsa
         with:
           scan-type: fs
           scan-ref: .
@@ -808,7 +824,7 @@ jobs:
           scanners: vuln
           skip-dirs: .git
           trivyignores: .trivyignore
-          cache: false
+          cache: true
 
       - name: trivy Dockerfile misconfiguration scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -818,7 +834,7 @@ jobs:
           exit-code: 1
           severity: HIGH,CRITICAL
           trivyignores: .trivyignore
-          cache: false
+          cache: true
 
       - name: No security targets yet
         if: steps.go-detect.outputs.has_go == '0' && steps.py-detect.outputs.has_py == '0'
