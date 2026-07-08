@@ -115,7 +115,8 @@ jobs:
     container:
       image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
       options: --user root
-    needs: [dco]
+    # No needs: dco runs in parallel as its own required check — serializing
+    # change detection behind it only delayed every downstream job (~25 s).
     outputs:
       code:             ${{ steps.detect.outputs.code             == 'true' || steps.force-detect.outputs.force == 'true' }}
       proto:            ${{ steps.detect.outputs.proto            == 'true' || steps.force-detect.outputs.force == 'true' }}
@@ -823,12 +824,18 @@ jobs:
   build-images:
     name: "Build + scan: ${{ matrix.service }}"
     runs-on: ubuntu-24.04
-    needs: [changes, lint-go]
+    # Gated on `changes` only — NOT on lint-go. The build compiles the code
+    # itself and Hadolint runs as the first step below, so lint adds nothing a
+    # docker build needs; gating on it serialized ~5 min of lint ahead of the
+    # staging images that e2e-smoke waits for. A lint-failing PR may waste
+    # ~1-min builds, but promotion (release.yml retag-on-merge) still requires
+    # the FULL CI run to succeed (ADR-027), and staging tags are cleaned on PR
+    # close (pr-image-cleanup.yml).
+    needs: [changes]
     if: >-
       always() &&
       needs.changes.result == 'success' &&
       needs.changes.outputs.docker == 'true' &&
-      needs.lint-go.result != 'failure' &&
       (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: read
