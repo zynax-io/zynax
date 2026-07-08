@@ -1,4 +1,4 @@
-<!-- Canonical status file. Updated by /milestone-close and /repo-clean. Do not edit by hand. -->
+<!-- Canonical status file. Updated by /milestone open|close, delivery PRs, and /reconcile. Do not edit by hand outside those flows. -->
 
 # Current Milestone State
 
@@ -14,394 +14,83 @@
 |-----------|--------|---------|
 | M1 — Contracts Foundation | ✅ Complete | v0.1.0 |
 | M2 — Workflow IR | ✅ Complete | v0.1.0 |
-| M3 — Temporal Execution | ⚠ Partial | v0.2.0 |
-| M4 — YAML System + CLI | ⚠ Partial | v0.3.0 |
-| **M5 — Adapter Library** | ✅ **Complete** | **v0.4.0** |
-| **M6 — K8s Production-Ready** | ✅ **Complete** | **v0.5.0** |
-| **M7 — Usable Workflows + Observability** | 🚧 **Active** | **v0.6.0 (target)** |
+| M3 — Temporal Execution | ✅ Complete (task-broker landed M5.C) | v0.2.0 |
+| M4 — YAML System + CLI | ✅ Complete (agent-registry landed M5.C) | v0.3.0 |
+| M5 — Adapter Library | ✅ Complete | v0.4.0 |
+| M6 — K8s Production-Ready | ✅ Complete | v0.5.0 |
+| M7 — Usable Workflows + Observability | ✅ Delivered — close ritual pending | v0.7.0¹ |
+| M8 — CNCF Sandbox + thin-Zynax reduction | ✅ Delivered (tail: M8.I) — close ritual pending | v0.7.0¹ |
+| **M9 — Hard Removals + Conformance** | 🚧 **Active on GitHub** (milestone #11) — yaml rotation pending | **v0.8.0 (target)** |
+| M-dx — Developer Experience (GitHub #9) · M-UX — User Experience (GitHub #10) | 📅 Planned buckets | see ROADMAP version plan |
 
-M3/M4 are partial because task-broker and agent-registry were not delivered in those milestones.
-Both completed under M5.C (#460). CloudEvents publishing is log-only (not wired to NATS).
-v0.4.0 tag pushed 2026-05-29; GitHub Release live at https://github.com/zynax-io/zynax/releases/tag/v0.4.0
-GitHub milestone "Adapter Library (M5)" closed 2026-05-29; 5 deferred issues (#235 #239 #376 #466 #656) moved to M6.
-See [docs/milestones/M5-plan.md](../docs/milestones/M5-plan.md).
+¹ **M7 and M8 ship together as one signed v0.7.0 release.** M7 finished at 0 open issues but
+was never tagged; its v0.6.0 target was skipped to keep tags monotonic. v1.0.0 stays reserved
+for CNCF acceptance. **As of 2026-07-08 the v0.7.0 tag/Release does not exist yet** — see
+"Pending close ritual" below.
 
----
-
-## M7 — Active (🚧 target v0.6.0, opened 2026-06-15)
-
-GitHub milestone #7 — **Usable Workflows + Observability** (renamed 2026-06-17 from "Full
-Observability" to match scope; `state/milestone.yaml` synced in #1300) — first of the M7 → M-dx → M8
-program. Full plan: **[docs/milestones/M7-planning.md](../docs/milestones/M7-planning.md)**.
-
-Goal: a developer authors a real multi-step workflow, runs it locally (`docker compose up` incl.
-**Uptrace**), watches it execute state→state with **data-flow**, **streamed logs**, and a connected
-**distributed trace** in the Uptrace login UI — with green `make ci`.
-
-### EPICs (14) — one REASONS Canvas each under `docs/spdd/<letter>-<slug>/`
-| EPIC | Title | Type | Canvas |
-|------|-------|------|--------|
-| W | Workflow data-flow (output/input bindings) — **keystone** | feat | [W](../docs/spdd/1167-workflow-data-flow/canvas.md) |
-| L | Execution log/event streaming (`/logs`) | feat | [L](../docs/spdd/468-log-streaming/canvas.md) |
-| O | Observability — OTEL + **Uptrace** (traces/metrics/logs/APM + login UI; compose **and** Helm) | feat | [O](../docs/spdd/467-observability-otel-uptrace/canvas.md) |
-| C | Context propagation (trace · data · correlation) | feat | [C](../docs/spdd/1168-context-propagation/canvas.md) |
-| G | Git MCP shim over git-adapter | feat | [G](../docs/spdd/1169-git-mcp-shim/canvas.md) |
-| X | Expert-agent substrate + `agents/examples/` | feat | [X](../docs/spdd/1170-expert-substrate/canvas.md) |
-| T | Reusable templates + first real workflows | feat | [T](../docs/spdd/1171-templates-real-workflows/canvas.md) |
-| R | Test rigor (absorbs #469; #493 #553 #1103) | test | [R](../docs/spdd/469-test-rigor/canvas.md) |
-| Q | Quality & supply-chain fixes (pip CVE · coverage gate · PyPI Trusted Publisher) | chore/ci | [Q](../docs/spdd/1172-quality-supply-chain/canvas.md) |
-| D | Docs — quick-start · authoring · observability | docs | [D](../docs/spdd/1173-docs/canvas.md) |
-| P | Port `llm-adapter` to Go (language-boundary cleanup, ADR-035) | refactor | [P](../docs/spdd/1276-llm-adapter-go/canvas.md) |
-| S | Consolidate CI bash into the `zynax-ci` Go CLI (ADR-036) | ci | [S](../docs/spdd/1285-ci-bash-to-go/canvas.md) |
-| K | First-run User Experience — zero-secret Ollama quickstart (clone → one command → result) | feat | [K](../docs/spdd/1370-awesome-quickstart/canvas.md) |
-| A | Google ADK Go adapter — Go-native AI-framework adapter (#1476, ADR-038) | feat | [A](../docs/spdd/1476-adk-go-adapter/canvas.md) |
-
-Pre-existing M7 EPICs #467 (OTel) / #468 (history streaming) / #469 (test rigor) are **absorbed** into
-O / L / R respectively — and their issue titles were aligned to that scheme 2026-06-17
-(#467 → M7.O, #469 → M7.R, #553 backref) to resolve the duplicate `M7.C` label with #1168.
-New ADRs: ADR-029…034 (Proposed).
-
-**Delivery (as of 2026-06-25):** GitHub milestone #7 — **132 closed / 16 open (~89% done)**.
-
-**EPIC #1370 (M7.K — First-run User Experience) cluster DELIVERED 2026-06-18/19:** 11 stories merged
-via PRs #1431–#1441 (foundation #1371/#1372/#1380 closed earlier) — api-gateway SSE-logs 500 fix,
-engine-adapter NotFound→non-retryable, zero-secret Ollama overlay, adapters graceful-degradation,
-runnable `code-review-ollama` example, `zynax events publish` + `zynax result` CLI, Qwen2.5-Coder 3B
-default, `make demo`, validation-guide standard, quickstart reconcile. Canvas
-`docs/spdd/1370-awesome-quickstart/canvas.md` → **Implemented (core path)** (14 of 17 O-steps merged).
-**Remaining in #1370:** #1359 (zero-Temporal Day-0 engine — **deferred to M-dx**, needs own canvas/ADR);
-#1385 + #1387 (declarative scenario/context manifests — need their **own** REASONS Canvas per ADR-019);
-the hero asciinema cast (human follow-up, `docs/casts/` placeholder).
-
-Earlier delivery (as of 2026-06-17, mid-orchestration): **EPICs O (#467), X (#1170), Q (#1172) COMPLETE
-and closed**; canvases Implemented. Delivered that session (2-agent batches after a host-OOM
-mitigation): W.4 #1178 (data-flow keystone), C.2 #1194, X.3 #1203 / X.4 #1204 / X.5 #1205,
-L.3 #1182 / L.4 #1183, T.1 #1206 / T.2 #1207 / T.4 #1209, G.3 #1199 / G.4 #1200 / G.5 #1260,
-O.5 #1188 / O.6 #1189 / O.9 #1192, R.2 #1210, P.2 #1278 / P.3 #1279, S.2 #1287, plus #1302.
-All 12 EPIC canvases Aligned/Implemented. 2026-06-17 truth-pass: verified architecture review
-committed (`docs/reviews/06`, #1295 + correction #1303); milestone renamed + ROADMAP reconciled
-(#1299); `make ci` green on the current tools image (#1302 closed the Makefile↔CI pip-audit drift).
-Earlier:
-two EPICs added 2026-06-16 (**P #1276** llm-adapter Go-port, **S #1285** CI-bash-to-Go). Shipped:
-O.4 #1187 + O.7 #1190 + O.8 #1191 (Observability — exemplars, compose & Helm Uptrace), X.2 #1202
-(`agents/examples`), R.1 #493 (benchmarks + benchstat gate), Q.4 #1215 / Q.5 #1216 (Go-module
-consumption + ADR-034), P.1 #1277 / S.1 #1286 (ADR-035 / ADR-036). **Security tab clean** — all 8
-Dependabot (aiohttp → 3.14.1) and ~200 Trivy code-scanning alerts fixed (adapters rebuilt on fresh
-`python:3.12-alpine`; stale pre-alpine Debian CVEs superseded, not dismissed). Process: 8
-expert-guide learnings applied (#1275); BEHIND-rebase / skip-ci / crashed-agent-recovery routed into
-the orchestrator commands (#1293).
+> ⚠️ **Truth note:** `state/milestone.yaml` still shows `active: M7` because the
+> `/milestone close` → `/milestone open M9` rotation was interrupted (its uncommitted work on
+> `docs/m8-close-truth-pass` was lost). GitHub is ahead: milestone #11 (M9) exists and is
+> populated. This file describes the GitHub truth; only the sanctioned commands rotate the yaml.
 
 ---
 
-## M6 — Complete (✅ released v0.5.0, 2026-06-12)
+## Pending close ritual (human runbook, in order)
 
-GitHub milestone #6 closed; all 8 EPICs and every story delivered (one deferral: Wave 4 O8 → M7 #1103).
-Release: https://github.com/zynax-io/zynax/releases/tag/v0.5.0 · **Next milestone: M7 — open (active) as of 2026-06-15.**
-
-Full plan + per-EPIC status: **[docs/milestones/M6-planning.md](../docs/milestones/M6-planning.md)**.
-As of 2026-06-11: **143 issues closed / 17 open** (CI-overhaul stories #1110–#1122 added 2026-06-10).
-
-### EPICs delivered ✅
-| EPIC | Issue | Notes |
-|------|-------|-------|
-| Postgres-backed repositories | #626 | task-broker + agent-registry on pgx/v5 |
-| Helm charts | #765 | all 7 services + NATS/Postgres/Temporal subcharts |
-| EventBus over NATS JetStream | #772 | Publish/Subscribe/Unsubscribe + DLQ (ADR-022) |
-| Config convergence | #670 | libs/zynaxconfig shared package |
-| Container image source-of-truth | #855 | `images.yaml` + drift gate + ADR-024 |
-| Self-hosting dev-automation | #873 | Waves 0–3 superseded (#1129); Wave 4 delivered to boundary via #881; closing |
-| DevAuto Wave 4 — self-hosted issue-delivery | #881 | O1–O7 + O9 delivered; O8 → M7 #1103; canvas Implemented-at-boundary; closing |
-| Orchestrator concurrency hardening | #1001 | worktree isolation + idempotent dispatch |
-| Health probes · mTLS · supply-chain | #463 #464 #465 | startup/readiness/liveness, cert-manager, cosign+SBOM |
-| memory-service KV + vector | #773 | Redis KV + pgvector adapters, namespace TTL isolation, all 10 RPCs + BDD |
-| ArgoEngine | #766 | ArgoEngine WorkflowEngine + multi-engine dispatch (#798) |
-| Multi-namespace support | #767 | namespace isolation in workflow-compiler |
-| Policy enforcement | #768 | routing policies, rate limits (#802), capability quotas (#803 #804) |
-| SDK PyPI publish | #769 | zynax-sdk on PyPI + supply-chain hardening |
-| e2e harness | #770 | kind + Helm + reference workflows (#811 #812 #813) |
-| Native multi-arch build | #837 | QEMU eliminated, image sizes audited (#841) |
-| gRPC health protocol | #74 #656 | grpc.health.v1 in all services, K8s-native probes |
-| Prometheus /metrics | #491 | per-request counters in all services (OTel rest → M7 #467) |
-| DevAuto Wave 3 | #880 | post-merge completeness mesh |
-
-### In progress / remaining
-**e2e-green execution path (#1086 — O1 #1087 ✅ / O2 #1088 ✅ merged via PR #1095; O3 #1089 ✅ satisfied by build-images gate PR #1132; O4 #1090 ✅ event-bus + memory-service enabled with required assertions; O5 #1091 ✅ runner sizing verified on full stack; bug #1149 ✅ fixed — JetStream subject overlap, completed/failed CloudEvent assertions now required — O6 #1092 ✅ temporal leg required + skip-shim; argo advisory until stable — EPIC #1086 complete)**,
-Postgres off Bitnami (#1073 — ✅ complete: O1 ADR-026, O2–O3 #1076, O4–O5 #1077, O6 #1078, O7–O8 #1079; canvas Implemented, EPIC ready to close),
-CI-E2E gate (#771 — #1070 ✅, #1071 ✅ merged via PR #1155: engine matrix temporal/argo in e2e-smoke; bug #1157 ✅ fixed — ArgoEngine submit now sends the WorkflowCreateRequest envelope, argo leg unblocked; #1092 ✅ — EPIC #771 complete),
-DevAuto Wave 4 (#881 — ✅ delivered to the platform-readiness boundary: O1 #1096 ADR-028; O2 #1097 9 expert AgentDefs; O3 #1098 orchestrator Workflow; O4 #1099 issue-delivery intake→plan→route; O5 #1100 context-slice injection binding; O6 #1101 delivery leg inject→implement→verify→decide; O7 #1102 learning-synthesizer AgentDef; O9 #1104 status reconcile. O8 #1103 deferred to M7 — operator decision 2026-06-12, four code-verified platform gaps (compiler `output:` rejection, Go-template vs CEL guards, missing orchestration-capability providers, no gateway outputs/decision-log read path; analysis in #1103 comments); the strict xfail in `automation/tests/test_platform_readiness.py` remains the honest gate. Canvas Implemented-at-boundary; EPICs #881 and #873 close at the boundary).
+1. Close the delivered-but-open M8 tail: #1650 and epic #1576 (their work merged in PR #1673);
+   decide M8.I (merge-queue epic #1680, stories #1681–#1685, all open) — finish it inside M8 or
+   move it out so the milestone can close.
+2. `/milestone close` — signed **v0.7.0** tag + GitHub Release covering M7+M8; closes GitHub
+   milestones **#7** and **#8**; rotates both into `state/milestone.yaml` history.
+3. `/milestone open M9` — activates M9 (GitHub milestone **#11**, label `milestone: M9`,
+   target **v0.8.0**); the planning doc `docs/milestones/M9-planning.md` is already in place.
+4. Review + align the three M9 canvases (Draft → Aligned), flip their stories
+   `status: backlog → status: ready`, then `/deliver`.
 
 ---
 
-### M6.E2E-Green — make the e2e-smoke gate execute a workflow end-to-end (#1086) — ✅ Complete
+## M9 — Hard Removals + Conformance (GitHub milestone #11, target v0.8.0)
 
-Canvas: `docs/spdd/1086-e2e-green/canvas.md` — Status: **Implemented**. The gate brings the cluster
-up but fails at the happy-path assertion; this epic closes the execution-path gaps discovered
-2026-06-10. Delivery order (parallelizable where noted):
+Plan: **[docs/milestones/M9-planning.md](../docs/milestones/M9-planning.md)** ·
+Goal: delete the paths M8 deprecated, per each ADR's removal clause, and formalise the
+dual-engine e2e into a named conformance suite.
 
-| Step | Story | Type | Size | Depends on |
-|------|-------|------|------|-----------|
-| O1 | [#1087](https://github.com/zynax-io/zynax/issues/1087) expose api-gateway on host (NodePort 30080) | feat(infra) | S | ✅ merged (PR #1095) |
-| O2 | [#1088](https://github.com/zynax-io/zynax/issues/1088) minimal capability worker + reference workflow → succeeded | feat(infra) | M | ✅ merged (PR #1095) |
-| O3 | [#1089](https://github.com/zynax-io/zynax/issues/1089) event-bus + memory-service in pre-merge build-images matrix | ci(infra) | M | ✅ satisfied by PR #1132 (shift-left, ADR-027) — closed with evidence |
-| O4 | [#1090](https://github.com/zynax-io/zynax/issues/1090) enable event-bus + memory-service in e2e + assertions | test(infra) | M | ✅ merged — lifecycle CloudEvent + memory-Get required, no skip path; completed-event check now also required (#1149 fixed) |
-| O5 | [#1091](https://github.com/zynax-io/zynax/issues/1091) right-size e2e-smoke runner / pod resources | ci(infra) | S | ✅ verified 2026-06-12 — full 7-service stack GREEN on ubuntu-latest (2 CPU/7 GB), zero Evicted/OOMKilled/Pending; 3 consecutive green runs (PRs #1148, #1150) |
-| O6 | [#1092](https://github.com/zynax-io/zynax/issues/1092) promote gate advisory → stable/required | ci | S | #1090 #1091 #1071 · unblocked: #1149 fixed (JetStream subject overlap; completed/failed event assertions now required in e2e scripts) · #1157 fixed (argo leg 422 — WorkflowCreateRequest envelope) |
+| EPIC | Issue | Canvas | Stories (in delivery order) |
+|------|-------|--------|------------------------------|
+| M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Draft | #1697 → #1698 → #1598 → #1699 |
+| M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) | `docs/spdd/1675-event-bus-facade-removal/` — Draft | #1700 → #1701 → #1702 → #1703 (gated on v0.7.0 published) |
+| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Draft | #1620 → (steps 2–4 filed on alignment) |
 
-**Ready now for `/milestone-orchestrate`:** #1092 (O6 — promote gate to required; depends #1071. #1149 fixed: completed/failed CloudEvent assertions already required in the e2e scripts).
-
-## Recently Closed (last updated 2026-06-11)
-
-**M6 CI/CD overhaul (EPIC #1109) — 2026-06-11 session:**
-- **#1118** ci: pre-merge build-images gate — staging lane, Hadolint, Trivy, SBOM (PR #1132)
-- **#1120** ci: release.yml retag model — workflow_run promotion + atomic images.yaml digest sync (ADR-027)
-- **#1122** docs(contributing): engineering manifesto — 15 enforced principles, DORA targets, CNCF patterns
-  (capstone of EPIC #1107 — **all child issues done; #1107 ready to close**)
-
-**M6 batch — 2026-06-08 session:**
-- **#799** feat(workflow-compiler): namespace-scoped capability routing (PR #977)
-- **#805** feat(agents): PyPI trusted publisher + TestPyPI dry-run (PR #973)
-- **#838** ci(infra): migrate release.yml service builds to native arm64 (PR #974)
-- **#839** ci(infra): migrate tools-image.yml to native arm64 (PR #975)
-- **#861** docs: propagation — README/CONTRIBUTING/AGENTS.md/CLAUDE.md for images SoT
-- **#862** docs: ADR-024 container image reference management
-- **#866** ci: description-present gate + size-budget check (⚠ regression fixed by PR #979)
-- **#869** docs: document unknown/unknown attestation manifests
-- **#875** chore(automation): expert mesh YAML configs
-- **#876** chore(automation): orchestrator config
-- **#877** ci(automation): Wave 0 advisory workflow (PR #969)
-
-**M6 memory-service chain — 2026-06-08:**
-- **#815** Redis KV adapter · **#816** pgvector adapter · **#817** namespace TTL enforcement
-- **#818** gRPC handler wiring · **#819** BDD step implementations
-
-**M6 event-bus chain — 2026-06-08:**
-- **#823** service scaffold · **#824** Publish path · **#825** Subscribe path
-- **#826** Unsubscribe + DLQ + retry · **#827** engine-adapter wiring · **#828** BDD steps
-
-**Earlier sessions:**
-- **#474** #459 #479 #480 #543 #556 — epics closed; all children had merged prior sessions
-- **#577** #574 #576 #712 #714 — phantom agent cleanup, summarizer removal, git adapter
-- **#865** ci: OCI manifest annotations · **#868** ADR-025 SLSA provenance
+The three epics are mutually parallel; #1620 has no gate and can merge first. Critical path:
+close ritual → M9.B chain. Also riding alongside: ADR proposals #1693–#1696
+(ADR-048..051 — API versioning, OIDC edge auth, fuzz strategy, load/SLO).
 
 ---
 
-## M6 — Final Work Log (historical)
+## M8 — CNCF Sandbox + thin-Zynax reduction (GitHub milestone #8) — delivered, closing
 
-### M6.A Health Probe Semantics (#463) — ✅ COMPLETE
+Plan: [docs/milestones/M8-planning.md](../docs/milestones/M8-planning.md). Delivered 2026-07-03 → 07-07:
+governance (M8.A/B), CRD-native scheduler (M8.C #1571, ADR-039), Compose-runtime removal
+(M8.D #1572, ADR-041), thin Workflow CRD front-end (M8.E #1573, ADR-043), Envoy Gateway edge
+auth+rate-limit (M8.F #1574, ADR-044), ValidatingAdmissionPolicy allow-list (M8.G #1575,
+ADR-045), direct NATS JetStream + facade deprecation (M8.H #1576, ADR-046, final step PR #1673).
+**Open tail:** #1650/#1576 (delivered, need closing) + **M8.I merge queue** (#1680, stories
+#1681–#1685 — ADR-047 reserved). CNCF submission filing remains a maintainer action
+([docs/cncf/sandbox-submission.md](../docs/cncf/sandbox-submission.md)).
 
-| Story | Issue | Status |
-|-------|-------|--------|
-| A.1 split probes in api-gateway | [#487](https://github.com/zynax-io/zynax/issues/487) | ✅ Merged (#821) |
+## M7 — Usable Workflows + Observability (GitHub milestone #7) — delivered, closing
 
-Canvas: `docs/spdd/463-health-probes/canvas.md` — Status: Implemented
-
-### M6.D Stateless Compiler (#466) — ✅ COMPLETE
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| D.1 drop in-memory IR store | [#490](https://github.com/zynax-io/zynax/issues/490) | ✅ Merged (#774) |
-
-Canvas: `docs/spdd/466-stateless-compiler/canvas.md` — Status: Implemented
-
-### EBUS-DECISION (#764) — ✅ RESOLVED
-
-**ADR-022 accepted — Option 1: Full gRPC EventBusService wrapping NATS JetStream.** (PR #822)
-EPIC I (#772) unblocked. Stories created: #823 #824 #825 #826 #827 #828.
-Canvas: `docs/spdd/772-event-bus/canvas.md` — Status: Aligned ✅
-
-### M6.I Event Bus NATS JetStream (#772) — ✅ COMPLETE
-
-All 6 stories merged 2026-06-08.
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| I.1 feat(event-bus): service scaffold | [#823](https://github.com/zynax-io/zynax/issues/823) | ✅ Merged |
-| I.2 feat(event-bus): Publish path | [#824](https://github.com/zynax-io/zynax/issues/824) | ✅ Merged |
-| I.3 feat(event-bus): Subscribe path | [#825](https://github.com/zynax-io/zynax/issues/825) | ✅ Merged |
-| I.4 feat(event-bus): Unsubscribe + DLQ + retry | [#826](https://github.com/zynax-io/zynax/issues/826) | ✅ Merged |
-| I.5 feat(engine-adapter): wire PublishLifecycleEventActivity | [#827](https://github.com/zynax-io/zynax/issues/827) | ✅ Merged |
-| I.6 test: BDD steps for event_bus.feature | [#828](https://github.com/zynax-io/zynax/issues/828) | ✅ Merged |
-
-### M6.B Inter-Service mTLS (#464) — ✅ COMPLETE
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| O1 mTLS env-var cert paths + credential wiring | [#488](https://github.com/zynax-io/zynax/issues/488) | ✅ Merged (#831) |
-
-Canvas: `docs/spdd/464-mtls/canvas.md` — Status: Implemented
-
-### M6.C Supply Chain Hardening (#465) — ✅ COMPLETE
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| O1 cosign signing + SBOM (SPDX) + multi-arch in release workflows | [#489](https://github.com/zynax-io/zynax/issues/489) | ✅ Merged (#833) |
-
-Canvas: `docs/spdd/465-supply-chain/canvas.md` — Status: Implemented
-
-### M6.Helm — Helm Charts for All Services (#765) — ✅ COMPLETE
-
-Canvas: `docs/spdd/765-helm-charts/canvas.md` — Status: **Implemented** ✅
-
-All 14 O-steps merged. ✅ EPIC COMPLETE.
-
-### M6.H — Postgres-Backed Repositories (#626) — ✅ COMPLETE
-
-Canvas: `docs/spdd/626-postgres-repos/canvas.md` — Status: Implemented
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| O1 feat(task-broker): Postgres TaskRepository | [#793](https://github.com/zynax-io/zynax/issues/793) | ✅ Merged (#900) |
-| O2 feat(agent-registry): Postgres AgentRepository | [#794](https://github.com/zynax-io/zynax/issues/794) | ✅ Merged (#901) |
-
-### M6.Images — Single Source of Truth for Container Image References (#855) — ✅ COMPLETE
-
-Canvas: `docs/spdd/855-images-sot/canvas.md` — Status: **Implemented** ✅
-
-All 7 stories merged. Date: 2026-06-08.
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| O1 chore(ci): images/images.yaml schema + initial population | [#856](https://github.com/zynax-io/zynax/issues/856) | ✅ Merged (PR #913) |
-| O2 feat(zynax-ci): images sync + check subcommands | [#857](https://github.com/zynax-io/zynax/issues/857) | ✅ Merged (PR #915) |
-| O3 ci: wire drift-check into CI | [#858](https://github.com/zynax-io/zynax/issues/858) | ✅ Merged (PR #916) |
-| O4 chore(infra): Dockerfile ARG migration | [#859](https://github.com/zynax-io/zynax/issues/859) | ✅ Merged |
-| O5 chore(ci): bump flow rewrite (closes #844) | [#860](https://github.com/zynax-io/zynax/issues/860) | ✅ Merged |
-| O6 docs: propagation | [#861](https://github.com/zynax-io/zynax/issues/861) | ✅ Merged |
-| O7 docs: ADR-024 | [#862](https://github.com/zynax-io/zynax/issues/862) | ✅ Merged |
-
-### M6.Images — GHCR Package Hygiene — 🔄 In Progress
-
-Investigation confirmed (2026-06-03): all 8 GHCR images have `"annotations": null` on their OCI index manifests → "No description" in GHCR UI. Two `unknown/unknown` rows per image are SLSA provenance attestations (expected). No retention policy exists.
-
-⚠ **Note (2026-06-08):** PR #979 (`fix(ci)`) corrects a regression where release.yml built images
-without OCI description annotation — existing images in GHCR are unsigned/no SBOM. Next service
-image push will include all annotations and trigger signing + SBOM again.
-
-Delivery order (each is its own PR):
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| docs(adr): ADR-025 — keep vs disable SLSA attestations | [#868](https://github.com/zynax-io/zynax/issues/868) | ✅ Done |
-| ci: OCI manifest annotations (fix "no description") | [#865](https://github.com/zynax-io/zynax/issues/865) | ✅ Done |
-| ci: description-present gate + size-budget check | [#866](https://github.com/zynax-io/zynax/issues/866) | ✅ Done — regression fixed in PR #979 |
-| docs: document unknown/unknown attestation manifests | [#869](https://github.com/zynax-io/zynax/issues/869) | ✅ Done |
-| chore(ci): GHCR retention cap (last 5 builds) | [#867](https://github.com/zynax-io/zynax/issues/867) | ⬜ Open |
-
-### M6.Build — Native Multi-Arch Build Pipeline (#837) — 🔄 In Progress
-
-Epic: `epic(ci): M6.Build — native multi-arch build pipeline (eliminate QEMU, minimize image sizes)`
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| B.1 ci(infra): migrate release.yml service builds to native arm64 | [#838](https://github.com/zynax-io/zynax/issues/838) | ✅ Merged (PR #974) |
-| B.2 ci(infra): migrate tools-image.yml to native arm64 | [#839](https://github.com/zynax-io/zynax/issues/839) | ✅ Merged (PR #975) |
-| B.3 ci(infra): add Python adapter images to multi-arch release pipeline | [#840](https://github.com/zynax-io/zynax/issues/840) | ⬜ Open |
-| B.4 ci(infra): audit and minimize final image sizes | [#841](https://github.com/zynax-io/zynax/issues/841) | ⬜ Open |
-
-### M6.Argo — Argo Workflows Engine Adapter (#766) — 🔄 In Progress
-
-Canvas: `docs/spdd/766-argo-engine/canvas.md` — Status: **Aligned** ✅
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| O1 feat(protos): ArgoConfig message + argo_engine BDD scenarios | [#795](https://github.com/zynax-io/zynax/issues/795) | 🔄 In Review (PR #976) |
-
-### M6.NS — Namespace Routing (#767) — 🔄 In Progress
-
-Canvas: `docs/spdd/767-namespace-routing/canvas.md` — Status: **Aligned** ✅
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| O1 feat(workflow-compiler): namespace-scoped capability routing | [#799](https://github.com/zynax-io/zynax/issues/799) | ✅ Merged (PR #977) |
-
-### M6.PyPI — SDK PyPI Distribution (#769) — 🔄 In Progress
-
-Canvas: `docs/spdd/769-pypi/canvas.md` — Status: **Aligned** ✅
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| O1 feat(agents): PyPI trusted publisher + TestPyPI dry-run | [#805](https://github.com/zynax-io/zynax/issues/805) | ✅ Merged (PR #973) |
-
-### M6 Infra / Tooling — ✅ Complete
-
-Process-health work (ADR-023, merge-policy, image-bump tooling, /resume-m6 fix).
-All PRs merged 2026-06-03.
-
-| Work Item | Issue | PR | Status |
-|-----------|-------|-----|--------|
-| ADR-023 — restrict direct pushes to main | — | #847 | ✅ Merged |
-| chore(ci): bump-ci-runner script + make target | [#843](https://github.com/zynax-io/zynax/issues/843) | #848 | ✅ Merged |
-| ci(infra): post-build bump issue from tools-image.yml | [#844](https://github.com/zynax-io/zynax/issues/844) | #849 | ✅ Merged |
-| chore(claude): /resume-m6 rewrite — FF discipline | [#845](https://github.com/zynax-io/zynax/issues/845) | #850 | ✅ Merged |
-| docs(contributing): merge policy | [#846](https://github.com/zynax-io/zynax/issues/846) | #851 | ✅ Merged |
-| docs(milestones): tracking + ROADMAP expansion | — | #852 | ✅ Merged |
-
-### M6.F — Platform Configuration Convergence (#670) — ✅ Complete
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| refactor: libs/zynaxconfig shared config + task-broker migration | [#667](https://github.com/zynax-io/zynax/issues/667) | ✅ Merged (PR #907) |
-| chore(infra): Dockerfile template consolidation | [#668](https://github.com/zynax-io/zynax/issues/668) | ✅ Merged (PR #909) |
-| ci: go.mod version-alignment gate | [#669](https://github.com/zynax-io/zynax/issues/669) | ✅ Merged (PR #910) |
-
-### M6.J — memory-service KV + vector implementation (#773) — ✅ COMPLETE
-
-Canvas: `docs/spdd/773-memory-service/canvas.md` — Status: **Implemented** ✅
-
-All 6 stories merged 2026-06-08.
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| J.2 feat(memory-service): service scaffold — go.mod, domain KV+Vector interfaces, cmd/ | [#814](https://github.com/zynax-io/zynax/issues/814) | ✅ Merged (#932) |
-| J.3 feat(memory-service): Redis KV adapter | [#815](https://github.com/zynax-io/zynax/issues/815) | ✅ Merged |
-| J.4 feat(memory-service): pgvector adapter | [#816](https://github.com/zynax-io/zynax/issues/816) | ✅ Merged |
-| J.5 feat(memory-service): namespace TTL enforcement + workflow_id isolation | [#817](https://github.com/zynax-io/zynax/issues/817) | ✅ Merged |
-| J.6 feat(memory-service): gRPC handler wiring — all 10 RPCs, integration tests | [#818](https://github.com/zynax-io/zynax/issues/818) | ✅ Merged |
-| J.7 test: BDD step implementations for memory_service.feature | [#819](https://github.com/zynax-io/zynax/issues/819) | ✅ Merged |
-
-### M6.DevAuto — Self-hosting dev-automation (#873) — ✅ DELIVERED TO BOUNDARY (EPIC closing)
-
-Canvas (Wave 4): `docs/spdd/881-self-hosted-issue-delivery/canvas.md` — Status: **Implemented**
-(delivered through O7 + O9; O8 → M7 [#1103](https://github.com/zynax-io/zynax/issues/1103)).
-Waves 0–3 were superseded by the generalized delivery commands and retired in #1129 (configs
-archived under `docs/archive/dev-advisory/`; learnings kept in `docs/ai-learnings/`).
-EPICs #873 and #881 close at the platform-readiness boundary; the strict xfail in
-`automation/tests/test_platform_readiness.py` remains the honest gate, continued under M7 (#1103).
-
-| Story | Issue | Status |
-|-------|-------|--------|
-| DevAuto.1 docs(automation): STATUS-AND-DIRECTION.md | [#874](https://github.com/zynax-io/zynax/issues/874) | ✅ Merged (#884) |
-| DevAuto.2 chore(automation): expert mesh YAML configs | [#875](https://github.com/zynax-io/zynax/issues/875) | ✅ Merged |
-| DevAuto.3 chore(automation): orchestrator config | [#876](https://github.com/zynax-io/zynax/issues/876) | ✅ Merged |
-| DevAuto.4 ci: Wave 0 advisory workflow | [#877](https://github.com/zynax-io/zynax/issues/877) | ✅ Merged (PR #969) — superseded, retired in #1129 |
-| DevAuto.5 ci: Wave 1 orchestrator aggregation | [#878](https://github.com/zynax-io/zynax/issues/878) | ✅ Closed — superseded (#1129) |
-| DevAuto.6 ci: Wave 2 | [#879](https://github.com/zynax-io/zynax/issues/879) | ✅ Closed — superseded (#1129) |
-| DevAuto.7 ci: Wave 3 | [#880](https://github.com/zynax-io/zynax/issues/880) | ✅ Closed — demoted to weekly audit (#1107/#1113) |
-| DevAuto.8 feat: Wave 4 self-hosted issue-delivery | [#881](https://github.com/zynax-io/zynax/issues/881) | ✅ Delivered to boundary — O1 [#1096](https://github.com/zynax-io/zynax/issues/1096) ADR-028 · O2 [#1097](https://github.com/zynax-io/zynax/issues/1097) 9 expert AgentDefs · O3 [#1098](https://github.com/zynax-io/zynax/issues/1098) orchestrator Workflow · O4 [#1099](https://github.com/zynax-io/zynax/issues/1099) intake→plan→route · O5 [#1100](https://github.com/zynax-io/zynax/issues/1100) context-slice binding · O6 [#1101](https://github.com/zynax-io/zynax/issues/1101) delivery leg · O7 [#1102](https://github.com/zynax-io/zynax/issues/1102) learning-synthesizer · O9 [#1104](https://github.com/zynax-io/zynax/issues/1104) reconcile · O8 [#1103](https://github.com/zynax-io/zynax/issues/1103) ⏸ deferred to M7 (platform gaps — see #1103 comments) |
-| DevAuto.9 test: xfail gate | [#882](https://github.com/zynax-io/zynax/issues/882) | ✅ Closed — xfail gate in place; flip continues under M7 (#1103) |
-| DevAuto.10 docs: AGENTS.md pointer + README | [#883](https://github.com/zynax-io/zynax/issues/883) | ✅ Closed |
+All 12 EPICs closed; milestone at **0 open / 172 closed**. Ships in v0.7.0 (v0.6.0 skipped).
+Plan + full delivery log: [docs/milestones/M7-planning.md](../docs/milestones/M7-planning.md).
+Deferred out of M7 with their own canvases: #1385 (scenario manifest), #1387 (context
+injection); #1359 (zero-Temporal engine) superseded by #1456 (ADR-037 Rejected).
 
 ---
 
-## Next Session Queue (priority order)
+## Known drift being reconciled (2026-07-08 truth pass)
 
-**Immediate (unblocked):**
-- **#1087** feat(infra): expose api-gateway on host port for e2e (NodePort 30080) — #1086 O1 ✅ ready
-- **#1071** ci(infra): Temporal-vs-Argo engine matrix in e2e-smoke — #771 O2 ✅ delivered-pending-merge (branch `ci/1071-engine-matrix-e2e`)
-- **#867** chore(ci): GHCR retention cap — last 5 builds only
-- **#840** ci(infra): Python adapters in multi-arch release pipeline
-- **#841** ci(infra): audit and minimize image sizes
-
-**M6.E2E-Green chain (O1 #1087 / O2 #1088 / O3 #1089 / O4 #1090 / O5 #1091 all ✅):** #1092 (O6, needs #1071 + #1149 fix for `E2E_REQUIRE_COMPLETED_EVENT`).
-**M6.Postgres chain — ✅ complete:** #1076 ✅, #1077 ✅, #1078 ✅, #1079 ✅ (O1–O8 all delivered; canvas Implemented; EPIC #1073 ready to close).
-
-**M6.Argo continuation (after #795 merges):**
-- **#796** feat(engine-adapter): Argo engine adapter implementation (#766, O2)
-- **#797** feat(api-gateway): engine config routing (#766, O3)
-
-**M6.DevAuto — ✅ complete (delivered to boundary):** Wave 4 (#881) delivered through O7 + O9;
-O8 #1103 deferred to M7; EPICs #881/#873 closing at the platform-readiness boundary.
-
-**SDK/docs:**
-- **#808** docs(agents): SDK docstrings step 2 (#769, O4)
-- **#376** docs: SDK docstrings step 2 — BLOCKED on SDK modules (M6+ scope)
+- `state/milestone.yaml` active block stale (M7) — rotation owned by `/milestone close|open`.
+- Delivered-but-open issues: #1650, #1576 (recommend close; see PR #1673).
+- Stale M-dx epic nest: #173 ⊃ #205 ⊃ #148 ⊃ #146 — consolidation recommended (see the
+  triage comments on those issues, 2026-07-08).
+- Label drift fixed 2026-07-08: #1620 (`milestone: M8` → `M9`), #1524 (stale `milestone: M7`).

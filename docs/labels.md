@@ -95,7 +95,14 @@ Labels use a `group: value` naming convention so they sort and filter predictabl
 | `milestone: M6` | `#f9d0c4` (salmon) | K8s Production-Ready |
 | `milestone: M7` | `#f9d0c4` (salmon) | Usable Workflows + Observability |
 | `milestone: M8` | `#f9d0c4` (salmon) | CNCF Sandbox Submission |
+| `milestone: M9` | `#BFD4F2` (blue) | Hard removals + conformance suite (created by `/milestone open`, which uses `BFD4F2`) |
+| `milestone: M-dx` | `#f9d0c4` (salmon) | Developer Experience program bucket (GitHub milestone #9) |
+| `milestone: M-UX` | `#f9d0c4` (salmon) | User Experience program bucket (GitHub milestone #10) |
 | `milestone: unscheduled` | `#cfd3d7` (grey) | Accepted but not yet assigned to a milestone |
+
+> GitHub milestone numbers ≠ M-numbers from M9 on (M9 = GitHub milestone **#11**; #9/#10 are
+> M-dx/M-UX). Resolve milestones via `state/milestone.yaml` `github_milestone_number`, never
+> by assuming `M<n>` ↔ `#n`.
 
 ---
 
