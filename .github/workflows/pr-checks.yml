@@ -26,6 +26,11 @@ on:
     types: [opened, synchronize, reopened]
   push:
     branches: [main]
+  # Merge-queue leg (ADR-047): required contexts here either guard-skip on
+  # gh-readonly-queue/* refs (actionlint, conventional-commit — a skipped job
+  # satisfies a required check; both already ran on the PR leg) or run with
+  # their non-PR fallback range (gitleaks-scan).
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
