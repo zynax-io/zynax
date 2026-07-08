@@ -208,7 +208,7 @@ func TestServe_DegradedNoSecret(t *testing.T) {
 		Endpoint:         addr,
 		RegistryEndpoint: "localhost:50052",
 		Capabilities:     []config.CapabilityConfig{{Name: "chat_completion"}},
-		Provider:         config.ProviderConfig{Name: "openai", Model: "gpt-4o", APIKeyEnv: "OPENAI_API_KEY"}, //nolint:gosec // G101: env-var NAME, not a credential value
+		Provider:         config.ProviderConfig{Name: "openai", Model: "gpt-4o", KeyEnvVar: "OPENAI_API_KEY"}, //nolint:gosec // G101: env-var NAME, not a credential value
 	}
 
 	done := make(chan error, 1)
