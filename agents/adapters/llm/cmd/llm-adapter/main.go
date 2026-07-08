@@ -81,9 +81,9 @@ func build() (*config.AdapterConfig, *server.AgentServer, bool, error) {
 		if !errors.Is(err, config.ErrSecretMissing) {
 			return nil, nil, false, fmt.Errorf("resolve secret: %w", err)
 		}
-		//nolint:gosec // G706: api_key_env/provider are operator config (names), never the secret value or request input
+		//nolint:gosec // G706: KeyEnvVar/provider are operator config (env-var name), never the secret value or request input
 		slog.Warn("llm-adapter starting in degraded mode: API key not set; capabilities will NOT be registered and readiness is NOT_SERVING",
-			"api_key_env", cfg.Provider.APIKeyEnv, "provider", cfg.Provider.Name)
+			"api_key_env", cfg.Provider.KeyEnvVar, "provider", cfg.Provider.Name)
 		return cfg, nil, true, nil
 	}
 	prov, err := provider.New(cfg.Provider, secret)

@@ -54,8 +54,8 @@ func TestLoad_Valid(t *testing.T) {
 	if cfg.Provider.Model != "gpt-4o" {
 		t.Errorf("provider.model mismatch: got %q", cfg.Provider.Model)
 	}
-	if cfg.Provider.APIKeyEnv != "OPENAI_API_KEY" {
-		t.Errorf("provider.api_key_env mismatch: got %q", cfg.Provider.APIKeyEnv)
+	if cfg.Provider.KeyEnvVar != "OPENAI_API_KEY" {
+		t.Errorf("provider.api_key_env mismatch: got %q", cfg.Provider.KeyEnvVar)
 	}
 	if len(cfg.Capabilities) != 1 || cfg.Capabilities[0].Name != "chat_completion" {
 		t.Fatalf("capabilities mismatch: %+v", cfg.Capabilities)
