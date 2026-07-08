@@ -3,7 +3,7 @@
 > Tier 1 (public-safe). `docs:` work is SPDD-exempt; committed for traceability.
 
 **Issue:** #1173 · **Milestone:** M7 (v0.6.0)
-**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Aligned (operator-approved 2026-06-17; docs SPDD-exempt)
+**Author:** M7 program plan · **Date:** 2026-06-15 · **Status:** Implemented (operator-approved 2026-06-17; docs SPDD-exempt)
 
 ---
 

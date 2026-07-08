@@ -7,7 +7,7 @@
 **Issue:** #470
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-05-18
-**Status:** Aligned
+**Status:** Implemented
 
 **Child issues:** #494 (MAINTAINERS.md + GOVERNANCE.md simplification) · #495 (troubleshooting guide)
 

@@ -9,7 +9,7 @@
 **Issue:** #1285
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-06-16
-**Status:** Aligned
+**Status:** Implemented
 
 ---
 
