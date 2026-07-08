@@ -51,7 +51,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:5d69a7c9210538b8aef7beb4037b404458f3681075c80add7f22a6c29ed2f268
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -82,7 +82,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:5d69a7c9210538b8aef7beb4037b404458f3681075c80add7f22a6c29ed2f268
       options: --user root
     permissions:
       pull-requests: read   # action-semantic-pull-request reads the PR title
@@ -113,7 +113,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:5d69a7c9210538b8aef7beb4037b404458f3681075c80add7f22a6c29ed2f268
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -167,7 +167,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:5d69a7c9210538b8aef7beb4037b404458f3681075c80add7f22a6c29ed2f268
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -211,7 +211,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:5d69a7c9210538b8aef7beb4037b404458f3681075c80add7f22a6c29ed2f268
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -290,7 +290,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:5d69a7c9210538b8aef7beb4037b404458f3681075c80add7f22a6c29ed2f268
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -327,7 +327,7 @@ jobs:
     name: Image digest alignment (images.yaml SoT)
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:5d69a7c9210538b8aef7beb4037b404458f3681075c80add7f22a6c29ed2f268
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -356,7 +356,7 @@ jobs:
       GOPROXY: https://proxy.golang.org,direct
       GONOSUMDB: "*"
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:5d69a7c9210538b8aef7beb4037b404458f3681075c80add7f22a6c29ed2f268
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -372,7 +372,7 @@ jobs:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:696d49c7912bd51943a87b95e31dce803264c85416826522872c66043930b0dc
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:5d69a7c9210538b8aef7beb4037b404458f3681075c80add7f22a6c29ed2f268
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
