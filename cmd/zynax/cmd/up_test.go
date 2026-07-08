@@ -24,7 +24,7 @@ func envHasKey(env []string, key string) bool {
 // setUpDefaults resets the package-level up flag vars to their command defaults.
 // runUp is called directly (no cobra flag parse), so tests must set them.
 func setUpDefaults() {
-	upProfile = "full"
+	upProfile = "lite"
 	upEngine = "temporal"
 	upNoLoad = false
 	upClusterName = ""
@@ -51,7 +51,7 @@ func runUpRecording(t *testing.T) *recordingRunner {
 func TestRunUp_Defaults(t *testing.T) {
 	setUpDefaults()
 	rr := runUpRecording(t)
-	for _, want := range []string{"PROFILE=full", "E2E_ENGINE=temporal", "KIND_LOAD_IMAGES=1"} {
+	for _, want := range []string{"PROFILE=lite", "E2E_ENGINE=temporal", "KIND_LOAD_IMAGES=1"} {
 		if !envHas(rr.env, want) {
 			t.Errorf("default env missing %q", want)
 		}
@@ -65,13 +65,13 @@ func TestRunUp_Defaults(t *testing.T) {
 	}
 }
 
-func TestRunUp_LiteArgo(t *testing.T) {
+func TestRunUp_FullArgo(t *testing.T) {
 	setUpDefaults()
-	upProfile = "lite"
+	upProfile = "full"
 	upEngine = "argo"
 	rr := runUpRecording(t)
-	if !envHas(rr.env, "PROFILE=lite") || !envHas(rr.env, "E2E_ENGINE=argo") {
-		t.Errorf("lite/argo not mapped; env tail=%v", rr.env[len(rr.env)-4:])
+	if !envHas(rr.env, "PROFILE=full") || !envHas(rr.env, "E2E_ENGINE=argo") {
+		t.Errorf("full/argo not mapped; env tail=%v", rr.env[len(rr.env)-4:])
 	}
 }
 

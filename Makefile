@@ -45,13 +45,21 @@ help:
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: bootstrap check-docker build-tools bump-ci-runner
+# kind node image — keep the pin in sync with the KIND_NODE_IMAGE default in
+# scripts/e2e/cluster-up.sh (the bring-up source of truth).
+KIND_NODE_IMAGE := kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
+
 bootstrap: ensure-tools ## ★ Run once after clone — pulls tools image from GHCR and installs pre-commit hooks
 	@if command -v pre-commit >/dev/null 2>&1; then \
 	  pre-commit install && echo "✅ pre-commit hooks installed"; \
 	else \
 	  echo "⚠️  pre-commit not found — skipping hook install (pip install pre-commit)"; \
 	fi
-	@echo "✅ Done. make lint → lint all, make test → full test suite"
+	@docker image inspect $(KIND_NODE_IMAGE) >/dev/null 2>&1 \
+	  || (echo "⬇️  Pre-pulling the kind node image (~1 GB, best-effort — moves the cost off the first make demo)..." \
+	      && docker pull $(KIND_NODE_IMAGE)) \
+	  || echo "⚠️  kind node image pre-pull failed — make demo will pull it on first run"
+	@echo "✅ Done. make lint → lint all, make test → full test suite, make demo → run the platform"
 
 check-docker:
 	@docker info >/dev/null 2>&1 || (echo "❌ Docker not running" && exit 1)
@@ -97,10 +105,14 @@ endif
 KIND_DEMO     := scripts/demo/kind-demo.sh
 CLUSTER_UP    := scripts/e2e/cluster-up.sh
 CLUSTER_DOWN  := scripts/e2e/cluster-down.sh
-# Stack profile for the kind targets (ADR-041): `full` (default, prod-mirroring)
-# or `lite` (lean laptop — 1 in-memory dev Temporal, no event-bus/NATS/memory-
-# service). Usage: `make demo PROFILE=lite` / `make kind-up PROFILE=lite`.
-PROFILE      ?= full
+# Stack profile for the kind targets (ADR-041). Explicit PROFILE=... always
+# wins (command line or env). Unset, each target picks its natural default
+# (#1716): `make demo` → lite (lean first-run: 1 node, in-memory dev Temporal,
+# no event-bus/NATS/memory-service — same charts, same hero workflow), while
+# `make kind-up` → full (prod-mirroring topology, same as the CI e2e harness).
+PROFILE      ?=
+DEMO_PROFILE  = $(if $(PROFILE),$(PROFILE),lite)
+KIND_PROFILE  = $(if $(PROFILE),$(PROFILE),full)
 # Workflow engine the kind demo deploys (#1500, the engine-portability wedge —
 # #1370 / ADR-041): `temporal` (default) or `argo`. The SAME workflow manifest
 # runs unchanged on either — selection flows through umbrella values only
@@ -137,13 +149,13 @@ DEMO_MODEL   := $(shell awk '/^[[:space:]]*model:/{print $$2; exit}' infra/ollam
 # standalone Temporal UI.
 DEMO_SERVICES := api-gateway llm-adapter
 
-demo: check-docker ## ★ One command (kind): create cluster → load images → install umbrella → wait rollout → "Platform ready" + run hero workflow (PROFILE=lite for the lean stack; ENGINE=argo for the Argo wedge)
-	@echo "🧭 Zynax demo on kind (ADR-041, profile: $(PROFILE), engine: $(ENGINE)) — one command, prod-mirroring charts."
-	PROFILE=$(PROFILE) E2E_ENGINE=$(ENGINE) $(KIND_DEMO)
+demo: check-docker ## ★ One command (kind): create cluster → load images → install umbrella → wait rollout → "Platform ready" + run hero workflow (defaults to the lean lite profile; PROFILE=full for prod-mirroring; ENGINE=argo for the Argo wedge)
+	@echo "🧭 Zynax demo on kind (ADR-041, profile: $(DEMO_PROFILE), engine: $(ENGINE)) — one command, the same charts that run in production."
+	PROFILE=$(DEMO_PROFILE) E2E_ENGINE=$(ENGINE) $(KIND_DEMO)
 
-kind-up: check-docker ## Create the kind cluster + install the zynax-umbrella chart (wraps scripts/e2e/cluster-up.sh, loads local images; PROFILE=lite for the lean stack; ENGINE=argo for Argo)
-	@echo "☸️  Bringing up the kind cluster + Zynax umbrella (profile: $(PROFILE), engine: $(ENGINE), loads local images)..."
-	KIND_LOAD_IMAGES=1 PROFILE=$(PROFILE) E2E_ENGINE=$(ENGINE) $(CLUSTER_UP)
+kind-up: check-docker ## Create the kind cluster + install the zynax-umbrella chart (wraps scripts/e2e/cluster-up.sh, loads local images; defaults to full/prod-mirroring; PROFILE=lite for the lean stack; ENGINE=argo for Argo)
+	@echo "☸️  Bringing up the kind cluster + Zynax umbrella (profile: $(KIND_PROFILE), engine: $(ENGINE), loads local images)..."
+	KIND_LOAD_IMAGES=1 PROFILE=$(KIND_PROFILE) E2E_ENGINE=$(ENGINE) $(CLUSTER_UP)
 
 kind-down: ## Tear down the kind cluster (wraps scripts/e2e/cluster-down.sh)
 	@echo "🧹 Tearing down the kind cluster..."

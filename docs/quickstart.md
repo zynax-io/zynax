@@ -39,8 +39,9 @@ make demo            # create kind cluster → load images → install Helm umbr
 (`http://localhost:8080`) once every Deployment is Available. The banner is never a premature "go"
 signal — it is gated on `kubectl rollout status` for all services.
 
-Lean laptop? `PROFILE=lite make demo` swaps the durable Temporal trio for a single in-cluster dev
-Temporal and disables the event-bus / memory-service.
+By default the demo runs the **lite** profile (single node, one in-cluster dev Temporal, no
+event-bus / memory-service — same charts, same hero workflow, half the footprint). Want the
+prod-mirroring topology CI runs? `PROFILE=full make demo`.
 
 ---
 
