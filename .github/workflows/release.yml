@@ -219,6 +219,7 @@ jobs:
         env:
           MERGE_SHA: ${{ steps.pr.outputs.merge_sha }}
           PR_SHA: ${{ steps.pr.outputs.pr_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # merge-queue emptiness poll (ADR-047)
         run: |
           set -euo pipefail
           (cd cmd/zynax-ci && GOWORK=off go build -o "${RUNNER_TEMP}/zynax-ci" .)
@@ -236,6 +237,31 @@ jobs:
           git commit -s \
             -m "chore(images): sync digests after main-${MERGE_SHA:0:7} [skip ci]" \
             -m "Automated digest update after merge of PR head ${PR_SHA:0:7} (ADR-027 retag model)."
+
+          # ADR-047: a direct push to main invalidates every in-flight
+          # merge-queue group. Yield while the queue is busy — bounded, then
+          # push anyway (ADR-027 near-atomicity beats indefinite deferral).
+          # With no merge_queue rule on main the query returns 0 → no-op.
+          QUEUE_WAIT_LIMIT=600
+          waited=0
+          while :; do
+            entries=$(gh api graphql \
+              -f query='query($owner:String!,$name:String!){repository(owner:$owner,name:$name){mergeQueue(branch:"main"){entries(first:1){totalCount}}}}' \
+              -f owner="${GITHUB_REPOSITORY%/*}" -f name="${GITHUB_REPOSITORY#*/}" \
+              --jq '.data.repository.mergeQueue.entries.totalCount // 0' 2>/dev/null || echo 0)
+            if [ "${entries}" -eq 0 ]; then
+              echo "✅ merge queue empty after ${waited}s — pushing digest sync"
+              break
+            fi
+            if [ "${waited}" -ge "${QUEUE_WAIT_LIMIT}" ]; then
+              echo "⚠️  merge queue still busy (${entries} entries) after ${QUEUE_WAIT_LIMIT}s — pushing anyway (ADR-027 near-atomicity)"
+              break
+            fi
+            echo "⏳ merge queue busy (${entries} entries) — waiting 30s (${waited}s/${QUEUE_WAIT_LIMIT}s)"
+            sleep 30
+            waited=$((waited+30))
+          done
+
           git pull --rebase origin main
           git push origin HEAD:main || {
             echo "::error::Digest push to main rejected. The ADR-027 §ADR-023 bot"
