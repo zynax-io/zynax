@@ -235,8 +235,13 @@ Assisted-by: Claude/claude-sonnet-4-6    ← AI-assisted only
 Rules: imperative mood · no period · no `@mentions` in subject · no emojis ·
 clean history before opening PR (`git rebase -i main`).
 
-**Keeping branches current:** always rebase, never merge main into your branch.
-Push after rebase with `--force-with-lease`, never bare `--force`.
+**Keeping branches current:** you do not need to rebase for freshness — `main` uses a
+merge queue (ADR-047): arm `gh pr merge <PR> --squash --auto` and the queue validates
+your PR against current main on its turn (`BEHIND` is cosmetic). Rebase only to resolve
+real conflicts (`DIRTY`): always rebase (with `--signoff`), never merge main into your
+branch, and push with `--force-with-lease`, never bare `--force` — note a force-push
+removes a queued PR from the queue. *Fallback (pre-cutover or queue rollback — no
+merge-queue rule on `main`): rebase onto `origin/main` before merging, as before.*
 
 **GPG signing (required):** set `git config commit.gpgsign true`. Branch protection
 rejects unsigned commits.
@@ -289,26 +294,31 @@ See [`docs/patterns/bdd-contract-testing.md`](docs/patterns/bdd-contract-testing
 3. Title must follow Conventional Commits (CI-enforced). Fill all template sections.
 4. Mark **Draft** if in progress; convert to **Ready** only when CI passes locally.
 5. Push fixup commits during review — do not force-push while reviewers are active.
-6. After all approvals: rebase onto `main`, `git push --force-with-lease`, then merge.
+6. After all approvals: arm merge-when-ready (`gh pr merge <PR> --squash --auto`) — the
+   merge queue handles freshness (ADR-047); no rebase needed unless the PR is `DIRTY`.
 
 **Merge requirements:**
 - [ ] All CI checks green (lint, test-unit, test-integration, security, dco)
 - [ ] No unresolved review comments · PR description complete · CHANGELOG updated
 
-**Merge strategy: squash-and-merge** (`gh pr merge <PR> --squash`). No merge commits.
-`required_linear_history` is enforced by branch protection — merge commits are rejected
-for all actors including admins (ADR-023). `--rebase` is blocked by `required_signatures`
-(GitHub cannot auto-sign replayed commits); squash-merge is GitHub-signed and linear.
+**Merge strategy: squash via the merge queue** (`gh pr merge <PR> --squash --auto` —
+ADR-047). No merge commits. `required_linear_history` is enforced by branch protection —
+merge commits are rejected for all actors including admins (ADR-023). `--rebase` is blocked
+by `required_signatures` (GitHub cannot auto-sign replayed commits); the queue's
+squash-merge is GitHub-signed and linear.
 
-Sequence before every merge:
+Merge sequence:
 ```bash
-git fetch origin main
-git rebase origin/main        # resolve conflicts if any
-git push --force-with-lease
-gh pr checks <PR> --watch
-gh pr merge <PR> --squash
-git push origin --delete <branch>   # delete remote branch immediately after merge
+gh pr merge <PR> --squash --auto    # arm once — enqueues when required checks pass
+# BEHIND is cosmetic: the queue tests your PR merged with current main.
+# DIRTY (real conflicts) still needs you:
+#   git fetch origin main && git rebase --signoff origin/main && git push --force-with-lease
+# If a flaky check ejects the PR from the queue, re-arm once:
+#   gh pr merge <PR> --squash --auto
 ```
+The remote branch is deleted automatically on merge. *Fallback (pre-cutover or queue
+rollback — no merge-queue rule on `main`): rebase onto `origin/main` +
+`--force-with-lease` before arming `--auto`, as before.*
 
 **Branch lifecycle:**
 - Create branches off fresh `origin/main` immediately before work.
@@ -326,7 +336,8 @@ Breaking and proto changes require a 5-day RFC comment period (see `GOVERNANCE.m
 ## 9. Code Review Etiquette
 
 **Authors:** respond to all comments; push fixup commits during review (no amend);
-rebase onto current `main` immediately before merge; no AI-generated replies.
+arm `gh pr merge --squash --auto` when review completes (the merge queue handles
+freshness — ADR-047); no AI-generated replies.
 
 **Reviewers:** use explicit severity prefixes:
 
