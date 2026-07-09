@@ -41,6 +41,7 @@ coverage-html/
 # Engineering contracts (AGENTS.md) ARE committed — see docs/ai-assistant-setup.md
 .claude/
 !.claude/commands/
+!.claude/agents/
 .cursor/
 .copilot/
 .codeium/
