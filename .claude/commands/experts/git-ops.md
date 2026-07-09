@@ -14,7 +14,7 @@ cherry-pick, DCO-signed commits, and PR lifecycle. You write zero implementation
 Output a progress line at the start of each phase — before any tool call for that phase:
 
 ```
-[git-ops #<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+[git-ops #<N> <HH:MM:SS>] <PHASE>: <one-line description>
 ```
 
 | Phase | When to emit |
@@ -33,36 +33,29 @@ Output a progress line at the start of each phase — before any tool call for t
 
 Example handoff log:
 ```
-[git-ops #823 15:01:00] START: handoff from go-svc; branch feat/823-scaffold exists, 3 files staged  [ctx: ~10K | compress=0 | msgs=1]
-[git-ops #823 15:01:05] COMMIT: DCO sign-off + Assisted-by trailer  [ctx: ~10K | compress=0 | msgs=2]
-[git-ops #823 15:01:20] PUSH: force-with-lease to origin/feat/823-scaffold  [ctx: ~10K | compress=0 | msgs=3]
-[git-ops #823 15:01:35] PR: opening PR #NNN against main  [ctx: ~10K | compress=0 | msgs=4]
-[git-ops #823 15:01:50] DONE: PR #NNN open; returning control to caller  [ctx: ~10K | compress=0 | msgs=5]
+[git-ops #823 15:01:00] START: handoff from go-svc; branch feat/823-scaffold exists, 3 files staged
+[git-ops #823 15:01:05] COMMIT: DCO sign-off + Assisted-by trailer
+[git-ops #823 15:01:20] PUSH: force-with-lease to origin/feat/823-scaffold
+[git-ops #823 15:01:35] PR: opening PR #NNN against main
+[git-ops #823 15:01:50] DONE: PR #NNN open; returning control to caller
 ```
 
 ---
 
-## Context tracking
+## Context discipline
 
-Estimate context in kilotoken units (`~XK`) — same as Claude Code display.
-Maintain counters: `CTX_TOKENS` (K estimate), `CTX_COMPRESSIONS`, `CTX_MSGS` from the moment you start.
-Append `[ctx: ~<X>K | compress=<C> | msgs=<M>]` to every log line — same kilotoken unit as Claude Code displays.
-
-Split thresholds (git-ops is lightweight by design — these should rarely trigger):
-
-| Condition | Action |
-|-----------|--------|
-| `CTX_COMPRESSIONS >= 1` | Log `⚠ CONTEXT GROWING` — output current branch/commit state for handoff |
-| `CTX_COMPRESSIONS >= 2` | **STOP.** Output split proposal (see format below) |
+Read only files inside the issue scope (see docs/patterns/delivery-agent-protocol.md §10). If you notice your context has been compacted mid-run, finish the current step, stop at the next safe boundary, and emit the split report below.
 
 ---
 
-## When you are called
+## When this guide applies
 
-You receive a handoff payload from the calling expert. It must contain:
+There is no separate git-ops agent: the delivery agent that implemented the story executes the
+git phase itself, following this guide. Before starting the phase, it assembles this checklist
+(the same block its domain guide calls the "GIT PHASE checklist"):
 
 ```
-HANDOFF to git-ops:
+GIT PHASE checklist:
   from_expert:  <tag>
   issue:        #<N>
   branch:       <branch-name>  (may or may not exist on remote yet)
@@ -73,7 +66,7 @@ HANDOFF to git-ops:
   next_step:    COMMIT | PUSH | PR | MERGE | CLEANUP  (where to start)
 ```
 
-If any field is missing, ask the calling expert to provide it before proceeding.
+If any field is missing, assemble it from the issue and your diff before proceeding.
 
 ---
 
@@ -142,7 +135,7 @@ PR_URL=$(gh pr create \
   --body-file "/tmp/pr-body-${ISSUE_N}.md")
 
 PR_N=$(echo "$PR_URL" | grep -oP '\d+$')
-echo "[git-ops #$ISSUE_N $(date +%H:%M:%S)] PR: opened #$PR_N — $PR_URL  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
+echo "[git-ops #$ISSUE_N $(date +%H:%M:%S)] PR: opened #$PR_N — $PR_URL"
 ```
 
 ---
@@ -180,7 +173,6 @@ Return to the calling expert with:
 - Branch:   <branch> (deleted ✓ / still exists)
 - Commit:   <sha> — <subject>
 - PR:       #<N> — <url> — <state: open/merged>
-- Context:  ~<X>K | compress=<C> | msgs=<M>
 
 ## Handoff back to <from_expert>
 Next step for caller: <what the caller should do now — e.g. "wait for CI on PR #N">

@@ -73,7 +73,11 @@ Use it only when cutting/closing a release; day-to-day work doesn't need it.
   milestone.md        ← release lifecycle (open|close|status)
   lib/                ← building blocks the main commands invoke (power-users: /lib:<name>)
   experts/            ← domain personas /deliver dispatches (not run directly)
+.claude/agents/       ← model-routed dispatch shells /deliver spawns (model+effort pinned per agent)
 ```
+
+The agents read a shared dispatch protocol:
+[docs/patterns/delivery-agent-protocol.md](../../docs/patterns/delivery-agent-protocol.md).
 
 ### `lib/` — building blocks (you rarely call these directly)
 Invoked by the main commands; available as `/lib:<name>` if you want fine-grained control.
@@ -88,8 +92,22 @@ Invoked by the main commands; available as `/lib:<name>` if you want fine-graine
 
 ### `experts/` — domain personas
 `bdd-contract · go-services · python-adapters · ci-release · infra-helm · git-ops · spdd-canvas ·
-post-merge`. `/deliver` routes each issue to the matching persona (by title scope / file area). They
-are **updated by `/learn`** as session learnings accumulate; you don't invoke them directly.
+post-merge`. These are the domain **guides** read at startup by the matching model-routed agent in
+`.claude/agents/` — dispatch, model, and effort live in the agent definition; the guides remain the
+knowledge base. (`git-ops` has no agent of its own: it is the git-mechanics reference every
+delivery agent follows during its commit → PR → queue-merge phase.) They are **updated by `/learn`** as session learnings accumulate; you don't invoke
+them directly.
+
+## Model routing
+
+| Tier | Model | Used for |
+|------|-------|----------|
+| Top | Fable (or Opus xhigh + multi-agent workflows) | main sessions for `/plan`, `/review`, `/reconcile` + the `spdd-canvas` agent (pinned fable, effort high) |
+| Standard | Opus, effort xhigh | `go-services`, `python-adapters`, `bdd-contract`, `infra-helm`, `ci-release` agents (pinned) |
+| Simple/mechanical | Haiku | `post-merge` agent only |
+
+- Subagent pins hold regardless of the session model, so delivery driving may run on Opus without demoting canvas work.
+- Avoid per-command `model:` frontmatter in main-session commands — model switches mid-session invalidate the prompt cache; route via pinned subagents instead.
 
 ---
 

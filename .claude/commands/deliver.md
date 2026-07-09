@@ -1,5 +1,5 @@
 ---
-description: Deliver ready work end-to-end — claim → implement (expert dispatch + SPDD generate) → local gates → signed PR → CI → squash auto-merge → post-merge verify → learnings. No-arg picks the next ready work repo-wide; pass #issue for one story, #epic to resume a cluster, --batch N for parallel delivery. Milestone-agnostic; --milestone is an optional filter. Preserves worktree isolation + deterministic claim-key idempotency.
+description: "Deliver ready work end-to-end — claim → implement (model-routed agent dispatch + SPDD generate) → local gates → signed PR → CI → squash auto-merge → post-merge verify → learnings. No-arg picks the next ready work repo-wide; pass #issue for one story, #epic to resume a cluster, --batch N for parallel delivery. Milestone-agnostic; --milestone is an optional filter. Preserves worktree isolation + deterministic claim-key idempotency."
 argument-hint: "[#issue | #epic | <canvas-path> | (none = next ready)] [--milestone M] [--batch N]"
 ---
 
@@ -7,7 +7,7 @@ argument-hint: "[#issue | #epic | <canvas-path> | (none = next ready)] [--milest
 
 One front door for implementation. It routes to the battle-tested delivery building blocks under
 `lib/` (worktree isolation, deterministic `<type>/<N>` claim key, parallel batches, post-merge
-verification) — you no longer choose between orchestrate / issue-deliver / resume by hand.
+verification) — you no longer choose between one / batch / resume by hand.
 
 > **Milestone-agnostic.** With no `--milestone`, scope is **repo-wide ready work**: open issues
 > labelled `status: ready`, with an `Aligned` canvas if they are `feat:`. `--milestone M` filters to
@@ -16,13 +16,14 @@ verification) — you no longer choose between orchestrate / issue-deliver / res
 ## Parse `$ARGUMENTS` and route
 
 - **`#<issue>`** (single story) → `/lib:deliver-one <issue>` — claim → (canvas if `feat:` and missing
-  → `/plan #<issue>` first) → expert dispatch → `/lib:spdd-generate` per O-step → gates → PR → CI →
-  squash auto-merge → `experts:post-merge` verify.
-- **`#<epic>`** (resume a cluster) → `/lib:deliver-resume <epic>` — deliver the epic's ready O-steps,
-  open PRs in parallel, enable auto-merge, then stop for review.
+  → `/plan #<issue>` first) → model-routed agent dispatch (`.claude/agents/`) → `/lib:spdd-generate` per O-step → gates → PR → CI →
+  squash auto-merge → post-merge agent verify (Haiku-pinned).
+- **`#<epic>`** (resume a cluster) → `/lib:deliver-resume <epic>` — dispatch one model-routed agent
+  per ready O-step (each waits for CI and queue-merges its own PR), then stop after the cluster.
 - **no argument, or `--batch N`** → `/lib:deliver-batch` — claim up to N (default 3) ready issues
-  repo-wide (or within `--milestone`), route each to the right `experts/*` persona in parallel,
-  run the merge pass, collect results, append learnings.
+  repo-wide (or within `--milestone`), route each to the matching model-routed agent from
+  `.claude/agents/` in parallel (implementation agents pinned to Opus xhigh; canvas to Fable;
+  post-merge to Haiku), run the merge pass, collect results, append learnings.
 - **`<canvas-path>`** → deliver the next unimplemented Operations step of that canvas via
   `/lib:spdd-generate`.
 

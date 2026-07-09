@@ -1,5 +1,5 @@
 ---
-description: Fully autonomous milestone story delivery — claims issue via GitHub label, runs SPDD pipeline for feat: issues, implements, waits for CI, verifies Docker artifacts, merges, and marks done. Cross-machine safe.
+description: "Fully autonomous single-story delivery — claims the issue, dispatches the model-routed domain agent (canvas agent first for feat: without an Aligned canvas), waits for CI + queue merge, verifies post-merge artifacts, and marks done. Cross-machine safe."
 argument-hint: "<story-or-epic-issue-number>"
 ---
 
@@ -7,17 +7,21 @@ argument-hint: "<story-or-epic-issue-number>"
 
 > **Building block** — invoked by `/deliver <#issue>`, not run directly.\n> **Scope contract:** milestone-agnostic; the caller may pass `--milestone M` as a filter.\n
 
-End-to-end, unattended delivery of a single story issue: claim → canvas (if feat:) → implement →
-local checks → push → PR → wait for CI → verify artifacts → squash-merge → cleanup → done.
+End-to-end, unattended delivery of a single story issue. This command is a **single-issue
+dispatcher**: it guards, soft-claims, and routes — the implementation itself always runs inside
+the matching model-routed agent from `.claude/agents/` (implementation → Opus `xhigh`;
+canvas → Fable `high`; post-merge → Haiku), never in this session's context. That keeps model
+routing enforced regardless of which model the driving session runs.
 
 > **Rules are not restated here.** Commit format, DCO + `Assisted-by` trailers, `GOWORK=off`,
-> PR-size limits, hexagonal layout, coverage gates, and the SPDD workflow all live in **`AGENTS.md`**
-> and **`CLAUDE.md`**. Read them before starting. This file is the *execution loop only*.
+> PR-size limits, coverage gates, and the SPDD workflow live in **`AGENTS.md`**, **`CLAUDE.md`**,
+> and the shared agent protocol (`docs/patterns/delivery-agent-protocol.md`). This file is the
+> *routing loop only*.
 
-> **Canvas auto-alignment policy.** For `feat:` issues this skill auto-runs `/lib:spdd-analysis`,
-> `/lib:spdd-canvas`, and `/lib:spdd-security-review`. If the security review PASSes, Status is set
-> to `Aligned` automatically and implementation proceeds. If it **FAILs** (Tier 2 findings that
-> cannot be resolved inline), the skill stops and reports — do not proceed from a failed review.
+> **Canvas auto-alignment policy.** For `feat:` issues with no Aligned canvas, this command
+> dispatches the `spdd-canvas` agent first. If its security review PASSes, Status is set to
+> `Aligned` and implementation proceeds. If it **FAILs** (Tier 2 findings that cannot be
+> resolved inline), stop and report — never proceed from a failed review (ADR-019).
 
 ---
 
@@ -25,36 +29,32 @@ local checks → push → PR → wait for CI → verify artifacts → squash-mer
 
 Two layers prevent duplicate work across concurrent sessions on any machine:
 
-1. **Soft claim** — add `status: in-progress` label + self-assign the issue on GitHub (visible
-   immediately to all sessions and to `/deliver`). This is a *signal*, not a lock.
-2. **Hard claim** — push an empty branch to GitHub before writing any code. Only one `git push -u
-   origin $BRANCH` wins when two sessions race. A rejected push means the story is taken → stop.
+1. **Soft claim** — this command adds the `status: in-progress` label + self-assigns the issue
+   on GitHub (visible immediately to all sessions and to `/deliver`). A *signal*, not a lock.
+2. **Hard claim** — the dispatched agent pushes the empty deterministic branch `<type>/<N>`
+   before writing any code (shared protocol §4). Only one `git push -u origin <type>/<N>` wins
+   when two sessions race; a rejected push means the story is taken → the agent stops and
+   reports "claim lost".
 
 Always check both before starting. Never assume an issue is free just because you read it as open.
 
 ---
 
-## STEP 0 — Pre-flight: read the rules
+## STEP 0 — Pre-flight
 
 ```bash
-# ── Active-milestone config (SSoT: state/milestone.yaml) ────────────────────
-# Loaded at runtime; no milestone name, number, or label is hardcoded in this
-# file. Updated only by /milestone close and /milestone open.
-CFG=state/milestone.yaml
-MILESTONE_NAME=$(awk '/^active:/{f=1} f && /^  name:/{print $2; exit}' "$CFG")
-MILESTONE_TITLE=$(awk -F'"' '/^active:/{f=1} f && /^  title:/{print $2; exit}' "$CFG")
-MILESTONE_NUMBER=$(awk '/^active:/{f=1} f && /^  github_milestone_number:/{print $2; exit}' "$CFG")
-MILESTONE_VERSION=$(awk '/^active:/{f=1} f && /^  version:/{print $2; exit}' "$CFG")
-PLANNING_DOC=$(awk '/^active:/{f=1} f && /^  planning_doc:/{print $2; exit}' "$CFG")
-MILESTONE_LABEL=$(awk -F'"' '/^    milestone:/{print $2; exit}' "$CFG")
-GH_MILESTONE="${MILESTONE_TITLE} (${MILESTONE_NAME})"   # GitHub milestone title
-# ─────────────────────────────────────────────────────────────────────────────
+# Agent roster must exist (model-routing PR merged; restart session once if the
+# .claude/agents/ directory was created after this session started).
+ls .claude/agents/
 
-# Mandatory reads every run — do not skip
-cat CLAUDE.md                            # dev loop, PR-size, SPDD rules
-cat AGENTS.md                            # constitution: layer boundaries, mandates, anti-patterns
+# Active-milestone config (SSoT: state/milestone.yaml) — single helper call, never inline awk.
+eval "$(bash automation/milestone-env.sh)"
+# → MILESTONE_NAME MILESTONE_TITLE MILESTONE_NUMBER MILESTONE_VERSION
+#   PLANNING_DOC MILESTONE_LABEL GH_MILESTONE
+
+# Planning state only — no code files in this session's context.
 cat state/current-milestone.md           # active blockers, health
-cat "$PLANNING_DOC"       # dependency table, EPIC status
+cat "$PLANNING_DOC"                      # dependency table, EPIC status
 ```
 
 ---
@@ -106,40 +106,6 @@ echo "Claimed issue #$ISSUE_N (label added, self-assigned)."
 
 ---
 
-## STEP 2.5 — Create isolated worktree
-
-Create a throw-away checkout so the rest of the skill runs on a guaranteed clean tree,
-completely isolated from the caller's working directory.
-
-```bash
-WORKTREE_PATH="/tmp/zynax-auto-${ISSUE_N}"
-
-# Remove any leftover from a previous crashed run
-git worktree remove "$WORKTREE_PATH" --force 2>/dev/null || true
-rm -rf "$WORKTREE_PATH" 2>/dev/null || true
-
-# Create a fresh worktree based on current origin/main
-git fetch origin --prune
-git worktree add "$WORKTREE_PATH" origin/main
-
-# All subsequent steps run from this directory
-cd "$WORKTREE_PATH"
-echo "Worktree ready: $WORKTREE_PATH"
-```
-
-> Every file read, edit, build, and commit from this point on happens inside
-> `$WORKTREE_PATH`. The caller's workspace is untouched.
-
-> **If this skill is driven by a sandboxed / background agent** (rather than run directly in
-> an interactive session): the Bash sandbox denies compound/chained commands and shell state
-> does not persist between calls. In that mode, run each line above as its OWN Bash call
-> (no `&&`/`;`/`|`/`rm -rf` chaining, no `env` prefix), do NOT `cd` — reference the worktree by
-> its **literal** path `/tmp/zynax-auto-<ISSUE_N>` with `git -C`, `GOWORK=off go -C`, and
-> `make -C` — and use `git commit -s -F <file>` for multiline messages, `gh pr checks <PR>
-> --watch` to wait on CI. Interactive runs in the main session can keep the `cd`-based flow.
-
----
-
 ## STEP 3 — Read the issue
 
 ```bash
@@ -161,96 +127,27 @@ echo "Issue type: $COMMIT_TYPE | Is EPIC: $IS_EPIC | Needs canvas: $NEEDS_CANVAS
 ```
 
 **If this is an EPIC (`IS_EPIC = true`):** resolve the EPIC to a story issue before proceeding.
-Go to **STEP 3-EPIC**. Otherwise skip to **STEP 3.5**.
-
----
-
-## STEP 3.5 — Identify expert persona and start activity log
-
-Determine which expert persona applies to this issue (same routing table as `/deliver`):
-
-```bash
-EXPERT_TAG="general"
-EXPERT_NAME="General"
-case "$ISSUE_TITLE" in
-  *"(api-gateway)"*|*"(workflow-compiler)"*|*"(engine-adapter)"*|\
-  *"(task-broker)"*|*"(agent-registry)"*|*"(event-bus)"*|*"(memory-service)"*)
-    EXPERT_TAG="go-svc"; EXPERT_NAME="Go Services Engineer" ;;
-  *"(infra)"*|*helm*|*k8s*)
-    EXPERT_TAG="infra"; EXPERT_NAME="Infrastructure / SRE Engineer" ;;
-  *"(ci)"*|*actions*|*images.yaml*)
-    EXPERT_TAG="ci-rel"; EXPERT_NAME="CI / Release Engineer" ;;
-  *"(agents)"*|*"(sdk)"*|*python*|*adapter*)
-    EXPERT_TAG="py-adapter"; EXPERT_NAME="Python Adapter Engineer" ;;
-  test:*)
-    EXPERT_TAG="bdd"; EXPERT_NAME="BDD / Contract Engineer" ;;
-esac
-# feat: with no Aligned canvas → spdd first
-[ "$NEEDS_CANVAS" = "true" ] && [ "$CANVAS_STATUS" != "Aligned" ] && \
-  EXPERT_TAG="spdd→${EXPERT_TAG}" EXPERT_NAME="SPDD Canvas → ${EXPERT_NAME}"
-
-echo ""
-echo "╔══════════════════════════════════════════════════════════╗"
-echo "║  EXPERT: $EXPERT_NAME"
-echo "║  TAG:    $EXPERT_TAG   ISSUE: #$ISSUE_N"
-echo "║  TITLE:  $ISSUE_TITLE"
-echo "╚══════════════════════════════════════════════════════════╝"
-echo ""
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] START: $ISSUE_TITLE  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-```
-
-Use this log format at every subsequent step:
-```
-[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] <PHASE>: <one-line description>  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]
-```
-
-Initialize context counters immediately after the banner:
-```bash
-# Context tracking — same kilotoken unit as Claude Code displays
-CTX_TOKENS=10        # starting context: system prompt + expert file ≈ 10K
-CTX_COMPRESSIONS=0   # incremented if Claude compacts context during this session
-CTX_MSGS=1           # count of messages posted so far
-
-# Helpers — call after each state change:
-ctx_file_read() { CTX_TOKENS=$((CTX_TOKENS + 1)); }        # call after each file read
-ctx_msg_sent()  { CTX_TOKENS=$((CTX_TOKENS + 1)); CTX_MSGS=$((CTX_MSGS + 1)); }
-
-# Check split thresholds before each major step:
-check_ctx_budget() {
-  if [ "$CTX_COMPRESSIONS" -ge 2 ] || [ "$CTX_TOKENS" -ge 140 ]; then
-    echo "⚠ CONTEXT SPLIT REQUIRED ($EXPERT_TAG #$ISSUE_N)"
-    echo "  Stopped at:    $(date +%H:%M:%S)  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-    echo "  Branch:        ${BRANCH:-not yet created} (pushed: ${BRANCH_PUSHED:-no})"
-    echo "  Canvas:        ${CANVAS_PATH:-N/A} — Status: ${CANVAS_STATUS:-N/A}"
-    echo "  Resume point:  Spawn new $EXPERT_TAG agent at STEP $CURRENT_STEP with:"
-    echo "                   issue=${ISSUE_N}, branch=${BRANCH:-none}, read_these=<2-3 files>"
-    gh issue edit "$ISSUE_N" --remove-label "status: in-progress" 2>/dev/null || true
-    exit 1
-  fi
-  if [ "$CTX_COMPRESSIONS" -ge 1 ] || [ "$CTX_TOKENS" -ge 80 ]; then
-    echo "⚠ CONTEXT GROWING ($EXPERT_TAG #$ISSUE_N): ~${CTX_TOKENS}K tokens, ${CTX_COMPRESSIONS} compressions — proceed cautiously"
-  fi
-}
-```
+Go to **STEP 3-EPIC**. Otherwise skip to **STEP 4**.
 
 ---
 
 ## STEP 3-EPIC — Resolve EPIC to next story issue
 
 ```bash
-# Find the canvas (if it exists)
-CANVAS_DIR=$(ls docs/spdd/ 2>/dev/null | grep -E "^${ISSUE_N}-" | head -1)
+# Find the canvas — read from origin/main (this checkout may be stale; STEP 1 fetched)
+CANVAS_DIR=$(git ls-tree --name-only origin/main docs/spdd/ 2>/dev/null \
+  | sed 's|docs/spdd/||' | grep -E "^${ISSUE_N}-" | head -1)
 
 # Determine canvas state
 if [ -n "$CANVAS_DIR" ]; then
-  CANVAS_STATUS=$(grep -m1 "^Status:" "docs/spdd/$CANVAS_DIR/canvas.md" | awk '{print $2}')
+  CANVAS_STATUS=$(git show "origin/main:docs/spdd/$CANVAS_DIR/canvas.md" 2>/dev/null \
+    | grep -m1 "^Status:" | awk '{print $2}')
   echo "Canvas found: docs/spdd/$CANVAS_DIR/canvas.md — Status: $CANVAS_STATUS"
 else
   CANVAS_STATUS="none"
   echo "No canvas found for EPIC #$ISSUE_N"
 fi
 
-# If canvas not Aligned, run SPDD pipeline (STEP 4-CANVAS will handle this)
 # Find the next open story issue for this EPIC (lowest step number, not yet in-progress or done)
 STORY_ISSUES=$(gh issue list --milestone "$GH_MILESTONE" --state open \
   --json number,title,body,labels \
@@ -282,57 +179,52 @@ NEEDS_CANVAS=false
 
 ---
 
-## STEP 4-CANVAS — Run SPDD pipeline (feat: only, when canvas not Aligned)
+## STEP 4 — Canvas gate (feat: only, when canvas not Aligned)
 
 Skip this step if `COMMIT_TYPE != "feat"` or if the canvas is already `Aligned`.
-
-```bash
-CURRENT_STEP="4-CANVAS"; check_ctx_budget
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CANVAS: running SPDD pipeline for EPIC #$EPIC_N  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-```
 
 ```bash
 # Find EPIC number referenced in story body (pattern: "EPIC #NNN" or "parent #NNN")
 EPIC_N=$(echo "$ISSUE" | jq -r .body | grep -oP '(?<=#)\d+' | head -1)
 [ -z "$EPIC_N" ] && EPIC_N="$ISSUE_N"   # fallback: issue is its own EPIC
 
-CANVAS_DIR=$(ls docs/spdd/ 2>/dev/null | grep -E "^${EPIC_N}-" | head -1)
+# Read canvas state from origin/main — never from this possibly-stale checkout
+CANVAS_DIR=$(git ls-tree --name-only origin/main docs/spdd/ 2>/dev/null \
+  | sed 's|docs/spdd/||' | grep -E "^${EPIC_N}-" | head -1)
+[ -n "$CANVAS_DIR" ] && CANVAS_STATUS=$(git show "origin/main:docs/spdd/$CANVAS_DIR/canvas.md" 2>/dev/null \
+  | grep -m1 "^Status:" | awk '{print $2}')
+```
 
-if [ -z "$CANVAS_DIR" ] || [ "$CANVAS_STATUS" != "Aligned" ]; then
-  echo "Running SPDD pipeline for EPIC #$EPIC_N..."
+If no canvas exists or Status ≠ `Aligned`, dispatch the `spdd-canvas` agent **synchronously**
+(foreground — implementation cannot start before it returns Aligned):
 
-  # Analysis — understand codebase impact, ADR constraints, Tier 2 flags
-  /lib:spdd-analysis "$EPIC_N"
+```
+Agent({
+  description: "Canvas for EPIC #EPIC_N",
+  subagent_type: "spdd-canvas",
+  run_in_background: false,
+  prompt: """
+    ISSUE: EPIC #EPIC_N — <epic title>   (story being delivered: #ISSUE_N)
+    REPO:  <repo root>
+    WT:    /tmp/zynax-auto-canvas-<EPIC_N>-<ISSUE_N>     (your literal private worktree path —
+           per-story suffix so two sessions on different stories of one EPIC never collide)
 
-  # Generate canvas (Status: Draft)
-  /lib:spdd-canvas "$EPIC_N"
+    Produce or align the REASONS Canvas for this EPIC per your agent definition:
+    analysis → canvas (Status: Draft) → security review. On PASS, set Status: Aligned
+    and create story issues if none exist (label them "$MILESTONE_LABEL", milestone
+    "$GH_MILESTONE"). On FAIL, stop and report the Tier-2 findings.
+    End with ## Result (canvas path + Status) and ## Session Learnings.
+  """
+})
+```
 
-  CANVAS_DIR=$(ls docs/spdd/ | grep -E "^${EPIC_N}-" | head -1)
-  CANVAS_PATH="docs/spdd/$CANVAS_DIR/canvas.md"
+On FAIL: remove the soft claim (`gh issue edit "$ISSUE_N" --remove-label "status: in-progress"`)
+and stop — report the findings. On PASS: proceed with `CANVAS_STATUS=Aligned`.
 
-  # Security review — MUST PASS before auto-alignment
-  REVIEW_RESULT=$(/lib:spdd-security-review "$CANVAS_PATH" 2>&1)
-  echo "$REVIEW_RESULT"
-  if echo "$REVIEW_RESULT" | grep -qi "FAIL\|Tier 2 finding\|BLOCKED"; then
-    echo "Security review FAILED — cannot auto-align. Resolve Tier 2 findings and re-run."
-    gh issue edit "$ISSUE_N" --remove-label "status: in-progress"
-    exit 1
-  fi
-
-  # Auto-align: set Status: Aligned in canvas
-  sed -i 's/^Status: Draft/Status: Aligned/' "$CANVAS_PATH"
-  grep "^Status:" "$CANVAS_PATH"   # confirm
-  echo "Canvas auto-aligned: $CANVAS_PATH"
-fi
-
-# Create story issues if not yet created for this EPIC
-STORY_COUNT=$(gh issue list --milestone "$GH_MILESTONE" --state all \
-  --json body --jq "[.[] | select(.body | test(\"#${EPIC_N}\"))] | length")
-[ "$STORY_COUNT" -eq 0 ] && /lib:spdd-story "$EPIC_N"
-
-# Locked decision (#1107): /lib:spdd-story is milestone-agnostic — it applies NO
-# milestone label. The CALLER (this command) injects the active milestone label
-# and GitHub milestone on every story it just created.
+```bash
+# Locked decision #1107: /lib:spdd-story is milestone-agnostic — the CALLER injects the
+# active milestone label + GitHub milestone on every story of this EPIC (idempotent
+# re-assert, also covers stories that pre-existed without labels):
 for STORY in $(gh issue list --state open --limit 100 --json number,body \
   --jq ".[] | select(.body | test(\"#${EPIC_N}\")) | .number"); do
   gh issue edit "$STORY" --add-label "$MILESTONE_LABEL" --milestone "$GH_MILESTONE"
@@ -341,460 +233,80 @@ done
 
 ---
 
-## STEP 5 — Sync main + create branch (atomic hard claim)
+## STEP 5 — Route to the domain agent
+
+Routing rules aligned with `/lib:deliver-batch` STEP 5 (first match wins). Two deliberate
+differences: the `feat:`-without-Aligned-canvas row lives in STEP 4 here (already handled
+before routing), and this table adds a fallback row for unmatched titles:
+
+| Issue title pattern | Agent (`subagent_type`) |
+|---|---|
+| `(api-gateway)` / `(workflow-compiler)` / `(engine-adapter)` / `(task-broker)` / `(agent-registry)` / `(event-bus)` / `(memory-service)` | `go-services` |
+| `(infra)` / `helm` / `k8s` (case-insensitive) | `infra-helm` |
+| `(ci)` / `actions` / `workflow` / `images.yaml` | `ci-release` |
+| `(agents)` / `(sdk)` / `python` / `adapter` | `python-adapters` |
+| `test:` type OR `protos/tests` OR `.feature` in body | `bdd-contract` |
+| anything else | `go-services` (closest general implementer) — flag the routing gap in the report |
 
 ```bash
-CURRENT_STEP="5-CLAIM"; check_ctx_budget
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CLAIM: creating branch + hard claim on origin  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-# Worktree was created from origin/main in STEP 2.5 — already clean and up to date.
-
-# Deterministic claim key (load-bearing). The branch ref pushed here is a PURE
-# function of the issue number — `<type>/<N>`, with NO slug. This is the SAME ref
-# `/deliver` derives for the same issue, so the two entry points share one
-# mutex: when two sessions race the same story they push the identical ref and only
-# one `git push` wins. A title-derived slug must NOT be part of the claim key — two
-# sessions could otherwise derive two different branches and both win.
-CLAIM_KEY="${COMMIT_TYPE}/${ISSUE_N}"
-
-git checkout -b "$CLAIM_KEY"
-
-# Hard claim: push the empty branch NOW — only one session wins this push.
-if ! git push -u origin "$CLAIM_KEY" 2>&1; then
-  echo "HARD CLAIM FAILED: branch $CLAIM_KEY already on remote — story #$ISSUE_N taken by another session."
-  git checkout main && git branch -D "$CLAIM_KEY"
-  gh issue edit "$ISSUE_N" --remove-label "status: in-progress"
-  exit 1
-fi
-echo "Hard-claimed: deterministic key $CLAIM_KEY pushed to origin."
-
-# Post-claim ONLY: apply the human-readable slug. The mutex is already won above, so
-# this rename is cosmetic and race-free. Skip it (leave $SLUG empty) to keep the bare key.
-SLUG=$(echo "$ISSUE_TITLE" | sed 's|[^a-zA-Z0-9 ]||g' | tr '[:upper:]' '[:lower:]' \
-  | tr ' ' '-' | sed 's/^[a-z]*-[a-z0-9]*-//' | cut -c1-40 | sed 's/-$//')
-BRANCH="$CLAIM_KEY"
-if [ -n "$SLUG" ]; then
-  BRANCH="${COMMIT_TYPE}/${ISSUE_N}-${SLUG}"
-  git branch -m "$CLAIM_KEY" "$BRANCH"
-  git push -u origin "$BRANCH"
-  git push origin --delete "$CLAIM_KEY" 2>/dev/null || true
-fi
-echo "Working branch: $BRANCH (claim key was $CLAIM_KEY)."
+echo "ROUTE: #$ISSUE_N → $AGENT  ($ISSUE_TITLE)"
 ```
 
 ---
 
-## STEP 6 — Implement
+## STEP 6 — Dispatch the domain agent (foreground — this command blocks until done)
 
-```bash
-CURRENT_STEP="6-CODE"; check_ctx_budget
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CODE: implementing — reading issue scope and referenced files  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
+Unlike `/lib:deliver-batch`, this command waits: its contract is end-to-end autonomous
+delivery, not fire-and-forget. The agent performs the **hard claim** (deterministic key
+`<type>/<N>`, shared protocol §4), implements, reconciles all status surfaces in the same diff
+(protocol §5), runs gates + runtime smoke, opens the PR from the canonical template, waits for
+CI in the foreground, arms the queue merge, and cleans up its worktree.
+
+```
+Agent({
+  description: "Story #ISSUE_N — <issue title>",
+  subagent_type: "<agent from STEP 5>",
+  run_in_background: false,
+  prompt: """
+    ISSUE: #ISSUE_N — <issue title>
+    REPO:  <repo root>
+    WT:    /tmp/zynax-auto-<ISSUE_N>     (your literal private worktree path)
+    CANVAS: docs/spdd/<EPIC_N>-<slug>/canvas.md — Status: Aligned   (feat: only; use
+            /lib:spdd-generate semantics — implement the single O-step this story covers)
+
+    Issue body:
+    <full issue body>
+
+    Context files (read these before writing any code):
+    <2-3 specific repo paths named in the issue body or canvas O-step>
+
+    Deliver this story end-to-end per your agent definition: read
+    docs/patterns/delivery-agent-protocol.md and your expert guide first, then
+    claim → implement → gates → PR → CI → queue merge → cleanup. End with the
+    ## Result and ## Session Learnings blocks.
+  """
+})
 ```
 
-For `feat:` issues with an Aligned canvas, use `/lib:spdd-generate`:
-
-```bash
-if [ "$NEEDS_CANVAS" = "true" ]; then
-  CANVAS_PATH="docs/spdd/$CANVAS_DIR/canvas.md"
-  # Identify which O-step this story covers (from story title "step N")
-  STEP_N=$(echo "$ISSUE_TITLE" | grep -oP '(?<=step )\d+' | head -1)
-  echo "Implementing canvas O-step $STEP_N via /lib:spdd-generate"
-  /lib:spdd-generate "$CANVAS_PATH"
-  # /lib:spdd-generate stops after one O-step — verify it generated the right step
-fi
-```
-
-For SPDD-exempt issues (`fix:`, `refactor:`, `ci:`, `chore:`), implement directly from the issue
-body's scope and acceptance criteria. Read all referenced files before writing any code.
-
-**After implementation, reconcile ALL status surfaces in the same diff** — driven by live
-issue/PR state, not by memory or the previous doc snapshot. Doc drift is silent (no CI gate
-flags a stale milestone label) and compounds every iteration, so reconcile at delivery time:
-
-1. `"$PLANNING_DOC"` — flip this story's row ⬜→✅ (and its EPIC header to
-   `Implemented`/COMPLETE if this was the last open O-step); refresh the "Last updated" line.
-2. `state/current-milestone.md` — update EPIC progress + the "as of" date.
-3. Canvas O-step — mark ✅. **If this issue closed the EPIC's last O-step, flip the canvas
-   `Status:` `Aligned`→`Implemented`.** Run `/lib:spdd-sync <canvas>` if implementation diverged.
-4. **Cross-cutting human docs — only when an EPIC completes or a service's status changes:**
-   the milestone tables in `README.md`, `ROADMAP.md`, `ARCHITECTURE.md`, `CLAUDE.md`, and the
-   README per-service status table. Update the marker (📅 Planned → 🚧 Active → ✅ Complete)
-   and the service status (📋 Planned → 🟡 In progress → ✅ Implemented).
-5. `services/<svc>/AGENTS.md` — only if a new gRPC method, K8s resource type, or env var added.
-
-**Consistency check before opening the PR** (catches drift the row-flip missed):
-```bash
-# Each milestone's marker must agree across all status surfaces.
-grep -nE "${MILESTONE_NAME}|🚧|📅|✅|🟡" README.md ROADMAP.md ARCHITECTURE.md CLAUDE.md \
-  state/current-milestone.md "$PLANNING_DOC" | grep -iE 'planned|active|complete'
-# An EPIC marked Implemented in the planning doc must have its canvas Status: Implemented:
-for c in docs/spdd/*/canvas.md; do grep -H -m1 '^\*\*Status:\*\*' "$c"; done
-```
+If the agent reports **"claim lost"**: another session won the race — remove the soft claim and
+exit 0 (not an error). If it reports a red gate or CI failure it could not fix in scope: leave
+the hard claim branch for inspection, remove the soft claim, and report the failing check.
 
 ---
 
-## STEP 7 — Local verification gates
+## STEP 7 — Verify issue closed + EPIC completion
 
 ```bash
-CURRENT_STEP="7-TEST"; check_ctx_budget
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] TEST: running local gates (build, test, lint, security)  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-```
-
-Run all required checks before committing. Do not commit if any gate fails.
-
-```bash
-# Identify touched service directories
-TOUCHED_DIRS=$(git diff --name-only | grep -oP '^services/[^/]+' | sort -u)
-
-for SVC_DIR in $TOUCHED_DIRS; do
-  echo "=== $SVC_DIR ==="
-  (cd "$SVC_DIR" && GOWORK=off go build ./...)              || { echo "BUILD FAILED in $SVC_DIR"; exit 1; }
-  (cd "$SVC_DIR" && GOWORK=off go test ./... -race -timeout 60s) || { echo "TESTS FAILED in $SVC_DIR"; exit 1; }
-  # Domain coverage gate ≥90% (only if domain/ was touched)
-  git diff --name-only | grep -q "$SVC_DIR/internal/domain/" && \
-    (cd "$SVC_DIR" && GOWORK=off go test ./internal/domain/... -coverprofile=/tmp/cov.out \
-      && go tool cover -func /tmp/cov.out | tail -1 | awk '{if ($3+0 < 90.0) exit 1}') \
-    || { echo "DOMAIN COVERAGE BELOW 90% in $SVC_DIR"; exit 1; }
-done
-
-# Python adapters
-TOUCHED_AGENTS=$(git diff --name-only | grep -oP '^agents/[^/]+' | sort -u)
-[ -n "$TOUCHED_AGENTS" ] && make lint-python && make test-python
-
-# Lint + security (runs in Docker)
-make lint    || { echo "LINT FAILED"; exit 1; }
-make security || { echo "SECURITY SCAN FAILED"; exit 1; }
-
-# BDD (only if gRPC boundary touched)
-git diff --name-only | grep -q '\.proto\|_pb2\|\.go.*grpc' && {
-  # .feature file must exist before BDD test
-  ls protos/tests/*/features/*.feature 2>/dev/null | head -1 || {
-    echo "BDD: gRPC boundary touched but no .feature file found — create it first (ADR-016)"
-    exit 1
-  }
-  make test-bdd || { echo "BDD TESTS FAILED"; exit 1; }
-}
-
-echo "All local gates passed."
-```
-
-### Runtime smoke — REQUIRED when the change affects a runtime path
-
-Build/test/lint/CI-green validate **structure**, not **runtime**. If `git diff --name-only` touches
-any of `infra/docker-compose/**`, `infra/helm/**`, a Makefile `demo`/`run-local`/compose target,
-`services/*/cmd/**`, `agents/adapters/**`, or `cmd/zynax*`, boot the affected path and observe the
-user-facing outcome BEFORE claiming the issue done:
-
-```bash
-# 1. Clean slate — persistent volumes (Postgres-backed registry/repos) hide re-run bugs.
-make demo-clean 2>/dev/null || true
-$(COMPOSE_DEMO) down -v --remove-orphans 2>/dev/null || true
-
-# 2. Boot the issue's DOCUMENTED path (the one in its acceptance criteria), e.g.
-#    `make demo` | `EVAL_TEMPORAL=1 make demo` | `make run-local`.
-#    `up --wait` gates on EVERY service it starts: any Exited/unhealthy container = FAIL,
-#    even one the feature does not use.
-<documented command>            # FAIL the gate on non-zero exit
-PS=$($(COMPOSE_DEMO) ps --format '{{.Name}} {{.State}}')
-echo "$PS" | grep -qiE 'exited|unhealthy' && { echo "RUNTIME SMOKE FAILED:"; echo "$PS"; exit 1; }
-
-# 3. Idempotency — run the documented path a SECOND time on the same volumes.
-#    Stateful services (registry/repos, Temporal) must survive a repeat run.
-<documented command again>      # FAIL on non-zero exit
-```
-
-Map every acceptance criterion that says "runs", "demo", "documented run", or "end-to-end" to an
-actual execution with captured output. Never mark such an AC met from `docker compose config`, a
-build, or CI-green alone.
-
----
-
-## STEP 8 — Commit
-
-```bash
-CURRENT_STEP="8-COMMIT"; check_ctx_budget
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] COMMIT: all gates green — staging and committing  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-# Verify title length ≤ 72 chars
-echo -n "${COMMIT_TYPE}(<scope>): <subject>" | wc -c   # replace before committing
-
-git add -p   # stage intentionally (never git add -A)
-
-# PR body file (used in STEP 9). Build it from the canonical template — see
-# docs/contributing/pr-templates.md (skeleton + per-type variants + filled example).
-cat > /tmp/pr-body-${ISSUE_N}.md << 'EOF'
-## ${COMMIT_TYPE}(<scope>): <subject>
-
-Closes #${ISSUE_N}
-<!-- canvas-step: also add "Part of #${EPIC_N}" -->
-
-### Why  (problem & intent)
-<1-3 sentences — what is missing/broken and why this is needed; for feat: link the canvas O-step>
-
-### What you'll get  (deliverables ↔ what changed)
-- <deliverable a reviewer/operator will observe> ← `path/to/change`
-
-### Scope & boundaries
-- **In scope:** <…>
-- **Out of scope (deferred):** <… → #<issue> / M-dx / N/A>
-
-### Test plan & acceptance
-| Acceptance criterion (from issue/canvas) | How verified (command) | Result |
-|------------------------------------------|------------------------|--------|
-| <AC 1 verbatim>                          | `<exact command>`      | ✅ <number / output> |
-**Local gates:** `GOWORK=off go test ./... -race` ✅ · `make lint` ✅ · `make security` ✅ · `make test-bdd` ✅/N/A
-
-### Evidence
-- **CI:** <required checks green / link to run>
-- **Local output:** <coverage %, benchmark ns/op, the decisive line>
-- **Artifacts / images:** <`service:tag@sha256:…` or "none — no service source changed">
-- **Post-merge digest sync → main:** <placeholder — filled by the post-merge verifier with the
-  `chore(images): sync digests after main-<sha>` commit, or "N/A — no image rebuild">
-
-### Risk & rollback
-<blast radius · revert path. "Low — additive only, no behaviour change to existing paths" is fine>
-
-### Review aids
-<suggested reading order · the ONE key file · anything subtle>
-
-### Engineering hygiene
-- [x] Planning-doc row ⬜→✅ in this diff
-- [x] `current-milestone.md` updated in this diff
-- [x] Canvas O-step ✅ (feat:); `/lib:spdd-sync` run if impl diverged · Status Aligned
-- [x] Branched off fresh `origin/main` · PR ≤900 lines · DCO + `Assisted-by` on every commit
-
-<!-- feat: only --> **SPDD:** Canvas `docs/spdd/<EPIC_N>-<slug>/canvas.md` — Status: Aligned · `/lib:spdd-security-review` PASS
-EOF
-
-# Fill in every <placeholder> with real evidence from STEP 7 output before committing the PR body.
-# NEVER put a literal `[skip ci]` / `[ci skip]` / `[no ci]` token in the commit message or PR body —
-# it silently skips this PR's CI AND the post-merge squash CI on main. Write "skip-ci marker" to refer to it.
-
-git commit -s -m "$(cat <<EOF
-${COMMIT_TYPE}(<scope>): <subject>
-
-<why — one sentence referencing canvas O-step N of EPIC #EPIC_N>
-
-Closes #${ISSUE_N}
-
-Assisted-by: Claude/<model-id-of-this-session>
-EOF
-)"
-
-git push --force-with-lease
-```
-
----
-
-## STEP 9 — Open PR
-
-```bash
-CURRENT_STEP="9-PR"; check_ctx_budget
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] PR: opening pull request against main  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-echo -n "<title>" | wc -c   # must be ≤ 72 chars
-
-PR_URL=$(gh pr create \
-  --base main \
-  --title "${COMMIT_TYPE}(<scope>): <subject>" \
-  --assignee "@me" \
-  --label "type: ${COMMIT_TYPE}" --label "$MILESTONE_LABEL" --label "area: <area>" \
-  --body-file "/tmp/pr-body-${ISSUE_N}.md")
-
-PR_N=$(echo "$PR_URL" | grep -oP '\d+$')
-echo "Opened PR #$PR_N: $PR_URL"
-```
-
----
-
-## STEP 10 — Wait for CI (blocking)
-
-```bash
-CURRENT_STEP="10-CI"; check_ctx_budget
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] CI_WAIT: PR #$PR_N — waiting for required checks  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-```
-
-Unlike `/deliver`, this command waits for CI to complete before merging. This is intentional —
-the command's contract is end-to-end autonomous delivery, not a fire-and-forget push.
-
-> **Foreground only — never end the turn here.** The CI wait MUST be a blocking foreground
-> call in your current turn (`gh pr checks "$PR_N" --watch --interval 30`, or the poll loop
-> below). Never arm a *background* watch and end your turn "to wait for the notification" —
-> in an agent session that strands the delivery at an open PR (observed 2026-06-11: six of
-> seven agents stranded exactly this way). You are not done until STEP 14's report prints.
->
-> **Merge-ready signal:** all *required* checks green is the gate. `mergeStateStatus` of
-> `CLEAN` is ready; `UNSTABLE` with only non-required checks pending is ALSO ready — do not
-> deadlock waiting for advisory checks. `BEHIND` is ALSO ready — the merge queue validates
-> the PR against current main on its turn (ADR-047); never rebase for freshness, a
-> force-push ejects a queued PR. `DIRTY` means real conflicts: rebase with `--signoff`,
-> `--force-with-lease`, re-run. *Fallback (no merge-queue rule on main — pre-cutover or
-> rollback): `BEHIND` means rebase onto origin/main and re-run, as before.*
-
-```bash
-echo "Waiting for CI on PR #$PR_N (this may take 5–20 minutes)..."
-
-# Poll every 60 s; timeout after 30 min (1800 s)
-ELAPSED=0
-CI_PASSED=false
-while [ $ELAPSED -lt 1800 ]; do
-  ROLLUP=$(gh pr view "$PR_N" --json statusCheckRollup,mergeStateStatus)
-  MERGE_STATE=$(echo "$ROLLUP" | jq -r .mergeStateStatus)
-  FAILED=$(echo "$ROLLUP" | jq '[.statusCheckRollup[]? | select(.isRequired==true) | .conclusion] | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT")')
-  PENDING=$(echo "$ROLLUP" | jq '[.statusCheckRollup[]? | select(.isRequired==true) | .status] | any(. == "IN_PROGRESS" or . == "QUEUED" or . == "WAITING")')
-
-  if [ "$FAILED" = "true" ]; then
-    echo "CI FAILED on PR #$PR_N. Review failures before retrying."
-    gh pr view "$PR_N" --web 2>/dev/null || true
-    # Report which checks failed
-    gh pr checks "$PR_N" | grep -E "fail|error" || true
-    # Clean up soft claim — hard claim stays until branch is manually deleted
-    gh issue edit "$ISSUE_N" --remove-label "status: in-progress"
-    exit 1
-  fi
-
-  if [ "$PENDING" = "false" ] && { [ "$MERGE_STATE" = "CLEAN" ] || [ "$MERGE_STATE" = "BEHIND" ]; }; then
-    echo "All required CI checks passed. PR #$PR_N is $MERGE_STATE (BEHIND is fine — the queue handles freshness, ADR-047)."
-    CI_PASSED=true
-    break
-  fi
-
-  echo "CI running... (${ELAPSED}s elapsed, state=$MERGE_STATE)"
-  sleep 60
-  ELAPSED=$((ELAPSED + 60))
-done
-
-[ "$CI_PASSED" = "false" ] && {
-  echo "CI timed out after 30 minutes. Check PR #$PR_N manually."
-  gh issue edit "$ISSUE_N" --remove-label "status: in-progress"
-  exit 1
-}
-```
-
----
-
-## STEP 11 — Verify Docker artifacts (when applicable)
-
-```bash
-# Only emitted when TOUCHES_IMAGE > 0:
-CURRENT_STEP="11-IMAGE"; check_ctx_budget
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] IMAGE_CHECK: verifying GHCR artifact publication  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-```
-
-Skip this step if the PR diff does not touch `Dockerfile*`, `.github/workflows/*image*`,
-`*release*`, or `*publish*` files.
-
-```bash
-TOUCHES_IMAGE=$(git diff origin/main...HEAD --name-only \
-  | grep -cE 'Dockerfile|workflows.*(image|release|push|publish)' || true)
-
-if [ "$TOUCHES_IMAGE" -gt 0 ]; then
-  echo "PR touches image-building files — waiting for post-merge image publication..."
-
-  # Wait for merge first (STEP 12 below sets this)
-  # Then verify image was published to ghcr.io
-
-  REPO_OWNER="zynax-io"
-  REPO_NAME="zynax"
-
-  # List images that should have been updated (derive from workflow files touched)
-  EXPECTED_IMAGES=$(git diff origin/main...HEAD --name-only \
-    | grep -oP '(?<=workflows/).*(?=\.yml)' | grep -E 'image|release|push' | head -5)
-
-  for IMG in $EXPECTED_IMAGES; do
-    echo "Checking ghcr.io/$REPO_OWNER/$REPO_NAME/$IMG..."
-    # Poll for new image version (up to 15 min post-merge)
-    IMG_ELAPSED=0
-    while [ $IMG_ELAPSED -lt 900 ]; do
-      VERSION_COUNT=$(gh api "/orgs/$REPO_OWNER/packages/container/${REPO_NAME}%2F${IMG}/versions" \
-        --jq 'length' 2>/dev/null || echo "0")
-      [ "$VERSION_COUNT" -gt 0 ] && {
-        LATEST_TAG=$(gh api "/orgs/$REPO_OWNER/packages/container/${REPO_NAME}%2F${IMG}/versions" \
-          --jq '.[0].metadata.container.tags[0]' 2>/dev/null || echo "unknown")
-        echo "Image ghcr.io/$REPO_OWNER/$REPO_NAME/$IMG:$LATEST_TAG confirmed."
-        break
-      }
-      echo "Waiting for image publication... (${IMG_ELAPSED}s)"
-      sleep 60
-      IMG_ELAPSED=$((IMG_ELAPSED + 60))
-    done
-    [ $IMG_ELAPSED -ge 900 ] && echo "WARNING: image $IMG not confirmed after 15 min — check manually."
-  done
-fi
-```
-
----
-
-## STEP 12 — Queue squash-merge (ADR-047)
-
-Never rebase for freshness — a force-push ejects the PR from the merge queue. `DIRTY`
-(real conflicts) is the only reason to touch the branch. *Fallback (no merge-queue rule on
-main — pre-cutover or rollback): rebase onto origin/main + `--force-with-lease`, then arm
-`--auto`, as before.*
-
-```bash
-CURRENT_STEP="12-MERGE"; check_ctx_budget
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] MERGE: CI green — queueing squash-merge of PR #$PR_N  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
-
-if [ "$(gh pr view "$PR_N" --json mergeStateStatus --jq .mergeStateStatus)" = "DIRTY" ]; then
-  echo "CONFLICT: PR #$PR_N is DIRTY — resolve real conflicts:"
-  echo "  git fetch origin && git checkout $BRANCH && git rebase --signoff origin/main"
-  echo "  git push --force-with-lease   # then re-run STEP 12"
-  exit 1
-fi
-
-gh pr merge "$PR_N" --squash --auto   # enqueue (merge when ready)
-
-# Queue latency ≈ one CI wall-time; a red entry ahead restarts the group.
-# One re-queue retry if a flaky check ejects the PR (auto-merge disarms on ejection).
-REQUEUED=false
-Q_ELAPSED=0
-until [ "$(gh pr view "$PR_N" --json state --jq .state)" = "MERGED" ]; do
-  if [ $Q_ELAPSED -ge 2700 ]; then
-    echo "Queue wait timed out (45 min) — check PR #$PR_N manually."
-    exit 1
-  fi
-  ARMED=$(gh api "repos/{owner}/{repo}/pulls/$PR_N" --jq '.auto_merge != null' 2>/dev/null || echo "true")
-  if [ "$ARMED" = "false" ]; then
-    if [ "$REQUEUED" = "false" ]; then
-      echo "PR #$PR_N ejected from the queue (flaky check?) — re-queueing once."
-      gh pr merge "$PR_N" --squash --auto
-      REQUEUED=true
-    else
-      echo "PR #$PR_N ejected twice — investigate the failing queue check before re-queueing."
-      exit 1
-    fi
-  fi
-  echo "Queued... (${Q_ELAPSED}s)"
-  sleep 30
-  Q_ELAPSED=$((Q_ELAPSED + 30))
-done
-echo "PR #$PR_N merged via the queue."
-
-# Remote branch is auto-deleted on merge; sync local state
-git fetch origin --prune
-git checkout main && git pull --rebase origin main
-git branch -D "$BRANCH" 2>/dev/null || true
-```
-
----
-
-## STEP 13 — Verify issue closed
-
-```bash
-sleep 5   # allow GitHub to process Closes #N from squash-merge commit
+# Parse the agent's ## Result block: PR_N, MERGE_SHA, CI, AFFECTED_SERVICES
+sleep 5   # allow GitHub to process Closes #N from the squash-merge commit
 
 ISSUE_STATE=$(gh issue view "$ISSUE_N" --json state --jq .state)
 if [ "$ISSUE_STATE" != "CLOSED" ]; then
-  # Manually close if Closes #N wasn't picked up (e.g. it was in the commit, not PR body)
   gh issue close "$ISSUE_N" --reason completed \
     --comment "Closed by squash-merge of PR #$PR_N. All acceptance criteria met."
 fi
 echo "Issue #$ISSUE_N is CLOSED."
-```
 
----
-
-## STEP 14 — Cleanup + done report
-
-```bash
 # Remove soft claim
 gh issue edit "$ISSUE_N" --remove-label "status: in-progress" 2>/dev/null || true
 
@@ -805,43 +317,64 @@ if [ -n "$EPIC_N" ] && [ "$EPIC_N" != "$ISSUE_N" ]; then
   if [ "$OPEN_STORIES" -eq 0 ]; then
     gh issue close "$EPIC_N" --reason completed \
       --comment "All O-steps merged. Canvas status: Implemented."
-    # Mark canvas Implemented
-    CANVAS_PATH=$(ls "docs/spdd/${EPIC_N}-"*/canvas.md 2>/dev/null | head -1)
-    [ -n "$CANVAS_PATH" ] && sed -i 's/^Status: Aligned/Status: Implemented/' "$CANVAS_PATH" && {
-      git checkout -b "docs/epic-${EPIC_N}-close-$(date +%Y%m%d%H%M)"
-      git add "$CANVAS_PATH"
-      git commit -s -m "docs(spdd): mark EPIC #${EPIC_N} canvas Implemented
-
-      All O-steps merged for EPIC #${EPIC_N}.
-
-      Assisted-by: Claude/<model-id-of-this-session>"
-      git push -u origin HEAD
-      gh pr create --title "docs(spdd): mark EPIC #${EPIC_N} canvas Implemented" \
-        --body "All O-steps for EPIC #${EPIC_N} have been merged. Closing canvas." \
-        --label "type: docs" --label "$MILESTONE_LABEL"
-    }
+    # Flip the canvas Status: Aligned → Implemented via a small docs: PR
+    # (branch off origin/main in a throw-away worktree; commit -s with the
+    # Assisted-by trailer; label "type: docs" + "$MILESTONE_LABEL"; squash auto-merge).
   fi
 fi
+```
 
-echo "[$EXPERT_TAG #$ISSUE_N $(date +%H:%M:%S)] DONE: PR #$PR_N merged — issue #$ISSUE_N closed  [ctx: ~${CTX_TOKENS}K | compress=${CTX_COMPRESSIONS} | msgs=${CTX_MSGS}]"
+---
 
-cat << EOF
-=== DONE: Issue #${ISSUE_N} ===
-Story:       $ISSUE_TITLE
-Branch:      $BRANCH (deleted)
-PR:          #$PR_N — MERGED
+## STEP 8 — Post-merge verification (dispatch the `post-merge` agent)
+
+For the merged PR, dispatch the `post-merge` agent (pinned to Haiku — mechanical GitHub/GHCR
+verification). Foreground, to honor this command's end-to-end contract; the agent SKIPs fast
+when the diff built no images and no digest-bump issues are open.
+
+```
+Agent({
+  description: "Post-merge verify PR #PR_N (issue #ISSUE_N)",
+  subagent_type: "post-merge",
+  run_in_background: false,
+  prompt: """
+    PR_NUMBER:    <PR_N>
+    MERGE_SHA:    <MERGE_SHA>
+    ISSUE_NUMBER: <ISSUE_N>
+    SESSION_DATE: <date>
+    REPO:         <repo root>
+    WT:           /tmp/zynax-postmerge-auto-<PR_N>   (your literal private worktree path)
+
+    Verify post-merge CI, GHCR artifacts, and digest pins per your agent definition.
+    Back-fill the originating PR's "Post-merge digest sync → main" Evidence
+    placeholder. End with ## Post-Merge Evidence and ## Session Learnings.
+  """
+})
+```
+
+---
+
+## STEP 9 — Done report + learnings
+
+Append **every** dispatched agent's `## Session Learnings` block to the matching
+`docs/ai-learnings/<domain>.md`: the canvas agent from STEP 4 (→ `spdd-canvas.md`), the domain
+agent, and the post-merge agent (→ `ci-release.md`) — same flow as `/lib:deliver-batch` STEP 8
+(throw-away worktree off `origin/main`, `docs:` PR, squash auto-merge).
+
+```
+=== DONE: Issue #<ISSUE_N> ===
+Story:       <ISSUE_TITLE>
+Agent:       <agent> (model-routed)
+PR:          #<PR_N> — MERGED (merge SHA <MERGE_SHA>)
 CI:          All required checks passed ✓
-Artifacts:   $([ "$TOUCHES_IMAGE" -gt 0 ] && echo "Docker images verified ✓" || echo "N/A (no image-touching files)")
+Post-merge:  <digest PR / SKIP reason>
 Issue state: CLOSED ✓
 Next:        Run /deliver to see what to pick up next.
-EOF
-
-# Remove the isolated worktree — all work is merged, nothing to keep
-cd /tmp   # leave the worktree directory before removing it
-git -C "$OLDPWD" worktree remove "$WORKTREE_PATH" --force 2>/dev/null || true
-rm -rf "$WORKTREE_PATH" 2>/dev/null || true
-echo "Worktree $WORKTREE_PATH removed."
 ```
+
+If the domain agent crashed mid-run (no `## Result` block): recover per
+`/lib:deliver-batch` STEP 7's crashed-agent procedure (inspect `/tmp/zynax-auto-<ISSUE_N>`,
+finish or re-dispatch, then sweep). Never sweep a tree that still holds unpushed work.
 
 ---
 
@@ -853,9 +386,8 @@ echo "Worktree $WORKTREE_PATH removed."
 | Issue has `status: in-progress` | Stop — report assignee; don't steal |
 | Branch already on remote | Stop — hard-claimed by another session |
 | Security review FAIL on canvas | Stop — report Tier 2 findings; remove soft claim |
-| Local build/test failure | Stop — fix before committing; soft claim remains |
-| CI red on PR | Stop — report failing checks; remove soft claim |
-| CI timeout (>30 min) | Stop — check manually; remove soft claim |
-| PR DIRTY (real conflicts) | Stop — `git rebase --signoff origin/main` manually; re-run STEP 12 |
+| Agent reports "claim lost" | Exit 0 — another session won the race; remove soft claim |
+| Agent reports red gate / CI failure | Stop — report failing check; remove soft claim; hard-claim branch stays for inspection |
+| Agent crashed (no ## Result) | Recover from its worktree per deliver-batch STEP 7; never blind-sweep |
+| Required check stuck pending (no ## Result after ~45 min) | Inspect the stuck check yourself; then treat as crashed-agent recovery — the agent's `--watch` has no timeout of its own |
 | Ejected from merge queue twice | Stop — investigate the flaky queue check before re-queueing |
-| Branch delete fails | Continue — non-fatal; clean up manually |
