@@ -572,19 +572,9 @@ func TestEvalGuard_BooleanLiteral(t *testing.T) {
 	}
 }
 
-// FuzzEvalGuard verifies that evalGuard never panics for any input combination.
-// Full fuzz execution is deferred to M7.C (#469); this seed enables the corpus.
-func FuzzEvalGuard(f *testing.F) {
-	f.Add(`ctx.status == "approved"`, "status", "approved")
-	f.Add(`ctx.status != "rejected"`, "status", "ok")
-	f.Add("true", "key", "val")
-	f.Add("false", "key", "val")
-	f.Add("", "key", "val")
-	f.Add("not a valid expression !!!", "key", "val")
-	f.Fuzz(func(_ *testing.T, expr, key, val string) {
-		_ = evalGuard(expr, map[string]string{key: val})
-	})
-}
+// FuzzEvalGuard lives in guard_fuzz_test.go (#1417): the deferred M7.C seed
+// skeleton grew into a full target with invariants (fail-closed, determinism)
+// and campaign wiring via `make fuzz` (FUZZ_SERVICES includes engine-adapter).
 
 // --- helpers ---
 

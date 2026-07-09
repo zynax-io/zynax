@@ -11,7 +11,9 @@ GO_ADAPTERS   := $(shell grep -E '^\s+\./agents/adapters/' go.work | sed 's|.*ag
 # Services carrying Go benchmarks (EPIC R / #493). Add a service here when it gains a Benchmark* test.
 BENCH_SERVICES := engine-adapter workflow-compiler
 # Services carrying Go fuzz targets (EPIC R / #1210). Add a service here when it gains a Fuzz* test.
-FUZZ_SERVICES := workflow-compiler
+# workflow-compiler: FuzzParseManifest (YAML→IR) · engine-adapter: FuzzEvalGuard
+# (CEL) · api-gateway: FuzzUnmarshalWorkflowIR (proto) — the #1417 trio.
+FUZZ_SERVICES := workflow-compiler engine-adapter api-gateway
 # Per-target fuzz campaign duration for `make fuzz` (override: make fuzz DURATION=60s).
 DURATION ?= 60s
 # Committed benchmark baseline — CI compares fresh runs against this with benchstat.
@@ -317,14 +319,16 @@ bench: ensure-tools ## Run domain benchmarks and regenerate $(BENCH_BASELINE) (-
 	done
 	@echo "✅ Benchmarks complete — baseline written to $(BENCH_BASELINE)"
 
-fuzz: ensure-tools ## Run domain fuzz campaigns locally (override duration: make fuzz DURATION=60s)
+fuzz: ensure-tools ## Run fuzz campaigns locally (override duration: make fuzz DURATION=60s)
 	@echo "🎲 Running fuzz campaigns (DURATION=$(DURATION) per target)"
 	@for svc in $(FUZZ_SERVICES); do \
 		echo "── fuzz: services/$$svc"; \
 		$(TOOLS_RUN) sh -c "cd services/$$svc && \
-			for fn in \$$(GOWORK=off go test ./internal/domain/... -list='^Fuzz' 2>/dev/null | grep '^Fuzz'); do \
-				echo \"   campaign: \$$fn\"; \
-				GOWORK=off go test ./internal/domain/... -run='^\$$' -fuzz=\"^\$$fn\$$\" -fuzztime=$(DURATION) || exit 1; \
+			for pkg in \$$(GOWORK=off go list ./internal/... 2>/dev/null); do \
+				for fn in \$$(GOWORK=off go test \$$pkg -list='^Fuzz' 2>/dev/null | grep '^Fuzz'); do \
+					echo \"   campaign: \$$pkg \$$fn\"; \
+					GOWORK=off go test \$$pkg -run='^\$$' -fuzz=\"^\$$fn\$$\" -fuzztime=$(DURATION) || exit 1; \
+				done; \
 			done" || exit 1; \
 	done
 	@echo "✅ Fuzz campaigns complete — no crashers found"
