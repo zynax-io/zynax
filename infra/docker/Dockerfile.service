@@ -19,7 +19,7 @@
 # .dockerignore (**/*_test.go, **/testdata/).
 ARG GO_VERSION=1.26.5
 # BEGIN zynax-ci:images:golang-alpine
-ARG GO_ALPINE_DIGEST=sha256:111d79159b2326f7e80c4a4706e1ba166acb0e2611df853955f3621828cd49e8
+ARG GO_ALPINE_DIGEST=sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2
 # END zynax-ci:images:golang-alpine
 # BEGIN zynax-ci:images:distroless-static
 ARG DISTROLESS_DIGEST=sha256:dfadf31470f770fcabd48903762dce126958e98d1ce320acf1216bbfaa42d79c

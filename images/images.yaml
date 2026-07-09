@@ -27,7 +27,12 @@ images:
   - name: golang-alpine
     ref: golang
     tag: "1.26.5-alpine"
-    digest: sha256:111d79159b2326f7e80c4a4706e1ba166acb0e2611df853955f3621828cd49e8
+    # digest MUST be the multi-arch INDEX digest of the tag (not a single-platform
+    # manifest) — the tools-image builds compile natively on ubuntu-24.04-arm with
+    # no QEMU, so an amd64-only pin makes the arm64 `apk add` fail with exit 255
+    # (#1232, and again on the 1.26.5 bump). Verify: the tag resolves to an
+    # application/vnd.oci.image.index.v1+json, not ...image.manifest.v1+json.
+    digest: sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2
     consumers:
       - agents/adapters/adk/Dockerfile
       - agents/adapters/ci/Dockerfile
