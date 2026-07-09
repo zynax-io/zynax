@@ -1,5 +1,5 @@
 ---
-description: Resume work on the active milestone (state/milestone.yaml) — one canvas per EPIC, /lib:spdd-story creates all story issues in GitHub, /lib:spdd-generate implements one O-step at a time, stop after the cluster is merged.
+description: "Resume work on the active milestone (state/milestone.yaml) — one canvas per EPIC, /lib:spdd-story creates all story issues in GitHub, stories are delivered via model-routed agents (one O-step per PR), stop after the cluster is merged."
 argument-hint: "[optional: epic issue number or story issue number to prefer, e.g. 765 766]"
 ---
 
@@ -7,15 +7,17 @@ argument-hint: "[optional: epic issue number or story issue number to prefer, e.
 
 > **Building block** — invoked by `/deliver <#epic>` to resume a cluster, not run directly.\n> **Scope contract:** the caller provides scope; milestone is optional (`--milestone` filter).\n
 
-Pick the next ready EPIC, decompose it into story issues via `/lib:spdd-story`, ship each story as its
-own PR in O-step order, merge them in order, leave every state file consistent, then stop.
+Pick the next ready EPIC, decompose it into story issues via `/lib:spdd-story`, dispatch each story
+to its routed domain agent (one PR per O-step), merge them in O-step order, leave every state file
+consistent, then stop.
 
 > **Parallel-session safety.** Multiple sessions may run concurrently. Two mechanisms prevent
-> duplicate work: (1) a pre-filter in STEP 2 and STEP 3C that skips EPICs/stories whose branch or
-> open PR already exists on the remote; (2) an atomic claim in STEP 4 that pushes the empty branch
-> to GitHub immediately — only one `git push -u origin $BRANCH` wins when two sessions race.
-> If your push is rejected (branch already exists), treat that story as claimed and return to STEP 3C
-> to pick the next available one. Never assume a story is free just because you read it as open.
+> duplicate work: (1) pre-filters in STEP 2 and STEP 3C that skip EPICs/stories whose claim branch
+> or open PR already exists on the remote; (2) the atomic claim — an empty-branch push of the bare
+> ref `<type>/<N>` — performed by the **dispatched agent** as its first act (shared protocol §4,
+> `docs/patterns/delivery-agent-protocol.md`). Only one push wins when two sessions race; an agent
+> reporting a rejected claim means the story is taken → return to STEP 3C and pick the next
+> available one. Never assume a story is free just because you read it as open.
 
 **EPIC-canvas model:** every `feat:` EPIC has exactly **one** REASONS Canvas at
 `docs/spdd/<epic-issue>-<slug>/canvas.md`. That canvas's O steps map 1-to-1 to story PRs. Story
@@ -24,40 +26,35 @@ labels, milestone, and a test plan template. `/lib:spdd-generate` always operate
 not a per-story canvas.
 
 > **Rules are not restated here.** Commit/PR format, conventional types, DCO + `Assisted-by`
-> trailers, anti-patterns, `GOWORK=off`, PR-size, hexagonal layout, coverage gates, and the SPDD
-> requirement all live in **`AGENTS.md`** (constitution) and **`CLAUDE.md`** (dev loop). Read them;
-> obey them. This file is only the *session loop*.
+> trailers, anti-patterns, `GOWORK=off`, PR-size, hexagonal layout, coverage gates, claim/branch
+> mechanics, and the SPDD requirement all live in **`AGENTS.md`** (constitution), **`CLAUDE.md`**
+> (dev loop), and the shared delivery protocol
+> (**`docs/patterns/delivery-agent-protocol.md`**) that every dispatched agent reads at startup.
+> This file is only the *session loop*.
+
+> **Context budget.** This session reads planning state, issue bodies, and canvas status lines —
+> never code files, test output, or expert-guide/agent-definition contents. Implementation context
+> belongs inside the dispatched agents (each `.claude/agents/<name>.md` pins model, effort, tools).
 
 **Session policy.** One **EPIC** per session. Each O-step ships as its **own** PR (= one story
-issue). Open all story-PRs in the cluster, enable auto-merge on the first PR, and **stop** — do not
-block waiting for CI. The STEP 1.5 merge pass at the start of the *next* session merges green PRs in
-O-step order and enables auto-merge on the next one. `Closes #<story-N>` in the PR body closes the
-story issue automatically on squash-merge. Every PR flips its own story-issue row in
-`"$PLANNING_DOC"` and updates `state/current-milestone.md` in its own diff.
+issue), delivered end-to-end by a routed domain agent (claim → implement → gates → PR → CI →
+queue merge → cleanup). Dispatch the cluster, collect the agents' results, and **stop** — do not
+pick another EPIC. The STEP 1.5 merge pass at the start of the *next* session merges any leftover
+green PRs in O-step order. `Closes #<story-N>` in the PR body closes the story issue automatically
+on squash-merge. Every PR flips its own story-issue row in `"$PLANNING_DOC"` and updates
+`state/current-milestone.md` in its own diff.
 
 ---
 
 ## Branch discipline (non-negotiable — ADR-023)
 
-- **Never rebase for freshness — arm the merge queue (ADR-047).**
-  `gh pr merge <PR> --squash --auto` enqueues on green; the queue validates the PR against
-  current main on its turn (`BEHIND` is cosmetic; a force-push ejects a queued PR). Rebase
-  only for real conflicts (`DIRTY`): `git rebase --signoff origin/main` +
-  `git push --force-with-lease`. *Fallback (no merge-queue rule on main — pre-cutover or
-  rollback): rebase immediately before merging, as before.*
-- **Merge strategy: `--squash` only.** Use `gh pr merge <PR> --squash`. Never `--merge`
-  (creates a merge commit, violates `required_linear_history`). `--rebase` is blocked by
-  `required_signatures` — GitHub cannot auto-sign replayed commits.
-- **Delete the remote branch after every merge:**
-  ```bash
-  git push origin --delete <branch>
-  ```
-  No merged or closed branch should remain on the remote.
-- **Never reopen a closed PR or branch.** If commits from a closed branch are still
-  wanted, cherry-pick or rebase them onto a fresh branch off current `main`, open a
-  new PR, let CI run green, then squash-merge.
-- **No direct commits to `main` — including one-line doc fixes.** All changes go
-  through a branch → PR → CI green → `gh pr merge --squash` → branch deleted.
+- Arm the queue with `gh pr merge <PR> --squash --auto` — `BEHIND` is cosmetic; the queue validates
+  against current main (never rebase for freshness; a force-push ejects a queued PR).
+- Only `DIRTY` (real conflicts) rebases: `git rebase --signoff origin/main` + `git push --force-with-lease`.
+- `--squash` only — never `--merge` (`required_linear_history`) or `--rebase` (`required_signatures`).
+- Resume nuance: arm/merge story PRs in **O-step order** (lowest story number first).
+- No direct commits to `main` · delete remote branches after merge · never reopen a closed PR/branch.
+- Full rules: `docs/patterns/delivery-agent-protocol.md` §6 + ADR-047.
 
 ---
 
@@ -69,18 +66,15 @@ git fetch origin --prune && git checkout main && git pull --rebase origin main
 [ "$(git rev-parse main)" = "$(git rev-parse origin/main)" ] || { echo "main diverged — STOP"; exit 1; }
 [ -z "$(git status --porcelain)" ] || { echo "dirty tree — STOP"; git status; exit 1; }
 
-# ── Active-milestone config (SSoT: state/milestone.yaml) ────────────────────
-# Loaded at runtime; no milestone name, number, or label is hardcoded in this
-# file. Updated only by /milestone close and /milestone open.
-CFG=state/milestone.yaml
-MILESTONE_NAME=$(awk '/^active:/{f=1} f && /^  name:/{print $2; exit}' "$CFG")
-MILESTONE_TITLE=$(awk -F'"' '/^active:/{f=1} f && /^  title:/{print $2; exit}' "$CFG")
-MILESTONE_NUMBER=$(awk '/^active:/{f=1} f && /^  github_milestone_number:/{print $2; exit}' "$CFG")
-MILESTONE_VERSION=$(awk '/^active:/{f=1} f && /^  version:/{print $2; exit}' "$CFG")
-PLANNING_DOC=$(awk '/^active:/{f=1} f && /^  planning_doc:/{print $2; exit}' "$CFG")
-MILESTONE_LABEL=$(awk -F'"' '/^    milestone:/{print $2; exit}' "$CFG")
-GH_MILESTONE="${MILESTONE_TITLE} (${MILESTONE_NAME})"   # GitHub milestone title
-# ─────────────────────────────────────────────────────────────────────────────
+# Active-milestone config (SSoT: state/milestone.yaml) — single helper call, never inline awk.
+eval "$(bash automation/milestone-env.sh)"
+# → MILESTONE_NAME MILESTONE_TITLE MILESTONE_NUMBER MILESTONE_VERSION PLANNING_DOC MILESTONE_LABEL GH_MILESTONE
+
+# Per-invocation run id — namespaces every dispatched agent worktree
+# (canvas dispatch STEP 3A, story dispatch STEP 5, post-merge dispatch + sweep STEP 6).
+# Two concurrent sessions get distinct ids, so neither can ever touch the other's trees.
+RESUME_RUN_ID="$(date +%s)-$$"
+export RESUME_RUN_ID
 ```
 
 **1.2 Read** — mandatory every session:
@@ -90,11 +84,11 @@ GH_MILESTONE="${MILESTONE_TITLE} (${MILESTONE_NAME})"   # GitHub milestone title
 
 | Read when | File |
 |---|---|
-| Proto or BDD boundary touched | `protos/AGENTS.md` + `docs/patterns/bdd-contract-testing.md` |
-| Helm chart work | `infra/AGENTS.md` + `docs/patterns/helm-charts.md` |
 | Any ADR-governed decision | `docs/adr/INDEX.md` — check the ADR that governs the area before changing it |
-| Image / GHCR / release work | `images/images.yaml` (SoT — ADR-024) + ADR-025 (attestations) + ADR-027 (retag model) |
 | EPIC-specific caveats | The EPIC's row + notes in `"$PLANNING_DOC"` — milestone-specific guidance lives there, never here |
+
+Domain references (proto/BDD patterns, Helm charts, `images/images.yaml` SoT) are read by the
+dispatched agents per their definitions — not by this session.
 
 Run `/help` to confirm all SPDD commands are available.
 
@@ -160,7 +154,7 @@ done <<< "$OPEN_PRS"
 # each green branch onto origin/main + --force-with-lease before arming.
 ```
 
-After the pass: if all your PRs merged and the EPIC is complete → STEP 10 + stop.
+After the pass: if all your PRs merged and the EPIC is complete → STEP 7 + stop.
 Otherwise pick new work below.
 
 ---
@@ -193,11 +187,11 @@ CLAIMED_BRANCHES=$(git ls-remote origin 'refs/heads/*' | awk '{print $2}' | sed 
 CLAIMED_PRS=$(gh pr list --state open --json headRefName --jq '.[].headRefName')
 CLAIMED=$(printf '%s\n%s\n' "$CLAIMED_BRANCHES" "$CLAIMED_PRS" | sort -u)
 
-# For each EPIC candidate (in priority order), check if any story branch is already on remote.
-# Branch names follow: <type>/<story-issue-N>-<slug>
-# Pattern: any branch whose name contains the story issue numbers for this EPIC
+# For each EPIC candidate (in priority order), check if any story claim branch is on remote.
+# Claim refs are the bare <type>/<story-issue-N> (protocol §4 — slug applied only post-claim);
+# match slugged variants too. Pattern: ^<type>/<N>(-|$).
 # Example — EPIC #765 has stories #779–#792; skip #765 if any of those branches exist:
-echo "$CLAIMED" | grep -E "^(feat|fix|refactor|docs|ci|chore)/(779|780|781|782|783|784|785|786|787|788|789|790|791|792)-"
+echo "$CLAIMED" | grep -E "^(feat|fix|refactor|docs|test|ci|chore)/(779|780|781|782|783|784|785|786|787|788|789|790|791|792)(-|$)"
 # If any match → EPIC #765 is in-flight in another session → move to next priority
 ```
 
@@ -211,7 +205,7 @@ ls docs/spdd/ | grep -E "^<EPIC_N>-"   # check if EPIC canvas already exists
 **Determine which canvas state the EPIC is in:**
 - Canvas exists + `Status: Aligned` → go to STEP 3B (story check) or STEP 3C (implement)
 - Canvas exists + `Status: Draft` → go to STEP 3A to align
-- No canvas, EPIC is `feat:` → go to STEP 3A (full SPDD pipeline)
+- No canvas, EPIC is `feat:` → go to STEP 3A (synchronous `spdd-canvas` dispatch)
 - EPIC is `refactor:/ci:/chore:` → go to STEP 3D (SPDD-exempt)
 - EPIC is BLOCKED → report blocker, pick a different EPIC
 
@@ -219,35 +213,49 @@ ls docs/spdd/ | grep -E "^<EPIC_N>-"   # check if EPIC canvas already exists
 
 ## STEP 3 — EPIC canvas + story decomposition
 
-### 3A — Canvas not yet Aligned (full SPDD pipeline)
+### 3A — Canvas not yet Aligned (synchronous `spdd-canvas` dispatch)
 
-Run in order, stopping between each step for inspection:
+The SPDD pipeline (analysis → canvas → security-review) runs inside the `spdd-canvas` agent —
+never inline in this session. Dispatch it **synchronously** (`run_in_background: false`): an
+Aligned canvas must exist before any story dispatch.
 
-```bash
-/lib:spdd-analysis <EPIC_N>
 ```
-Review output: verify ADR constraints, tier classification, Tier 2 flags.
+Agent({
+  description: "EPIC #<EPIC_N> canvas — <epic title>",
+  subagent_type: "spdd-canvas",
+  run_in_background: false,
+  prompt: """
+    ISSUE: #<EPIC_N> — <epic title>
+    REPO:  <REPO>
+    WT:    /tmp/zynax-resume-<RESUME_RUN_ID>-<EPIC_N>     (your literal private worktree path)
 
-```bash
-/lib:spdd-canvas <EPIC_N>
+    Issue body:
+    <full issue body from gh issue view EPIC_N>
+
+    Context files (read these before writing the canvas):
+    <2-3 specific repo paths named in the issue body>
+
+    Produce the EPIC canvas per your agent definition (analysis → canvas →
+    security-review, must PASS) at docs/spdd/<EPIC_N>-<slug>/canvas.md. Read
+    docs/patterns/delivery-agent-protocol.md and your expert guide first.
+    Leave the canvas at `Status: Draft` and STOP for human review — do NOT
+    auto-align it even if the security review PASSes; the human alignment
+    gate is the only path to `Status: Aligned`. Report the canvas path and
+    the security-review verdict. End with the ## Result and
+    ## Session Learnings blocks.
+  """
+})
 ```
-Canvas is written to `docs/spdd/<EPIC_N>-<slug>/canvas.md` (Status: Draft).
 
-**Canvas must include** for infra EPICs:
-- **R**: exact K8s DoD (observable outcomes, not just "charts exist")
-- **E**: every new resource type, every gRPC contract touched
-- **A**: what we WILL do and what we WON'T (e.g. "no OTel traces — that is a later milestone")
-- **S-Structure**: every file created or modified, K8s resource kind for infra EPICs
-- **O**: one O-step per story PR, each ≤400 lines — number them to match story issue titles
-- **N**: GOWORK=off, DCO+Assisted-by, test coverage gate, liveness threshold env var etc.
-- **S-Safeguards**: architecture invariants, state-minimization rule (where applicable)
+Canvas content requirements (R/E/A/S/O/N sections, one O-step per story PR each ≤400 lines,
+observable infra DoD, Tier 2 findings → `canvas.private.md`) live in the `spdd-canvas` agent
+definition and the SPDD guide — not restated here.
 
-```bash
-/lib:spdd-security-review docs/spdd/<EPIC_N>-<slug>/canvas.md
-```
-Must PASS before committing. Any Tier 2 findings → move to `canvas.private.md`.
-
-**[Human reviews and sets Status: Aligned — then run STEP 3B]**
+**[Human reviews and sets Status: Aligned — then re-run `/deliver <EPIC_N>` to resume at
+STEP 3B.]** The canvas comes back `Status: Draft` (human gate pending — the agent never
+auto-aligns): stop the session and report the canvas path + review verdict — never dispatch
+stories from an unaligned canvas (`/lib:spdd-generate` inside the domain agents refuses it
+anyway).
 
 ### 3B — Create story issues in GitHub (run once per EPIC)
 
@@ -260,6 +268,14 @@ gh issue list --milestone "$GH_MILESTONE" --state all \
 If stories are missing, run:
 ```bash
 /lib:spdd-story <EPIC_N>
+
+# Locked decision #1107: /lib:spdd-story is milestone-agnostic — the CALLER injects
+# the active milestone label + GitHub milestone on every story it just created
+# (idempotent — re-running re-applies the same label/milestone):
+for STORY in $(gh issue list --state open --limit 100 --json number,body \
+  --jq '.[] | select(.body | test("#<EPIC_N>")) | .number'); do
+  gh issue edit "$STORY" --add-label "$MILESTONE_LABEL" --milestone "$GH_MILESTONE"
+done
 ```
 
 `/lib:spdd-story` will create one GitHub issue per O-step. **Each story issue MUST have:**
@@ -301,8 +317,8 @@ CLAIMED=$(printf '%s\n%s\n' \
 gh issue list --label "$MILESTONE_LABEL" --state open --json number,title,body \
   --jq '.[] | select(.body | test("#<EPIC_N>.*step")) | {n:.number,title}' \
   | head -10
-# For each candidate story #N: check if any branch matching <type>/<N>-* is in $CLAIMED
-# echo "$CLAIMED" | grep -E "^[a-z]+/<N>-"
+# For each candidate story #N: check if the bare claim ref or a slugged variant is in $CLAIMED
+# echo "$CLAIMED" | grep -E "^[a-z]+/<N>(-|$)"
 # If a match is found → another session owns that story → skip to the next step number
 ```
 
@@ -345,146 +361,171 @@ EOF
 
 ---
 
-## STEP 4 — Scope + branch (per O-step story)
+## STEP 4 — Route + soft-claim the cluster (per O-step story)
+
+Verify the agent roster exists — do **not** read the files (the harness loads them at dispatch):
+```bash
+ls .claude/agents/
+# go-services.md | python-adapters.md | bdd-contract.md | infra-helm.md |
+# ci-release.md  | spdd-canvas.md     | post-merge.md
+```
+Directory missing → stop and report (the model-routing PR not yet merged, or the session started
+before `.claude/agents/` existed — restart the session once).
+
+Issue routing rules (apply in order — first match wins). Agent names are the
+`.claude/agents/<name>.md` definitions; each pins its own model and effort
+(implementation → Opus `xhigh`; canvas → Fable `high`; post-merge → Haiku):
+
+| Issue title pattern | Agent (`subagent_type`) |
+|---|---|
+| `(api-gateway)` / `(workflow-compiler)` / `(engine-adapter)` / `(task-broker)` / `(agent-registry)` / `(event-bus)` / `(memory-service)` | `go-services` |
+| `(infra)` / `helm` / `k8s` in title (case-insensitive) | `infra-helm` |
+| `(ci)` / `actions` / `workflow` / `images.yaml` in title | `ci-release` |
+| `feat:` type AND no `Status: Aligned` canvas found | `spdd-canvas` first, then domain agent |
+| `(agents)` / `(sdk)` / `python` / `adapter` in title | `python-adapters` |
+| `test:` type OR `protos/tests` OR `.feature` in issue body | `bdd-contract` |
+
+In this loop the `spdd-canvas`-first row is satisfied by STEP 3A — the synchronous canvas
+dispatch always precedes any story dispatch.
+
+**Soft claim** (label + assignee). The *atomic* claim — the empty-branch push of the bare ref
+`<type>/<N>` — is performed by the dispatched agent itself as its first act (protocol §4), never
+by this session:
 
 ```bash
-git fetch origin --prune && git checkout main && git pull --rebase origin main
-[ "$(git rev-parse main)" = "$(git rev-parse origin/main)" ] || { echo "main diverged"; exit 1; }
-BRANCH=<type>/<story-issue-N>-<short-slug>
-git checkout -b "$BRANCH"
+gh label create "status: in-progress" --color "FBCA04" \
+  --description "Actively being implemented" 2>/dev/null || true
 
-# ── Atomic claim ─────────────────────────────────────────────────────────────
-# Push the empty branch to GitHub NOW (before any code). GitHub serialises branch
-# creation: only one push wins when two sessions race on the same branch name.
-# A rejected push means another session already claimed this story → go back to
-# STEP 3C and pick the next available O-step.
-if ! git push -u origin "$BRANCH" 2>&1; then
-  echo "CLAIMED: branch $BRANCH already on remote — story #<story-issue-N> taken by another session"
-  git checkout main && git branch -D "$BRANCH"
-  echo "→ return to STEP 3C and pick the next open O-step"
-  exit 1
-fi
-echo "CLAIMED: story #<story-issue-N> → $BRANCH pushed to origin"
-# ─────────────────────────────────────────────────────────────────────────────
+for N in $CLUSTER_STORIES; do
+  gh issue edit "$N" --add-label "status: in-progress" --add-assignee "@me"
+done
 ```
 
-**Stacking:** if O-step 2 depends on O-step 1's types/files, stack B off A (`git checkout -b ... A`).
-If truly independent (different files, no shared types), branch each off `main`.
+**Size gate:** XS<50 / S 50–200 / M 200–400 → dispatch · L 401–900 → agent justifies in PR body ·
+**XL>900 → STOP**, split the O-step, open a follow-up issue *before* dispatching.
 
-**Size gate:** XS<50 / S 50–200 / M 200–400 → proceed · L 401–900 → justify in PR body ·
-**XL>900 → STOP**, split the O-step further, open follow-up issue.
-
-**BDD gate (ADR-016):** if this O-step touches a gRPC boundary:
-```bash
-ls protos/tests/<service>/features/   # .feature file must exist before implementation
-```
-Missing `.feature` → write and commit it FIRST, in a separate commit on this branch.
+**BDD gate (ADR-016):** a story touching a gRPC boundary must land its `.feature` file before
+implementation — the routed agent enforces this per its guide; name the feature path in the
+dispatch context files.
 
 ---
 
-## STEP 5 — Implement via /lib:spdd-generate
+## STEP 5 — Dispatch the routed domain agent (replaces inline implementation)
 
-For `feat:` O-steps with an Aligned epic canvas:
-```bash
-/lib:spdd-generate docs/spdd/<EPIC_N>-<slug>/canvas.md
+No code is written in this session. Spawn one Agent per cluster story. **Independent O-steps
+(≤3):** dispatch all in background, in parallel. **Dependent O-steps:** dispatch one at a time in
+O-step order — start the next only after the previous agent reports its PR merged (this replaces
+branch stacking). The agent's definition supplies its model, effort, tools, and instructions to
+read the shared protocol (`docs/patterns/delivery-agent-protocol.md`) and its domain guide — the
+dispatch prompt carries **only the per-story facts**:
+
 ```
-The skill reads the canvas, identifies the current O-step, generates the code for that step only,
-and stops. Review the output; if it would violate a safeguard, halt and report.
+Agent({
+  description: "Story #N — <story title>",
+  subagent_type: "<agent from STEP 4, e.g. go-services>",
+  run_in_background: true,
+  prompt: """
+    ISSUE: #N — <story title>
+    REPO:  <REPO>
+    WT:    /tmp/zynax-resume-<RESUME_RUN_ID>-<N>     (your literal private worktree path)
 
-After generating, run the evidence commands:
+    Issue body:
+    <full issue body from gh issue view N>
 
-| Check | Command | Required |
-|---|---|---|
-| build | `GOWORK=off go build ./...` in touched service dirs | always |
-| unit + race | `GOWORK=off go test ./... -race -timeout 60s` | always |
-| domain coverage ≥90% | `GOWORK=off go test ./internal/domain/... -coverprofile=cov.out && go tool cover -func cov.out` | domain changes |
-| lint | `make lint-go` (in Docker) | always |
-| BDD | `make test-bdd` | contract changes |
-| security | `make security` | always |
+    Context files (read these before writing any code):
+    docs/spdd/<EPIC_N>-<slug>/canvas.md — O-step <N> of EPIC #<EPIC_N>
+    <1-2 specific repo paths named in the issue body or canvas O-step>
 
-Capture all output — paste into PR body test plan checkboxes.
+    Deliver this story end-to-end per your agent definition: read
+    docs/patterns/delivery-agent-protocol.md and your expert guide first, then
+    claim → implement → gates → PR → CI → queue merge → cleanup. End with the
+    ## Result and ## Session Learnings blocks (the orchestrator parses both).
+  """
+})
+```
+
+Worktree paths are run-scoped and private: `/tmp/zynax-resume-<RESUME_RUN_ID>-<N>` — created
+first / removed last by the agent, distinct from `/tmp/zynax-orch-*` (`/lib:deliver-batch`) and
+`/tmp/zynax-auto-*` (`/deliver`), so no namespace collision.
 
 ---
 
-## STEP 6 — State consistency (per story PR, in its own diff)
+## STEP 6 — Collect results (wait for all background agents)
 
-Each story PR updates:
-1. `"$PLANNING_DOC"` — flip this story's row ⬜→✅; bump "Last updated"
-2. `state/current-milestone.md` — update EPIC progress; note if EPIC is now fully done
-3. Epic canvas O-step — mark it ✅; run `/lib:spdd-sync <canvas>` if implementation diverged
+As each agent completes, extract:
+1. Issue number + PR URL
+2. CI status (green / red / pending)
+3. `## Result` block — especially `Merge SHA` and `Affected services`
+4. `## Session Learnings` block
+
+**Per-story state contract** — verify on each merged PR (the agent ships these in its own diff):
+1. `"$PLANNING_DOC"` — this story's row ⬜→✅; "Last updated" bumped
+2. `state/current-milestone.md` — EPIC progress updated; noted if EPIC is now fully done
+3. Epic canvas O-step marked ✅ (`/lib:spdd-sync <canvas>` run if implementation diverged)
 4. `services/<svc>/AGENTS.md` — only if a new gRPC method, K8s resource type, or env var was added
 
----
+A merged PR missing a state flip → small `docs:` follow-up branch → PR → queue merge (never a
+direct commit to `main`).
 
-## STEP 7 — Commit
+- Agent reports **CI failure** → report the failing check name to the user; do not retry
+  automatically — human intervention required.
+- Agent reports **claim rejected** (branch `<type>/<N>` already on remote) → story owned by
+  another session → return to STEP 3C and dispatch the next open O-step.
+- Agent result **missing** (crash) but its claim branch exists on origin → finish the delivery
+  **from the leaked worktree** per `/lib:deliver-batch` STEP 7 (crashed-agent recovery): inspect
+  `/tmp/zynax-resume-<RESUME_RUN_ID>-<N>`, commit if needed, push HEAD onto the **surviving**
+  claim ref — bare `<type>/<N>` OR slugged `<type>/<N>-*` — then open/finish the PR. Never
+  delete the claim branch, and never blind re-dispatch while the claim ref exists (a
+  re-dispatched agent's first act is the §4 empty-branch claim push, guaranteed rejected) —
+  never sweep pushed work blindly.
 
+**Post-merge verification (mirror of `/lib:deliver-batch` STEP 7.5).** For each **merged** PR
+collected above — dedupe by merge SHA, exactly one verifier per merge SHA — dispatch one
+`post-merge` agent **in background** (its definition pins Haiku: mechanical GitHub/GHCR
+verification only). Run them in parallel:
+
+```
+Agent({
+  description: "Post-merge verify PR #PR_N (issue #N)",
+  subagent_type: "post-merge",
+  run_in_background: true,
+  prompt: """
+    PR_NUMBER:    <PR_N>
+    MERGE_SHA:    <S>
+    ISSUE_NUMBER: <issue N>
+    SESSION_DATE: <date>
+    REPO:         <REPO>
+    WT:           /tmp/zynax-resume-postmerge-<RESUME_RUN_ID>-<PR_N>   (your literal private worktree path)
+
+    Verify post-merge CI, GHCR artifacts, and digest pins for this merge per your
+    agent definition (read docs/patterns/delivery-agent-protocol.md and your expert
+    guide first). Back-fill the originating PR's "Post-merge digest sync → main"
+    Evidence placeholder. End with the ## Post-Merge Evidence block and
+    ## Session Learnings.
+  """
+})
+```
+
+Collect the post-merge agents' results the same way as the domain agents' (wait for completion);
+their `## Session Learnings` blocks join the persistence pass below.
+
+Persist each `## Session Learnings` block (domain agents + post-merge agents) to
+`docs/ai-learnings/<domain>.md` via a `docs:` PR (same pattern as `/lib:deliver-batch` STEP 8).
+
+**Leftover worktree sweep** — crashed agents only, this run's namespace only (never glob-all,
+which would delete a concurrent run's live trees):
 ```bash
-echo -n "<type>(<scope>): <subject>" | wc -c   # ≤ 72 characters
-git commit -s -m "<type>(<scope>): <subject>
-
-<why — canvas O-step N of EPIC #EPIC_N; one sentence>
-
-Closes #<story-issue-N>
-
-Assisted-by: Claude/<model-id-from-this-session>"
+for WT in /tmp/zynax-resume-${RESUME_RUN_ID}-* /tmp/zynax-resume-postmerge-${RESUME_RUN_ID}-*; do
+  [ -d "$WT" ] || continue
+  git worktree remove "$WT" --force 2>/dev/null || true
+  rm -rf "$WT" 2>/dev/null || true
+done
+git worktree prune
 ```
 
 ---
 
-## STEP 8 — Open all story PRs in parallel
-
-```bash
-# Branch already exists on remote from the STEP 4 claim — force-push the commits
-git push --force-with-lease
-echo -n "<type>(<scope>): <subject>" | wc -c   # ≤ 72
-gh pr create --base <main|branch-below> \
-  --title "<type>(<scope>): <subject>" \
-  --assignee "@me" \
-  --label "type: <kind>" --label "$MILESTONE_LABEL" --label "area: <area>" \
-  --body-file pr-body-<N>.md
-```
-
-**Required in every PR body** (`pr-body-<N>.md`): include `Closes #<story-issue-N>` — this closes
-the story issue automatically on squash-merge (do not rely solely on the commit message). Fill all
-test plan checkboxes with evidence before opening.
-
-Open **all** cluster story PRs before STEP 9. Verify no other open PR of yours has **red** checks
-(running/pending checks are fine — the STEP 1.5 merge pass handles them next session).
-
----
-
-## STEP 9 — Enable auto-merge + stop (do NOT block on CI)
-
-Once all story PRs are open, arm the merge queue (ADR-047) on the **first** O-step PR, then
-**stop the session**. CI runs asynchronously. The STEP 1.5 merge pass in the next session
-detects green PRs and arms the next PR in sequence. Never rebase for freshness — the queue
-validates each PR against current main, and a force-push ejects a queued PR; only `DIRTY`
-PRs need a manual `--signoff` rebase.
-
-```bash
-# Arm the queue on O-step 1 only; subsequent PRs get armed by the merge pass
-# after the preceding PR merges (to respect O-step order).
-gh pr merge <pr_1> --auto --squash
-echo "Queue merge armed on PR #<pr_1>. Session complete — CI is running."
-# Fallback (no merge-queue rule on main — pre-cutover or rollback): rebase each
-# branch off origin/main + push --force-with-lease before arming, as before.
-```
-
-**Why stop here?** `gh pr checks --watch` freezes the session slot (typically 5–15 min) without
-doing useful work. In a parallel setup this means no new issues get picked up. The merge pass is
-the right place to detect and act on CI results.
-
-**If `--auto` is unavailable** (repo has it disabled): leave branches rebased and pushed; the
-STEP 1.5 pass will check `mergeStateStatus` and merge when green.
-
-**Post-merge cleanup happens automatically:**
-- Story issue closes via `Closes #<N>` in PR body (squash-merge carries it)
-- Planning-doc row ⬜→✅ is in the PR diff — merged with the code
-- After the merge pass, verify: `grep -nE "#?$STORY\b" "$PLANNING_DOC"` — row must be ✅
-
----
-
-## STEP 10 — EPIC completion check + stop
+## STEP 7 — EPIC completion check + stop
 
 When ALL O-steps of an EPIC are merged:
 ```bash
@@ -507,15 +548,15 @@ Mark the EPIC canvas `Status: Implemented` (small docs: commit). Post the sessio
 |---|---|
 | Open PR of mine with **red** required checks | Fix first; do not advance or start new cluster |
 | Open PR of mine with checks **running/pending** | STEP 1.5 merge pass (skip non-green PRs); then pick next unclaimed O-step → STEP 4 |
-| Open PR of mine, all checks **green** (CLEAN) | STEP 1.5 merge pass → merge now; continue to remaining O-steps or STEP 10 |
+| Open PR of mine, all checks **green** (CLEAN) | STEP 1.5 merge pass → merge now; continue to remaining O-steps or STEP 7 |
 | Some story PRs merged, others open for same EPIC | STEP 1.5 merge pass; if unmerged PRs still running, pick next unclaimed O-step |
 | All story PRs open, none merged | STEP 1.5 merge pass; if none green yet, pick next unclaimed O-step if EPIC has more stories |
-| EPIC fully merged | STEP 10 summary. STOP. |
-| Local branch w/ uncommitted work, no PR | Finish STEP 5→8 |
-| STEP 4 branch push rejected (branch exists on remote) | Another session claimed that story — return to STEP 3C, pick next open O-step |
+| EPIC fully merged | STEP 7 summary. STOP. |
+| Remote claim branch `<type>/<N>` or slugged `<type>/<N>-*`, no PR, no live agent | Crashed delivery — finish it from the leaked worktree per `/lib:deliver-batch` STEP 7 (crashed-agent recovery): inspect, commit if needed, push HEAD onto the surviving claim ref, open/finish the PR. Never delete the claim branch, never blind re-dispatch while the claim ref exists (the re-dispatched agent's §4 claim push is guaranteed rejected); never sweep pushed work blindly |
+| Agent reports claim push rejected (branch exists on remote) | Another session claimed that story — return to STEP 3C, pick next open O-step |
 | No in-flight work, EPIC has stories created | Pick next O-step → STEP 4 |
 | EPIC has canvas Aligned but no story issues | STEP 3B: create stories, then STEP 4 |
-| EPIC has no canvas | STEP 3A: full pipeline |
+| EPIC has no canvas | STEP 3A: synchronous `spdd-canvas` dispatch |
 | EPIC is BLOCKED (#764 for EPIC I, #626 for EPIC J, #626+#772 for DevAuto.8 #881) | Pick next unblocked EPIC |
 | All EPICs exhausted | Report milestone exit-criteria; recommend /milestone close |
 
@@ -575,9 +616,9 @@ Mark the EPIC canvas `Status: Implemented` (small docs: commit). Post the sessio
 **Outcome:** <EPIC-COMPLETE | EPIC-PARTIAL (n/m O-steps) | STORIES-CREATED-NOT-IMPLEMENTED | STOPPED-BLOCKED | STOPPED-HEALTH-GATE>
 **EPIC:** #<N> <title> · canvas `docs/spdd/<N>-<slug>/canvas.md` · O-steps this session: <X–Y of Z>
 
-| Story | PR | type | size | O-step | state |
-|---|---|---|---|---|---|
-| #A | <url> | <feat/…> | <S/M> | O-step N | MERGED |
+| Story | PR | agent | type | size | O-step | state |
+|---|---|---|---|---|---|---|
+| #A | <url> | <go-services/…> | <feat/…> | <S/M> | O-step N | MERGED |
 
 **State files:** planning-doc rows ⬜→✅ <list> · current-milestone <change> · canvas O-steps ✅ <list> · AGENTS.md <svc/N/A>
 **Verify (all ✓ to continue):** story issues CLOSED ✓ · PRs MERGED ✓ · planning-doc lockstep ✓ · no stray PRs/branches, tree clean ✓

@@ -13,7 +13,7 @@ implementation rule (ADR-016) and buf breaking compatibility gates.
 Output a progress line at the start of each phase — before any tool call for that phase:
 
 ```
-[bdd #<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+[bdd #<N> <HH:MM:SS>] <PHASE>: <one-line description>
 ```
 
 | Phase | When to emit |
@@ -24,7 +24,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `FEATURE` | When writing or editing a `.feature` file |
 | `STEPS` | When writing Go step definitions |
 | `TEST` | Before running `make test-bdd` or `buf breaking` |
-| `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
+| `COMMIT` | Before `git add` / `git commit` — entering the git phase (per git-ops guide) |
 | `PR` | Before `gh pr create` — build the PR body from docs/contributing/pr-templates.md (your type variant) |
 | `CI_WAIT` | On entering the CI polling loop |
 | `DONE` | On successful merge and cleanup |
@@ -32,39 +32,26 @@ Output a progress line at the start of each phase — before any tool call for t
 
 Example:
 ```
-[bdd #828 10:20:00] START: test: BDD step implementations for event_bus.feature  [ctx: ~10K | compress=0 | msgs=1]
-[bdd #828 10:20:01] READ: loading protos/AGENTS.md + event_bus.feature + issue body  [ctx: ~13K | compress=0 | msgs=2]
-[bdd #828 10:22:45] PLAN: 6 scenarios; testcontainers NATS; godog suite pattern  [ctx: ~14K | compress=0 | msgs=3]
-[bdd #828 10:22:46] STEPS: writing protos/tests/event_bus_service/steps/event_bus_steps.go  [ctx: ~14K | compress=0 | msgs=4]
-[bdd #828 10:38:10] TEST: GOWORK=off go test -tags=integration ./event_bus_service/...  [ctx: ~16K | compress=0 | msgs=6]
-[bdd #828 10:39:40] COMMIT: all 6 scenarios green — handing off to git-ops  [ctx: ~17K | compress=0 | msgs=7]
-[bdd #828 10:55:28] DONE: PR #NNN merged; issue #828 closed  [ctx: ~18K | compress=0 | msgs=10]
+[bdd #828 10:20:00] START: test: BDD step implementations for event_bus.feature
+[bdd #828 10:20:01] READ: loading protos/AGENTS.md + event_bus.feature + issue body
+[bdd #828 10:22:45] PLAN: 6 scenarios; testcontainers NATS; godog suite pattern
+[bdd #828 10:22:46] STEPS: writing protos/tests/event_bus_service/steps/event_bus_steps.go
+[bdd #828 10:38:10] TEST: GOWORK=off go test -tags=integration ./event_bus_service/...
+[bdd #828 10:39:40] COMMIT: all 6 scenarios green — entering the git phase (per git-ops guide)
+[bdd #828 10:55:28] DONE: PR #NNN merged; issue #828 closed
 ```
 
 ---
 
-## Context tracking
+## Context discipline
 
-Estimate your context size in kilotoken units (`~XK`) — same unit as Claude Code's display.
-Rough heuristics:
-- Session start (system prompt + expert file): **~10K**
-- Per file read: **+0.5–3K** depending on file size
-- Per message pair exchanged: **+0.5K**
-
-Maintain counters: `CTX_TOKENS` (estimated K), `CTX_COMPRESSIONS`, `CTX_MSGS`.
-
-### Split thresholds
-
-| Condition | Action |
-|-----------|--------|
-| `CTX_TOKENS > 80K` OR `CTX_COMPRESSIONS == 1` | Log `⚠ CONTEXT GROWING` — describe split point; continue cautiously |
-| `CTX_TOKENS > 140K` OR `CTX_COMPRESSIONS >= 2` | **STOP immediately.** Output split proposal and exit |
+Read only files inside the issue scope (see docs/patterns/delivery-agent-protocol.md §10). If you notice your context has been compacted mid-run, finish the current step, stop at the next safe boundary, and emit the split report below.
 
 ### Split proposal format
 
 ```
 ⚠ CONTEXT SPLIT REQUIRED (bdd #<N>)
-  Stopped at:    <phase>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+  Stopped at:    <phase>
   Branch:        <branch-name> (pushed: yes/no)
   Feature file:  <path> — scenarios written: N/total
   Step defs:     <path> — written: yes/no
@@ -74,13 +61,16 @@ Maintain counters: `CTX_TOKENS` (estimated K), `CTX_COMPRESSIONS`, `CTX_MSGS`.
 
 ---
 
-## Handoff protocol
+## Git phase protocol
 
 You handle READ → PLAN → FEATURE → STEPS → TEST. Once all scenarios pass,
-**hand off to `git-ops`** for commit/push/PR/merge:
+**execute the commit → push → PR → queue-merge phase yourself** — there is no separate
+git-ops agent. Follow the git-ops guide (`.claude/commands/experts/git-ops.md`) and the
+shared protocol (docs/patterns/delivery-agent-protocol.md §5–§7). Assemble this checklist
+before starting that phase:
 
 ```
-HANDOFF to git-ops:
+GIT PHASE checklist:
   from_expert:  bdd
   issue:        #<N>
   branch:       <branch>

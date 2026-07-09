@@ -1,5 +1,5 @@
 ---
-description: Expert knowledge synthesizer — reads docs/ai-learnings/*.md, spawns a Learning Synthesizer subagent to cluster patterns and propose expert prompt additions. Writes proposals to APPLY_LOG.md. Stops for human review before committing.
+description: "Expert knowledge synthesizer — reads docs/ai-learnings/*.md, spawns a Learning Synthesizer subagent to cluster patterns and propose expert prompt additions. Writes proposals to APPLY_LOG.md. Stops for human review before committing."
 argument-hint: "[--domain go-services|ci-release|...] [--apply]  default: synthesize all"
 ---
 
@@ -189,15 +189,17 @@ Agent({
         e.g. background-subagent Bash denies compound/chained commands, shell state not
         persisting between calls (use literal paths, not vars), `env` prefix denied, multiline
         `-m` denied (use `git commit -F`), CI-wait must be `gh pr checks --watch` not a loop.
-        These are REAL and must persist, but they belong in the **dispatch-prompt preamble of
-        milestone-orchestrate.md / issue-deliver.md** (injected into every agent), NOT scattered
-        into the expert guides. Do NOT auto-reject: surface as `pending` with a note that the
-        fix is a manual command-file edit (outside `/learn --apply`'s expert-file scope).
+        These are REAL and must persist, but they belong in
+        **docs/patterns/delivery-agent-protocol.md** — the shared dispatch protocol every
+        `.claude/agents/` delivery agent reads at startup — NOT scattered into the expert
+        guides. Do NOT auto-reject: surface as `pending` with a note that the fix is a manual
+        edit to docs/patterns/delivery-agent-protocol.md (outside `/learn --apply`'s
+        expert-file scope).
       - `domain` — genuine engineering knowledge (API shape, query planner behaviour, proto
         field name, test pattern, gRPC code mapping).
       Prefer the `Category:` line the session already emitted; if absent, infer it.
     - Do NOT promote `structural-workaround` proposals to the expert guides while worktree
-      isolation is in effect (milestone-orchestrate STEP 6 / STEP 7.5; EPIC #1001). List them under a
+      isolation is in effect (worktree isolation per docs/patterns/delivery-agent-protocol.md §3; EPIC #1001). List them under a
       separate "Structural (suppressed — root cause fixed by worktree isolation)" heading so
       the human can confirm, but default their Status to `rejected` in the apply-log.
 
@@ -348,9 +350,10 @@ Human reviews:
 > shared-tree root-cause fix made unnecessary, so they must not re-enter the expert guides.
 > `env-constraint` rows (runtime/sandbox constraints worktree isolation does NOT fix — e.g.
 > background-subagent compound-Bash denial, non-persistent shell state) are NOT auto-rejected:
-> leave them `pending` and apply them by hand to the dispatch-prompt preamble in
-> `milestone-orchestrate.md` / `issue-deliver.md` — they are outside `/learn --apply`'s
-> expert-file scope, so `--apply` will not commit them.
+> leave them `pending` and apply them by hand to `docs/patterns/delivery-agent-protocol.md`
+> — the shared dispatch protocol every `.claude/agents/` delivery agent reads at startup.
+> The protocol doc is outside `/learn --apply`'s expert-file scope, so `--apply` will not
+> commit them.
 
 Status lifecycle: `pending` → `applied` (human sets) → `committed` (/learn --apply sets)
 Or: `pending` → `rejected` (human sets, stays rejected)

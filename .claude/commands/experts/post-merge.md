@@ -11,7 +11,7 @@ structured evidence of every action taken.
 ## Activity log (emit at every phase transition)
 
 ```
-[post-mrg PR#<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+[post-mrg PR#<N> <HH:MM:SS>] <PHASE>: <one-line description>
 ```
 
 | Phase | When to emit |
@@ -45,7 +45,7 @@ SESSION_DATE=<YYYY-MM-DD>
 ## Phase 1 — Identify affected services
 
 ```bash
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] START: post-merge verify for PR #${PR_NUMBER}  [ctx: ~10K | compress=0 | msgs=1]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] START: post-merge verify for PR #${PR_NUMBER}
 
 # Get changed paths
 CHANGED_FILES=$(gh pr view ${PR_NUMBER} --json files --jq '[.files[].path]')
@@ -84,7 +84,7 @@ If `$AFFECTED_SERVICES` is empty AND `$INFRA_CHANGED` is false, emit SKIP eviden
 ## Phase 2 — Find and wait for CI workflow runs
 
 ```bash
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] FIND_RUNS: querying workflow runs for merge commit ${MERGE_SHA}  [ctx: ~12K | compress=0 | msgs=3]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] FIND_RUNS: querying workflow runs for merge commit ${MERGE_SHA}
 
 # `gh run list --commit <SHA>` is NOT supported; use the REST API filtered by head_sha:
 RUNS=$(gh api "repos/zynax-io/zynax/actions/runs?per_page=50&branch=main" \
@@ -97,7 +97,7 @@ TOOLS_RUN=$(echo "$RUNS" | jq -r 'select(.name | test("tools|ci-runner"; "i")) |
 Poll until complete (max 20 minutes, 60 s intervals):
 
 ```bash
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] WAIT_CI: release=${RELEASE_RUN:-N/A} tools=${TOOLS_RUN:-N/A}  [ctx: ~12K | compress=0 | msgs=4]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] WAIT_CI: release=${RELEASE_RUN:-N/A} tools=${TOOLS_RUN:-N/A}
 
 DEADLINE=$(($(date +%s) + 1200))
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
@@ -125,7 +125,7 @@ done
 ## Phase 3 — Verify GHCR image publication
 
 ```bash
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] IMAGE_VERIFY: checking GHCR for affected services  [ctx: ~13K | compress=0 | msgs=5]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] IMAGE_VERIFY: checking GHCR for affected services
 
 VERIFIED_IMAGES=""
 for SVC in $AFFECTED_SERVICES; do
@@ -149,7 +149,7 @@ done
 ## Phase 3.5 — Runtime smoke (when INFRA_CHANGED or a service/adapter/CLI path changed)
 
 ```bash
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] RUNTIME_SMOKE: booting documented path on merged images  [ctx: ~13K | compress=0 | msgs=5]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] RUNTIME_SMOKE: booting documented path on merged images
 ```
 
 CI-green + image-published is **not** runtime evidence. If `INFRA_CHANGED` is true or the merge
@@ -172,7 +172,7 @@ block — never silently treat the absence of a smoke as a pass.
 ## Phase 4a — Update service image digest pins in docker-compose
 
 ```bash
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] DIGEST_UPDATE: updating docker-compose.services.yml  [ctx: ~14K | compress=0 | msgs=6]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] DIGEST_UPDATE: updating docker-compose.services.yml
 
 COMPOSE_FILE="infra/docker-compose/docker-compose.services.yml"
 COMPOSE_PINS_UPDATED=""
@@ -254,7 +254,7 @@ fi
 ## Phase 5 — Triage digest-bump issues
 
 ```bash
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] ISSUE_TRIAGE: consolidating open digest-bump issues  [ctx: ~15K | compress=0 | msgs=7]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] ISSUE_TRIAGE: consolidating open digest-bump issues
 
 BUMP_ISSUES=$(gh issue list --state open --limit 100 \
   --json number,title,createdAt \
@@ -286,7 +286,7 @@ echo "Implement issue: ${IMPLEMENT_ISSUE:-none}"
 Only run if `$COMPOSE_PINS_UPDATED` or `$YAML_PINS_UPDATED` is non-empty:
 
 ```bash
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] COMMIT: opening digest-update PR  [ctx: ~16K | compress=0 | msgs=8]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] COMMIT: opening digest-update PR
 
 # Your worktree already starts at origin/main (EPIC #1001) — branch directly off it.
 DIGEST_BRANCH="chore/post-merge-digest-pr${PR_NUMBER}"
@@ -309,7 +309,7 @@ Assisted-by: Claude/<model>"
 
 git push -u origin "$DIGEST_BRANCH"
 
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] PR: creating digest-update PR  [ctx: ~17K | compress=0 | msgs=9]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] PR: creating digest-update PR
 
 DIGEST_PR=$(gh pr create \
   --title "chore(ci): update digest pins post-merge of PR #${PR_NUMBER}" \
@@ -321,7 +321,7 @@ Assisted-by: Claude/<model>" | tail -1)
 gh pr merge "$DIGEST_PR" --squash --auto
 echo "Digest PR: $DIGEST_PR"
 
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] CI_WAIT: polling digest PR CI  [ctx: ~18K | compress=0 | msgs=10]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] CI_WAIT: polling digest PR CI
 
 DEADLINE=$(($(date +%s) + 600))
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
@@ -335,7 +335,7 @@ done
 ## Phase DONE / SKIP — Mandatory evidence block
 
 ```
-[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] DONE: post-merge verify complete  [ctx: ~XK | compress=C | msgs=M]
+[post-mrg PR#${PR_NUMBER} $(date +%H:%M:%S)] DONE: post-merge verify complete
 
 ## Post-Merge Evidence — PR #${PR_NUMBER}
 
@@ -370,13 +370,6 @@ done
 | Implemented    | ${IMPLEMENT_ISSUE:+#$IMPLEMENT_ISSUE} |
 | Digest PR      | ${DIGEST_PR:-none} |
 
-### Context
-| Metric      | Value |
-|-------------|-------|
-| ctx_initial | ~10K  |
-| ctx_final   | ~XK   |
-| compress    | C     |
-| msgs        | M     |
 ```
 
 ---

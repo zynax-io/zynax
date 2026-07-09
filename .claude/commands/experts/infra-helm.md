@@ -13,7 +13,7 @@ issue. You never touch Go service code — route those to the Go Services expert
 Output a progress line at the start of each phase — before any tool call for that phase:
 
 ```
-[infra #<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+[infra #<N> <HH:MM:SS>] <PHASE>: <one-line description>
 ```
 
 | Phase | When to emit |
@@ -23,7 +23,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `PLAN` | After reading files; approach confirmed |
 | `CODE` | When beginning to create or edit Helm/K8s/infra files |
 | `VALIDATE` | Before running `helm lint` / `make lint` |
-| `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
+| `COMMIT` | Before `git add` / `git commit` — entering the git phase (per git-ops guide) |
 | `PR` | Before `gh pr create` — build the PR body from docs/contributing/pr-templates.md (your type variant) |
 | `CI_WAIT` | On entering the CI polling loop |
 | `DONE` | On successful merge and cleanup |
@@ -31,30 +31,20 @@ Output a progress line at the start of each phase — before any tool call for t
 
 Example:
 ```
-[infra #809 11:05:00] START: feat(infra): kind cluster bootstrap + helmfile  [ctx: ~10K | compress=0 | msgs=1]
-[infra #809 11:05:01] READ: loading infra/AGENTS.md + issue body  [ctx: ~13K | compress=0 | msgs=2]
-[infra #809 11:07:30] PLAN: helmfile layout confirmed; kind config approach selected  [ctx: ~14K | compress=0 | msgs=3]
-[infra #809 11:07:31] CODE: writing infra/kind/cluster.yaml, helmfile.yaml  [ctx: ~14K | compress=0 | msgs=4]
-[infra #809 11:18:44] VALIDATE: helm lint infra/charts/...  [ctx: ~17K | compress=0 | msgs=6]
-[infra #809 11:19:10] COMMIT: lint clean — handing off to git-ops  [ctx: ~18K | compress=0 | msgs=7]
-[infra #809 11:34:02] DONE: PR #NNN merged; issue #809 closed  [ctx: ~19K | compress=0 | msgs=10]
+[infra #809 11:05:00] START: feat(infra): kind cluster bootstrap + helmfile
+[infra #809 11:05:01] READ: loading infra/AGENTS.md + issue body
+[infra #809 11:07:30] PLAN: helmfile layout confirmed; kind config approach selected
+[infra #809 11:07:31] CODE: writing infra/kind/cluster.yaml, helmfile.yaml
+[infra #809 11:18:44] VALIDATE: helm lint infra/charts/...
+[infra #809 11:19:10] COMMIT: lint clean — entering the git phase (per git-ops guide)
+[infra #809 11:34:02] DONE: PR #NNN merged; issue #809 closed
 ```
 
 ---
 
-## Context tracking
+## Context discipline
 
-Maintain counters throughout the session:
-- `CTX_TOKENS` — estimated context size in K tokens (start: ~10K; +0.5–3K per file read)
-- `CTX_COMPRESSIONS` — increment each time a context compression event is detected
-- `CTX_MSGS` — increment after each message you post
-
-### Split thresholds
-
-| Condition | Action |
-|-----------|--------|
-| `CTX_COMPRESSIONS == 1` OR `CTX_TOKENS > 80K` | Log `⚠ CONTEXT GROWING` — describe split point in output; continue cautiously |
-| `CTX_COMPRESSIONS >= 2` | **STOP immediately.** Output split proposal and exit |
+Read only files inside the issue scope (see docs/patterns/delivery-agent-protocol.md §10). If you notice your context has been compacted mid-run, finish the current step, stop at the next safe boundary, and emit the split report below.
 
 ### Split proposal format
 
@@ -70,13 +60,16 @@ Maintain counters throughout the session:
 
 ---
 
-## Handoff protocol
+## Git phase protocol
 
 You handle READ → PLAN → CODE → VALIDATE. Once `helm lint` is clean,
-**hand off to `git-ops`** for commit/push/PR/merge:
+**execute the commit → push → PR → queue-merge phase yourself** — there is no separate
+git-ops agent. Follow the git-ops guide (`.claude/commands/experts/git-ops.md`) and the
+shared protocol (docs/patterns/delivery-agent-protocol.md §5–§7). Assemble this checklist
+before starting that phase:
 
 ```
-HANDOFF to git-ops:
+GIT PHASE checklist:
   from_expert:  infra
   issue:        #<N>
   branch:       <branch>

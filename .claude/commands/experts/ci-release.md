@@ -13,7 +13,7 @@ You understand the images.yaml SoT system, cosign/SBOM supply chain, and GHCR AP
 Output a progress line at the start of each phase — before any tool call for that phase:
 
 ```
-[ci-rel #<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+[ci-rel #<N> <HH:MM:SS>] <PHASE>: <one-line description>
 ```
 
 | Phase | When to emit |
@@ -23,7 +23,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `PLAN` | After reading files; workflow approach confirmed |
 | `CODE` | When beginning to create or edit workflow / CI files |
 | `VALIDATE` | Before running `make lint` or local workflow validation |
-| `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
+| `COMMIT` | Before `git add` / `git commit` — entering the git phase (per git-ops guide) |
 | `PR` | Before `gh pr create` — build the PR body from docs/contributing/pr-templates.md (your type variant) |
 | `CI_WAIT` | On entering the CI polling loop |
 | `IMAGE_CHECK` | When verifying Docker/GHCR artifact publication post-merge |
@@ -32,31 +32,21 @@ Output a progress line at the start of each phase — before any tool call for t
 
 Example:
 ```
-[ci-rel #865 16:00:00] START: ci(infra): OCI manifest annotations — fix "no description"  [ctx: ~10K | compress=0 | msgs=1]
-[ci-rel #865 16:00:01] READ: loading .github/workflows/ + issue body  [ctx: ~13K | compress=0 | msgs=2]
-[ci-rel #865 16:03:20] PLAN: annotate on push via docker/metadata-action; release.yml + tools-image.yml  [ctx: ~16K | compress=0 | msgs=3]
-[ci-rel #865 16:03:21] CODE: editing .github/workflows/release.yml lines 310-340  [ctx: ~16K | compress=0 | msgs=4]
-[ci-rel #865 16:12:05] VALIDATE: make lint exit 0  [ctx: ~17K | compress=0 | msgs=5]
-[ci-rel #865 16:12:20] COMMIT: lint clean — handing off to git-ops  [ctx: ~18K | compress=0 | msgs=6]
-[ci-rel #865 16:28:14] IMAGE_CHECK: verifying GHCR annotations on post-merge run  [ctx: ~19K | compress=0 | msgs=9]
-[ci-rel #865 16:35:01] DONE: PR #NNN merged; issue #865 closed  [ctx: ~19K | compress=0 | msgs=10]
+[ci-rel #865 16:00:00] START: ci(infra): OCI manifest annotations — fix "no description"
+[ci-rel #865 16:00:01] READ: loading .github/workflows/ + issue body
+[ci-rel #865 16:03:20] PLAN: annotate on push via docker/metadata-action; release.yml + tools-image.yml
+[ci-rel #865 16:03:21] CODE: editing .github/workflows/release.yml lines 310-340
+[ci-rel #865 16:12:05] VALIDATE: make lint exit 0
+[ci-rel #865 16:12:20] COMMIT: lint clean — entering the git phase (per git-ops guide)
+[ci-rel #865 16:28:14] IMAGE_CHECK: verifying GHCR annotations on post-merge run
+[ci-rel #865 16:35:01] DONE: PR #NNN merged; issue #865 closed
 ```
 
 ---
 
-## Context tracking
+## Context discipline
 
-Maintain counters throughout the session:
-- `CTX_TOKENS` — estimated context size in K tokens (start: ~10K; +0.5–3K per file read)
-- `CTX_COMPRESSIONS` — increment each time a context compression event is detected
-- `CTX_MSGS` — increment after each message you post
-
-### Split thresholds
-
-| Condition | Action |
-|-----------|--------|
-| `CTX_COMPRESSIONS == 1` OR `CTX_TOKENS > 80K` | Log `⚠ CONTEXT GROWING` — describe split point in output; continue cautiously |
-| `CTX_COMPRESSIONS >= 2` | **STOP immediately.** Output split proposal and exit |
+Read only files inside the issue scope (see docs/patterns/delivery-agent-protocol.md §10). If you notice your context has been compacted mid-run, finish the current step, stop at the next safe boundary, and emit the split report below.
 
 ### Split proposal format
 
@@ -72,13 +62,16 @@ Maintain counters throughout the session:
 
 ---
 
-## Handoff protocol
+## Git phase protocol
 
 You handle READ → PLAN → CODE → VALIDATE. Once `make lint` is clean,
-**hand off to `git-ops`** for commit/push/PR/merge:
+**execute the commit → push → PR → queue-merge phase yourself** — there is no separate
+git-ops agent. Follow the git-ops guide (`.claude/commands/experts/git-ops.md`) and the
+shared protocol (docs/patterns/delivery-agent-protocol.md §5–§7). Assemble this checklist
+before starting that phase:
 
 ```
-HANDOFF to git-ops:
+GIT PHASE checklist:
   from_expert:  ci-rel
   issue:        #<N>
   branch:       <branch>

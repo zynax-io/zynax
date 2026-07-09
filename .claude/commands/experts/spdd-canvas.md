@@ -13,7 +13,7 @@ reviews, and write ADR proposals. You never write implementation code.
 Output a progress line at the start of each phase — before any tool call for that phase:
 
 ```
-[spdd #<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+[spdd #<N> <HH:MM:SS>] <PHASE>: <one-line description>
 ```
 
 | Phase | When to emit |
@@ -26,7 +26,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `FIX` | When applying security-review findings |
 | `ALIGN` | When setting `Status: Aligned` on the canvas |
 | `STORIES` | When creating story issues via `/lib:spdd-story` |
-| `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
+| `COMMIT` | Before `git add` / `git commit` — entering the git phase (per git-ops guide) |
 | `PR` | Before `gh pr create` — build the PR body from docs/contributing/pr-templates.md (your type variant) |
 | `CI_WAIT` | On entering the CI polling loop |
 | `DONE` | On successful merge and cleanup |
@@ -34,33 +34,23 @@ Output a progress line at the start of each phase — before any tool call for t
 
 Example:
 ```
-[spdd #772 08:00:00] START: epic(event-bus): M6.I — NATS JetStream implementation  [ctx: ~10K | compress=0 | msgs=1]
-[spdd #772 08:00:01] READ: loading AGENTS.md, ADR index, issue body  [ctx: ~14K | compress=0 | msgs=2]
-[spdd #772 08:03:10] ANALYSIS: scanning services/event-bus/, ADR-001/013/022 constraints  [ctx: ~17K | compress=0 | msgs=3]
-[spdd #772 08:06:40] CANVAS: writing docs/spdd/772-event-bus/canvas.md  [ctx: ~17K | compress=0 | msgs=4]
-[spdd #772 08:10:05] SECURITY: running /lib:spdd-security-review  [ctx: ~18K | compress=0 | msgs=5]
-[spdd #772 08:10:20] FIX: removing inline email address from N section  [ctx: ~18K | compress=0 | msgs=6]
-[spdd #772 08:10:35] ALIGN: setting Status: Aligned  [ctx: ~18K | compress=0 | msgs=7]
-[spdd #772 08:10:36] STORIES: creating issues #823–#828 on GitHub  [ctx: ~19K | compress=0 | msgs=8]
-[spdd #772 08:12:00] COMMIT: handing off to git-ops for commit+PR  [ctx: ~20K | compress=0 | msgs=9]
-[spdd #772 08:20:01] DONE: PR #NNN merged; canvas Aligned; stories ready  [ctx: ~20K | compress=0 | msgs=11]
+[spdd #772 08:00:00] START: epic(event-bus): M6.I — NATS JetStream implementation
+[spdd #772 08:00:01] READ: loading AGENTS.md, ADR index, issue body
+[spdd #772 08:03:10] ANALYSIS: scanning services/event-bus/, ADR-001/013/022 constraints
+[spdd #772 08:06:40] CANVAS: writing docs/spdd/772-event-bus/canvas.md
+[spdd #772 08:10:05] SECURITY: running /lib:spdd-security-review
+[spdd #772 08:10:20] FIX: removing inline email address from N section
+[spdd #772 08:10:35] ALIGN: setting Status: Aligned
+[spdd #772 08:10:36] STORIES: creating issues #823–#828 on GitHub
+[spdd #772 08:12:00] COMMIT: entering the git phase for commit+PR (per git-ops guide)
+[spdd #772 08:20:01] DONE: PR #NNN merged; canvas Aligned; stories ready
 ```
 
 ---
 
-## Context tracking
+## Context discipline
 
-Maintain counters throughout the session:
-- `CTX_TOKENS` — estimated context size in K tokens (start: ~10K; +0.5–3K per file read)
-- `CTX_COMPRESSIONS` — increment each time a context compression event is detected
-- `CTX_MSGS` — increment after each message you post
-
-### Split thresholds
-
-| Condition | Action |
-|-----------|--------|
-| `CTX_COMPRESSIONS == 1` OR `CTX_TOKENS > 80K` | Log `⚠ CONTEXT GROWING` — describe current canvas state and which O-steps remain |
-| `CTX_COMPRESSIONS >= 2` | **STOP immediately.** Output split proposal and exit |
+Read only files inside the issue scope (see docs/patterns/delivery-agent-protocol.md §10). If you notice your context has been compacted mid-run, finish the current step, stop at the next safe boundary, and emit the split report below.
 
 ### Split proposal format
 
@@ -75,13 +65,16 @@ Maintain counters throughout the session:
 
 ---
 
-## Handoff protocol
+## Git phase protocol
 
-You handle analysis → canvas → security → align → stories. For commit/PR/merge,
-**hand off to `git-ops`**:
+You handle analysis → canvas → security → align → stories. Then
+**execute the commit → push → PR → queue-merge phase yourself** — there is no separate
+git-ops agent. Follow the git-ops guide (`.claude/commands/experts/git-ops.md`) and the
+shared protocol (docs/patterns/delivery-agent-protocol.md §5–§7). Assemble this checklist
+before starting that phase:
 
 ```
-HANDOFF to git-ops:
+GIT PHASE checklist:
   from_expert:  spdd
   issue:        #<N>
   branch:       <branch>

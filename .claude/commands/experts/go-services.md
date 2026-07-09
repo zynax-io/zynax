@@ -13,7 +13,7 @@ a structured result. You never read files outside the scope of the issue.
 Output a progress line at the start of each phase — before any tool call for that phase:
 
 ```
-[go-svc #<N> <HH:MM:SS>] <PHASE>: <one-line description>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+[go-svc #<N> <HH:MM:SS>] <PHASE>: <one-line description>
 ```
 
 | Phase | When to emit |
@@ -23,7 +23,7 @@ Output a progress line at the start of each phase — before any tool call for t
 | `PLAN` | After reading files; before writing any code |
 | `CODE` | When beginning to create or edit source files |
 | `TEST` | Before running `go build`, `go test`, `make lint` |
-| `COMMIT` | Before `git add` / `git commit` — handing off to git-ops |
+| `COMMIT` | Before `git add` / `git commit` — entering the git phase (per git-ops guide) |
 | `PR` | Before `gh pr create` — build the PR body from docs/contributing/pr-templates.md (your type variant) |
 | `CI_WAIT` | On entering the CI polling loop |
 | `DONE` | On successful merge and cleanup |
@@ -31,39 +31,26 @@ Output a progress line at the start of each phase — before any tool call for t
 
 Example:
 ```
-[go-svc #823 14:32:01] START: feat(event-bus): service scaffold  [ctx: ~10K | compress=0 | msgs=1]
-[go-svc #823 14:32:02] READ: loading services/event-bus/AGENTS.md + issue body  [ctx: ~13K | compress=0 | msgs=2]
-[go-svc #823 14:35:10] PLAN: domain interfaces settled  [ctx: ~15K | compress=0 | msgs=3]
-[go-svc #823 14:35:11] CODE: writing internal/domain/bus.go, event.go, errors.go  [ctx: ~16K | compress=0 | msgs=4]
-[go-svc #823 14:48:22] TEST: GOWORK=off go test ./... -race  [ctx: ~22K | compress=0 | msgs=7]
-[go-svc #823 14:49:01] COMMIT: all gates green — handing off to git-ops  [ctx: ~23K | compress=0 | msgs=8]
-[go-svc #823 15:03:44] DONE: PR #NNN merged; issue #823 closed  [ctx: ~24K | compress=0 | msgs=10]
+[go-svc #823 14:32:01] START: feat(event-bus): service scaffold
+[go-svc #823 14:32:02] READ: loading services/event-bus/AGENTS.md + issue body
+[go-svc #823 14:35:10] PLAN: domain interfaces settled
+[go-svc #823 14:35:11] CODE: writing internal/domain/bus.go, event.go, errors.go
+[go-svc #823 14:48:22] TEST: GOWORK=off go test ./... -race
+[go-svc #823 14:49:01] COMMIT: all gates green — entering the git phase (per git-ops guide)
+[go-svc #823 15:03:44] DONE: PR #NNN merged; issue #823 closed
 ```
 
 ---
 
-## Context tracking
+## Context discipline
 
-Estimate your context size in kilotoken units (`~XK`) — same unit as Claude Code's display.
-Rough heuristics:
-- Session start (system prompt + expert file): **~10K**
-- Per file read: **+0.5–3K** depending on file size
-- Per message pair exchanged: **+0.5K**
-
-Maintain counters: `CTX_TOKENS` (estimated K), `CTX_COMPRESSIONS`, `CTX_MSGS`.
-
-### Split thresholds
-
-| Condition | Action |
-|-----------|--------|
-| `CTX_TOKENS > 80K` OR `CTX_COMPRESSIONS == 1` | Log `⚠ CONTEXT GROWING` — describe split point in output; continue cautiously |
-| `CTX_TOKENS > 140K` OR `CTX_COMPRESSIONS >= 2` | **STOP immediately.** Output split proposal and exit |
+Read only files inside the issue scope (see docs/patterns/delivery-agent-protocol.md §10). If you notice your context has been compacted mid-run, finish the current step, stop at the next safe boundary, and emit the split report below.
 
 ### Split proposal format
 
 ```
 ⚠ CONTEXT SPLIT REQUIRED (go-svc #<N>)
-  Stopped at:    STEP <N> — <phase>  [ctx: ~<X>K | compress=<C> | msgs=<M>]
+  Stopped at:    STEP <N> — <phase>
   Branch:        <branch-name> (pushed: yes/no)
   Files written: <list>
   Tests:         <pass/fail summary or "not yet run">
@@ -73,13 +60,16 @@ Maintain counters: `CTX_TOKENS` (estimated K), `CTX_COMPRESSIONS`, `CTX_MSGS`.
 
 ---
 
-## Handoff protocol
+## Git phase protocol
 
-You handle implementation only (READ → PLAN → CODE → TEST). Once all local gates pass,
-**hand off to `git-ops`** for commit/push/PR/merge:
+You handle implementation (READ → PLAN → CODE → TEST). Once all local gates pass,
+**execute the commit → push → PR → queue-merge phase yourself** — there is no separate
+git-ops agent. Follow the git-ops guide (`.claude/commands/experts/git-ops.md`) and the
+shared protocol (docs/patterns/delivery-agent-protocol.md §5–§7). Assemble this checklist
+before starting that phase:
 
 ```
-HANDOFF to git-ops:
+GIT PHASE checklist:
   from_expert:  go-svc
   issue:        #<N>
   branch:       <branch>
@@ -299,8 +289,8 @@ nats, _ := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerR
 
 ## Git safety
 
-You run in your own isolated git worktree (EPIC #1001 — `milestone-orchestrate` STEP 6 /
-`issue-deliver` STEP 2.5): a private checkout with its own `HEAD` and index. Branch
+You run in your own isolated git worktree (EPIC #1001 — see
+`docs/patterns/delivery-agent-protocol.md` §3): a private checkout with its own `HEAD` and index. Branch
 switches, `git add`, and `git stash` here are invisible to sibling agents and theirs to you,
 so no defensive branch-verify before each Bash call, no explicit-path-only staging to dodge
 sibling contamination, and no stash-avoidance is needed.
