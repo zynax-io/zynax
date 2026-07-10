@@ -6,7 +6,7 @@
 **Issue:** #1692
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-07-08
-**Status:** Draft
+**Status:** Aligned
 
 > Story issues: step 1 → #1620 · steps 2–4 → filed via `/lib:spdd-story` on alignment
 > (the suite's name/versioning scheme is the open design question a human aligns first).

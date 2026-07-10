@@ -6,7 +6,7 @@
 **Issue:** #1674
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-07-08
-**Status:** Draft
+**Status:** Aligned
 
 > Story issues: step 1 → #1697 · step 2 → #1698 · step 3 → #1598 · step 4 → #1699
 
