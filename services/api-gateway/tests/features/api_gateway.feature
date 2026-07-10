@@ -3,29 +3,16 @@ Feature: API Gateway
 
   # ── Existing cross-cutting scenarios ────────────────────────────────────
 
-  Scenario: POST /api/v1/agents returns 201 with agent_id
-    Given a valid agent registration request body
-    When POST /api/v1/agents is called with a valid API key
-    Then the HTTP status is 201
-    And the response contains a non-empty agent_id
-
-  # Bearer auth is enforced at the Gateway API edge (ADR-044/M8.F), not in the
-  # api-gateway — so there is no in-process 401 to assert here.
-
-  Scenario: Insufficient permissions returns 403
-    Given a token with permissions ["tasks:read"]
-    When POST /api/v1/agents is called (requires agents:write)
-    Then the HTTP status is 403
+  # Bearer auth and rate-limiting are enforced at the Gateway API edge
+  # (ADR-044/M8.F), not in the api-gateway — so there is no in-process 401/403
+  # to assert here. Agent registration over REST is retired (ADR-039): the
+  # Agent custom resource is the only registration surface.
 
   Scenario: Rate limit exceeded returns 429
     Given 101 requests in 1 minute from the same client
     When the 102nd request is made
     Then the HTTP status is 429
     And Retry-After header is present
-
-  Scenario: gRPC NOT_FOUND maps to 404
-    When GET /api/v1/agents/does-not-exist is called
-    Then the HTTP status is 404
 
   Scenario: Internal gRPC errors return 500 without leaking details
     Given the upstream service returns a gRPC INTERNAL error
@@ -91,13 +78,12 @@ Feature: API Gateway
     When GET /api/v1/workflows/ghost-run is called
     Then the HTTP status is 404
 
-  # ── POST /api/v1/apply — AgentDef kind retired (ADR-039, #1584) ─────────
-  # The Agent custom resource is the single source of truth; the gateway no
-  # longer forwards AgentDef manifests as push registrations. The route
-  # answers 410 Gone with a migration pointer until its M9 removal.
+  # ── POST /api/v1/apply — AgentDef kind retired (ADR-039, #1697) ─────────
+  # The Agent custom resource is the single source of truth; the gateway's push
+  # client is deleted (M9.A step 1), so kind: AgentDef is never parsed or
+  # forwarded — the route answers 410 Gone with a migration pointer.
 
   Scenario: POST /api/v1/apply with kind AgentDef returns 410 with migration pointer
-    Given an AgentRegistryService that accepts the registration
     When POST /api/v1/apply is called with a valid kind: AgentDef YAML body
     Then the HTTP status is 410
     And the response code is "AGENTDEF_RETIRED"

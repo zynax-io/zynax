@@ -7,10 +7,9 @@ import "errors"
 // Sentinel errors returned by domain operations and mapped to HTTP/gRPC status
 // codes at the api boundary. Callers must use errors.Is to test these.
 var (
-	ErrCompilationFailed  = errors.New("api-gateway: compilation failed")
-	ErrEngineUnavailable  = errors.New("api-gateway: engine unavailable")
-	ErrNotFound           = errors.New("api-gateway: not found")
-	ErrAgentAlreadyExists = errors.New("api-gateway: agent already registered")
+	ErrCompilationFailed = errors.New("api-gateway: compilation failed")
+	ErrEngineUnavailable = errors.New("api-gateway: engine unavailable")
+	ErrNotFound          = errors.New("api-gateway: not found")
 
 	// ErrAgentDefRetired is returned for kind: AgentDef manifests now that the
 	// Agent custom resource is the single source of truth (ADR-039): apply the

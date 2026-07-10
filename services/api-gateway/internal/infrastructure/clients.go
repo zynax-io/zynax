@@ -24,15 +24,15 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	"gopkg.in/yaml.v3"
 )
 
-// GatewayClients implements domain.CompilerPort, domain.EnginePort, and
-// domain.RegistryPort using gRPC connections to downstream services.
+// GatewayClients implements domain.CompilerPort and domain.EnginePort using
+// gRPC connections to downstream services. It no longer dials the
+// AgentRegistryService: push registration is retired (ADR-039) — agent identity
+// is the Agent custom resource — so the gateway carries no registry client.
 type GatewayClients struct {
 	compiler    zynaxv1.WorkflowCompilerServiceClient
 	engine      zynaxv1.EngineAdapterServiceClient
-	registry    zynaxv1.AgentRegistryServiceClient
 	events      *zynaxevents.Client
 	conns       []*grpc.ClientConn
 	callTimeout time.Duration
@@ -59,13 +59,15 @@ func (c *GatewayClients) ConnectionsReady() bool {
 	return true
 }
 
-// NewGatewayClients dials the three downstream gRPC services and connects the
-// shared JetStream events client (ADR-046 — eventing is no longer a gRPC
-// peer). callTimeout is applied as a per-call deadline on every unary RPC
-// (streaming Watch excluded). tlsCertFile, tlsKeyFile, tlsCAFile are paths to
-// PEM files for mTLS; pass empty strings to fall back to insecure credentials
-// (dev/test). The returned cleanup closes everything and must be deferred.
-func NewGatewayClients(compilerAddr, engineAddr, registryAddr, natsURL string, callTimeout time.Duration, tlsCertFile, tlsKeyFile, tlsCAFile, eventsTLSCert, eventsTLSKey, eventsTLSCA string) (*GatewayClients, func(), error) {
+// NewGatewayClients dials the two downstream gRPC services (compiler, engine)
+// and connects the shared JetStream events client (ADR-046 — eventing is no
+// longer a gRPC peer). The AgentRegistryService is not dialled: push
+// registration is retired (ADR-039). callTimeout is applied as a per-call
+// deadline on every unary RPC (streaming Watch excluded). tlsCertFile,
+// tlsKeyFile, tlsCAFile are paths to PEM files for mTLS; pass empty strings to
+// fall back to insecure credentials (dev/test). The returned cleanup closes
+// everything and must be deferred.
+func NewGatewayClients(compilerAddr, engineAddr, natsURL string, callTimeout time.Duration, tlsCertFile, tlsKeyFile, tlsCAFile, eventsTLSCert, eventsTLSKey, eventsTLSCA string) (*GatewayClients, func(), error) {
 	creds, err := tlsCreds(tlsCertFile, tlsKeyFile, tlsCAFile)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("api-gateway: tls credentials: %w", err)
@@ -86,12 +88,6 @@ func NewGatewayClients(compilerAddr, engineAddr, registryAddr, natsURL string, c
 		_ = compConn.Close()
 		return nil, func() {}, fmt.Errorf("api-gateway: engine dial: %w", err)
 	}
-	regConn, err := grpc.NewClient(registryAddr, dialOpts...)
-	if err != nil {
-		_ = compConn.Close()
-		_ = engConn.Close()
-		return nil, func() {}, fmt.Errorf("api-gateway: registry dial: %w", err)
-	}
 	// Direct JetStream (ADR-046): RetryOnFailedConnect keeps startup
 	// broker-independent — the old gRPC dial was lazy, and a NATS-less
 	// profile (ADR-041 lite) must still boot; the /logs event merge is
@@ -106,21 +102,18 @@ func NewGatewayClients(compilerAddr, engineAddr, registryAddr, natsURL string, c
 	if err != nil {
 		_ = compConn.Close()
 		_ = engConn.Close()
-		_ = regConn.Close()
 		return nil, func() {}, fmt.Errorf("api-gateway: events client: %w", err)
 	}
 	c := &GatewayClients{
 		compiler:    zynaxv1.NewWorkflowCompilerServiceClient(compConn),
 		engine:      zynaxv1.NewEngineAdapterServiceClient(engConn),
-		registry:    zynaxv1.NewAgentRegistryServiceClient(regConn),
 		events:      events,
-		conns:       []*grpc.ClientConn{compConn, engConn, regConn},
+		conns:       []*grpc.ClientConn{compConn, engConn},
 		callTimeout: callTimeout,
 	}
 	cleanup := func() {
 		_ = compConn.Close()
 		_ = engConn.Close()
-		_ = regConn.Close()
 		events.Close()
 	}
 	return c, cleanup, nil
@@ -294,59 +287,6 @@ func (c *GatewayClients) PublishEvent(ctx context.Context, ev domain.EventPublis
 	return eventID, nil
 }
 
-// RegisterAgent implements domain.RegistryPort.
-// The raw YAML is parsed here in the infrastructure layer; the domain never
-// sees proto types or YAML-parsed structs (ADR-011, ADR-001).
-func (c *GatewayClients) RegisterAgent(ctx context.Context, manifestYAML []byte, _ string) (domain.AgentRegistration, error) {
-	var m agentDefManifest
-	if err := yaml.Unmarshal(manifestYAML, &m); err != nil {
-		return domain.AgentRegistration{}, fmt.Errorf("api-gateway: parse AgentDef: %w", err)
-	}
-	caps := make([]*zynaxv1.CapabilityDef, len(m.Spec.Capabilities))
-	for i, cap := range m.Spec.Capabilities {
-		caps[i] = &zynaxv1.CapabilityDef{Name: cap.Name, Description: cap.Description}
-	}
-	req := &zynaxv1.RegisterAgentRequest{
-		Agent: &zynaxv1.AgentDef{
-			AgentId:      m.Metadata.Name,
-			Name:         m.Metadata.Name,
-			Endpoint:     m.Spec.Endpoint,
-			Capabilities: caps,
-			Labels:       m.Metadata.Labels,
-		},
-	}
-	callCtx, cancel := context.WithTimeout(ctx, c.callTimeout)
-	defer cancel()
-	resp, err := c.registry.RegisterAgent( //nolint:staticcheck // SA1019: dead code behind domain.ErrAgentDefRetired; deleted with the M9 hard RPC removal (ADR-039).
-		callCtx, req)
-	if err != nil {
-		return domain.AgentRegistration{}, mapRegistryGRPCError(err)
-	}
-	return domain.AgentRegistration{AgentID: resp.GetAgentId()}, nil
-}
-
-// ── YAML manifest structs (infrastructure-private) ────────────────────────
-
-type agentDefManifest struct {
-	Metadata agentDefMetadata `yaml:"metadata"`
-	Spec     agentDefSpec     `yaml:"spec"`
-}
-
-type agentDefMetadata struct {
-	Name   string            `yaml:"name"`
-	Labels map[string]string `yaml:"labels"`
-}
-
-type agentDefSpec struct {
-	Endpoint     string           `yaml:"endpoint"`
-	Capabilities []capabilitySpec `yaml:"capabilities"`
-}
-
-type capabilitySpec struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-}
-
 // ── error mapping ─────────────────────────────────────────────────────────
 
 func mapCompilerGRPCError(err error) (domain.CompileResult, error) {
@@ -368,16 +308,6 @@ func mapEngineGRPCError(err error) error {
 		return fmt.Errorf("api-gateway: %w", domain.ErrEngineUnavailable)
 	default:
 		return fmt.Errorf("api-gateway: engine: %w", err)
-	}
-}
-
-func mapRegistryGRPCError(err error) error {
-	st, _ := status.FromError(err)
-	switch st.Code() {
-	case codes.AlreadyExists:
-		return fmt.Errorf("api-gateway: %w", domain.ErrAgentAlreadyExists)
-	default:
-		return fmt.Errorf("api-gateway: registry: %w", err)
 	}
 }
 

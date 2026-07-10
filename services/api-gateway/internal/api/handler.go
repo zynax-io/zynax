@@ -97,23 +97,23 @@ func (h *Handler) applyWorkflow(w http.ResponseWriter, r *http.Request, body []b
 	}
 }
 
+// applyAgentDef answers every kind: AgentDef apply with 410 Gone and a pointer
+// to the Agent custom resource (ADR-039). Push registration is retired: the
+// gateway no longer parses or forwards the manifest — agent identity lives in
+// the zynax.io/v1alpha1 Agent CR, applied with kubectl.
 func (h *Handler) applyAgentDef(w http.ResponseWriter, r *http.Request, body []byte) {
 	req := domain.ApplyRequest{
 		ManifestYAML: body,
 		Namespace:    r.URL.Query().Get("namespace"),
 	}
-	result, err := h.svc.ApplyAgentDef(r.Context(), req)
+	_, err := h.svc.ApplyAgentDef(r.Context(), req)
 	switch {
 	case errors.Is(err, domain.ErrAgentDefRetired):
 		writeError(w, http.StatusGone,
-			"AgentDef push registration retired (ADR-039) — apply a zynax.io/v1alpha1 Agent custom resource instead (docs/patterns/agent-crd-migration.md)",
+			"AgentDef push registration retired (ADR-039) — apply a zynax.io/v1alpha1 Agent custom resource with kubectl instead (docs/patterns/agent-crd-migration.md)",
 			"AGENTDEF_RETIRED")
-	case errors.Is(err, domain.ErrAgentAlreadyExists):
-		writeError(w, http.StatusConflict, "agent already registered", "ALREADY_EXISTS")
-	case err != nil:
-		writeError(w, http.StatusInternalServerError, "internal error", "INTERNAL")
 	default:
-		writeJSON(w, http.StatusCreated, agentDefResp{AgentID: result.AgentID})
+		writeError(w, http.StatusInternalServerError, "internal error", "INTERNAL")
 	}
 }
 
@@ -306,10 +306,6 @@ type compileErrItem struct {
 
 type compileErrsResp struct {
 	Errors []compileErrItem `json:"errors"`
-}
-
-type agentDefResp struct {
-	AgentID string `json:"agent_id"`
 }
 
 type publishEventReq struct {

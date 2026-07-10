@@ -63,16 +63,6 @@ func (s *stubEngine) WatchWorkflow(_ context.Context, _ string, send func(domain
 	return nil
 }
 
-// stubRegistry is a test double for RegistryPort.
-type stubRegistry struct {
-	reg domain.AgentRegistration
-	err error
-}
-
-func (s *stubRegistry) RegisterAgent(_ context.Context, _ []byte, _ string) (domain.AgentRegistration, error) {
-	return s.reg, s.err
-}
-
 // stubEventBus is a test double for EventBusPort. It emits its events then
 // blocks until ctx is cancelled, mirroring the real event-bus which holds the
 // subscription open until terminal workflow state.
@@ -111,7 +101,6 @@ func TestApplyService_ApplyWorkflow_Success(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir"), Warnings: []string{"w1"}}},
 		&stubEngine{submitID: "run-001"},
-		&stubRegistry{},
 		nil,
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
@@ -134,7 +123,6 @@ func TestApplyService_ApplyWorkflow_CompilationErrors(t *testing.T) {
 			Errors: []domain.CompileError{{Code: "YAML_PARSE_ERROR", Message: "bad yaml", Line: 3}},
 		}},
 		&stubEngine{},
-		&stubRegistry{},
 		nil,
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
@@ -158,7 +146,6 @@ func TestApplyService_ApplyWorkflow_DryRun_NoSubmit(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir"), Warnings: []string{"w"}}},
 		engine,
-		&stubRegistry{},
 		nil,
 	)
 	engine.submitErr = nil // reset — test checks RunID is empty, not that submit errors
@@ -180,7 +167,6 @@ func TestApplyService_ApplyWorkflow_CompilerError_Propagates(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{err: domain.ErrEngineUnavailable},
 		&stubEngine{},
-		&stubRegistry{},
 		nil,
 	)
 	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: []byte("y")})
@@ -193,7 +179,6 @@ func TestApplyService_ApplyWorkflow_EngineUnavailable(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
 		&stubEngine{submitErr: domain.ErrEngineUnavailable},
-		&stubRegistry{},
 		nil,
 	)
 	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: []byte("y")})
@@ -206,7 +191,7 @@ func TestApplyService_GetWorkflowStatus_Success(t *testing.T) {
 	want := domain.WorkflowRunSummary{
 		RunID: "r1", WorkflowID: "w1", Status: "RUNNING", CurrentState: "review",
 	}
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusRun: want}, &stubRegistry{}, nil)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusRun: want}, nil)
 	got, err := svc.GetWorkflowStatus(context.Background(), "r1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -217,7 +202,7 @@ func TestApplyService_GetWorkflowStatus_Success(t *testing.T) {
 }
 
 func TestApplyService_GetWorkflowStatus_NotFound(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusErr: domain.ErrNotFound}, &stubRegistry{}, nil)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{statusErr: domain.ErrNotFound}, nil)
 	_, err := svc.GetWorkflowStatus(context.Background(), "unknown")
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
@@ -225,15 +210,10 @@ func TestApplyService_GetWorkflowStatus_NotFound(t *testing.T) {
 }
 
 // CRD era (ADR-039): the AgentDef push forward is retired — every apply of
-// kind: AgentDef answers with the migration pointer, and the registry port is
-// never called (the stub would panic on use; nil registry proves no call).
+// kind: AgentDef answers with the migration pointer. The push client has been
+// deleted (#1697), so the gateway holds no registry port at all.
 func TestApplyService_ApplyAgentDef_Retired(t *testing.T) {
-	svc := domain.NewApplyService(
-		&stubCompiler{},
-		&stubEngine{},
-		&stubRegistry{reg: domain.AgentRegistration{AgentID: "agent-001"}},
-		nil,
-	)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, nil)
 	_, err := svc.ApplyAgentDef(context.Background(), domain.ApplyRequest{
 		ManifestYAML: []byte("kind: AgentDef\n"),
 	})
@@ -247,7 +227,7 @@ func TestApplyService_WatchWorkflowLogs_DeliversEvents(t *testing.T) {
 		{RunID: "r1", EventType: "state.entered", ToState: "review", Status: "WORKFLOW_STATUS_RUNNING"},
 		{RunID: "r1", EventType: "workflow.completed", Status: "WORKFLOW_STATUS_COMPLETED"},
 	}
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{watchEvents: events}, &stubRegistry{}, nil)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{watchEvents: events}, nil)
 
 	var got []domain.WatchEvent
 	err := svc.WatchWorkflowLogs(context.Background(), "r1", func(ev domain.WatchEvent) error {
@@ -269,7 +249,7 @@ func TestApplyService_WatchWorkflowLogs_DeliversEvents(t *testing.T) {
 }
 
 func TestApplyService_WatchWorkflowLogs_NotFound(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{watchErr: domain.ErrNotFound}, &stubRegistry{}, nil)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{watchErr: domain.ErrNotFound}, nil)
 	err := svc.WatchWorkflowLogs(context.Background(), "ghost", func(_ domain.WatchEvent) error { return nil })
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
@@ -282,7 +262,7 @@ func TestApplyService_WatchWorkflowLogs_MergesHistoryAndEvents(t *testing.T) {
 		watchEvents: []domain.WatchEvent{{RunID: "r1", EventType: "state.entered", Status: "WORKFLOW_STATUS_RUNNING"}},
 	}
 	bus := &stubEventBus{events: []domain.WatchEvent{{RunID: "wf-abc", EventType: "zynax.task.completed", Status: "capability_event"}}}
-	svc := domain.NewApplyService(&stubCompiler{}, engine, &stubRegistry{}, bus)
+	svc := domain.NewApplyService(&stubCompiler{}, engine, bus)
 
 	var (
 		mu  sync.Mutex
@@ -319,7 +299,7 @@ func TestApplyService_WatchWorkflowLogs_EventBusErrorDoesNotAbortEngine(t *testi
 		watchEvents: []domain.WatchEvent{{RunID: "r1", EventType: "state.entered", Status: "WORKFLOW_STATUS_RUNNING"}},
 	}
 	bus := &stubEventBus{err: errors.New("bus down")}
-	svc := domain.NewApplyService(&stubCompiler{}, engine, &stubRegistry{}, bus)
+	svc := domain.NewApplyService(&stubCompiler{}, engine, bus)
 
 	var count int
 	err := svc.WatchWorkflowLogs(context.Background(), "r1", func(_ domain.WatchEvent) error {
@@ -337,7 +317,7 @@ func TestApplyService_WatchWorkflowLogs_EventBusErrorDoesNotAbortEngine(t *testi
 func TestApplyService_WatchWorkflowLogs_EngineErrorWithEventBus(t *testing.T) {
 	engine := &stubEngine{watchErr: domain.ErrNotFound}
 	bus := &stubEventBus{}
-	svc := domain.NewApplyService(&stubCompiler{}, engine, &stubRegistry{}, bus)
+	svc := domain.NewApplyService(&stubCompiler{}, engine, bus)
 	err := svc.WatchWorkflowLogs(context.Background(), "ghost", func(_ domain.WatchEvent) error { return nil })
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
@@ -347,14 +327,14 @@ func TestApplyService_WatchWorkflowLogs_EngineErrorWithEventBus(t *testing.T) {
 // ── CancelWorkflow ───────────────────────────────────────────────────────────
 
 func TestApplyService_CancelWorkflow_Success(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, nil)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, nil)
 	if err := svc.CancelWorkflow(context.Background(), "r1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestApplyService_CancelWorkflow_NotFound(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{cancelErr: domain.ErrNotFound}, &stubRegistry{}, nil)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{cancelErr: domain.ErrNotFound}, nil)
 	err := svc.CancelWorkflow(context.Background(), "ghost")
 	if !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
@@ -410,7 +390,6 @@ func TestApplyService_ApplyWorkflow_Idempotent_Running_ReturnsExisting(t *testin
 	svc := domain.NewApplyService(
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
 		engine,
-		&stubRegistry{},
 		nil,
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: yaml})
@@ -438,7 +417,6 @@ func TestApplyService_ApplyWorkflow_Idempotent_Completed_StartsRerun(t *testing.
 	svc := domain.NewApplyService(
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
 		engine,
-		&stubRegistry{},
 		nil,
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: yaml})
@@ -463,7 +441,6 @@ func TestApplyService_ApplyWorkflow_New_UsesHashID(t *testing.T) {
 	svc := domain.NewApplyService(
 		&stubCompiler{result: domain.CompileResult{IRBytes: []byte("ir")}},
 		engine,
-		&stubRegistry{},
 		nil,
 	)
 	result, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: yaml})
@@ -492,7 +469,6 @@ func TestApplyService_ApplyWorkflow_NamespacePropagatedToEngine(t *testing.T) {
 			Namespace: "team-a",
 		}},
 		engine,
-		&stubRegistry{},
 		nil,
 	)
 	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{ManifestYAML: manifest})
@@ -517,7 +493,6 @@ func TestApplyService_ApplyWorkflow_CompiledNamespaceWins(t *testing.T) {
 			Namespace: "ns-b",
 		}},
 		engine,
-		&stubRegistry{},
 		nil,
 	)
 	_, err := svc.ApplyWorkflow(context.Background(), domain.ApplyRequest{
@@ -534,7 +509,7 @@ func TestApplyService_ApplyWorkflow_CompiledNamespaceWins(t *testing.T) {
 
 func TestApplyService_PublishEvent_Success(t *testing.T) {
 	bus := &stubEventBus{publishID: "evt-1"}
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, bus)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, bus)
 	id, err := svc.PublishEvent(context.Background(), domain.EventPublish{
 		RunID: "run-7", Type: "review.approved", Data: []byte(`{"by":"alice"}`),
 	})
@@ -553,7 +528,7 @@ func TestApplyService_PublishEvent_Success(t *testing.T) {
 }
 
 func TestApplyService_PublishEvent_MissingRunID(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, &stubEventBus{})
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubEventBus{})
 	_, err := svc.PublishEvent(context.Background(), domain.EventPublish{Type: "review.approved"})
 	if !errors.Is(err, domain.ErrInvalidEvent) {
 		t.Errorf("expected ErrInvalidEvent, got %v", err)
@@ -561,7 +536,7 @@ func TestApplyService_PublishEvent_MissingRunID(t *testing.T) {
 }
 
 func TestApplyService_PublishEvent_MissingType(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, &stubEventBus{})
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubEventBus{})
 	_, err := svc.PublishEvent(context.Background(), domain.EventPublish{RunID: "run-7", Type: "  "})
 	if !errors.Is(err, domain.ErrInvalidEvent) {
 		t.Errorf("expected ErrInvalidEvent, got %v", err)
@@ -569,7 +544,7 @@ func TestApplyService_PublishEvent_MissingType(t *testing.T) {
 }
 
 func TestApplyService_PublishEvent_NoEventBusConfigured(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, nil)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, nil)
 	_, err := svc.PublishEvent(context.Background(), domain.EventPublish{RunID: "run-7", Type: "review.approved"})
 	if !errors.Is(err, domain.ErrEngineUnavailable) {
 		t.Errorf("expected ErrEngineUnavailable, got %v", err)
@@ -578,7 +553,7 @@ func TestApplyService_PublishEvent_NoEventBusConfigured(t *testing.T) {
 
 func TestApplyService_PublishEvent_BusError(t *testing.T) {
 	bus := &stubEventBus{publishErr: errors.New("bus down")}
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, bus)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, bus)
 	_, err := svc.PublishEvent(context.Background(), domain.EventPublish{RunID: "run-7", Type: "review.approved"})
 	if err == nil {
 		t.Fatal("expected error from bus, got nil")

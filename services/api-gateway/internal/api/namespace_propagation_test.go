@@ -66,7 +66,7 @@ func (e *recordingEngine) WatchWorkflow(_ context.Context, _ string, _ func(doma
 }
 
 func newRecordingServer(c domain.CompilerPort, e domain.EnginePort) *httptest.Server {
-	svc := domain.NewApplyService(c, e, &stubRegistry{}, nil)
+	svc := domain.NewApplyService(c, e, nil)
 	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)

@@ -79,9 +79,11 @@ func (g *Gateway) newRequest(ctx context.Context, method, url string, body io.Re
 	return req, nil
 }
 
-// Apply submits a manifest for execution. Returns run_id (Workflow) or
-// agent_id (AgentDef) and any compiler warnings on success.
-// Returns a descriptive error for 4xx/5xx responses.
+// Apply submits a manifest for execution. Returns the run_id and any compiler
+// warnings for an accepted Workflow. kind: AgentDef is retired (ADR-039): the
+// gateway answers 410 and Apply returns the documented migration error naming
+// the Agent custom resource. Returns a descriptive error for other 4xx/5xx
+// responses.
 func (g *Gateway) Apply(ctx context.Context, body []byte, engineHint string) (string, string, []string, error) {
 	q := url.Values{}
 	if engineHint != "" {
@@ -118,9 +120,27 @@ func (g *Gateway) Apply(ctx context.Context, body []byte, engineHint string) (st
 		}
 		_ = json.Unmarshal(raw, &r)
 		return "", "", nil, fmt.Errorf("zynax: compilation failed with %d error(s)", len(r.Errors))
+	case http.StatusGone:
+		// kind: AgentDef push registration is retired (ADR-039): the gateway no
+		// longer forwards it. Surface the server's documented migration message
+		// (it names the Agent custom resource) cleanly instead of raw JSON.
+		return "", "", nil, fmt.Errorf("zynax: %s", retirementMessage(raw))
 	default:
 		return "", "", nil, fmt.Errorf("zynax: apply: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
+}
+
+// retirementMessage extracts the human-readable error field from a gateway
+// error body, falling back to the raw payload when it is not the expected
+// {"error":...} shape. Used to render the AgentDef retirement (410) pointer.
+func retirementMessage(raw []byte) string {
+	var r struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(raw, &r); err == nil && r.Error != "" {
+		return r.Error
+	}
+	return strings.TrimSpace(string(raw))
 }
 
 // ApplyDryRun validates a manifest without submitting.

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/zynax-io/zynax/cmd/zynax/client"
@@ -53,12 +54,40 @@ func TestApply_Workflow_Returns202(t *testing.T) {
 	}
 }
 
-func TestApply_AgentDef_Returns201(t *testing.T) {
+// TestApply_AgentDef_Retired410 covers AC1 of #1697: applying a kind: AgentDef
+// manifest returns the documented retirement error naming the Agent custom
+// resource — the gateway's push forward is deleted (ADR-039) and answers 410.
+func TestApply_AgentDef_Retired410(t *testing.T) {
+	gw := newGW(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusGone)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "AgentDef push registration retired (ADR-039) — apply a zynax.io/v1alpha1 Agent custom resource with kubectl instead (docs/patterns/agent-crd-migration.md)",
+			"code":  "AGENTDEF_RETIRED",
+		})
+	})
+	runID, agentID, _, err := gw.Apply(context.Background(), []byte("kind: AgentDef"), "")
+	if err == nil {
+		t.Fatal("expected a retirement error for kind: AgentDef, got nil")
+	}
+	if runID != "" || agentID != "" {
+		t.Errorf("no ids expected for a retired AgentDef apply; got run=%q agent=%q", runID, agentID)
+	}
+	for _, want := range []string{"Agent custom resource", "kubectl", "agent-crd-migration"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("retirement error must mention %q; got %q", want, err.Error())
+		}
+	}
+}
+
+// TestApply_Created201_DecodesAgentID keeps coverage of the 201/agent_id decode
+// branch. No production endpoint returns 201 since AgentDef push was retired
+// (ADR-039); this asserts the generic decode path only.
+func TestApply_Created201_DecodesAgentID(t *testing.T) {
 	gw := newGW(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]string{"agent_id": "agent-xyz"})
 	})
-	runID, agentID, _, err := gw.Apply(context.Background(), []byte("kind: AgentDef"), "")
+	runID, agentID, _, err := gw.Apply(context.Background(), []byte("kind: Workflow"), "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,7 +95,7 @@ func TestApply_AgentDef_Returns201(t *testing.T) {
 		t.Errorf("agent_id = %q; want agent-xyz", agentID)
 	}
 	if runID != "" {
-		t.Errorf("run_id should be empty for AgentDef apply")
+		t.Errorf("run_id should be empty for a 201 response")
 	}
 }
 
