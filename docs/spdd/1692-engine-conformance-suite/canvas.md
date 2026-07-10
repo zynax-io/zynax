@@ -90,8 +90,12 @@ spec/workflows/examples/ --compile→IR→dispatch--> temporal leg --\
 > for alignment; their story issues are filed via `/lib:spdd-story` once a human aligns this
 > canvas (suite name + versioning scheme are the open design decisions).
 
-1. **Leg symmetry** (#1620, `test:`) — extend the Workflow CRD reconcile e2e assertion to the
-   argo engine leg; both legs assert identical reconcile behaviour; e2e green.
+1. **Leg symmetry** (#1620, `test:`, ✅ done) — extend the Workflow CRD reconcile e2e assertion
+   to the argo engine leg; both legs assert identical reconcile behaviour; e2e green. Root cause
+   was not an argo dispatch bug — the CR reconciles to `Dispatched=True` on both legs — but the
+   assertion's `kubectl get workflow` short name resolved to the Argo CRD (`workflows.argoproj.io`,
+   installed only on the argo leg) instead of `workflows.zynax.io`. The script now pins the
+   fully-qualified name and the `matrix.engine == 'temporal'` guard is dropped.
 2. **Suite definition** (story on alignment, `docs:`/`test:`) — name the suite; version
    scheme tied to releases; in-repo definition enumerating scenarios, legs, and pass
    criteria; suite membership manifest over `spec/workflows/examples/`.

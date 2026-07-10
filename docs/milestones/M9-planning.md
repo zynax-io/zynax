@@ -75,7 +75,7 @@ versioning scheme are the open design decisions a human settles at alignment).
 
 | Step | Story | What |
 |------|-------|------|
-| 1 | [#1620](https://github.com/zynax-io/zynax/issues/1620) | Workflow CRD reconcile e2e assertion extended to the argo leg (leg symmetry) |
+| 1 ✅ | [#1620](https://github.com/zynax-io/zynax/issues/1620) | Workflow CRD reconcile e2e assertion extended to the argo leg (leg symmetry) — **done**: argo dispatch was never broken; the assertion's `kubectl get workflow` short name resolved to the Argo CRD (`workflows.argoproj.io`) on that leg. Script now pins `workflow.zynax.io`; guard dropped; verified on a live argo kind cluster |
 | 2 | *(on alignment)* | suite definition: name, version scheme, scenario membership, pass criteria |
 | 3 | *(on alignment)* | machine-readable per-engine matrix artifact + one-command local run |
 | 4 | *(on alignment)* | per-release publication + adapter-author how-to |
