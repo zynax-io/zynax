@@ -104,3 +104,22 @@
 
 ### Edge cases discovered
 - shellcheck absent on host; run it via `docker run --rm -v <wt>:/mnt koalaman/shellcheck:stable <relpath>` for real lint coverage.
+
+## Session — 2026-07-10 (issue #1620)
+
+### Effective patterns
+- Reused the existing kind cluster with `E2E_ENGINE=argo` (helm-upgrade path) instead of a full teardown/recreate — inherited the cached containerd images and brought the argo leg up in minutes instead of a cold ~20-min pull.
+- The clinching diagnostic: query the CR by name both ways — `kubectl get workflow.zynax.io <name>` returned a full `Dispatched=True` status while bare `kubectl get workflow <name>` returned `workflows.argoproj.io "<name>" not found`. That side-by-side instantly localised the bug to client-side name resolution, not the controller/engine.
+
+### Edge cases discovered
+- Multi-CRD short-name collision on a multi-engine e2e leg: `kubectl get workflow` is ambiguous when both `workflows.argoproj.io` and `workflows.zynax.io` are registered, and kubectl silently picks the Argo one. Invisible on the temporal leg (single CRD).
+- The reconciler logs `"workflow reconcile: dispatched"` *before* `writeStatus`, so "green reconcile log + empty CR status when read via the wrong helper" was the signature that the assertion, not the reconcile, was at fault.
+
+### Failed approaches
+- Static-analysis hypotheses (engineHint routing, `ArgoEngine.Submit` failing on the echo IR, `GetWorkflowStatus` NotFound mapping) were all dead ends — the argo submit path was correct. Only running the live leg revealed the truth.
+- A first repro was a red herring: the helm-upgrade restarted the api-gateway, and a 33s leader-election delay pushed the reconcile past the 90s poll window — a timing artifact of the setup, unrelated to the real cause. Re-running against an already-stable controller separated the timing noise from the CRD-name bug.
+
+### Proposed expert prompt update
+- Rule: In e2e/BDD assertions that `kubectl get`/`delete`/`annotate` a custom resource, always use the fully-qualified `<resource>.<group>` name (e.g. `workflow.zynax.io`), never the bare kind. On a multi-engine leg a second CRD can register the same short name (the argo leg installs `workflows.argoproj.io` beside `workflows.zynax.io`), and kubectl resolves the short name to the wrong CRD — the poll then silently reads a non-existent resource and the assertion fails while the system under test is actually healthy. `kubectl apply -f` is immune (it keys off the manifest `apiVersion`); only short-name reads/writes are affected.
+  Category: domain
+  Reason: Permanent K8s-boundary test knowledge for any assertion touching a CRD on a cluster where multiple API groups can register the same resource kind — exactly the kind of leg-asymmetry the engine-conformance suite (#1692) must guard against.
