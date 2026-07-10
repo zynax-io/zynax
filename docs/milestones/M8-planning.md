@@ -2,10 +2,10 @@
 
 # Zynax M8 — CNCF Sandbox Submission Planning
 
-> **Target version:** v1.0.0 · **GitHub milestone:** #8 (`CNCF Sandbox (M8)`)
-> **Status:** Staged (pre-open — M7 is still the active milestone; `state/milestone.yaml` rotates to
-> M8 only at `/milestone close` M7 → `/milestone open` M8, per the milestone-lifecycle contract)
-> · **Last updated:** 2026-07-03 · **Planning author:** SPDD program plan
+> **Shipped in:** v0.7.0 (jointly with M7, released 2026-07-10; the doc's original v1.0.0
+> target is now reserved for CNCF acceptance) · **GitHub milestone:** #8 (`CNCF Sandbox (M8)`) — closed
+> **Status:** ✅ Complete (M8.I merge-queue epic #1680 carried into M9 and closed 2026-07-10
+> with fork-canary evidence on #1685) · **Last updated:** 2026-07-10 · **Planning author:** SPDD program plan
 > **Program context:** final milestone of the program M7 → M-UX → M-dx → M8 (see
 > [ROADMAP.md](../../ROADMAP.md)); this doc stages M8's centerpiece early because its ADRs
 > (ADR-039/040/041) landed in M7 and sequence the build here.

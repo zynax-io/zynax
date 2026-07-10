@@ -60,8 +60,8 @@ Each roadmap milestone maps to a GitHub Milestone:
 | Developer Experience (#9) | M-dx (contributor / SDK / AI tooling) | unversioned program bucket² |
 | User Experience (#10) | M-UX (forward UX program) | unversioned program bucket² |
 
-> ¹ **M7 and M8 ship together as one signed v0.7.0 release** — M7 closed at 0 open issues but
-> was never tagged; its v0.6.0 target was skipped to keep tags monotonic. v1.0.0 is reserved
+> ¹ **M7 and M8 shipped together as one signed v0.7.0 release on 2026-07-10** — M7 closed at
+> 0 open issues; its v0.6.0 target was skipped to keep tags monotonic. v1.0.0 is reserved
 > for CNCF **acceptance** (the M8 milestone covers submission *prep*; filing is a maintainer
 > action). GitHub milestone numbers ≠ M-numbers from M9 on (M9 = milestone **#11**) —
 > `state/milestone.yaml` `github_milestone_number` is the source of truth.
@@ -206,13 +206,13 @@ Each roadmap milestone maps to a GitHub Milestone:
 
 ---
 
-## Milestone 7 — Usable Workflows + Observability ✅ Delivered (ships in v0.7.0)
+## Milestone 7 — Usable Workflows + Observability ✅ Complete (v0.7.0, released 2026-07-10)
 
 **Goal:** A developer authors a real multi-step workflow, runs it locally (`docker compose up`
 incl. Uptrace), and watches it execute state→state with data-flow, streamed logs, and a connected
 distributed trace in the Uptrace UI — with green `make ci`. First of the M7 → M-dx → M8 program.
 
-> Label: `milestone: M7` · GitHub milestone #7: **0 open / 172 closed** · Ships in **v0.7.0**
+> Label: `milestone: M7` · GitHub milestone #7: **0 open / 172 closed, closed** · Shipped in **v0.7.0**
 > (v0.6.0 skipped — see the version footnote above) · Plan: [docs/milestones/M7-planning.md](docs/milestones/M7-planning.md)
 > Live status: [state/current-milestone.md](state/current-milestone.md)
 
@@ -262,21 +262,21 @@ intelligent context-loading at scale and a discoverable Documentation Portal.
 
 ---
 
-## Milestone 8 — CNCF Sandbox Submission ✅ Delivered (ships in v0.7.0; tail: M8.I)
+## Milestone 8 — CNCF Sandbox Submission ✅ Complete (v0.7.0, released 2026-07-10)
 
 **Goal:** Community, governance, and technical maturity for CNCF Sandbox — and the
 thin-Zynax K8s-native reduction (ADR-040: scheduler on CRDs, Workflow CRD front-end,
 edge auth/rate-limit on Gateway API, admission-policy allow-list, direct JetStream
 eventing).
 
-> Label: `milestone: M8` · Ships in **v0.7.0** (jointly with M7) · Plan:
+> Label: `milestone: M8` · Shipped in **v0.7.0** (jointly with M7; milestone #8 closed) · Plan:
 > [docs/milestones/M8-planning.md](docs/milestones/M8-planning.md)
 
 - [x] Governance honesty: `MAINTAINERS.md` + single-maintainer operating mode (#494)
 - [x] Troubleshooting guide + curated `good first issue` entry points (#495)
 - [x] Thin-Zynax reduction epics (M8.C–M8.H: ADR-039/041/043/044/045/046)
-- [ ] M8.I — GitHub merge queue (epic #1680, stories #1681–#1685; ADR-047 reserved) —
-      the milestone's open tail
+- [x] M8.I — GitHub merge queue live since 2026-07-08 (epic #1680, stories #1681–#1685,
+      ADR-047); epic closed 2026-07-10 under milestone M9 with fork-canary evidence (#1685)
 - [ ] CNCF Sandbox application prepared and filed (submission is a maintainer action;
       prep: [docs/cncf/sandbox-submission.md](docs/cncf/sandbox-submission.md))
 - [ ] ≥ 2 maintainers from different organisations *(Sandbox nice-to-have, required
@@ -316,7 +316,7 @@ dual-engine e2e into a named conformance suite.
 | v0.4.0 | M5 | Adapter library |
 | v0.5.0 | M6 | K8s production-ready |
 | ~~v0.6.0~~ | — | Skipped — M7 was never tagged at v0.6.0; kept tags monotonic |
-| v0.7.0 | **M7 + M8** | Usable workflows + observability · thin-Zynax reduction + CNCF Sandbox prep (one joint signed release) |
+| v0.7.0 | **M7 + M8** | Usable workflows + observability · thin-Zynax reduction + CNCF Sandbox prep (one joint signed release — released 2026-07-10) |
 | v0.8.0 | M9 | Hard removals + conformance suite |
 | v1.0.0 | CNCF acceptance | Cut when the Sandbox application is accepted |
 

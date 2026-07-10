@@ -39,26 +39,29 @@ dual-engine e2e into a named conformance suite.
 
 | EPIC | Issue | Canvas | Stories (in delivery order) |
 |------|-------|--------|------------------------------|
-| M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Draft | #1697 → #1698 → #1598 → #1699 |
-| M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) | `docs/spdd/1675-event-bus-facade-removal/` — Draft | #1700 → #1701 → #1702 → #1703 (v0.7.0 gate now satisfied) |
-| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Draft | #1620 → (steps 2–4 filed on alignment) |
-| M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) | `docs/spdd/1680-merge-queue/` — Aligned, delivered | all 5 stories closed; epic open only for the fork-PR dry run (maintainer-armed, candidate PR #1668) |
+| M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Aligned (#1734) | #1697 → #1698 → #1598 → #1699 |
+| M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) | `docs/spdd/1675-event-bus-facade-removal/` — Aligned (#1734) | #1700 → #1701 → #1702 → #1703 (v0.7.0 gate now satisfied) |
+| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 → (steps 2–4 filed via `/lib:spdd-story`) |
+| M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
 
 The three M9 epics are mutually parallel; #1620 has no gate and can merge first. Also riding
 alongside: ADR proposals #1693–#1696 (ADR-048..051 — API versioning, OIDC edge auth, fuzz
 strategy, load/SLO).
 
-### Blockers / human actions before delivery can start
+### Delivery status — `/deliver` unblocked 2026-07-10
 
-1. **Align the three M9 canvases** (Draft → Aligned), then flip their stories
-   `status: backlog → status: ready`, then `/deliver`.
-2. **Fork-canary for #1680:** arm a green fork PR (candidate #1668) with
-   `gh pr merge --squash --auto`; evidence goes on #1685, then close #1680.
-3. **PyPI trusted publisher never registered** ([#1732](https://github.com/zynax-io/zynax/issues/1732)):
-   `zynax-sdk` has never actually published (v0.5.0 and v0.7.0 runs both failed
-   `invalid-publisher`; the package 404s on PyPI). Register the pending publisher on
-   pypi.org (project `zynax-sdk`, workflow `sdk-publish.yml`, environment `pypi`), then
-   re-run the v0.7.0 `SDK PyPI Publish` run.
+1. ✅ The three M9 canvases aligned (PR #1734); all nine stories at `status: ready`.
+2. ✅ Fork-canary done: PR #1668 merged through the queue unattended; evidence on
+   [#1685](https://github.com/zynax-io/zynax/issues/1685); epic #1680 closed.
+
+Remaining human action (does not block delivery):
+
+- **PyPI trusted publisher never registered** ([#1732](https://github.com/zynax-io/zynax/issues/1732)):
+  `zynax-sdk` has never actually published (v0.5.0 and v0.7.0 runs failed
+  `invalid-publisher`; re-verified 2026-07-10 — the package 404s on PyPI). Register the
+  pending publisher on pypi.org (project `zynax-sdk`, owner `zynax-io`, repository `zynax`,
+  workflow `sdk-publish.yml`, environment `pypi` — must match exactly), then re-run the
+  v0.7.0 `SDK PyPI Publish` run (29074533005) and verify `pip index versions zynax-sdk`.
 
 ---
 
@@ -77,11 +80,14 @@ strategy, load/SLO).
 
 ## Known drift being reconciled
 
-- `CLAUDE.md` / `ROADMAP.md` milestone tables still describe the v0.7.0 close as pending —
-  next `/reconcile` truth-pass updates them (state/* is authoritative as of this PR).
 - Docs claiming "SDK on PyPI" (M6 deliverable) are aspirational until #1732 is fixed —
-  the package has never been on PyPI.
+  the package has never been on PyPI (registration re-verified failing 2026-07-10).
 - Stale M-dx epic nest: #173 ⊃ #205 ⊃ #148 ⊃ #146 — consolidation recommended (see the
   triage comments on those issues, 2026-07-08).
-- Label drift: #233/#234 carry both `status: ready` and `status: backlog` (backlog is the
-  newer intent — flagged 2026-07-10).
+- Local branches with unique unmerged commits and no PR, flagged by the 2026-07-10
+  `/reconcile` for a human decision: `feat/1492-kind-demo-lifecycle`, `pr-1447`,
+  `wavec-rebuild` (1 commit each, 2026-06-19 → 06-25 era; land or delete).
+
+Resolved by the 2026-07-10 `/reconcile` truth-pass: CLAUDE.md / ROADMAP.md / README /
+ARCHITECTURE / M7–M9 planning docs now reflect the v0.7.0 close; #233/#234 label drift
+fixed (kept `status: backlog`).
