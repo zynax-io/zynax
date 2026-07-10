@@ -694,3 +694,23 @@ Story: Q.5 — ADR-034 ManifestWorkflowID 64-bit collision domain + canonicaliza
 - BDD for a service lives in `services/<svc>/tests/` (in-module bufconn), NOT `protos/tests/<svc>/` — grep for the assertion string (`ALREADY_EXISTS`), don't trust a named path. (structural-workaround)
 - To prove a service-IMAGE fix in kind, build with the EXACT side-load tag `ghcr.io/zynax-io/zynax/<svc>:main` (`docker build -f infra/docker/Dockerfile.service --build-arg SVC=<svc> -t <tag> <root>`); `make build-svc`'s `:local` tag is skipped by the `KIND_LOAD_TAG=main` side-load. The hero `run_id` is a CONTENT HASH — after a failed run, change the workflow body to force a fresh run_id. For a clean adapter re-register without rollout deregister races, `scale --replicas=0` + `wait --for=delete` + `scale --replicas=1` (not `rollout restart`, which overlaps pods). (structural-workaround)
 - golangci-lint needs cwd INSIDE the module; the sandbox resets cwd between calls and forbids `cd &&` — use a one-line scratchpad script that `cd`s then runs. Confirm a gateway service name with `kubectl get svc` (`zynax-api-gateway`), never the doubled name in helm NOTES. (structural-workaround)
+
+## Session — 2026-07-10 (issue #1697)
+
+### Effective patterns
+- Deleting a gateway→service gRPC client cleanly means removing FOUR coupled surfaces in one PR — the envconfig struct field, the Helm deployment env, the configmap data key, and the NetworkPolicy egress port. Grepping the port number (`50052`) across `helm/` surfaced the egress rule the `REGISTRY_ADDR` grep alone missed.
+- The user-facing retirement (410 `ErrAgentDefRetired`) already existed; the real deletable unit was the dead SA1019 client *behind* it. Scoping the step to "the last caller + its config coupling" kept it S-sized and left the retirement contract intact.
+- Keeping the CLI client's generic 201/`agent_id` decode branch (not AgentDef-specific parsing) avoided cascading into the scenario-apply feature, which still POSTs AgentDef members — the "push path" lived entirely in the api-gateway, so removing it there fully severed the push.
+
+### Edge cases discovered
+- Bulk `replace_all` of `, &stubRegistry{}, ` → `,` produces `,nil` with no space; harmless because `gofmt -w` normalizes comma spacing in call sites (run it before committing after a mechanical stub-arg removal).
+- Real scenario/template fixtures still bundle `kind: AgentDef` (`spec/scenarios/code-review/`, `spec/templates/expert/`), so a full CLI AgentDef excision is L-sized and belongs to the ADR-039 doc sweep (step 4, #1699), not the caller-removal step — those authoring helpers now correctly surface the retirement error.
+- `gh pr edit --add-label` fails on the projects-classic GraphQL deprecation (`repository.pullRequest.projectCards`); `gh api -X POST /repos/OWNER/REPO/issues/N/labels -f 'labels[]=…'` applies labels cleanly.
+
+### Failed approaches
+- `golangci-lint run <abs-module-path>/...` from outside the module errors "directory prefix … does not contain main module"; it must run with the module as CWD — `sh -c 'cd <module> && GOWORK=off golangci-lint run ./...'` works.
+
+### Proposed expert prompt update
+- Rule: Removing a gateway/service outbound gRPC client is a 4-surface change — do all in the same PR: (1) the `envconfig` struct field + its default, (2) the Helm `deployment.yaml` `env:` block, (3) the `configmap.yaml` data key, (4) the `networkpolicy.yaml` egress port. Grep the *port number* across `helm/` (not just the `*_ADDR` name) to find the NetworkPolicy egress rule, then `helm template <chart>` to confirm no dangling `.Values` reference remains.
+  Category: domain
+  Reason: The api-gateway wires each downstream via all four surfaces; missing the NetworkPolicy egress (found only by port number, not env-var name) leaves a stale allow-rule that outlives the removed client. Permanent because it reflects the fixed shape of every Zynax Go service's Helm chart.

@@ -193,3 +193,26 @@ Story: O.7 — local Uptrace docker-compose observability stack (Uptrace + Click
 - Prove the engine-portability wedge on ONE cluster: boot `E2E_ENGINE=argo`, prove Argo via the `Workflow` CR `Succeeded` (CR name == gateway run_id), then `helm upgrade --reuse-values -f values-e2e.yaml --set zynax-engine-adapter.env.activeEngine=temporal` to flip the engine-adapter IN PLACE and re-run the byte-identical manifest (Temporal pods stay deployed under the argo profile). (domain)
 - The CLI `--engine` flag is a deploy-time-OVERRIDDEN hint — the engine-adapter picks ONE `active_engine` from umbrella values at boot (ADR-015/039), so don't use the flag to prove portability; flip the deployed value. Prove the engine via engine-adapter logs (`selecting workflow engine active_engine=…`, Temporal's `IRInterpreterWorkflow`/`DispatchCapabilityActivity`). (domain)
 - `gh pr edit --add-label` aborts on the projects-classic GraphQL deprecation and silently fails; use REST `gh api -X POST repos/<o>/<r>/issues/<n>/labels -f "labels[]=<label>"`. For an infra/docs-only PR the `changes` filter skips the docker-build + per-engine e2e matrix; `e2e smoke (temporal)` shows a fast guard pass and there is NO separate argo required check — get runtime evidence from a local boot, don't wait for an argo CI leg. (structural-workaround)
+
+## Session — 2026-07-10 (issue #1700)
+
+### Effective patterns
+- Cross-check every "remove port/egress" instruction against the actual consumer before touching it: `grep` the service `cmd/*/main.go` + `clients.go` for the client dial. This caught that the issue's "50054 egress" AC was a factual error — 50054 is the live api-gateway→workflow-compiler dial; the retired facade listened on 50056, which was never in the policy. No networkpolicy change was made, and the M9 plan row was corrected instead.
+- Removing a subchart: edit umbrella `Chart.yaml`, then `helm dependency update <umbrella>` regenerates `Chart.lock` (drops the dep + updates digest) so `helm dependency build` passes; built `charts/*.tgz` are gitignored — only `Chart.lock` is the committed artifact.
+- Read-only JetStream inspection (`kubectl exec deploy/…-nats-box -- nats stream get <STREAM> --last-for <subject>`) yields real runtime evidence — the CloudEvent's `ce-source` identifies the publisher — without mutating a shared cluster.
+
+### Edge cases discovered
+- "Retire the chart" is much bigger than the chart: the e2e/demo harness carries HARD guards (`kubectl get deployment zynax-event-bus || fail` in `e2e-happy.sh`/`e2e-failure.sh`) plus rollout-wait lists + side-load/image loops across `cluster-up.sh`, `helm-upgrade.sh`, `kind-demo.sh`. All must be updated in the same PR or the e2e times out / fails, even though the issue framed it as "deployment surface only".
+- kindnet (kind's default CNI) does not enforce NetworkPolicy, so an incorrect egress removal would pass e2e but break real enforcing clusters — reason enough not to blindly follow an egress-removal instruction.
+
+### Failed approaches
+- `kubectl delete deployment` on the pre-existing shared kind cluster (to simulate "facade absent" for the runtime smoke) was denied by the sandbox as a shared-cluster workload mutation — correct guardrail; pivoted to read-only proof + CI e2e as authoritative.
+- `gh pr checks <PR> --watch --fail-fast` — `--fail-fast` is not a valid flag for `gh pr checks`.
+
+### Proposed expert prompt update
+- Rule: When removing a Zynax service's deployment surface, grep `scripts/e2e/*.sh` and `scripts/demo/*.sh` for the service name and strip its preflight `kubectl get deployment … || fail` guard, its entries in every `SERVICE_DEPLOYMENTS`/rollout-wait/side-load/image-override loop, and its failure-diagnostics `kubectl logs` — the harness hardcodes each service, so a chart-only removal leaves the e2e matrix failing (`|| fail` on the absent Deployment) and violates the "e2e green, no Deployment" acceptance criterion.
+  Category: domain
+  Reason: permanent property of this repo's e2e/demo harness (hardcoded per-service deployment lists and guards) that every future service-retirement story must handle.
+- Rule: With the active merge queue on `main`, `gh pr merge <PR> --squash --auto` prints "! The merge strategy for main is set by the merge queue" and may not enable auto-merge (the GraphQL `autoMergeRequest` field stays `null` for queue enqueues). Use `gh pr merge <PR> --auto` (no strategy flag — the queue owns the squash strategy) and confirm enqueue via its "Pull request #N is already queued to merge" reply, not via `autoMergeRequest`.
+  Category: env-constraint
+  Reason: shared merge-queue mechanics every delivery agent hits; the protocol §6 command (`--squash --auto`) conflicts with the queue-controlled strategy and the GraphQL check is misleading.

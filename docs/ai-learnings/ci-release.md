@@ -670,3 +670,21 @@ Story: Q.4 — verify + document Go module consumption path (pkg.go.dev). PR #12
 - Identical `mergedAt` timestamps across PRs (e.g. #1720/#1721, same second) are a reliable fingerprint of ALLGREEN queue grouping. (domain)
 - Bare `gh issue view <n>` fails hard on this repo (Projects-classic deprecation in GraphQL); always use `gh issue view <n> --json number,title,state,body,labels`. (domain)
 - Operational-story closure tension: when an AC lists "fork-PR dry run" but the same issue's Gherkin frames it "armed by the maintainer" and the canvas gates it on epic close — close the operational story with the residual stated prominently; the epic stays open for the human ritual. Never arm a fork PR autonomously: merging external code into main is a maintainer governance call. (domain)
+
+## Session — 2026-07-10 (post-merge verification: PRs #1739, #1740, #1741)
+
+### Effective patterns
+- SKIP classification worked twice: e2e-test/CI-config/docs-only (#1739) and Helm-chart/scripts-only (#1741) merges correctly required zero image verification — no release.yml matrix service in the diff, no infra image files touched, no digest pins to update.
+- Merge-queue merge_group validation is effective: CI ran on the temporary merge refs and validated the actual merged state before each squash landed.
+
+### Edge cases discovered
+- **Merge-queue batch push vs Release promotion (filed as #1742):** the queue pushed two squash merges (60bdb00 → 39ddedd) in ONE git push; the push event fires once, on the batch head. The Release retag job then looks up staging images only for the batch-head PR — #1741 had none, so its run logged "No images promoted for this merge — nothing to record" and PR #1740's api-gateway staging image (`sha256:f5e3cb91…`, tag `pr-aff46d05…`) was orphaned; `images/images.yaml` kept the pre-merge digest. A green Release run is NOT evidence that every PR in the batch was promoted. ADR-027 assumes one PR per push; ADR-047 batching violates that.
+- A commit squash-merged mid-batch gets no per-commit push event at all — its only CI record is the merge_group run; do not wait for a per-commit Release run that will never come.
+
+### Failed approaches
+- Polling 20 minutes for a per-commit Release workflow_run on a mid-batch merge commit — structurally impossible, not slow (see above).
+
+### Proposed expert prompt update
+- Rule: When verifying a merge that landed through the merge queue, first establish the push batch (`git log <prev-main>..<new-main> --oneline`): the Release run exists only for the batch head. If the verified PR is not the batch head, check whether the batch-head Release run promoted the verified PR's staging images; if it did not (per-PR staging lookup), report "Release promotion incomplete for non-head PR in batch", record the orphaned staging digest + tag, and escalate to the orchestrator instead of waiting for a per-commit run.
+  Category: domain
+  Reason: recurring merge-queue mechanic (live since 2026-07-08) that otherwise produces misleading PENDING/green-but-stale verdicts; concrete instance tracked in #1742.
