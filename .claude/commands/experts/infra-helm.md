@@ -255,6 +255,43 @@ helm upgrade --install zynax-<service> helm/zynax-<service>/ --dry-run
   clickhouse) is not an `images.yaml` consumer, so keep plain pinned tags (`postgres:16-alpine`) and
   it stays out of the digest-alignment gate while still passing it. Seen in: #1190, #1374 (2 sessions).
 
+- **Live kubectl output is ground truth — helm NOTES.txt, chart defaults, and committed vendored
+  `.tgz` subcharts all drift from reality.** Debugging a "flaky" endpoint starts with the RENDERED
+  object (`kubectl get svc -o yaml`): a live `nodePort` mismatching the pinned value is a
+  render/merge defect, not kube-proxy timing. Umbrella charts vendor `.tgz` subcharts under
+  `charts/`; `helm template`/`install` render the COMMITTED tgz, which can drift from `helm/<sub>/`
+  source — diff `tar -xzf charts/<sub>.tgz -O <sub>/templates/<f>.yaml` against source, have
+  bring-up run `helm dependency build` (source = SoT), and `git checkout --
+  helm/zynax-umbrella/charts/` after a boot to drop rebuild churn. Workload names: NOTES.txt
+  printed `zynax-zynax-*` while deployed names were `zynax-*` (values-e2e `fullnameOverride`) —
+  verify with `kubectl get deploy,svc`, never the doubled NOTES name.
+  Seen in: #1488, #1489, #809 (3 sessions).
+
+- **Asserting a workflow run in demo/e2e scripts: poll `.status` with the e2e-happy.sh alias set —
+  and never grep capability payloads out of `/logs`.** The api-gateway reports the WorkflowStatus
+  proto enum under `.status` (`WORKFLOW_STATUS_COMPLETED`/`_FAILED`, plus lowercase aliases);
+  polling `.state` silently hangs the full timeout. Match the exact alias set from
+  `scripts/e2e/e2e-happy.sh` (`succeeded|completed|*COMPLETED|*SUCCEEDED` for success;
+  `*FAILED|*ERROR|*CANCELED|*TERMINATED|*TIMED_OUT` for failure). The `/logs` SSE stream on the
+  Temporal stack emits raw history event TYPES only (WorkflowExecutionCompleted,
+  ActivityTaskCompleted) — a smoke grepping the echoed payload falsely fails; assert the terminal
+  completion event + `.status`, and prove the capability round-trip by grepping engine-adapter
+  logs for `DispatchCapabilityActivity` + the run_id. `zynax result` → "no result payload" on echo
+  is a property of the capability (no `completion` field), not a failure.
+  Seen in: #1492, #1493, #1517 (3 sessions).
+
+- **kind demo mechanics: `make kind-up` is ONE blocking call; the side-load matches only the exact
+  `:main` tag; cold-boot CrashLoopBackOff is expected churn.** `make kind-up` (create cluster →
+  side-load local `:main` images with GHCR fallback → cert-manager + umbrella → block on every
+  rollout) boots the stack in a single ~600s call — no poll loops. To prove a service-image fix in
+  kind, build with the EXACT side-load tag `ghcr.io/zynax-io/zynax/<svc>:main`
+  (`docker build -f infra/docker/Dockerfile.service --build-arg SVC=<svc> -t <tag> <root>`) —
+  `make build-svc`'s `:local` tag is skipped by the `KIND_LOAD_TAG=main` side-load. Temporal
+  frontend/history/matching + engine-adapter CrashLoopBackOff at ~70s on a COLD bring-up is
+  expected (engine-adapter loops until cluster-up.sh registers the Temporal `default` namespace);
+  the 600s rollout wait absorbs it — early restarts are not failures.
+  Seen in: #1492, #1493, #1463 (3 sessions).
+
 ---
 
 ## Commit format
