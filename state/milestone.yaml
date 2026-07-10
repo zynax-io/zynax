@@ -8,25 +8,39 @@
 # Validated against state/milestone.schema.json by `make validate-milestone-state`
 # (containerized) and by the advisory milestone-state-check job in pr-checks.yml.
 
-# M7 opened 2026-06-15 — target v0.6.0 (GitHub milestone #7).
-# GitHub milestone renamed 2026-06-17 "Full Observability" → "Usable Workflows + Observability"
-# to match docs/milestones/M7-planning.md scope (first of the M7 → M-dx → M8 program).
-# Delivery commands resolve the GitHub milestone by title, so this field tracks the live title.
+# M9 opened 2026-07-10 — target v0.8.0 (GitHub milestone #11).
+# Scope: hard removals (ADR-039 push path, ADR-046 EventBus facade) + the named
+# engine-conformance suite. Epic #1680 (M8.I merge queue) is carried over from
+# M8 for its fork-canary close gate only — all five of its stories are closed.
 active:
-  name: M7
-  title: "Usable Workflows + Observability"
-  github_milestone_number: 7
-  version: v0.6.0
+  name: M9
+  title: "Hard Removals + Conformance"
+  github_milestone_number: 11
+  version: v0.8.0
   status: active # active | closing | complete
-  planning_doc: docs/milestones/M7-planning.md
+  planning_doc: docs/milestones/M9-planning.md
   labels:
-    milestone: "milestone: M7"
-  # EPIC W,C,G,X,T,Q,D = #1167-#1173 (new). O,L,R absorb pre-existing #467,#468,#469.
-  # EPIC P = #1276 (llm-adapter Go port — ADR-035; supply-chain/maintenance).
-  # EPIC S = #1285 (CI bash → zynax-ci Go subcommands — ADR-036; DX/supply-chain).
-  open_epics: [467, 468, 469, 1167, 1168, 1169, 1170, 1171, 1172, 1173, 1276, 1285]
+    milestone: "milestone: M9"
+  # EPIC A,B,C = #1674, #1675, #1692 (see docs/milestones/M9-planning.md).
+  # #1680 = M8.I tail (fork-PR canary evidence pending — maintainer-armed).
+  open_epics: [1674, 1675, 1692, 1680]
 
 history:
+  # M7 and M8 shipped together as the single signed v0.7.0 release on
+  # 2026-07-10 (v0.6.0 skipped to keep tags monotonic; v1.0.0 reserved for
+  # CNCF acceptance).
+  - name: M8
+    title: "CNCF Sandbox"
+    github_milestone_number: 8
+    version: v0.7.0
+    released: "2026-07-10"
+    planning_doc: docs/milestones/M8-planning.md
+  - name: M7
+    title: "Usable Workflows + Observability"
+    github_milestone_number: 7
+    version: v0.7.0
+    released: "2026-07-10"
+    planning_doc: docs/milestones/M7-planning.md
   - name: M6
     title: "K8s Production-Ready"
     github_milestone_number: 6
