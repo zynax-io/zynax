@@ -246,6 +246,14 @@ for _, tt := range tests {
 }
 ```
 
+- **A domain-port or sentinel surface change ripples module-wide — fix every implementer in the
+  SAME commit and run the FULL module test suite.** Adding a method to an existing domain port
+  interface breaks ALL its test doubles, including the BDD fakes in `services/<svc>/tests/` — grep
+  the module for implementers before committing. Removing a sentinel error (`ErrAgentAlreadyExists`)
+  broke a THIRD test file beyond the two expected; after any consequence-cleanup run
+  `GOWORK=off go test ./...` on the whole module, never only the named files.
+  Seen in: #1378, #1463 (2 sessions).
+
 ---
 
 ## Integration tests — testcontainers
@@ -347,6 +355,36 @@ GOWORK=off go test ./internal/domain/... -cover | tail -1   # ≥90%
 make lint-go                                                  # exit 0
 make security                                                 # no new findings
 ```
+
+- **`make lint-go` lints ONLY `services/*` — CI's `lint-go` also lints `cmd/zynax`, `cmd/zynax-ci`,
+  the Go adapters, and `libs/*` with `tools/golangci-lint.yml`.** A goconst/gosec finding in a CLI
+  module or shared lib passes `make lint-go` locally and fails CI (cost a full round-trip). Before
+  pushing any Go change outside `services/*`, run golangci-lint scoped to that module (the
+  pre-commit hook does this — it `cd`s into the module). The local linter also raises findings the
+  tools image suppresses (gosec G703 on `os.WriteFile` of a fixed basename in a confined config
+  dir, goconst on a cobra `Use:`/kind literal repeated ≥3× package-wide incl. `_test.go`) — extract
+  a shared `const` or add `//nolint:gosec` with a justification.
+  Seen in: #1490, #1491, #491, #1198 (3 sessions).
+
+- **Runtime evidence against the kind/e2e gateway: port-forward + bearer key; auth gates ONLY
+  mutating routes.** The gateway's `requireBearer` (`services/api-gateway/internal/api/handler.go`)
+  protects POST `/apply`, POST `/events`, and DELETE — read-only GETs are intentionally
+  unauthenticated, so a keyless GET returning 200 is EXPECTED; the canonical 401 proof is
+  `apply`/`delete`/`events` without a key. Even `PROFILE=lite make kind-up` provisions
+  `secret/zynax-gw-api-key`; drive runtime via
+  `kubectl -n zynax port-forward svc/zynax-api-gateway 18080:8080` plus the key from
+  `kubectl get secret zynax-gw-api-key -o jsonpath='{.data.api-key}' | base64 -d` — never the
+  flaky/already-bound `localhost:8080` NodePort.
+  Seen in: #1493, #1517, #1489 (3 sessions).
+
+- **The run's WorkflowID is a deterministic content hash — re-applying an unchanged manifest
+  reuses the SAME run_id.** `ManifestWorkflowID` (`services/api-gateway/internal/domain/apply.go`,
+  ADR-034) is sha256 over the canonicalised manifest YAML; a running workflow with the same hash
+  short-circuits submit, and a closed run restarts under a fresh Temporal RunID with the same
+  WorkflowID. By design, not a bug: in a demo/debug loop, change the workflow body to force a
+  fresh run_id after a failed run. (The compiler's `generateWorkflowID` is a separate random
+  compile-time id — don't conflate them.)
+  Seen in: #1383, #1463 (2 sessions).
 
 ---
 

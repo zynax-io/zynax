@@ -276,6 +276,19 @@ Use `%2F` for the slash in nested package names (URL encoding required).
   live in `images.yaml` and the pins are already current — no manual digest PR needed.
   Seen in: #1237, #1249, #1198 (3 sessions).
 
+- **Map the diff type to the expected post-merge surface — CLI-only and infra-only PRs publish NO
+  image (Status SKIP).** `cmd/zynax` is outside the release matrix, so a green Release run for a
+  CLI-only PR publishes nothing; an infra-only PR (Makefile + scripts, no
+  `services/*`/Dockerfile/images.yaml) runs only `dco`/`changes`/`test-unit` in CI, retag-only in
+  Release, and leaves GHCR digests untouched — Phase 4b is confirm-only, no digest PR. A
+  path-filtered-out matrix job shows as the unexpanded `${{ matrix.service }}` template name in
+  `gh run view <run> --json jobs` — the expected "no matrix entry" signal, not an error.
+  Post-merge "push on main" is the CodeQL workflow; the kind `e2e smoke (temporal/argo)` legs are
+  PR pre-merge checks. Honest runtime evidence for a CLI-only PR is building the standalone binary
+  (`GOWORK=off go -C cmd/zynax build -o <bin> .` — main is at the module ROOT, so `.` not `./...`)
+  and exercising the exact changed surface, not a kind boot.
+  Seen in: #1504/#1505, #1508 (2 sessions).
+
 ---
 
 ## ci-runner container mode
@@ -365,6 +378,16 @@ continue-on-error: true
   Always add: `else echo "::error::coverage.out not found — test step likely failed"; exit 1`.
   Also change empty-total guards (`[ -z "$total" ] && exit 0`) to `exit 1`.
   Seen in: #974 (`cmd/zynax` and `cmd/zynax-ci` gates in `_test-go.yml`).
+
+- **Red CI on a merge SHA: pull the job breakdown before concluding ERROR — and mind the two
+  `--log-failed` id spaces.** `gh run view <run-id> --json jobs` names the failing job; fetch its
+  log with `gh run view <run-id> --log-failed` (RUN id as the positional arg) or
+  `--log-failed --job <job.databaseId>` (the per-job databaseId — passing a job id positionally,
+  or the run id to `--job`, returns HTTP 404). If the failing test belongs to a package the PR did
+  not touch (verify via `git log -1 -- <file>` + the prior main CI conclusion), classify it as a
+  pre-existing flake: report the change verified-good and the red CI as an orthogonal deflake
+  task — do not block the verification on it.
+  Seen in: #1504/#1505, #1249 (2 sessions).
 
 ---
 

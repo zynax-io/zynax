@@ -111,3 +111,19 @@
 | 7 | python-adapters | RUFF_CACHE_DIR prefix vs root-owned .ruff_cache | structural-workaround | #808, #1189 | rejected | — |
 
 **Summary:** 7 proposed | 5 committed | 1 rejected (structural) | 1 pending (env-constraint)
+
+## Run 2026-07-10 08:30 — domains: go-services, infra-helm, ci-release
+
+| # | Domain | Pattern | Category | Source sessions | Status | Delta |
+|---|--------|---------|----------|-----------------|--------|-------|
+| 1 | go-services | make lint-go skips cmd/* & libs/*; CI lint-go covers them | domain | #1490, #1491, #491, #1198 | committed | go-services.md +9L |
+| 2 | go-services | Port/sentinel change: fix every stub, run FULL module suite | domain | #1378, #1463 | committed | go-services.md +8L |
+| 3 | go-services | Gateway auth: bearer only on mutating; port-forward + key | domain | #1493, #1517, #1489 | committed | go-services.md +11L |
+| 4 | go-services | run_id = sha256 ManifestWorkflowID content hash (ADR-034) | domain | #1383, #1463 | committed | go-services.md +9L |
+| 5 | infra-helm | Live kubectl render is ground truth; vendored tgz drifts | domain | #1488, #1489, #809 | committed | infra-helm.md +13L |
+| 6 | infra-helm | Poll .status alias set; /logs has no capability payload | domain | #1492, #1493, #1517 | committed | infra-helm.md +13L |
+| 7 | infra-helm | kind side-load needs exact :main tag; boot churn expected | domain | #1492, #1493, #1463 | committed | infra-helm.md +11L |
+| 8 | ci-release | Diff type → post-merge surface; CLI/infra-only = SKIP | domain | #1504/#1505, #1508 | committed | ci-release.md +13L |
+| 9 | ci-release | Red-run triage: --log-failed id spaces + flake classing | domain | #1504/#1505, #1249 | committed | ci-release.md +10L |
+
+**Summary:** 9 proposed | 9 committed (maintainer approved all, 2026-07-10) | 0 rejected (structural) | 0 pending
