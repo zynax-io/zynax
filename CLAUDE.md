@@ -128,13 +128,13 @@ Full guide: `docs/patterns/spdd-guide.md` · Template: `docs/spdd/CANVAS_TEMPLAT
 | **M4** (Partial) | api-gateway REST layer, `zynax` CLI, `kind: AgentDef` routing, Docker Compose runner, GitOps watch | Observability, production hardening · agent-registry delivered later in M5.C |
 | **M5** (Complete, v0.4.0) | M5.A docs alignment, M5.B engine fixes, M5.C capability dispatch (task-broker, agent-registry), M5.D security baseline, M5.E DX polish, all 5 adapters, e2e-demo | Persistence, K8s deployment, event-bus (all delivered in M6) |
 | **M6** (Complete, v0.5.0) | K8s production-readiness: mTLS, supply-chain hardening, Postgres-backed repos, Helm charts, EventBus over NATS, images.yaml SoT, memory-service, ArgoEngine, multi-namespace, policy/rate-limit, SDK on PyPI, e2e harness, multi-arch builds, gRPC health, Prometheus /metrics | M7 observability (OTel), M8 CNCF submission |
-| **M7** (Complete, ships in v0.7.0¹) | Usable Workflows + Observability: workflow data-flow output/input bindings, execution log/event streaming, OTEL + Uptrace, context propagation, git MCP shim, expert-agent substrate + agents/examples, reusable templates + first real runnable workflows, first-run UX / zero-secret Ollama quickstart (EPIC #1370), quality/supply-chain fixes, test rigor, authoring & observability docs | M-dx developer-experience program, M8 CNCF submission |
-| **M8** (Complete, ships in v0.7.0¹; tail: M8.I merge queue #1680) | CNCF Sandbox prep + thin-Zynax reduction: governance docs, CRD-native scheduler (ADR-039), Compose-runtime removal (ADR-041), thin Workflow CRD front-end (ADR-043), Envoy Gateway edge auth/rate-limit (ADR-044), ValidatingAdmissionPolicy allow-list (ADR-045), direct NATS JetStream + facade deprecation (ADR-046) | Hard removals (M9), CNCF filing (maintainer action) |
+| **M7** (Complete, v0.7.0¹) | Usable Workflows + Observability: workflow data-flow output/input bindings, execution log/event streaming, OTEL + Uptrace, context propagation, git MCP shim, expert-agent substrate + agents/examples, reusable templates + first real runnable workflows, first-run UX / zero-secret Ollama quickstart (EPIC #1370), quality/supply-chain fixes, test rigor, authoring & observability docs | M-dx developer-experience program, M8 CNCF submission |
+| **M8** (Complete, v0.7.0¹; M8.I merge-queue tail closed under M9) | CNCF Sandbox prep + thin-Zynax reduction: governance docs, CRD-native scheduler (ADR-039), Compose-runtime removal (ADR-041), thin Workflow CRD front-end (ADR-043), Envoy Gateway edge auth/rate-limit (ADR-044), ValidatingAdmissionPolicy allow-list (ADR-045), direct NATS JetStream + facade deprecation (ADR-046) | Hard removals (M9), CNCF filing (maintainer action) |
 | **M9** (Active, v0.8.0 target, GitHub milestone #11) | Hard removals + conformance: agent-registry push-path removal (epic #1674, ADR-039), EventBusService facade removal (epic #1675, ADR-046), named engine-conformance suite (epic #1692) — plan: [docs/milestones/M9-planning.md](docs/milestones/M9-planning.md) | REST retirement (`checkRoutingPolicy` stays — ADR-045 §3), new engines, M-dx/M-UX programs |
 
-> ¹ M7+M8 ship together as one signed v0.7.0 release (v0.6.0 skipped; v1.0.0 reserved for
-> CNCF acceptance). As of 2026-07-08 the v0.7.0 tag/Release and the `state/milestone.yaml`
-> rotation are still pending `/milestone close` — see [state/current-milestone.md](state/current-milestone.md).
+> ¹ M7+M8 shipped together as one signed v0.7.0 release on 2026-07-10 (v0.6.0 skipped;
+> v1.0.0 reserved for CNCF acceptance); GitHub milestones #7/#8 closed and
+> `state/milestone.yaml` rotated to M9 in #1733 — live status: [state/current-milestone.md](state/current-milestone.md).
 
 ## AI Anti-Patterns
 

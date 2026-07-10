@@ -2,8 +2,10 @@
 
 # Zynax M7 — Usable Workflows + Observability Planning
 
-> **Target version:** v0.6.0 · **GitHub milestone:** #7 (`Usable Workflows + Observability (M7)`)
-> **Status:** Active (opened 2026-06-15) · **Last updated:** 2026-06-19 (truth-pass: ~115 closed / ~10 open,
+> **Shipped in:** v0.7.0 (jointly with M8, released 2026-07-10; the original v0.6.0 target was
+> skipped to keep tags monotonic) · **GitHub milestone:** #7 (`Usable Workflows + Observability (M7)`) —
+> closed at 0 open / 172 closed
+> **Status:** ✅ Complete (opened 2026-06-15, closed 2026-07-10) · **Last updated:** 2026-07-10 (prior 2026-06-19 truth-pass: ~115 closed / ~10 open,
 > ~92% done; **EPIC #1370 M7.K — First-run UX cluster delivered** — 11 stories merged via PRs #1431–#1441,
 > canvas `docs/spdd/1370-awesome-quickstart/canvas.md` → Implemented (core path); remaining #1359→M-dx and
 > #1385/#1387 own-canvas, hero asciinema cast a human follow-up. Earlier 2026-06-17 pass: milestone renamed

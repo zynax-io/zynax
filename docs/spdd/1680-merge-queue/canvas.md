@@ -6,7 +6,7 @@
 **Issue:** #1680
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-07-07
-**Status:** Aligned
+**Status:** Implemented (2026-07-10 — epic #1680 closed; fork-canary evidence on #1685)
 
 > Story issues: step 1 → #1681 · step 2 → #1682 · step 3 → #1683 · step 4 → #1684 ·
 > step 5 → #1685

@@ -8,9 +8,9 @@
 > keep tags monotonic; one signed release closes both — see the ROADMAP version-plan footnote).
 > v1.0.0 stays reserved for CNCF acceptance.
 >
-> ⚠️ Until the v0.7.0 close ritual completes (`/milestone close` for M7+M8 → tag + Release →
-> `/milestone open M9`), `state/milestone.yaml` still shows M7 active. This plan is written
-> against the GitHub truth so the rotation can consume it as-is.
+> ✅ The v0.7.0 close ritual completed 2026-07-10: signed tag + GitHub Release published,
+> milestones #7/#8 closed, `state/milestone.yaml` rotated to M9 active (#1733). The M9.A/M9.B
+> gate (deprecation release published before any removal merges) is satisfied.
 
 ## 0 — TL;DR
 
@@ -105,8 +105,8 @@ graph LR
   C1 -.regression net for.-> B1
 ```
 
-- **Critical path:** v0.7.0 close ritual → M9.B chain (4 sequential PRs) — the longest strictly
-  ordered chain with an external gate.
+- **Critical path:** the M9.B chain (4 sequential PRs) — the longest strictly ordered chain;
+  its external gate (v0.7.0 published) was satisfied 2026-07-10.
 - **Parallel groups:** M9.A ∥ M9.B ∥ M9.C are mutually independent; within each epic the steps
   are strictly sequential. #1620 (M9.C step 1) has no gate at all and can merge **first**.
 - Cross-epic note: nothing in M9.A/M9.B may weaken the e2e both-legs gate — M9.C exists to
@@ -114,14 +114,13 @@ graph LR
 
 ## 4 — Prerequisites owned outside M9 (human runbook)
 
-1. Merge/close the M8 tail: #1650 + #1576 are delivered (PR #1673 merged) but open; M8.I
-   (#1680–#1685, merge queue) is M8's remaining active epic.
-2. `/milestone close` — signed **v0.7.0** tag + GitHub Release; closes GitHub milestones #7
-   and #8; rotates `state/milestone.yaml` (M7+M8 → history).
-3. `/milestone open M9` — activates M9 in `state/milestone.yaml` (this planning doc is
-   already in place for it).
-4. Align the three canvases (`Status: Draft → Aligned`) after review; flip the M9 stories
-   `status: backlog → status: ready`; then `/deliver`.
+1. ✅ M8 tail resolved (2026-07-10): #1650 closed (delivered by PR #1673), #1576 closed;
+   M8.I epic #1680 carried into milestone M9 and closed with fork-canary evidence (#1685).
+2. ✅ `/milestone close` done 2026-07-10 — signed **v0.7.0** tag + GitHub Release; milestones
+   #7 and #8 closed; `state/milestone.yaml` rotated (M7+M8 → history) in #1733.
+3. ✅ `/milestone open M9` done 2026-07-10 — M9 active in `state/milestone.yaml` (#1733).
+4. ✅ The three canvases aligned (`Status: Draft → Aligned`, PR #1734, 2026-07-10); the nine
+   M9 stories flipped to `status: ready`; `/deliver` is unblocked.
 
 ## 5 — Risk register
 
