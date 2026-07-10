@@ -58,11 +58,6 @@ spec:
                 configMapKeyRef:
                   name: {{ include "zynax.fullname" . }}
                   key: engine-addr
-            - name: ZYNAX_GW_REGISTRY_ADDR
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "zynax.fullname" . }}
-                  key: registry-addr
             - name: ZYNAX_GW_NATS_URL
               valueFrom:
                 configMapKeyRef:

@@ -29,7 +29,6 @@ type config struct {
 	HTTPPort           int    `envconfig:"HTTP_PORT" default:"8080"`
 	CompilerAddr       string `envconfig:"COMPILER_ADDR" default:"localhost:50054"`
 	EngineAddr         string `envconfig:"ENGINE_ADDR" default:"localhost:50055"`
-	RegistryAddr       string `envconfig:"REGISTRY_ADDR" default:"localhost:50052"`
 	NATSURL            string `envconfig:"NATS_URL" default:"nats://localhost:4222"`
 	LogLevel           string `envconfig:"LOG_LEVEL" default:"info"`
 	GRPCCallTimeoutS   int    `envconfig:"GRPC_CALL_TIMEOUT_S" default:"30"`
@@ -81,7 +80,7 @@ func run(cfg config) error {
 	if eventsTLSCert == "" {
 		eventsTLSCert, eventsTLSKey, eventsTLSCA = cfg.TLSCert, cfg.TLSKey, cfg.TLSCA
 	}
-	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.RegistryAddr, cfg.NATSURL, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA, eventsTLSCert, eventsTLSKey, eventsTLSCA)
+	clients, cleanup, err := infrastructure.NewGatewayClients(cfg.CompilerAddr, cfg.EngineAddr, cfg.NATSURL, callTimeout, cfg.TLSCert, cfg.TLSKey, cfg.TLSCA, eventsTLSCert, eventsTLSKey, eventsTLSCA)
 	if err != nil {
 		return fmt.Errorf("gateway clients: %w", err)
 	}
@@ -89,7 +88,7 @@ func run(cfg config) error {
 
 	probes := api.NewProbes(int64(cfg.LivenessThresholdS), clients.ConnectionsReady)
 
-	svc := domain.NewApplyService(clients, clients, clients, clients)
+	svc := domain.NewApplyService(clients, clients, clients)
 	handler := api.NewHandler(svc)
 
 	// Start the embedded Workflow CRD controller when enabled. It reconciles

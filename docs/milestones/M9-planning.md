@@ -50,7 +50,7 @@ Order is load-bearing: caller → implementation → contract → docs.
 
 | Step | Story | What |
 |------|-------|------|
-| 1 | [#1697](https://github.com/zynax-io/zynax/issues/1697) | api-gateway AgentDef push path + CLI surface deleted; documented retirement error |
+| 1 ✅ | [#1697](https://github.com/zynax-io/zynax/issues/1697) | api-gateway AgentDef push path + CLI surface deleted; documented retirement error |
 | 2 | [#1698](https://github.com/zynax-io/zynax/issues/1698) | agent-registry push repos + Postgres dependency deleted; stateless resync verified live |
 | 3 | [#1598](https://github.com/zynax-io/zynax/issues/1598) | deprecated `AgentRegistryService` RPCs removed from proto + stubs (documented `buf breaking` exception) |
 | 4 | [#1699](https://github.com/zynax-io/zynax/issues/1699) | migration-guide sweep; status surfaces; retire `spike/adr-039-crd-scheduler-proof` |

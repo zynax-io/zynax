@@ -62,23 +62,10 @@ func (s *stubEngine) WatchWorkflow(_ context.Context, _ string, send func(domain
 	return nil
 }
 
-type stubRegistry struct {
-	reg domain.AgentRegistration
-	err error
-}
-
-func (s *stubRegistry) RegisterAgent(_ context.Context, _ []byte, _ string) (domain.AgentRegistration, error) {
-	return s.reg, s.err
-}
-
 // ── helpers ───────────────────────────────────────────────────────────────
 
 func newServer(c domain.CompilerPort, e domain.EnginePort) *httptest.Server {
-	return newServerWithRegistry(c, e, &stubRegistry{})
-}
-
-func newServerWithRegistry(c domain.CompilerPort, e domain.EnginePort, r domain.RegistryPort) *httptest.Server {
-	svc := domain.NewApplyService(c, e, r, nil)
+	svc := domain.NewApplyService(c, e, nil)
 	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -436,11 +423,7 @@ const (
 // CRD era (ADR-039): applying kind: AgentDef answers 410 Gone with the
 // migration pointer — the push forward is retired.
 func TestHandler_Apply_AgentDef_Returns410Retired(t *testing.T) {
-	srv := newServerWithRegistry(
-		&stubCompiler{},
-		&stubEngine{},
-		&stubRegistry{reg: domain.AgentRegistration{AgentID: "agent-001"}},
-	)
+	srv := newServer(&stubCompiler{}, &stubEngine{})
 	defer srv.Close()
 
 	resp, err := http.Post(srv.URL+"/api/v1/apply", "application/yaml", bytes.NewBufferString(agentDefYAML))
@@ -554,7 +537,7 @@ func TestHandler_WorkflowLogs_NotFound_Returns404(t *testing.T) {
 // ── X-Request-ID middleware ───────────────────────────────────────────────
 
 func newServerWithRequestID(c domain.CompilerPort, e domain.EnginePort) *httptest.Server {
-	svc := domain.NewApplyService(c, e, &stubRegistry{}, nil)
+	svc := domain.NewApplyService(c, e, nil)
 	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -631,7 +614,7 @@ func (s *stubEventBus) PublishEvent(_ context.Context, ev domain.EventPublish) (
 }
 
 func newServerWithEventBus(b domain.EventBusPort) *httptest.Server {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, b)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, b)
 	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -698,7 +681,7 @@ func TestHandler_PublishEvent_InvalidJSON_Returns400(t *testing.T) {
 
 func TestHandler_PublishEvent_NoEventBus_Returns503(t *testing.T) {
 	// nil event bus → service returns ErrEngineUnavailable → 503.
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, &stubRegistry{}, nil)
+	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, nil)
 	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)

@@ -2,11 +2,10 @@
 
 // Package api_gateway_bdd_test contains service-level BDD tests for the api-gateway.
 // Tests wire the real HTTP handler with in-process fake port implementations
-// (CompilerPort, EnginePort, RegistryPort) via httptest.Server — no network.
+// (CompilerPort, EnginePort, EventBusPort) via httptest.Server — no network.
 //
 // Scenarios requiring features not yet implemented are marked pending:
-//   - Rate limiting (429)       — M6 scope (#580)
-//   - Permission checks (403)   — M6 scope (OIDC/JWT)
+//   - Rate limiting (429)       — edge concern (Envoy Gateway, ADR-044)
 //   - SSE log streaming         — requires real Watch; pending until E2E wiring
 //   - Internal-error passthrough — no injection path in fake compiler
 package api_gateway_bdd_test
@@ -123,23 +122,11 @@ func (f *fakeEventBus) PublishEvent(_ context.Context, _ domain.EventPublish) (s
 	return "evt-fake", nil
 }
 
-// ── fake RegistryPort ─────────────────────────────────────────────────────────
-
-type fakeRegistry struct{ alreadyExists bool }
-
-func (f *fakeRegistry) RegisterAgent(_ context.Context, _ []byte, _ string) (domain.AgentRegistration, error) {
-	if f.alreadyExists {
-		return domain.AgentRegistration{}, domain.ErrAgentAlreadyExists
-	}
-	return domain.AgentRegistration{AgentID: "agent-registered-id"}, nil
-}
-
 // ── testEnv ───────────────────────────────────────────────────────────────────
 
 type testEnv struct {
 	compiler *fakeCompiler
 	engine   *fakeEngine
-	registry *fakeRegistry
 	eventbus *fakeEventBus
 	server   *httptest.Server
 	apiKey   string
@@ -150,10 +137,9 @@ type testEnv struct {
 func (e *testEnv) setup() {
 	e.compiler = &fakeCompiler{}
 	e.engine = &fakeEngine{}
-	e.registry = &fakeRegistry{}
 	e.eventbus = &fakeEventBus{}
 	e.apiKey = "test-api-key"
-	svc := domain.NewApplyService(e.compiler, e.engine, e.registry, e.eventbus)
+	svc := domain.NewApplyService(e.compiler, e.engine, e.eventbus)
 	h := api.NewHandler(svc)
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -236,12 +222,8 @@ func TestFeatures(t *testing.T) {
 				return ctx, nil
 			})
 
-			// ── Unimplemented / M6+ scenarios ─────────────────────────────────
-			sc.Step(`^a valid agent registration request body$`, pending)
-			sc.Step(`^POST /api/v1/agents is called with a valid API key$`, pending)
-			sc.Step(`^a token with permissions \["tasks:read"\]$`, pending) // M6 OIDC/JWT
-			sc.Step(`^POST /api/v1/agents is called \(requires agents:write\)$`, pending)
-			sc.Step(`^(\d+) requests in 1 minute from the same client$`, pendingInt) // M6 rate-limit
+			// ── Unimplemented scenarios ───────────────────────────────────────
+			sc.Step(`^(\d+) requests in 1 minute from the same client$`, pendingInt) // edge rate-limit (ADR-044)
 			sc.Step(`^the (\d+)nd request is made$`, pendingInt)
 			sc.Step(`^Retry-After header is present$`, pending)
 			sc.Step(`^the upstream service returns a gRPC INTERNAL error$`, pending)
@@ -311,12 +293,6 @@ func TestFeatures(t *testing.T) {
 						return ctx, nil
 					}
 					return ctx, fmt.Errorf("expected code %q, got %q (body: %s)", code, got, env.lastBody)
-				})
-
-			// ── NOT_FOUND passthrough ─────────────────────────────────────────
-			sc.Step(`^GET /api/v1/agents/does-not-exist is called$`,
-				func(ctx context.Context) (context.Context, error) {
-					return ctx, env.do(http.MethodGet, "/api/v1/agents/does-not-exist", nil, "")
 				})
 
 			// ── POST /api/v1/apply setup ──────────────────────────────────────
@@ -455,24 +431,12 @@ func TestFeatures(t *testing.T) {
 				return ctx, nil // status check is sufficient
 			})
 
-			// ── AgentDef apply ────────────────────────────────────────────────
-			sc.Step(`^an AgentRegistryService that accepts the registration$`,
-				func(ctx context.Context) (context.Context, error) {
-					env.registry.alreadyExists = false
-					return ctx, nil
-				})
-			sc.Step(`^an AgentRegistryService that returns ALREADY_EXISTS$`,
-				func(ctx context.Context) (context.Context, error) { env.registry.alreadyExists = true; return ctx, nil })
+			// ── AgentDef apply — retired (ADR-039) ────────────────────────────
+			// The push forward is deleted (#1697): kind: AgentDef answers 410
+			// Gone unconditionally, so no registry precondition is wired.
 			sc.Step(`^POST /api/v1/apply is called with a valid kind: AgentDef YAML body$`,
 				func(ctx context.Context) (context.Context, error) {
 					return ctx, env.do(http.MethodPost, "/api/v1/apply", []byte(agentDefYAML), env.apiKey)
-				})
-			sc.Step(`^the response contains a non-empty agent_id$`,
-				func(ctx context.Context) (context.Context, error) {
-					if id := env.bodyJSON()["agent_id"]; id == nil || id == "" {
-						return ctx, fmt.Errorf("agent_id missing; body: %s", env.lastBody)
-					}
-					return ctx, nil
 				})
 		},
 		Options: &godog.Options{

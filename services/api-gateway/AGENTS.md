@@ -26,14 +26,14 @@ services/api-gateway/
 ├── cmd/api-gateway/main.go          ← wiring only
 ├── internal/
 │   ├── domain/
-│   │   ├── ports.go                 ← CompilerPort, EnginePort, RegistryPort interfaces
+│   │   ├── ports.go                 ← CompilerPort, EnginePort, EventBusPort interfaces
 │   │   ├── apply.go                 ← ApplyService (kind-routing, dry-run, cancel)
 │   │   ├── kindrouter.go            ← extracts kind/apiVersion from raw YAML bytes
-│   │   └── errors.go                ← ErrNotFound, ErrEngineUnavailable, ErrAgentAlreadyExists
+│   │   └── errors.go                ← ErrNotFound, ErrEngineUnavailable, ErrAgentDefRetired
 │   ├── api/
 │   │   └── handler.go               ← HTTP mux, request/response JSON, error mapping
 │   └── infrastructure/
-│       └── clients.go               ← GatewayClients: all three ports via gRPC
+│       └── clients.go               ← GatewayClients: compiler + engine gRPC, events client
 ├── tests/features/api_gateway.feature
 ├── go.mod
 └── go.sum
@@ -53,10 +53,12 @@ CompileWorkflow(ctx, manifestYAML []byte, namespace string, dryRun bool) (Compil
 SubmitWorkflow(ctx, irBytes []byte, engineHint string) (runID string, error)
 GetWorkflowStatus(ctx, runID string) (WorkflowRunSummary, error)
 CancelWorkflow(ctx, runID string) error
-
-// RegistryPort → AgentRegistryService gRPC
-RegisterAgent(ctx, manifestYAML []byte, namespace string) (AgentRegistration, error)
 ```
+
+There is no registry port. Push registration is retired (ADR-039): `kind: AgentDef`
+applies answer 410 Gone (`ErrAgentDefRetired`) pointing at the Agent custom
+resource; the gateway never dials `AgentRegistryService` (push client deleted in
+M9.A step 1, #1697). Agent identity is the `zynax.io/v1alpha1` Agent CR.
 
 ---
 

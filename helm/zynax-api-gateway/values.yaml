@@ -42,7 +42,6 @@ env:
   httpPort: 8080
   compilerAddr: "zynax-workflow-compiler:50054"
   engineAddr: "zynax-engine-adapter:50055"
-  registryAddr: "zynax-agent-registry:50052"
   # NATS JetStream URL consumed by the /logs SSE merge (#1182) to stream
   # per-workflow capability CloudEvents — direct via the shared events client
   # (ADR-046; the EventBusService gRPC facade is deprecated). The connection

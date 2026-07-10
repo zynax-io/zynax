@@ -66,12 +66,10 @@ type ApplyRequest struct {
 // ApplyResult carries the outcome of an apply operation.
 type ApplyResult struct {
 	RunID    string
-	AgentID  string
 	Warnings []string
 	Errors   []CompileError
 	// Status is "new" when a fresh workflow was started, "existing" when a
-	// running workflow with the same manifest hash was found. Empty for dry
-	// runs and agent registrations.
+	// running workflow with the same manifest hash was found. Empty for dry runs.
 	Status string
 }
 
@@ -79,15 +77,14 @@ type ApplyResult struct {
 type ApplyService struct {
 	compiler CompilerPort
 	engine   EnginePort
-	registry RegistryPort
 	eventbus EventBusPort // optional; nil falls back to engine-history-only logs
 }
 
 // NewApplyService constructs an ApplyService with the given ports. eventbus may
 // be nil, in which case WatchWorkflowLogs streams engine history only (no
 // capability events are merged).
-func NewApplyService(compiler CompilerPort, engine EnginePort, registry RegistryPort, eventbus EventBusPort) *ApplyService {
-	return &ApplyService{compiler: compiler, engine: engine, registry: registry, eventbus: eventbus}
+func NewApplyService(compiler CompilerPort, engine EnginePort, eventbus EventBusPort) *ApplyService {
+	return &ApplyService{compiler: compiler, engine: engine, eventbus: eventbus}
 }
 
 // ApplyWorkflow compiles a Workflow manifest and, unless dry_run, submits it
@@ -138,11 +135,11 @@ func (s *ApplyService) submit(ctx context.Context, manifestYAML []byte, compiled
 	return ApplyResult{RunID: runID, Warnings: compiled.Warnings, Status: "new"}, nil
 }
 
-// ApplyAgentDef is retired (ADR-039, canvas 1571 O-step 7): the Agent custom
-// resource is the single source of truth for agent identity, so the gateway
-// no longer forwards AgentDef manifests as push registrations. The route
-// answers with a migration pointer; hard removal of the route follows the M9
-// registry-RPC deletion.
+// ApplyAgentDef is retired (ADR-039): the Agent custom resource is the single
+// source of truth for agent identity, so the gateway no longer forwards
+// AgentDef manifests as push registrations — the push client was deleted in
+// M9.A step 1 (#1697). The route answers unconditionally with a migration
+// pointer to the Agent CRD; the request body is never parsed or forwarded.
 func (s *ApplyService) ApplyAgentDef(_ context.Context, _ ApplyRequest) (ApplyResult, error) {
 	return ApplyResult{}, ErrAgentDefRetired
 }

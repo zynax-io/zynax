@@ -96,13 +96,3 @@ type EventBusPort interface {
 	// fills the CloudEvent id, source, specversion, and time fields.
 	PublishEvent(ctx context.Context, ev EventPublish) (string, error)
 }
-
-// AgentRegistration is the domain view of a successful RegisterAgent response.
-type AgentRegistration struct {
-	AgentID string
-}
-
-// RegistryPort is the gateway's outbound dependency on AgentRegistryService.
-type RegistryPort interface {
-	RegisterAgent(ctx context.Context, manifestYAML []byte, namespace string) (AgentRegistration, error)
-}
