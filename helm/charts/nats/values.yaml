@@ -4,11 +4,11 @@
 # Overrides for the community nats/nats chart are nested under the `nats:` key.
 
 # JetStream stream configuration — applied via ConfigMap to document the
-# streams Zynax event-bus derives (EventBusService, ADR-022).
-# Actual stream creation is performed on demand by event-bus at publish/
-# subscribe time: one stream per entity prefix — the first 4 segments of the
-# topic taxonomy "zynax.v1.<service>.<entity>.<event_type>", upper-snake-cased
-# (StreamName in services/event-bus/internal/infrastructure/nats.go, #1149).
+# streams Zynax derives (ADR-046 direct JetStream via libs/zynaxevents).
+# Actual stream creation is performed on demand by the shared events client at
+# publish/subscribe time: one stream per entity prefix — the first 4 segments of
+# the topic taxonomy "zynax.v1.<service>.<entity>.<event_type>", upper-snake-cased
+# (StreamName in libs/zynaxevents, #1149).
 jetstream:
   # Stream definitions are documented here for operator awareness only.
   streams:

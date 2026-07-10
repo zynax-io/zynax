@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-# JetStream stream configuration reference for Zynax event-bus (ADR-022).
+# JetStream stream configuration reference for Zynax eventing (ADR-046).
 # This ConfigMap documents the required stream topology. Actual stream
-# creation is performed by the event-bus Go service on startup via NATS SDK.
+# creation is performed on demand by the shared libs/zynaxevents client when
+# services publish/subscribe directly over JetStream.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,9 +14,10 @@ metadata:
     app.kubernetes.io/part-of: zynax
 data:
   streams.yaml: |
-    # Zynax JetStream stream definitions (reference — see event-bus EPIC I #772).
-    # event-bus creates these streams on startup. Operators may use this ConfigMap
-    # to verify the expected topology against a running NATS instance.
+    # Zynax JetStream stream definitions (reference — see
+    # docs/patterns/direct-jetstream-events.md). libs/zynaxevents derives these
+    # streams on demand. Operators may use this ConfigMap to verify the expected
+    # topology against a running NATS instance.
     {{- range .Values.jetstream.streams }}
     - name: {{ .name }}
       subjects: {{ .subjects | toJson }}

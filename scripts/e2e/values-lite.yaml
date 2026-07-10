@@ -16,9 +16,11 @@
 #     `zynax-temporal-frontend:7233` (values-e2e.yaml) — the dev Service owns
 #     that name, so NO engine-adapter override is needed here.
 #   • memory-service + its Redis — the echo workflow uses no agent memory.
-#   • event-bus + NATS — the echo workflow asserts no CloudEvents. (If a future
-#     workload needs completion events, re-enable these two; the Temporal cut is
-#     the dominant saving regardless.)
+#   • NATS — the echo workflow asserts no CloudEvents, and every service's
+#     JetStream publish is best-effort (RetryOnFailedConnect, log-and-continue
+#     via libs/zynaxevents), so the stack boots without the broker. (If a future
+#     workload needs completion events, re-enable NATS; the Temporal cut is the
+#     dominant saving regardless.)
 #
 # What it keeps: the 5 core services (api-gateway, workflow-compiler,
 # engine-adapter, task-broker, agent-registry), Postgres (still backs
@@ -32,9 +34,8 @@ zynax-temporal:
 # ── Drop services the echo hero workflow does not use ────────────────────────
 zynax-memory-service:
   enabled: false
-zynax-event-bus:
-  enabled: false
-# Only event-bus consumes NATS; drop the broker with it.
+# The lean echo workflow asserts no CloudEvents; services degrade gracefully
+# without the broker (best-effort JetStream publish), so drop NATS too.
 zynax-nats:
   enabled: false
 

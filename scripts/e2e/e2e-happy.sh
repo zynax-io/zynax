@@ -157,12 +157,12 @@ if [[ -z "${ZYNAX_API_KEY}" ]]; then
   [[ -n "${ZYNAX_API_KEY}" ]] && log "using api-gateway key from the zynax-edge-apikey secret."
 fi
 
-# Verify the event-bus and memory-service deployments exist. These are REQUIRED
-# (#1090, canvas 1086 O4): the CloudEvent + memory-Get assertions below run
-# unconditionally — there is no skip path. Deployment names are pinned via
-# fullnameOverride in values-e2e.yaml (same as the other 5 services).
-kubectl -n "${NAMESPACE}" get deployment "zynax-event-bus" >/dev/null 2>&1 \
-  || fail "event-bus deployment not found — required for the NATS CloudEvent assertion (values-e2e.yaml enables it; run cluster-up.sh)"
+# Verify the memory-service deployment exists. REQUIRED (#1090, canvas 1086 O4):
+# the memory-Get assertion below runs unconditionally — there is no skip path.
+# The CloudEvent assertion needs no event-bus Deployment: engine-adapter
+# publishes lifecycle CloudEvents directly to JetStream via libs/zynaxevents
+# (ADR-046) — the EventBusService facade was retired in M9 (#1700). Deployment
+# names are pinned via fullnameOverride in values-e2e.yaml.
 kubectl -n "${NAMESPACE}" get deployment "zynax-memory-service" >/dev/null 2>&1 \
   || fail "memory-service deployment not found — required for the KV roundtrip assertion (values-e2e.yaml enables it; run cluster-up.sh)"
 
@@ -237,20 +237,20 @@ pass "step 2: workflow reached terminal success state '${FINAL_STATUS}' (run_id=
 # ── 3. Assert CloudEvents off NATS JetStream ──────────────────────────────────────
 #
 # REQUIRED since #1090 (canvas 1086 O4) — no skip path. The engine-adapter
-# publishes lifecycle CloudEvents through EventBusService, which lands them on
-# NATS JetStream. PublishLifecycleEventActivity (services/engine-adapter/
-# internal/infrastructure/activities.go) maps the interpreter event type onto
-# the topic taxonomy "zynax.v1.engine-adapter.workflow.<verb>" (#1149), and
-# event-bus derives one stream per entity prefix (first 4 subject segments,
-# upper-snake-cased — StreamName in services/event-bus/internal/infrastructure/
-# nats.go), so the whole lifecycle family shares the single stream
+# publishes lifecycle CloudEvents directly to NATS JetStream via the shared
+# libs/zynaxevents client (ADR-046) — no EventBusService facade in the path.
+# PublishLifecycleEventActivity (services/engine-adapter/internal/infrastructure/
+# activities.go) maps the interpreter event type onto the topic taxonomy
+# "zynax.v1.engine-adapter.workflow.<verb>" (#1149), and libs/zynaxevents derives
+# one stream per entity prefix (first 4 subject segments, upper-snake-cased), so
+# the whole lifecycle family shares the single stream
 # ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW. We assert with the `nats` CLI inside the
 # nats-box pod (deployed by the NATS subchart) so the host needs no NATS tooling.
 #
 # Two checks, both REQUIRED:
 #   3a: the state-lifecycle CloudEvents (….workflow.state.entered/exited) for
-#       this run are on JetStream — proves the full engine-adapter → event-bus
-#       → NATS pipeline delivers CloudEvents end-to-end.
+#       this run are on JetStream — proves the full engine-adapter → NATS
+#       direct-publish pipeline delivers CloudEvents end-to-end.
 #   3b: the terminal ….workflow.completed CloudEvent is on JetStream — the
 #       #1149 regression guard (the old per-depth stream derivation made the
 #       completed/failed family undeliverable: NATS err 10065).
@@ -280,8 +280,6 @@ nats_diagnostics() {
   warn "── step 3 diagnostics ──"
   warn "JetStream streams:"
   nats_exec stream ls 2>&1 | sed 's/^/    /' >&2 || true
-  warn "event-bus log tail:"
-  kubectl -n "${NAMESPACE}" logs deployment/zynax-event-bus --tail=40 2>&1 | sed 's/^/    /' >&2 || true
   warn "engine-adapter log tail:"
   kubectl -n "${NAMESPACE}" logs deployment/zynax-engine-adapter --tail=40 2>&1 | sed 's/^/    /' >&2 || true
 }
@@ -389,7 +387,7 @@ fi
 
 printf '\n\033[1;32m[e2e-happy] ALL ASSERTIONS PASSED\033[0m\n'
 printf '  workflow:  run_id=%s  status=%s\n' "${RUN_ID}" "${FINAL_STATUS}"
-printf '  event-bus: stream=%s messages=%s  completed-event=delivered (required, #1149)\n' \
+printf '  events:    stream=%s messages=%s  completed-event=delivered (required, #1149)\n' \
   "${EVENTS_STREAM}" "${STATE_MSGS}"
 printf '  memory:    workflow_id=%s  key=%s roundtrip=ok\n' "${MEMORY_WF_ID}" "${MEMORY_KEY}"
 printf '\n'

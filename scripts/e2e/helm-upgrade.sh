@@ -50,16 +50,15 @@ HELM_TIMEOUT="${HELM_TIMEOUT:-600s}"
 
 UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
 
-# The 7 Zynax service Deployments that must reach a healthy rollout (mirrors
-# cluster-up.sh). event-bus + memory-service are included since #1089 published
-# their images and #1090 enabled them in values-e2e.yaml.
+# The 6 Zynax service Deployments that must reach a healthy rollout (mirrors
+# cluster-up.sh). memory-service is included since #1089 published its image and
+# #1090 enabled it in values-e2e.yaml.
 SERVICE_DEPLOYMENTS=(
   "zynax-api-gateway"
   "zynax-workflow-compiler"
   "zynax-engine-adapter"
   "zynax-task-broker"
   "zynax-agent-registry"
-  "zynax-event-bus"
   "zynax-memory-service"
 )
 
@@ -75,7 +74,7 @@ HELM_SET_FLAGS=(
 # and rollback exercise the SAME images the install deployed.
 if [[ -n "${E2E_IMAGE_TAG:-}" ]]; then
   E2E_IMAGE_PREFIX="${E2E_IMAGE_PREFIX:-ghcr.io/zynax-io/zynax/staging}"
-  for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry event-bus memory-service; do
+  for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry memory-service; do
     HELM_SET_FLAGS+=(
       --set "zynax-${svc}.image.repository=${E2E_IMAGE_PREFIX}/${svc}"
       --set "zynax-${svc}.image.tag=${E2E_IMAGE_TAG}"

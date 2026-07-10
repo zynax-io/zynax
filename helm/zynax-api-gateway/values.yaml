@@ -44,9 +44,9 @@ env:
   engineAddr: "zynax-engine-adapter:50055"
   # NATS JetStream URL consumed by the /logs SSE merge (#1182) to stream
   # per-workflow capability CloudEvents — direct via the shared events client
-  # (ADR-046; the EventBusService gRPC facade is deprecated). The connection
-  # retries in the background and the subscription is best-effort, so an
-  # unreachable broker falls back to engine-history-only logs (e.g. the
+  # (ADR-046; the EventBusService gRPC facade was retired in M9, #1700). The
+  # connection retries in the background and the subscription is best-effort, so
+  # an unreachable broker falls back to engine-history-only logs (e.g. the
   # ADR-041 lite profile, which ships no NATS).
   natsURL: "nats://zynax-nats:4222"
   logLevel: "info"

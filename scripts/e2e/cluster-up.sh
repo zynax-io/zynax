@@ -44,7 +44,7 @@
 #   PROFILE               stack profile: full|lite (default: full). lite is the
 #                         ADR-041 lean laptop profile — collapses Temporal to a
 #                         single in-memory start-dev pod (manifests/temporal-dev.
-#                         yaml) and drops event-bus + NATS + memory-service via
+#                         yaml) and drops NATS + memory-service via
 #                         values-lite.yaml. CI uses full.
 #
 # Minimum host resources: 4 CPU, 8 GB RAM (see scripts/e2e/README.md).
@@ -82,9 +82,9 @@ ENVOY_GATEWAY_CHART_VERSION="${ENVOY_GATEWAY_CHART_VERSION:-v1.5.0}"
 # default (the quickstart stays light).
 RATE_LIMIT_ENABLED="${RATE_LIMIT_ENABLED:-false}"
 # Stack profile (ADR-041). "full" (default, == CI) deploys the production-
-# mirroring topology: the 5-pod Temporal chart, event-bus, memory-service.
+# mirroring topology: the 5-pod Temporal chart, memory-service.
 # "lite" is the lean laptop profile — it collapses Temporal to ONE in-memory
-# `start-dev` pod (manifests/temporal-dev.yaml) and drops event-bus + NATS +
+# `start-dev` pod (manifests/temporal-dev.yaml) and drops NATS +
 # memory-service via values-lite.yaml. Same charts, same images, lighter floor.
 PROFILE="${PROFILE:-full}"
 # When set to a non-empty value, side-load the locally-built service images into
@@ -109,9 +109,9 @@ KIND_CONFIG="${SCRIPT_DIR}/kind-config.yaml"
 [[ "${PROFILE}" == "lite" ]] && KIND_CONFIG="${SCRIPT_DIR}/kind-config-lite.yaml"
 UMBRELLA_CHART="${REPO_ROOT}/helm/zynax-umbrella"
 
-# The Zynax service Deployments that must reach a healthy rollout. All 7
-# services ship a GHCR image since #1089 added event-bus + memory-service to
-# the pre-merge build matrix, so the full set is deployed and asserted (#1090).
+# The Zynax service Deployments that must reach a healthy rollout. All 6
+# services ship a GHCR image (#1089 added memory-service to the pre-merge build
+# matrix), so the full set is deployed and asserted (#1090).
 # Deployment names are pinned via fullnameOverride in values-e2e.yaml to
 # `zynax-<svc>` (so the umbrella's inter-service addresses resolve), not the
 # release-prefixed `zynax-zynax-<svc>` default.
@@ -122,10 +122,10 @@ SERVICE_DEPLOYMENTS=(
   "zynax-task-broker"
   "zynax-agent-registry"
 )
-# event-bus + memory-service ship in the full profile only; the lean profile
-# (values-lite.yaml) disables them, so they have no Deployment to wait on.
+# memory-service ships in the full profile only; the lean profile
+# (values-lite.yaml) disables it, so it has no Deployment to wait on.
 if [[ "${PROFILE:-full}" != "lite" ]]; then
-  SERVICE_DEPLOYMENTS+=("zynax-event-bus" "zynax-memory-service")
+  SERVICE_DEPLOYMENTS+=("zynax-memory-service")
 fi
 
 # ── helpers ──────────────────────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ if [[ -n "${KIND_LOAD_IMAGES}" ]]; then
   load_pids=()
   load_imgs=()
   for svc in api-gateway workflow-compiler engine-adapter task-broker \
-             agent-registry event-bus memory-service langgraph-adapter; do
+             agent-registry memory-service langgraph-adapter; do
     img="${KIND_LOAD_REGISTRY}/${svc}:${KIND_LOAD_TAG}"
     if docker image inspect "${img}" >/dev/null 2>&1; then
       log "  → loading ${img}"
@@ -368,7 +368,7 @@ fi
 log "deploying zynax-umbrella as release '${RELEASE_NAME}' in namespace '${NAMESPACE}' (engine: ${E2E_ENGINE})…"
 # values-e2e.yaml carries the e2e-only overrides (shared with helm-upgrade.sh so
 # the release shape is identical across revisions): service image tags pinned to
-# `main`, event-bus/memory-service enabled (#1090), and the Postgres /
+# `main`, memory-service enabled (#1090), and the Postgres /
 # Temporal credential wiring.
 # E2E_IMAGE_TAG (set by e2e-smoke.yml for docker-touching PRs) repoints the 7
 # deployed services at the pre-merge staging lane — helm-upgrade.sh applies the
@@ -381,17 +381,17 @@ if [[ "${E2E_ENGINE}" == "argo" ]]; then
   ENGINE_VALUES+=(-f "${SCRIPT_DIR}/values-e2e-argo.yaml")
 fi
 # Lean profile overlay (ADR-041): layered last so it wins — disables the
-# Temporal chart, event-bus, NATS, memory-service and trims the Postgres PVC.
+# Temporal chart, NATS, memory-service and trims the Postgres PVC.
 PROFILE_VALUES=()
 if [[ "${PROFILE}" == "lite" ]]; then
-  log "lean profile: layering values-lite.yaml (Temporal→dev pod; no event-bus/NATS/memory-service)…"
+  log "lean profile: layering values-lite.yaml (Temporal→dev pod; no NATS/memory-service)…"
   PROFILE_VALUES+=(-f "${SCRIPT_DIR}/values-lite.yaml")
 fi
 IMAGE_OVERRIDES=()
 if [[ -n "${E2E_IMAGE_TAG:-}" ]]; then
   E2E_IMAGE_PREFIX="${E2E_IMAGE_PREFIX:-ghcr.io/zynax-io/zynax/staging}"
   log "service image lane override: ${E2E_IMAGE_PREFIX}/<svc>:${E2E_IMAGE_TAG}"
-  for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry event-bus memory-service; do
+  for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry memory-service; do
     IMAGE_OVERRIDES+=(
       --set "zynax-${svc}.image.repository=${E2E_IMAGE_PREFIX}/${svc}"
       --set "zynax-${svc}.image.tag=${E2E_IMAGE_TAG}"

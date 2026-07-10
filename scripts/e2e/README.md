@@ -108,10 +108,10 @@ full list):
    workflow-controller, tokenless argo-server, executor SA/RBAC in the release
    namespace) plus the `zynax-ir-interpreter` WorkflowTemplate
    ([`manifests/argo-ir-interpreter.yaml`](manifests/argo-ir-interpreter.yaml)).
-3. Deploys `zynax-umbrella` with all 7 services enabled — including `event-bus`
-   and `memory-service` (#1090) — pinned to the `:main` GHCR lane (or the
+3. Deploys `zynax-umbrella` with all 6 services enabled — including
+   `memory-service` (#1090) — pinned to the `:main` GHCR lane (or the
    pre-merge staging lane when `E2E_IMAGE_TAG` is set).
-4. Waits for all **7 service Deployments** to reach a healthy rollout with their
+4. Waits for all **6 service Deployments** to reach a healthy rollout with their
    startup / liveness / readiness probes passing.
 
 ## What `helm-upgrade.sh` does

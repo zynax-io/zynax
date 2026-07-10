@@ -84,26 +84,12 @@ zynax-agent-registry:
   # SelectAgent; readiness reconciled from the echo-worker EndpointSlice.
   crdInformer:
     enabled: true
-# event-bus + memory-service (#1090): enabled so e2e-happy.sh can assert the
-# workflow.completed CloudEvent off NATS JetStream and a memory-service KV
-# roundtrip. Requests are kept minimal so the trimmed smoke stack still fits
-# the 2 CPU / 7 GB runner (#1091 owns the full right-sizing pass).
-zynax-event-bus:
-  enabled: true
-  fullnameOverride: zynax-event-bus
-  image:
-    tag: main
-  # The deprecated facade must dial the fail-closed verify_and_map broker with
-  # its own cert-manager identity until its M9 removal (ADR-046): mounting the
-  # secret sets the ZYNAX_EVENTBUS_TLS_* envs its NATS client-cert dial reads.
-  tlsSecretName: zynax-event-bus-tls
-  resources:
-    requests:
-      cpu: 25m
-      memory: 32Mi
-    limits:
-      cpu: 200m
-      memory: 128Mi
+# memory-service (#1090): enabled so e2e-happy.sh can assert a memory-service KV
+# roundtrip. The workflow.completed/failed CloudEvent assertions ride the direct
+# JetStream publish path (engine-adapter → NATS via libs/zynaxevents, ADR-046) —
+# the EventBusService facade Deployment was retired in M9 (#1700). Requests are
+# kept minimal so the trimmed smoke stack still fits the 2 CPU / 7 GB runner
+# (#1091 owns the full right-sizing pass).
 zynax-memory-service:
   enabled: true
   fullnameOverride: zynax-memory-service
@@ -179,12 +165,6 @@ zynax-nats:
               permissions:
                 publish: ["zynax.v1.>", "$JS.API.>", "$JS.ACK.>"]
                 subscribe: ["_INBOX.>", "zynax.dlq.>"]
-            # The deprecated facade serves arbitrary publish/subscribe until
-            # its M9 removal — widest identity, removed with it (ADR-046).
-            - user: CN=zynax-event-bus
-              permissions:
-                publish: [">"]
-                subscribe: [">"]
             # nats-box carries the e2e assertion CLI.
             - user: CN=zynax-natsbox
               permissions:
