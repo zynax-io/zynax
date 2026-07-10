@@ -3,7 +3,10 @@
 #
 # Fires on version-tag pushes (v*.*.*) and publishes zynax-sdk to the
 # real PyPI via GitHub Actions OIDC Trusted Publisher — no API keys
-# stored in secrets.
+# stored in secrets. Also manually dispatchable (workflow_dispatch) so a
+# publish can run from main without waiting for the next platform tag —
+# the trusted publisher matches repo+workflow+environment, not the ref.
+# On dispatch the Release-upload step is skipped (no tag, no Release).
 #
 # Prerequisites (one-time manual setup — see agents/sdk/AGENTS.md):
 #   1. Register a Trusted Publisher on pypi.org for this repo.
@@ -20,6 +23,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -104,13 +108,28 @@ jobs:
           cosign sign-blob --yes --bundle "${SDIST}.bundle" "$SDIST"
           echo "Bundle created: ${SDIST}.bundle"
 
+      - name: Stage distributions for PyPI (exclude SBOM + cosign bundles)
+        working-directory: agents/sdk
+        run: |
+          # The SBOM (*.spdx.json) and cosign bundles (*.bundle) live in dist/
+          # alongside the wheel + sdist; twine rejects them as unknown
+          # distribution formats, so the publish step gets a clean dir.
+          mkdir -p pypi-dist
+          cp dist/*.whl dist/*.tar.gz pypi-dist/
+          echo "Staged for publish:"
+          ls -lh pypi-dist/
+
       - name: Publish to PyPI (OIDC — Trusted Publisher)
         uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc  # v1.12.4
         with:
-          packages-dir: agents/sdk/dist/
+          packages-dir: agents/sdk/pypi-dist/
+          # The SDK versions independently of platform tags (0.1.0 today) —
+          # a platform tag that doesn't bump the SDK must not fail the run.
+          skip-existing: true
           verbose: true
 
       - name: Upload SBOM and signature bundles to GitHub Release
+        if: github.ref_type == 'tag'   # workflow_dispatch from a branch has no Release to attach to
         working-directory: agents/sdk
         env:
           GH_TOKEN: ${{ github.token }}
