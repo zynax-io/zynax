@@ -54,14 +54,10 @@ strategy, load/SLO).
 2. ✅ Fork-canary done: PR #1668 merged through the queue unattended; evidence on
    [#1685](https://github.com/zynax-io/zynax/issues/1685); epic #1680 closed.
 
-Remaining human action (does not block delivery):
-
-- **PyPI trusted publisher never registered** ([#1732](https://github.com/zynax-io/zynax/issues/1732)):
-  `zynax-sdk` has never actually published (v0.5.0 and v0.7.0 runs failed
-  `invalid-publisher`; re-verified 2026-07-10 — the package 404s on PyPI). Register the
-  pending publisher on pypi.org (project `zynax-sdk`, owner `zynax-io`, repository `zynax`,
-  workflow `sdk-publish.yml`, environment `pypi` — must match exactly), then re-run the
-  v0.7.0 `SDK PyPI Publish` run (29074533005) and verify `pip index versions zynax-sdk`.
+3. ✅ PyPI publish resolved ([#1732](https://github.com/zynax-io/zynax/issues/1732)):
+   trusted publisher registered (maintainer) + dist-staging workflow fix (PR #1736);
+   `zynax-sdk 0.1.0` live on PyPI since 2026-07-10 (dispatched run 29082343455).
+   Sigstore bundles attach on the next platform tag (v0.8.0).
 
 ---
 
@@ -72,7 +68,8 @@ Remaining human action (does not block delivery):
    #1420 (load/SLO harness) moved to unscheduled pending ADR-051 (#1696).
 2. ✅ Signed `v0.7.0` tag pushed; Release workflow green (CLI + zynax-ci binaries,
    SBOMs, retag-promoted images per ADR-027); GitHub Release published.
-   ⚠️ `SDK PyPI Publish` failed — pre-existing config gap, tracked in #1732.
+   ⚠️ `SDK PyPI Publish` failed — pre-existing config gap, tracked in #1732
+   (resolved 2026-07-10: publisher registered + PR #1736; package live).
 3. ✅ GitHub milestones #7 and #8 closed; `state/milestone.yaml` rotated (M7+M8 →
    history, M9 active) in this PR.
 
@@ -80,8 +77,6 @@ Remaining human action (does not block delivery):
 
 ## Known drift being reconciled
 
-- Docs claiming "SDK on PyPI" (M6 deliverable) are aspirational until #1732 is fixed —
-  the package has never been on PyPI (registration re-verified failing 2026-07-10).
 - Stale M-dx epic nest: #173 ⊃ #205 ⊃ #148 ⊃ #146 — consolidation recommended (see the
   triage comments on those issues, 2026-07-08).
 - Local branches with unique unmerged commits and no PR, flagged by the 2026-07-10
