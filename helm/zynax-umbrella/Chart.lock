@@ -14,9 +14,6 @@ dependencies:
 - name: zynax-agent-registry
   repository: file://../zynax-agent-registry
   version: 0.4.0
-- name: zynax-event-bus
-  repository: file://../zynax-event-bus
-  version: 0.1.0
 - name: zynax-memory-service
   repository: file://../zynax-memory-service
   version: 0.1.1
@@ -35,5 +32,5 @@ dependencies:
 - name: zynax-uptrace
   repository: file://../charts/uptrace
   version: 0.1.0
-digest: sha256:b1362b1f8853088d339607e99311dc82088aa0b5026c7cde10f82a9095128c4b
-generated: "2026-07-03T18:45:59.148775214+02:00"
+digest: sha256:cc028cc85fc2ec8d9f9aafd71f92d188e617bb5036ab5f5990b3964c37f97b2b
+generated: "2026-07-10T12:25:49.545779751+02:00"

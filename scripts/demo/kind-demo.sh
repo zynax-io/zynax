@@ -52,7 +52,7 @@ API_GW_URL="${API_GW_URL:-http://localhost:8080}"
 WORKFLOW_FILE="${WORKFLOW_FILE:-${REPO_ROOT}/spec/workflows/examples/e2e-demo.yaml}"
 # Stack profile passed through to cluster-up.sh (ADR-041): "full" (default,
 # prod-mirroring) or "lite" (lean laptop — one in-memory dev Temporal, no
-# event-bus/NATS/memory-service). The hero echo workflow runs on both.
+# NATS/memory-service). The hero echo workflow runs on both.
 PROFILE="${PROFILE:-full}"
 # Workflow engine passed through to cluster-up.sh (#1500, the engine-portability
 # wedge — #1370 / ADR-041): "temporal" (default) or "argo". argo additionally
@@ -175,10 +175,10 @@ SERVICE_DEPLOYMENTS=(
   zynax-api-gateway zynax-workflow-compiler zynax-engine-adapter
   zynax-task-broker zynax-agent-registry
 )
-# event-bus + memory-service exist in the full profile only (the lean profile
-# disables them via values-lite.yaml) — only assert them when PROFILE != lite.
+# memory-service exists in the full profile only (the lean profile disables it
+# via values-lite.yaml) — only assert it when PROFILE != lite.
 if [[ "${PROFILE}" != "lite" ]]; then
-  SERVICE_DEPLOYMENTS+=(zynax-event-bus zynax-memory-service)
+  SERVICE_DEPLOYMENTS+=(zynax-memory-service)
 fi
 for dep in "${SERVICE_DEPLOYMENTS[@]}"; do
   kubectl -n "${NAMESPACE}" rollout status "deployment/${dep}" --timeout=120s \

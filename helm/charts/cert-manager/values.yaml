@@ -43,9 +43,6 @@ certificates:
     agent-registry:
       enabled: true
       secretName: zynax-agent-registry-tls
-    event-bus:
-      enabled: true
-      secretName: zynax-event-bus-tls
     memory-service:
       enabled: true
       secretName: zynax-memory-service-tls

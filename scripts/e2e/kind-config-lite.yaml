@@ -4,9 +4,9 @@
 # single-node cluster (kind)").
 #
 # The default kind-config.yaml runs 1 control-plane + 2 workers because the FULL
-# stack (5-pod Temporal + NATS + memory-service + 7 services) needs headroom and
+# stack (5-pod Temporal + NATS + memory-service + 6 services) needs headroom and
 # a single node evicts under CI memory pressure. The lean profile is far lighter
-# (1 in-memory dev Temporal, no event-bus/NATS/memory-service), so it fits on ONE
+# (1 in-memory dev Temporal, no NATS/memory-service), so it fits on ONE
 # node — which removes two nodes' worth of kubelet/containerd/kindnet/kube-proxy
 # overhead AND avoids loading the service images into three nodes' containerd.
 # That node + image-triplication tax is the dominant cost on a laptop, so this is

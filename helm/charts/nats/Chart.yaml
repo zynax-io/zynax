@@ -3,8 +3,8 @@ apiVersion: v2
 name: zynax-nats
 description: >
   NATS JetStream subchart for Zynax — wraps the community nats/nats chart and
-  adds Zynax-specific JetStream stream configuration (ConfigMap). Used as the
-  event backbone for EventBusService (ADR-022).
+  adds Zynax-specific JetStream stream configuration (ConfigMap). The direct
+  event backbone: services publish/subscribe through libs/zynaxevents (ADR-046).
 type: application
 version: 0.1.0
 appVersion: "2.14.0"

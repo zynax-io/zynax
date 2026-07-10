@@ -203,13 +203,11 @@ if [[ -z "${ZYNAX_API_KEY}" ]]; then
   [[ -n "${ZYNAX_API_KEY}" ]] && log "using api-gateway key from the zynax-edge-apikey secret."
 fi
 
-# Verify event-bus exists — the workflow.failed CloudEvent assertion needs it.
-# The deployment name is pinned via fullnameOverride in values-e2e.yaml (#1090).
-# REQUIRED since the #1149 fix made the terminal failed event reliably
-# deliverable — the assertion has no skip path (same strictness as e2e-happy.sh).
-kubectl -n "${NAMESPACE}" get deployment "zynax-event-bus" >/dev/null 2>&1 \
-  || fail "event-bus deployment not found — required for the workflow.failed CloudEvent assertion (values-e2e.yaml enables it; run cluster-up.sh)"
-
+# The workflow.failed CloudEvent assertion needs no event-bus Deployment:
+# engine-adapter publishes the terminal failed event directly to JetStream via
+# libs/zynaxevents (ADR-046) — the EventBusService facade was retired in M9
+# (#1700). Deliverability of the terminal event was fixed in #1149; the assertion
+# has no skip path (same strictness as e2e-happy.sh).
 log "preflight passed (capability timeout = ${ZYNAX_CAPABILITY_TIMEOUT})."
 
 # Reach api-gateway via a port-forward by default — the kind NodePort host
@@ -319,12 +317,12 @@ log "step 3: capability timeout budget = ${ZYNAX_CAPABILITY_TIMEOUT}; observed f
 #
 # REQUIRED since the #1149 fix — no skip path (same strictness as e2e-happy.sh
 # step 3b). PublishLifecycleEventActivity maps the interpreter event type onto
-# the topic taxonomy "zynax.v1.engine-adapter.workflow.failed", and event-bus
-# derives one stream per entity prefix (first 4 subject segments, upper-snake-
-# cased — StreamName in services/event-bus/internal/infrastructure/nats.go),
-# so the failed event shares the ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW stream with
-# the rest of the lifecycle family. We assert with the `nats` CLI inside the
-# nats-box pod (deployed by the NATS subchart) so the host needs no NATS tooling.
+# the topic taxonomy "zynax.v1.engine-adapter.workflow.failed", and
+# libs/zynaxevents derives one stream per entity prefix (first 4 subject
+# segments, upper-snake-cased) on the direct JetStream publish (ADR-046), so the
+# failed event shares the ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW stream with the rest
+# of the lifecycle family. We assert with the `nats` CLI inside the nats-box pod
+# (deployed by the NATS subchart) so the host needs no NATS tooling.
 
 log "step 4: asserting CloudEvent off NATS JetStream (subject 'zynax.v1.engine-adapter.workflow.failed')…"
 
@@ -350,8 +348,6 @@ nats_diagnostics() {
   warn "── step 4 diagnostics ──"
   warn "JetStream streams:"
   nats_exec stream ls 2>&1 | sed 's/^/    /' >&2 || true
-  warn "event-bus log tail:"
-  kubectl -n "${NAMESPACE}" logs deployment/zynax-event-bus --tail=40 2>&1 | sed 's/^/    /' >&2 || true
   warn "engine-adapter log tail:"
   kubectl -n "${NAMESPACE}" logs deployment/zynax-engine-adapter --tail=40 2>&1 | sed 's/^/    /' >&2 || true
 }
@@ -382,6 +378,6 @@ pass "step 4: workflow.failed CloudEvent delivered to JetStream (stream=${EVENTS
 printf '\n\033[1;32m[e2e-failure] ALL ASSERTIONS PASSED\033[0m\n'
 printf '  workflow:  run_id=%s  status=%s  (expected failure)\n' "${RUN_ID}" "${FINAL_STATUS}"
 printf '  timeout:   budget=%s  observed=~%ss\n' "${ZYNAX_CAPABILITY_TIMEOUT}" "${FAIL_ELAPSED}"
-printf '  event-bus: stream=%s  subject=%s  failed-event=delivered (required, #1149)\n' \
+printf '  events:    stream=%s  subject=%s  failed-event=delivered (required, #1149)\n' \
   "${EVENTS_STREAM}" "${FAILED_SUBJECT}"
 printf '\n'

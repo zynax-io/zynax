@@ -27,7 +27,6 @@ Enabled components:
 {{- end }}
 
 Placeholder charts (disabled until implementation EPICs merge):
-  event-bus  — enable after EPIC I (#772): --set zynax-event-bus.enabled=true
   memory-service — enable after EPIC J (#773): --set zynax-memory-service.enabled=true
 
 To apply a workflow manifest:
