@@ -38,6 +38,14 @@ POLL_INTERVAL="${POLL_INTERVAL:-3}"
 IDEMPOTENCY_WAIT="${IDEMPOTENCY_WAIT:-8}"
 CR_FILE="${REPO_ROOT}/scripts/e2e/manifests/workflow-cr.yaml"
 CR_NAME="e2e-crd-echo"
+# Fully-qualified resource name — do NOT shorten to the bare "workflow" alias.
+# On the argo leg the Argo Workflows CRD (workflows.argoproj.io) is installed
+# alongside the thin Zynax CRD (workflows.zynax.io), so the short name resolves
+# ambiguously and kubectl reads the Argo CRD — which never holds a resource
+# named "${CR_NAME}". The zynax CR reconciles to Dispatched=True either way, but
+# every unqualified poll silently reads the wrong kind and the assertion times
+# out (#1620). Pinning the group makes the script correct on both engine legs.
+WF_RESOURCE="workflow.zynax.io"
 
 log()  { printf '\033[1;34m[e2e-crd]\033[0m %s\n' "$*"; }
 pass() { printf '\033[1;32m[e2e-crd][PASS]\033[0m %s\n' "$*"; }
@@ -47,9 +55,9 @@ require() { command -v "$1" >/dev/null 2>&1 || fail "required tool not found on 
 require kubectl
 require python3
 
-wf() { kubectl -n "${NAMESPACE}" get workflow "${CR_NAME}" -o "$1" 2>/dev/null || true; }
+wf() { kubectl -n "${NAMESPACE}" get "${WF_RESOURCE}" "${CR_NAME}" -o "$1" 2>/dev/null || true; }
 
-cleanup() { kubectl -n "${NAMESPACE}" delete workflow "${CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true; }
+cleanup() { kubectl -n "${NAMESPACE}" delete "${WF_RESOURCE}" "${CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 # The CRD must be installed — it ships in the api-gateway chart crds/ and is only
@@ -93,7 +101,7 @@ pass "status is a thin mirror (keys: ${keys})"
 # Idempotency: annotate to trigger a reconcile (metadata change, generation
 # unchanged) and assert no new run is dispatched.
 gen1=$(wf 'jsonpath={.status.observedGeneration}')
-kubectl -n "${NAMESPACE}" annotate workflow "${CR_NAME}" e2e/poke="$(date +%s)" --overwrite >/dev/null
+kubectl -n "${NAMESPACE}" annotate "${WF_RESOURCE}" "${CR_NAME}" e2e/poke="$(date +%s)" --overwrite >/dev/null
 sleep "${IDEMPOTENCY_WAIT}"
 run2=$(wf 'jsonpath={.status.runID}')
 gen2=$(wf 'jsonpath={.status.observedGeneration}')
@@ -136,7 +144,7 @@ EOF
   deny_rc=$?
   set -e
   if [[ ${deny_rc} -eq 0 ]]; then
-    kubectl -n "${NAMESPACE}" delete workflow "${DENIED_CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true
+    kubectl -n "${NAMESPACE}" delete "${WF_RESOURCE}" "${DENIED_CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true
     fail "a CR with spec.engine=forbidden-engine was ADMITTED — the engine-allowlist VAP is not enforcing"
   fi
   echo "${deny_out}" | grep -qi "allow-list" \
@@ -166,7 +174,7 @@ spec:
     done:
       type: terminal
 EOF
-  kubectl -n "${NAMESPACE}" delete workflow "${ALLOWED_CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl -n "${NAMESPACE}" delete "${WF_RESOURCE}" "${ALLOWED_CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true
   pass "allowed engine admitted by the allow-list VAP"
 else
   log "engine-allowlist VAP not installed (admissionPolicy.enabled=false?) — skipping admission assertions"

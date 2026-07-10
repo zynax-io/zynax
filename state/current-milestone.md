@@ -41,7 +41,7 @@ dual-engine e2e into a named conformance suite.
 |------|-------|--------|------------------------------|
 | M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Aligned (#1734) | #1697 → #1698 → #1598 → #1699 |
 | M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) | `docs/spdd/1675-event-bus-facade-removal/` — Aligned (#1734) | #1700 → #1701 → #1702 → #1703 (v0.7.0 gate now satisfied) |
-| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 → (steps 2–4 filed via `/lib:spdd-story`) |
+| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → (steps 2–4 filed via `/lib:spdd-story`) |
 | M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
 
 The three M9 epics are mutually parallel; #1620 has no gate and can merge first. Also riding
@@ -58,6 +58,12 @@ strategy, load/SLO).
    trusted publisher registered (maintainer) + dist-staging workflow fix (PR #1736);
    `zynax-sdk 0.1.0` live on PyPI since 2026-07-10 (dispatched run 29082343455).
    Sigstore bundles attach on the next platform tag (v0.8.0).
+
+4. ✅ M9.C step 1 delivered ([#1620](https://github.com/zynax-io/zynax/issues/1620),
+   2026-07-10): the Workflow CRD reconcile e2e assertion now runs on **both** engine legs.
+   The argo leg was never dispatch-broken — the assertion's unqualified `kubectl get workflow`
+   resolved to the co-installed Argo CRD; the script now pins `workflow.zynax.io` and the
+   `matrix.engine == 'temporal'` guard is dropped. Verified on a live argo kind cluster.
 
 ---
 

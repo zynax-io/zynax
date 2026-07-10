@@ -184,14 +184,16 @@ jobs:
         run: scripts/e2e/e2e-argo.sh
 
       - name: Workflow CRD reconcile assertion
-        if: matrix.engine == 'temporal'
-        # Temporal leg (ADR-043, M8.E): kubectl apply a Workflow custom resource
-        # and assert the api-gateway's embedded controller reconciles it through
-        # the same compile->submit path to a Dispatched run, keeps a thin status
-        # (no run state in the CR), and is idempotent (a reconcile of the
-        # unchanged spec starts no new run). Extending this to the argo leg is
-        # tracked in #1620 (the echo-workflow CR did not dispatch there within
-        # the poll window; needs the controller/argo logs the script now dumps).
+        # Both engine legs (ADR-043, M8.E; #1620, M9.C): kubectl apply a Workflow
+        # custom resource and assert the api-gateway's embedded controller
+        # reconciles it through the same compile->submit path to a Dispatched run,
+        # keeps a thin status (no run state in the CR), and is idempotent (a
+        # reconcile of the unchanged spec starts no new run). #1619 first scoped
+        # this to temporal-only because the argo leg appeared to never dispatch;
+        # the CR always reconciled fine — the assertion's `kubectl get workflow`
+        # short name resolved to the Argo CRD (workflows.argoproj.io, present only
+        # on this leg) instead of workflows.zynax.io, so it polled the wrong kind.
+        # The script now pins the fully-qualified name and runs on both legs.
         run: scripts/e2e/e2e-workflow-crd.sh
 
       - name: Helm upgrade/rollback smoke
