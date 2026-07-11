@@ -88,6 +88,11 @@ strategy, load/SLO).
 - Local branches with unique unmerged commits and no PR, flagged by the 2026-07-10
   `/reconcile` for a human decision: `feat/1492-kind-demo-lifecycle`, `pr-1447`,
   `wavec-rebuild` (1 commit each, 2026-06-19 → 06-25 era; land or delete).
+- `images/images.yaml` api-gateway pin is stale (`sha256:c663e687…`, from #1728): the
+  2026-07-10 merge-queue batch orphaned #1740's api-gateway staging image because the
+  Release retag job promoted only the batch head (#1741). Fixed by [#1742](https://github.com/zynax-io/zynax/issues/1742)
+  (batch-aware retag walk) — the first post-merge Release run re-promotes #1740 and
+  the digest-sync bot commit lands the current pin. Verify the pin flips after merge.
 
 Resolved by the 2026-07-10 `/reconcile` truth-pass: CLAUDE.md / ROADMAP.md / README /
 ARCHITECTURE / M7–M9 planning docs now reflect the v0.7.0 close; #233/#234 label drift
