@@ -688,3 +688,28 @@ Story: Q.4 — verify + document Go module consumption path (pkg.go.dev). PR #12
 - Rule: When verifying a merge that landed through the merge queue, first establish the push batch (`git log <prev-main>..<new-main> --oneline`): the Release run exists only for the batch head. If the verified PR is not the batch head, check whether the batch-head Release run promoted the verified PR's staging images; if it did not (per-PR staging lookup), report "Release promotion incomplete for non-head PR in batch", record the orphaned staging digest + tag, and escalate to the orchestrator instead of waiting for a per-commit run.
   Category: domain
   Reason: recurring merge-queue mechanic (live since 2026-07-08) that otherwise produces misleading PENDING/green-but-stale verdicts; concrete instance tracked in #1742.
+
+## Session — 2026-07-11 (issue #1742)
+
+### Effective patterns
+- Replaying a workflow's shell logic locally against real git history + `commits/<sha>/pulls` is decisive pre-merge evidence for a `workflow_run`-only job that can't be dispatched from a PR branch: it proved the batch walk finds the orphaned non-head PR before merging.
+- Keying the walk's stop condition off the retag bot's own reserved commit subject (`chore(images): sync digests`) both bounds the walk and prevents re-promoting a superseded image — a later same-service promotion writes a newer boundary, so buried orphans are never regressed.
+- Watching the FIRST post-merge Release run (not just asserting config-correctness) caught the full blast radius: the fix healed a whole backlog of orphaned promotions (12 services stale since the #1728 boundary), because no successful promotion had run in that window — visible only by reading the actual `images.yaml` bot-commit diff on main.
+
+### Edge cases discovered
+- The merge-queue promotion outage was wider than the reported instance: between the last digest-sync boundary (#1728) and this fix, ~15 PRs merged with ZERO digest-sync commits, so every service PR in that window was orphaned, not just #1740. A boundary-bounded walk self-heals the entire backlog in one run (correct, since newest-per-service selection can't overwrite a newer already-promoted image).
+- Restartability under the batch design: deleting staging LAST (after the images.yaml commit) means a mid-run job re-run still sees staging present, so the resolver+promote steps deterministically regenerate their scratch files — no cross-attempt state needed.
+
+### Failed approaches
+- `gh run view --job <id> --log | grep` returned nothing for the emoji-prefixed `echo` lines (encoding); the authoritative promotion evidence was the `git show <bot-commit> -- images/images.yaml` diff on main, not the run log.
+
+### Proposed expert prompt update
+- Rule: The retag-on-merge job is BATCH-AWARE (ADR-047): it walks first-parent from `workflow_run.head_sha` promoting every merged PR's staging images and stops at the previous `chore(images): sync digests` bot commit. A merge-queue batch fast-forwards several squash commits to main in ONE push but only the head gets a CI-on-main run — so one Release run must promote the whole batch. To verify promotion, read the bot commit's `images.yaml` diff on main (`git show <sync-commit> -- images/images.yaml`), not just the run-job log (emoji-prefixed echoes don't grep cleanly). A long gap with no `chore(images): sync digests` commit means orphaned promotions are accumulating; the next Release run heals the whole window.
+  Category: domain
+  Reason: Permanent behavior of the retag pipeline after #1742 — future ci-release sessions reasoning about "which images a merge promotes" must account for the batch walk and its boundary, and know the reliable verification surface.
+
+## Session — 2026-07-11 (post-merge verification: PR #1744)
+
+### Effective patterns
+- When the Release run succeeds and the retag bot commits the digest sync directly, no separate digest-bump issue is opened or needed; the evidence is the bot commit itself, not an issue number.
+- Workflow-only PRs build no service images themselves; the 12 services promoted after #1744 came from earlier batches' staging builds via the batch-aware resolver — attribute promotions to the resolver walk, not the merged diff.
