@@ -85,7 +85,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: main
-          fetch-depth: 1
+          fetch-depth: 0   # first-parent walk over the pushed batch (ADR-047, #1742)
           # The digest push must bypass main's ruleset. GitHub's API does not
           # accept the built-in Actions app as a repo-ruleset bypass actor, so
           # the bypass is granted to the repository-admin role and the push
@@ -95,30 +95,65 @@ jobs:
           token: ${{ secrets.BOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
 
       # A CI run on main is the post-merge run: workflow_run.head_sha is the
-      # merge commit. The staging lane is tagged with the PR head SHA —
-      # recover it from the PR associated with the merge commit.
-      - name: Resolve merged PR head SHA
-        id: pr
+      # BATCH-HEAD merge commit. The merge queue (ADR-047) can fast-forward
+      # SEVERAL squash commits to main in one push, but only the batch head
+      # gets a CI-on-main run → this single Release run must promote EVERY PR
+      # in the push, not just the head (issue #1742: a non-head service PR
+      # was silently skipped, orphaning its staging image + stale pin).
+      #
+      # Walk first-parent from the batch head, recording each commit's PR head
+      # SHA (the staging lane is keyed by PR head SHA). Stop at the previous
+      # digest-sync bot commit — its subject is reserved, and everything older
+      # than it was already promoted, so stopping there both bounds the walk
+      # and prevents re-promoting a superseded image (a later same-service
+      # promotion would have written a newer boundary). A single-PR push
+      # degrades to a one-entry list — identical behaviour to the old resolver.
+      - name: Resolve merged PRs in this push
+        id: prs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MERGE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          PR_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${MERGE_SHA}/pulls" \
-            --jq '.[0].head.sha // empty')
-          if [ -z "${PR_SHA}" ]; then
-            echo "ℹ️  No PR associated with ${MERGE_SHA} (non-PR push to main) — nothing to promote."
+          : > /tmp/merged_prs.txt   # <commit_sha> <pr_head_sha>, newest first
+          seen=" "
+          walked=0
+          MAX_WALK=50               # safety cap for the first-ever promotion (no boundary yet)
+          while read -r sha; do
+            walked=$((walked+1))
+            if [ "${walked}" -gt "${MAX_WALK}" ]; then
+              echo "ℹ️  reached ${MAX_WALK}-commit safety cap — stopping walk"
+              break
+            fi
+            subject=$(git log -1 --format='%s' "${sha}")
+            case "${subject}" in
+              "chore(images): sync digests"*)
+                echo "ℹ️  reached digest-sync boundary at ${sha:0:7} — everything older is already promoted"
+                break
+                ;;
+            esac
+            PR_HEAD=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/pulls" \
+              --jq '.[0].head.sha // empty' 2>/dev/null || true)
+            if [ -z "${PR_HEAD}" ]; then
+              continue   # non-PR commit (e.g. a direct bot push) — no staging images
+            fi
+            case "${seen}" in
+              *" ${PR_HEAD} "*) continue ;;   # dedupe repeated PR heads
+            esac
+            seen="${seen}${PR_HEAD} "
+            printf '%s %s\n' "${sha}" "${PR_HEAD}" >> /tmp/merged_prs.txt
+          done < <(git rev-list --first-parent "${MERGE_SHA}")
+          if [ -s /tmp/merged_prs.txt ]; then
+            echo "promote=true" >> "$GITHUB_OUTPUT"
+            echo "── commits to promote (merge_sha → pr_head) ──"
+            cat /tmp/merged_prs.txt
+          else
             echo "promote=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "ℹ️  No PR-associated commits in this push — nothing to promote."
           fi
-          {
-            echo "promote=true"
-            echo "pr_sha=${PR_SHA}"
-            echo "merge_sha=${MERGE_SHA}"
-          } >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
-        if: steps.pr.outputs.promote == 'true'
+        if: steps.prs.outputs.promote == 'true'
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -126,30 +161,35 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        if: steps.pr.outputs.promote == 'true'
+        if: steps.prs.outputs.promote == 'true'
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Install cosign
-        if: steps.pr.outputs.promote == 'true'
+        if: steps.prs.outputs.promote == 'true'
         uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
       # zynax-ci performs the images.yaml digest upsert (replaces the former
       # scripts/update_image_digest.py). Built from source — the retag job
       # checks out main, so cmd/zynax-ci is present.
       - name: Set up Go
-        if: steps.pr.outputs.promote == 'true'
+        if: steps.prs.outputs.promote == 'true'
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: cmd/zynax-ci/go.mod
           cache-dependency-path: cmd/zynax-ci/go.sum
 
-      # The promotion is RESTARTABLE end-to-end (P9): every phase derives its
-      # state from the registry, never from a previous attempt's scratch
-      # files. A single GHCR i/o timeout killed a 12-image promotion mid-loop
+      # The promotion is RESTARTABLE end-to-end (P9): each attempt rebuilds its
+      # scratch files DETERMINISTICALLY (the resolver re-walks first-parent
+      # history; promote re-derives from staging existence) and reads every
+      # digest back from the registry — never carrying state across attempts.
+      # A single GHCR i/o timeout killed a 12-image promotion mid-loop
       # (run 27339823924) and the old single-step layout could not resume —
       # it had already deleted the staging images it had promoted, so a
-      # re-run lost their digests for the images.yaml commit. Phases:
-      #   1. promote  — re-points tags from staging (skip if staging gone)
+      # re-run lost their digests for the images.yaml commit. Deleting staging
+      # LAST (after the commit) keeps staging present through a mid-run re-run,
+      # so promote can always regenerate the promotion set. Phases:
+      #   1. promote  — re-points tags from staging (skip if staging gone),
+      #                 recording each (svc, commit, pr_head) to promotions.txt
       #   2. collect  — digests read from the PROMOTED main-<sha> tags + sign
       #   3. commit   — images.yaml bot commit from the collected digests
       #   4. cleanup  — staging deletion + prune, only after the commit
@@ -158,55 +198,82 @@ jobs:
       # covers every tag pointing at it; re-signing on a re-run just appends
       # an equivalent signature.
       - name: Promote staging → main-<sha> + main + latest
-        if: steps.pr.outputs.promote == 'true'
-        env:
-          PR_SHA: ${{ steps.pr.outputs.pr_sha }}
-          MERGE_SHA: ${{ steps.pr.outputs.merge_sha }}
+        if: steps.prs.outputs.promote == 'true'
         run: |
           set -euo pipefail
           # 3-attempt retry for registry round-trips (transient GHCR timeouts).
           retry() { local n; for n in 1 2 3; do "$@" && return 0; echo "⚠️  attempt ${n}/3 failed: $*" >&2; sleep 10; done; return 1; }
           read -ra SERVICES <<< "${SERVICE_IMAGES}"
-          for svc in "${SERVICES[@]}"; do
-            STAGING="${STAGING_PREFIX}/${svc}:pr-${PR_SHA}"
-            if ! docker buildx imagetools inspect "${STAGING}" >/dev/null 2>&1; then
-              echo "ℹ️  ${svc}: no staging image pr-${PR_SHA} — nothing to promote (image-less PR, or already promoted+cleaned by an earlier attempt)"
-              continue
-            fi
-            retry docker buildx imagetools create \
-              -t "${IMAGE_PREFIX}/${svc}:main-${MERGE_SHA}" \
-              -t "${IMAGE_PREFIX}/${svc}:main" \
-              -t "${IMAGE_PREFIX}/${svc}:latest" \
-              "${STAGING}"
-            echo "✅ ${svc}: staging pr-${PR_SHA} → main-${MERGE_SHA} / main / latest"
-          done
+          : > /tmp/promotions.txt   # <svc> <commit_sha> <pr_head_sha> actually promoted
+          seen_main=" "
+          # merged_prs.txt is newest-first: the FIRST commit that carries a
+          # given service's staging image is its newest in this push, so it
+          # owns the floating :main/:latest tags; any older same-service commit
+          # only lands its immutable :main-<sha>. (Older superseded images are
+          # not reached at all — the resolver stops at the digest-sync boundary.)
+          while read -r merge_sha pr_head; do
+            for svc in "${SERVICES[@]}"; do
+              STAGING="${STAGING_PREFIX}/${svc}:pr-${pr_head}"
+              if ! docker buildx imagetools inspect "${STAGING}" >/dev/null 2>&1; then
+                continue   # image-less PR for this service, or already promoted+cleaned
+              fi
+              TAGS=( -t "${IMAGE_PREFIX}/${svc}:main-${merge_sha}" )
+              case "${seen_main}" in
+                *" ${svc} "*) : ;;   # a newer image in this push already owns main/latest
+                *)
+                  TAGS+=( -t "${IMAGE_PREFIX}/${svc}:main" -t "${IMAGE_PREFIX}/${svc}:latest" )
+                  seen_main="${seen_main}${svc} "
+                  ;;
+              esac
+              retry docker buildx imagetools create "${TAGS[@]}" "${STAGING}"
+              printf '%s %s %s\n' "${svc}" "${merge_sha}" "${pr_head}" >> /tmp/promotions.txt
+              echo "✅ ${svc}: staging pr-${pr_head} → main-${merge_sha}"
+            done
+          done < /tmp/merged_prs.txt
+          if [ -s /tmp/promotions.txt ]; then
+            echo "── promoted this run (svc commit pr_head) ──"
+            cat /tmp/promotions.txt
+          else
+            echo "ℹ️  No staging image matched any merged PR in this push — nothing promoted."
+          fi
 
       - name: Collect promoted digests and sign
         id: retag
-        if: steps.pr.outputs.promote == 'true'
-        env:
-          MERGE_SHA: ${{ steps.pr.outputs.merge_sha }}
+        if: steps.prs.outputs.promote == 'true'
         run: |
           set -euo pipefail
           retry() { local n; for n in 1 2 3; do "$@" && return 0; echo "⚠️  attempt ${n}/3 failed: $*" >&2; sleep 10; done; return 1; }
           : > /tmp/promoted.txt
-          read -ra SERVICES <<< "${SERVICE_IMAGES}"
-          for svc in "${SERVICES[@]}"; do
-            REF="${IMAGE_PREFIX}/${svc}:main-${MERGE_SHA}"
+          if [ ! -s /tmp/promotions.txt ]; then
+            echo "promoted=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  No images promoted for this push — nothing to record."
+            exit 0
+          fi
+          # Digest is read from the PROMOTED main-<commit> tag (registry is the
+          # source of truth, not a scratch file). promotions.txt is newest-first,
+          # so the first digest recorded per service is the one that lands in
+          # images.yaml (matches the :main/:latest floating tags set above).
+          seen=" "
+          while read -r svc merge_sha _pr_head; do
+            REF="${IMAGE_PREFIX}/${svc}:main-${merge_sha}"
             if ! docker buildx imagetools inspect "${REF}" >/dev/null 2>&1; then
-              continue   # not promoted for this merge in any attempt
+              continue   # promotion did not land (unexpected post-promote)
             fi
             DIGEST=$(retry docker buildx imagetools inspect \
               --format '{{json .Manifest.Digest}}' "${REF}" | tr -d '"')
             cosign sign --yes "${IMAGE_PREFIX}/${svc}@${DIGEST}"
-            echo "${svc} ${DIGEST}" >> /tmp/promoted.txt
             echo "✅ ${svc}@${DIGEST} signed"
-          done
+            case "${seen}" in
+              *" ${svc} "*) continue ;;   # newer digest already recorded for images.yaml
+            esac
+            seen="${seen}${svc} "
+            echo "${svc} ${DIGEST}" >> /tmp/promoted.txt
+          done < /tmp/promotions.txt
           if [ -s /tmp/promoted.txt ]; then
             echo "promoted=true" >> "$GITHUB_OUTPUT"
           else
             echo "promoted=false" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  No images promoted for this merge — nothing to record."
+            echo "ℹ️  No images promoted for this push — nothing to record."
           fi
 
       # Atomic digest sync (ADR-027): the promoted digests land on main in
@@ -217,8 +284,7 @@ jobs:
       - name: Commit digest update to main [skip ci]
         if: steps.retag.outputs.promoted == 'true'
         env:
-          MERGE_SHA: ${{ steps.pr.outputs.merge_sha }}
-          PR_SHA: ${{ steps.pr.outputs.pr_sha }}
+          MERGE_SHA: ${{ github.event.workflow_run.head_sha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # merge-queue emptiness poll (ADR-047)
         run: |
           set -euo pipefail
@@ -236,7 +302,7 @@ jobs:
           git add images/images.yaml
           git commit -s \
             -m "chore(images): sync digests after main-${MERGE_SHA:0:7} [skip ci]" \
-            -m "Automated digest update after merge of PR head ${PR_SHA:0:7} (ADR-027 retag model)."
+            -m "Automated digest update for every PR promoted in the push to main-${MERGE_SHA:0:7} (ADR-027 retag model; ADR-047 batch-aware, #1742)."
 
           # ADR-047: a direct push to main invalidates every in-flight
           # merge-queue group. Yield while the queue is busy — bounded, then
@@ -279,16 +345,16 @@ jobs:
         if: steps.retag.outputs.promoted == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_SHA: ${{ steps.pr.outputs.pr_sha }}
         run: |
           set -euo pipefail
-          while read -r svc _; do
+          # One staging tag per (service, PR head) promoted in this push.
+          while read -r svc _merge_sha pr_head; do
             PKG="zynax%2Fstaging%2F${svc}"
             IDS=$(gh api --paginate "/orgs/zynax-io/packages/container/${PKG}/versions" \
-              --jq ".[] | select(.metadata.container.tags[]? == \"pr-${PR_SHA}\") | .id" \
+              --jq ".[] | select(.metadata.container.tags[]? == \"pr-${pr_head}\") | .id" \
               2>/dev/null) || IDS=""
             if [ -z "${IDS}" ]; then
-              echo "ℹ️  ${svc}: no staging version tagged pr-${PR_SHA} — already cleaned."
+              echo "ℹ️  ${svc}: no staging version tagged pr-${pr_head} — already cleaned."
               continue
             fi
             for ID in ${IDS}; do
@@ -297,9 +363,9 @@ jobs:
               fi
               gh api --method DELETE \
                 "/orgs/zynax-io/packages/container/${PKG}/versions/${ID}" \
-                && echo "🧹 ${svc}: staging version ${ID} (pr-${PR_SHA}) deleted"
+                && echo "🧹 ${svc}: staging version ${ID} (pr-${pr_head}) deleted"
             done
-          done < /tmp/promoted.txt
+          done < /tmp/promotions.txt
 
       - name: Prune old main-<sha> versions
         if: steps.retag.outputs.promoted == 'true'
