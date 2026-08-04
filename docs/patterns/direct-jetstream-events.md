@@ -29,9 +29,10 @@ api-gateway    ─┘   (publish + the /logs      · verify_and_map client ident
 - **Workflow-scoped terminal-close:** a subscription scoped to a
   `workflow_id` delivers the run's terminal lifecycle event and then closes —
   this is what ends a `zynax logs` REST watch.
-- The `zynax.dlq.` prefix is **reserved**; end-to-end DLQ forwarding (the
-  advisory→mover) is tracked in #1653 — the conventions provision the DLQ
-  stream and stop redelivery at MaxDeliver, exactly as the facade did.
+- The `zynax.dlq.` prefix is **reserved**; end-to-end DLQ forwarding is
+  delivered by the opt-in `DLQForwarder` (#1653, below) — the conventions
+  provision the DLQ stream and stop redelivery at MaxDeliver, and the forwarder
+  moves the exhausted message into it.
 
 ## Publishing (Go)
 
@@ -53,6 +54,46 @@ ack, err := client.Publish(ctx, zynaxevents.CloudEvent{
 Publishes are **best-effort by convention**: log-and-continue on error, never
 fail the caller's state machine. `RetryOnFailedConnect` keeps startup
 broker-independent — profiles without NATS (ADR-041 lite) still boot.
+
+## Dead-lettering: provisioning vs forwarding (#1653)
+
+Two halves, deliberately separate:
+
+1. **Provisioning happens for everyone.** `Subscribe` idempotently creates
+   `DLQ_<src>` (WorkQueuePolicy, one exact `zynax.dlq.<prefix>.dead` subject)
+   and caps redelivery at `MaxDeliver=5`.
+2. **Moving the exhausted message is opt-in.** `Subscribe` does NOT start a
+   mover. The max-deliveries advisory subject is server-global, so a mover
+   started implicitly per subscription would act on streams its caller has
+   nothing to do with, and would need grants ordinary publishers do not have —
+   turning a library upgrade into a permission-error regression for every
+   subscriber. Forwarding is a platform role, taken on explicitly:
+
+```go
+fwd, err := client.StartDLQForwarder(ctx, logger) // logger may be nil
+defer fwd.Stop()
+```
+
+The forwarder consumes `$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.>`, fetches
+the exhausted message from its source stream by sequence, and republishes it
+byte-for-byte on that stream's reserved deliver subject, stamped with
+`Zynax-Dlq-Source-*` forensic headers. Its safety properties:
+
+- **It never deletes the source message** — a failed rescue leaves the message
+  exactly where it was, so the mover cannot lose what it exists to save.
+- **It is idempotent.** The DLQ publish carries a deterministic
+  `DLQ_<stream>:<sequence>` `Nats-Msg-Id`, so JetStream's duplicate window
+  collapses a replayed advisory, a retried publish, and a second forwarder onto
+  one message. Replicas additionally share one NATS queue group.
+- **It only moves what the taxonomy derived.** An advisory whose stream is not
+  `StreamName(<message subject>)` is skipped rather than published to a
+  computed — and therefore wrong — subject.
+
+Running it in-cluster needs the identity's NATS permissions widened beyond the
+publisher baseline: subscribe `$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.>`
+and publish `zynax.dlq.>` (see the users block in `scripts/e2e/values-e2e.yaml`).
+No service opts in yet — the contract is exercised by the
+`libs/zynaxevents/tests` BDD suite against a real broker.
 
 ## Transport security (ADR-046 Decision #4)
 

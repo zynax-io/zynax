@@ -5,9 +5,17 @@ package zynaxevents
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	nats "github.com/nats-io/nats.go"
 )
+
+// dlqDuplicateWindow is the JetStream deduplication window on a DLQ stream: two
+// publishes carrying the same "Nats-Msg-Id" within it collapse to one message.
+// It backs the forwarder's idempotency (see dlqMessageID) and is set to the
+// JetStream default explicitly, so already-provisioned DLQ streams keep exactly
+// the behaviour they have today.
+const dlqDuplicateWindow = 2 * time.Minute
 
 // dlqStreamName returns the JetStream stream name for the dead-letter queue
 // associated with a source stream. The DLQ stream name is derived by prefixing
@@ -15,7 +23,7 @@ import (
 // "zynax.dlq.<original-subject-root>".
 // Example: source stream "ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW" → "DLQ_ZYNAX_V1_ENGINE_ADAPTER_WORKFLOW"
 func dlqStreamName(sourceStreamName string) string {
-	return "DLQ_" + sourceStreamName
+	return dlqStreamPrefix + sourceStreamName
 }
 
 // dlqDeliverSubject returns the concrete NATS subject that carries messages
@@ -46,6 +54,7 @@ func (c *Client) ensureDLQStream(sourceStreamName, eventType string) error {
 		Replicas:     1,
 		MaxMsgs:      -1,
 		MaxConsumers: 1,
+		Duplicates:   dlqDuplicateWindow,
 	}
 
 	_, err := c.js.AddStream(cfg)

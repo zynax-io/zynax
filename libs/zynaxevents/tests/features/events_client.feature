@@ -32,16 +32,23 @@ Feature: Direct JetStream events client — delivery, DLQ, durable consumers, te
     When an event is published
     Then the event is redelivered at least once
 
-  # End-to-end DLQ forwarding (max-deliveries advisory -> DLQ mover) was never
-  # built in the facade and is NOT claimed here — the conventions provision the
-  # DLQ stream and stop redelivery after MaxDeliver; forwarding is a tracked
-  # follow-up. This scenario pins what is actually guaranteed.
-  Scenario: Retry exhaustion surfaces max-deliveries and the DLQ stream is provisioned
+  # End-to-end DLQ forwarding (#1653). The facade never moved an exhausted
+  # message, so this used to pin only the advisory + the provisioned stream.
+  # The opt-in DLQForwarder closes the loop: it consumes the max-deliveries
+  # advisory, fetches the exhausted message from its source stream by sequence
+  # and republishes it on the reserved exact zynax.dlq.<prefix>.dead subject —
+  # byte-for-byte, without deleting the source, and idempotently (a repeated
+  # advisory is deduplicated on a deterministic <dlq-stream>:<sequence> id).
+  Scenario: Retry exhaustion forwards the exhausted message into the DLQ stream
     Given a subscriber that always fails
+    And the DLQ forwarder is running
     When an event is published
     And 5 delivery attempts are exhausted
     Then a max-deliveries advisory is emitted for the consumer
     And the DLQ stream for the topic exists with WorkQueuePolicy retention
+    And the exhausted event lands on the DLQ stream with its bytes intact
+    And the source message is still present in its own stream
+    And replaying the advisory does not duplicate the message in the DLQ stream
 
   Scenario: Durable consumer catches up after being offline
     Given consumer "d" was offline when an event was published

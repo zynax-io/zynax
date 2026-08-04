@@ -14,6 +14,18 @@ Versioning follows [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+- **Dead-letter forwarding in [`libs/zynaxevents`](libs/zynaxevents)** — the conventions
+  provisioned `DLQ_<src>` and stopped redelivery at `MaxDeliver=5`, but nothing ever moved an
+  exhausted message into it (true of the retired facade too). The new opt-in
+  `Client.StartDLQForwarder` consumes the JetStream max-deliveries advisory, fetches the
+  exhausted message from its source stream and republishes it byte-for-byte on the reserved
+  exact `zynax.dlq.<prefix>.dead` subject with `Zynax-Dlq-Source-*` forensic headers. It never
+  deletes the source message, and a deterministic `DLQ_<stream>:<sequence>` message id makes a
+  replayed advisory, a retried publish or a second forwarder collapse onto one DLQ message.
+  Opt-in by design: `Subscribe` does not start one — see
+  [docs/patterns/direct-jetstream-events.md](docs/patterns/direct-jetstream-events.md). (#1653)
+
 ### Removed
 - **BREAKING — `EventBusService` gRPC contract (`protos/zynax/v1/event_bus.proto`) and its
   generated Go/Python stubs are deleted.** Deprecated in v0.7.0 (`option deprecated = true`,
