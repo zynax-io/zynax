@@ -25,8 +25,11 @@ const All = "ALL"
 // were removed in M9.B (ADR-046, #1701), so there is no package to select — the
 // eventing contract is guarded by libs/zynaxevents instead.
 var pkgMap = map[string]string{
-	"agent.proto":             "agent_service",
-	"agent_registry.proto":    "agent_registry_service",
+	"agent.proto": "agent_service",
+	// agent_registry.proto keeps only AgentDef/CapabilityDef after the M9 push
+	// RPC removal (ADR-039, #1598); scheduler_service is the suite that covers
+	// those messages.
+	"agent_registry.proto":    "scheduler_service",
 	"cloudevents.proto":       "cloudevents_envelope",
 	"engine_adapter.proto":    "engine_adapter_service",
 	"memory.proto":            "memory_service",

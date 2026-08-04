@@ -22,7 +22,7 @@ Feature: langgraph-adapter — LangGraph state-machine capability adapter
   Background:
     Given a langgraph-adapter configured with a capability "run_graph"
     And the capability maps to a registered LangGraph graph "stub_graph"
-    And the adapter is registered with AgentRegistryService
+    And the adapter is declared by a zynax.io/v1alpha1 Agent custom resource
 
   # ─── Happy path — per-node streaming ────────────────────────────────────────
 
