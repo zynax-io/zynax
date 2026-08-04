@@ -38,7 +38,7 @@ func TestNounAliases_Resolve(t *testing.T) {
 		want *cobra.Command
 	}{
 		{"agent init", []string{"agent", "init"}, agentInitCmd},
-		{"agent publish", []string{"agent", "publish"}, agentPublishCmd},
+		{"agent publish (retired stub)", []string{"agent", "publish"}, agentPublishCmd},
 		{"workflow init", []string{"workflow", "init"}, workflowInitCmd},
 		{"workflow run", []string{"workflow", "run"}, workflowRunCmd},
 		{"workflow publish", []string{"workflow", "publish"}, workflowPublishCmd},
@@ -57,6 +57,25 @@ func TestNounAliases_Resolve(t *testing.T) {
 	}
 }
 
+// TestAgentPublish_Retired asserts the `agent publish` retirement stub fails
+// loudly (non-nil error naming the Agent CR replacement) and stays hidden from
+// help. A cobra parent with no Run answers an unknown subcommand with help and
+// exit 0, which would silently no-op an existing deployment script (ADR-039).
+func TestAgentPublish_Retired(t *testing.T) {
+	if !agentPublishCmd.Hidden {
+		t.Error("agent publish must be hidden from help")
+	}
+	err := agentPublishCmd.RunE(fakeCmd(t), []string{"agent.yaml"})
+	if err == nil {
+		t.Fatal("expected a retirement error from `agent publish`, got nil")
+	}
+	for _, want := range []string{"retired", "Agent custom resource", "kubectl", "agent-crd-migration"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("retirement error must mention %q; got %q", want, err.Error())
+		}
+	}
+}
+
 // TestNounAliases_DelegateToVerbRunE proves the aliases reuse the existing verb
 // commands' RunE (no duplicated logic), per canvas O20.
 func TestNounAliases_DelegateToVerbRunE(t *testing.T) {
@@ -66,7 +85,6 @@ func TestNounAliases_DelegateToVerbRunE(t *testing.T) {
 		verb  *cobra.Command
 	}{
 		{"agent init → init expert", agentInitCmd, initExpertCmd},
-		{"agent publish → apply", agentPublishCmd, applyCmd},
 		{"workflow init → init workflow", workflowInitCmd, initWorkflowCmd},
 		{"workflow run → apply", workflowRunCmd, applyCmd},
 		{"workflow publish → apply", workflowPublishCmd, applyCmd},
@@ -178,9 +196,7 @@ func TestPublishAlias_AutoDetectsKind(t *testing.T) {
 		wantKind string
 	}{
 		{"publish workflow", publishCmd, "kind: " + kindWorkflow, kindWorkflow},
-		{"publish agentdef", publishCmd, "kind: " + kindAgentDef, kindAgentDef},
 		{"workflow run", workflowRunCmd, "kind: " + kindWorkflow, kindWorkflow},
-		{"agent publish", agentPublishCmd, "kind: " + kindAgentDef, kindAgentDef},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

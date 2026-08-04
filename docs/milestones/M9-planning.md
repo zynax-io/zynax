@@ -53,7 +53,18 @@ Order is load-bearing: caller → implementation → contract → docs.
 | 1 ✅ | [#1697](https://github.com/zynax-io/zynax/issues/1697) | api-gateway AgentDef push path + CLI surface deleted; documented retirement error |
 | 2 ✅ | [#1698](https://github.com/zynax-io/zynax/issues/1698) | agent-registry push repos + Postgres dependency deleted; stateless resync verified live — landed as 3 PRs (#1751 → #1752 → #1754), see the size note below |
 | 3 ✅ | [#1598](https://github.com/zynax-io/zynax/issues/1598) | deprecated `AgentRegistryService` RPCs removed from proto + stubs; file-scoped `buf breaking` exception per ADR-048 §Decision 4 — landed as 7 disjoint slices (#1757, #1758, #1759, #1760, #1762, #1763 → #1764), see the size note below |
-| 4 | [#1699](https://github.com/zynax-io/zynax/issues/1699) | migration-guide sweep; status surfaces; retire `spike/adr-039-crd-scheduler-proof` |
+| 4 ✅ | [#1699](https://github.com/zynax-io/zynax/issues/1699) | migration-guide sweep; status surfaces; retired adapter config keys (`registry_endpoint` / `REGISTRY_ADDR`) and the `agent publish` CLI alias; `spike/adr-039-crd-scheduler-proof` deleted — **epic #1674 closed** |
+
+> **Step 4 was not docs-only.** #1598 deferred two deploy-affecting items to it: the dead
+> required `registry_endpoint` (5 Go adapters) / `REGISTRY_ADDR` (langgraph) config keys, and
+> the `zynax agent publish` CLI alias. Both shipped here, so the step landed as `chore:` rather
+> than the `docs:` the canvas anticipated. Removal is safe **one way only**: a new image with
+> the key still set boots (Go `yaml.Unmarshal` is non-strict; pydantic-settings is
+> `extra="ignore"`), but an old image with the key *deleted* fails startup validation. CI
+> demonstrated it — dropping `REGISTRY_ADDR` from the e2e echo-worker manifest timed out both
+> legs, because that Deployment pins `langgraph-adapter:main`, an image the PR does not
+> rebuild. Deployed manifests therefore keep the keys until the rebuilt `:main` images ship. The sweep also surfaced two pre-existing
+> AgentDef-POST breakages left for a follow-up — see §5.
 
 > **Sizing note for the remaining removal steps.** Step 2 measured 1846 counted lines and
 > could not clear the required 900-line `PR size label` gate as one PR; it shipped as three
@@ -150,10 +161,27 @@ graph LR
 | Milestone-number skew (M9 = GitHub #11) breaks tooling assumptions | M | M | all tooling reads `state/milestone.yaml` `github_milestone_number` — never `M<n>` ↔ `#n`; this doc records the mapping |
 | `checkRoutingPolicy` swept accidentally in M9.B | L | H | explicit canvas safeguard + epic-body warning (ADR-045 §3) |
 
+> **Materialised (2026-08-04, found by the #1699 sweep — not fixed there).** The "hidden
+> caller" risk landed one row lower than the grep gates looked: two callers still **POST
+> `kind: AgentDef` to `/api/v1/apply`**, which has answered `400 UNSUPPORTED_KIND` since
+> #1598 removed the kind from the gateway allowlist. Both were confirmed at runtime against a
+> locally booted api-gateway, both pre-date #1699, and both need a design call plus live-cluster
+> verification, so they are a follow-up rather than a sweep edit:
+>
+> 1. `zynax apply <scenario-dir>` — a Scenario's `apply_order` submits its AgentDef members
+>    first, so the whole scenario aborts on member 1
+>    (`spec/scenarios/code-review/`, `cmd/zynax/cmd/apply.go` → `runApplyScenario`).
+> 2. `infra/packages/code-review-rank/apply-job.yaml` — POSTs `agentdef.yaml` before the
+>    Workflow. The response is unchecked so the Job still completes, but the package ships no
+>    `Agent` CR, so the scheduler has nothing to select.
+>
+> Both reduce to the same question the CRD cutover left open: **what replaces an AgentDef
+> member in a Scenario / package now that identity is a CR?** Answer it once, then fix both.
+
 ## 6 — Exit criteria (v0.8.0)
 
-- [ ] ROADMAP M9 checklist: push path removed (ADR-039) · facade removed (ADR-046) · named
-      conformance suite over the dual-engine e2e.
+- [ ] ROADMAP M9 checklist: push path removed (ADR-039 ✅ #1674) · facade removed (ADR-046 ✅
+      #1675) · named conformance suite over the dual-engine e2e.
 - [ ] All three epics closed; canvases at `Status: Implemented`.
 - [ ] Repo-wide: no non-historical references to `RegisterAgent` push flow or
       `EventBusService`; `make validate-spec` green; `kubectl get deploy -n zynax` shows the

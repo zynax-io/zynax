@@ -27,7 +27,6 @@ const validYAML = `
 agent_id: test-agent
 name: Test Agent
 endpoint: "0.0.0.0:8080"
-registry_endpoint: "registry:9090"
 capabilities:
   - name: call_api
     method: POST
@@ -74,7 +73,6 @@ var missingFieldCases = []struct {
 		name: "missing agent_id",
 		yaml: `
 endpoint: "0.0.0.0:8080"
-registry_endpoint: "registry:9090"
 capabilities:
   - name: call_api
     method: POST
@@ -85,18 +83,6 @@ capabilities:
 		name: "missing endpoint",
 		yaml: `
 agent_id: test-agent
-registry_endpoint: "registry:9090"
-capabilities:
-  - name: call_api
-    method: POST
-    url: "https://api.example.com"
-`,
-	},
-	{
-		name: "missing registry_endpoint",
-		yaml: `
-agent_id: test-agent
-endpoint: "0.0.0.0:8080"
 capabilities:
   - name: call_api
     method: POST
@@ -108,7 +94,6 @@ capabilities:
 		yaml: `
 agent_id: test-agent
 endpoint: "0.0.0.0:8080"
-registry_endpoint: "registry:9090"
 `,
 	},
 	{
@@ -116,7 +101,6 @@ registry_endpoint: "registry:9090"
 		yaml: `
 agent_id: test-agent
 endpoint: "0.0.0.0:8080"
-registry_endpoint: "registry:9090"
 capabilities:
   - method: POST
     url: "https://api.example.com"
@@ -127,7 +111,6 @@ capabilities:
 		yaml: `
 agent_id: test-agent
 endpoint: "0.0.0.0:8080"
-registry_endpoint: "registry:9090"
 capabilities:
   - name: call_api
     url: "https://api.example.com"
@@ -138,7 +121,6 @@ capabilities:
 		yaml: `
 agent_id: test-agent
 endpoint: "0.0.0.0:8080"
-registry_endpoint: "registry:9090"
 capabilities:
   - name: call_api
     method: POST

@@ -25,7 +25,6 @@ func writeAppYAML(t *testing.T, content string) string {
 const appModeYAML = `
 agent_id: git-adapter
 endpoint: :50060
-registry_endpoint: localhost:50052
 git:
   provider: github
   app:
@@ -61,7 +60,6 @@ func TestLoad_AppMode_MissingFieldRejected(t *testing.T) {
 		{"missing app_id_env", `
 agent_id: a
 endpoint: :1
-registry_endpoint: r:1
 git:
   provider: github
   app:
@@ -73,7 +71,6 @@ capabilities:
 		{"missing installation_id_env", `
 agent_id: a
 endpoint: :1
-registry_endpoint: r:1
 git:
   provider: github
   app:
@@ -85,7 +82,6 @@ capabilities:
 		{"missing private_key_env", `
 agent_id: a
 endpoint: :1
-registry_endpoint: r:1
 git:
   provider: github
   app:

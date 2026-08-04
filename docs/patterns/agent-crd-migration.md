@@ -58,9 +58,44 @@ kubectl get agents            # READY flips true once endpoints serve
 ```
 
 That is the whole migration for most agents: **delete the registration call,
-apply the CR.** Adapters shipped in this repo already tolerate the retired
-registry (they log `push registration retired (ADR-039)` and keep serving),
-so image order does not matter during rollout.
+apply the CR.** Adapters shipped in this repo no longer carry a registration
+client at all — it was deleted in #1598, so they simply serve their gRPC
+capability surface and never dial the registry. Image order does not matter
+during rollout.
+
+### Adapter configuration
+
+The address of the agent-registry is no longer adapter configuration. These keys
+are **no longer read as of M9.A** and are ignored if still present:
+
+| Adapter | Retired key |
+|---|---|
+| `adk`, `ci`, `git`, `http`, `llm` (Go) | `registry_endpoint` (YAML) |
+| `langgraph` (Python) | `REGISTRY_ADDR` (env) |
+
+**Order matters — roll the image before you touch the config.** The two directions
+are *not* symmetric:
+
+| Situation | Result |
+|---|---|
+| **New image**, config still sets the key | ✅ boots — the Go adapters decode with non-strict `yaml.Unmarshal` and the langgraph settings model is `extra="ignore"`, so an unknown key/env is ignored |
+| **Old image**, key deleted from config | ❌ **fails at startup** — pre-M9.A adapters validate the key as *required* (`config: registry_endpoint is required`, or a pydantic `ValidationError`) and the pod never becomes Ready |
+
+So the safe sequence is:
+
+1. Roll out the M9.A adapter image (it stops requiring the key).
+2. *Then* delete the key from your ConfigMaps / env / Helm values.
+
+The reverse order hard-fails the pod. That is why the manifests in this repo
+(`scripts/e2e/manifests/echo-worker.yaml`,
+`infra/packages/code-review-rank/llm-adapter-config.yaml`,
+`infra/ollama/llm-adapter.config.yaml`) still set the key behind an explanatory
+comment: they pin `:main`-tagged images, which are rebuilt only *after* the code
+change merges. They are cleaned up in a follow-up, once those images carry M9.A.
+
+`ZYNAX_BROKER_REGISTRY_ADDR` on the **task-broker** is unrelated and stays: it
+points at the agent-registry Deployment, which serves `SchedulerService.SelectAgent`
+— the CRD-era selection path.
 
 ### Scoring hints (optional)
 
@@ -78,6 +113,14 @@ and label the CR with `zynax.io/expert-scope` for strict expert targeting
 | `GetAgent` / `ListAgents` | `kubectl get agent <name>` / `kubectl get agents` |
 | `FindByCapability` | `SchedulerService.SelectAgent` (one scored agent + rationale) |
 | `DeregisterAgent` | `kubectl delete agent <name>` |
+
+### CLI surface
+
+| Push era | CRD era |
+|---|---|
+| `zynax apply <agentdef.yaml>` | `kubectl apply -f agent.yaml` |
+| `zynax agent publish <file>` | retired — fails with this migration pointer |
+| `zynax init expert` / `zynax agent init` | **unchanged** — an AgentDef manifest is still the expert-definition authoring format (ADR-028/ADR-033), validated locally by `zynax validate` and `make validate-spec`. Only *pushing* it to the api-gateway is gone. |
 
 ## Requirements
 
@@ -104,4 +147,4 @@ stay on a v0.7.x release and migrate before upgrading.
 |---|---|
 | M7 | ADR-039 accepted; KIND-verified spike |
 | M8 | `Agent` CR is the source of truth; push RPCs answer `UNIMPLEMENTED`; gateway `AgentDef` answers 410 |
-| **M9 (now)** | Deprecated RPCs and push-era code removed; `kind: AgentDef` answers 400 `UNSUPPORTED_KIND` |
+| **M9 (now)** | Deprecated RPCs and push-era code removed; `kind: AgentDef` answers 400 `UNSUPPORTED_KIND`; retired adapter config keys and the `agent publish` alias swept (epic #1674 closed by #1699) |

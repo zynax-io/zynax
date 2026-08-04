@@ -49,13 +49,17 @@ YAML at the path in `ADAPTER_CONFIG`. Key fields:
 
 | Field | Description |
 |-------|-------------|
-| `agent_id` | Unique id registered with agent-registry. |
+| `agent_id` | Unique id for this adapter. Not read by the process since M9.A (ADR-039) — the `Agent` CR carries identity; kept so manifests stay self-describing. |
 | `endpoint` | gRPC **bind** address (default `:50080`). A hostless value binds all interfaces but is not routable. |
 | `advertise_endpoint` | **Routable** address the task-broker dials (e.g. `adk-adapter:50080`). Required when `endpoint` is hostless (issue #1371); else falls back to `endpoint`. |
-| `registry_endpoint` | agent-registry address (e.g. `agent-registry:50052`). |
 | `model.provider` | `ollama` (default; only value wired). |
 | `model.name` | Model id (e.g. `qwen2.5-coder:0.5b`). |
 | `capabilities[]` | `name`, `instruction`, `input_schema_json`, `output_schema_json`, `timeout_seconds`. |
+
+`registry_endpoint` was removed in M9.A (ADR-039): the adapter never dials the
+agent-registry — identity is declared by the `zynax.io/v1alpha1` `Agent` custom
+resource. Config parsing is non-strict (`yaml.Unmarshal`), so a deployment whose
+file still carries the key boots unchanged.
 
 Runnable demo (secret-free, local Ollama): `spec/workflows/examples/adk-code-review-ollama.yaml`
 dispatches the `review` capability declared in `agent-def.yaml.example`. Bring up the

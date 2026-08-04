@@ -26,11 +26,10 @@ const fakeToken = "ghp_FAKE0000000000000000000000000000fake" //nolint:gosec // t
 func newRedactionServer(t *testing.T, baseURL string) *adapter.AgentServer {
 	t.Helper()
 	cfg := &config.AdapterConfig{
-		AgentID:          "git-redact-test",
-		Name:             "Git Redact Test",
-		Endpoint:         ":50062",
-		RegistryEndpoint: "localhost:50052",
-		Git:              config.GitConfig{Provider: "github", AuthEnv: "TEST_TOKEN"},
+		AgentID:  "git-redact-test",
+		Name:     "Git Redact Test",
+		Endpoint: ":50062",
+		Git:      config.GitConfig{Provider: "github", AuthEnv: "TEST_TOKEN"},
 		Capabilities: []config.GitCapabilityConfig{
 			{Name: "open_pr", Owner: "test-owner", Repo: "test-repo", TimeoutSeconds: 5},
 			{Name: "get_diff", Owner: "test-owner", Repo: "test-repo", TimeoutSeconds: 5},

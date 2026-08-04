@@ -228,15 +228,16 @@ func NewHandler(svc *domain.Service) *Handler {
     return &Handler{svc: svc}
 }
 
-func (h *Handler) RegisterAgent(ctx context.Context, req *pb.RegisterAgentRequest) (*pb.RegisterAgentResponse, error) {
-    agent, err := protoToAgent(req)
+func (h *Handler) SelectAgent(ctx context.Context, req *pb.SelectAgentRequest) (*pb.SelectAgentResponse, error) {
+    query, err := protoToQuery(req)
     if err != nil {
         return nil, status.Errorf(codes.InvalidArgument, "invalid request: %v", err)
     }
-    if err := h.svc.Register(ctx, agent); err != nil {
+    agent, err := h.svc.Select(ctx, query)
+    if err != nil {
         return nil, mapError(err)
     }
-    return &pb.RegisterAgentResponse{AgentId: string(agent.ID)}, nil
+    return &pb.SelectAgentResponse{Agent: agentToProto(agent)}, nil
 }
 
 func mapError(err error) error {

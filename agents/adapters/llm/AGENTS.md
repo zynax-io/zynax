@@ -42,10 +42,14 @@ See `agent-def.yaml.example` for the full schema. Key fields:
 | `provider.max_tokens` | — | `4096` | Maximum token ceiling enforced before calling the provider. |
 | `endpoint` | ✓ | `:50070` | gRPC address the adapter's server **binds** to (`net.Listen`). A hostless value like `:50070` binds all interfaces but is not routable. |
 | `advertise_endpoint` | ✓ if `endpoint` is hostless | falls back to `endpoint` | Routable gRPC address **advertised** to the registry and dialled by the task-broker, e.g. `llm-adapter:50070`. Mirrors the langgraph-adapter `ADAPTER_ENDPOINT` split. |
-| `registry_endpoint` | ✓ | — | agent-registry gRPC address, e.g. `agent-registry:50052`. |
+
+`registry_endpoint` was removed in M9.A (ADR-039): the adapter never dials the
+agent-registry — identity is declared by the `zynax.io/v1alpha1` `Agent` custom
+resource. Config parsing is non-strict (`yaml.Unmarshal`), so a deployment whose
+file still carries the key boots unchanged.
 
 > **Bind vs advertise (issue #1371):** the address the server binds to and the
-> address advertised to the registry are distinct. A hostless `endpoint: :50070`
+> address published for callers are distinct. A hostless `endpoint: :50070`
 > binds fine but, if advertised verbatim, makes the broker dial `localhost` and
 > fail. Always set `advertise_endpoint` to the service DNS name / pod IP in any
 > multi-container or K8s deployment. Config load fails fast if `endpoint` is

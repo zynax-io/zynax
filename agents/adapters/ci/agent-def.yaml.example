@@ -12,7 +12,6 @@ agent_id: ci-adapter
 name: CI Adapter
 description: Triggers GitHub Actions workflows and polls run status as Zynax capabilities.
 endpoint: :50055
-registry_endpoint: agent-registry:50052
 
 ci:
   provider: github-actions     # "github-actions" or "jenkins-stub" (stub only in M5)

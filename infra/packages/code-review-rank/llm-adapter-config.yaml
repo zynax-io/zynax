@@ -36,7 +36,10 @@ data:
     endpoint: ":50070"
     # Routable address the task-broker dials — the ClusterIP Service name (#1371).
     advertise_endpoint: "llm-adapter:50070"
-    # The in-cluster agent-registry the adapter self-registers with on startup.
+    # RETIRED but still SET on purpose (ADR-039, M9.A): llm-adapter.yaml pins
+    # llm-adapter:main, an image that still declares this key REQUIRED until the
+    # M9.A code change reaches main and the image is rebuilt. Removing it first
+    # fails config validation at startup. Drop it in a follow-up, after that ships.
     registry_endpoint: "zynax-agent-registry:50052"
 
     provider:

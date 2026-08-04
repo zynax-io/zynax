@@ -26,8 +26,16 @@ ADR-033):
   SPDD authoring/delivery loop (a Claude Code expert that ships a story). They do
   not run inside a workflow.
 - **Runtime experts** — `kind: AgentDef` agents (under `agents/examples/`) that
-  register in agent-registry and are dispatchable by the task broker inside a
-  workflow.
+  are dispatchable by the task broker inside a workflow.
+
+> **Authoring vs deployment (ADR-039, M9).** The `AgentDef` manifest is the
+> *authoring* format: you write it, `zynax validate` and `make validate-spec`
+> check it, and it documents the capability contract. It is **not** submitted to
+> the api-gateway — push registration was hard-removed in M9 and
+> `zynax apply <agentdef.yaml>` now answers `400 UNSUPPORTED_KIND`. To make the
+> agent selectable at runtime, declare a `zynax.io/v1alpha1` `Agent` custom
+> resource next to its Deployment/Service and `kubectl apply` it — see
+> [the migration guide](../patterns/agent-crd-migration.md).
 
 This guide is primarily about **runtime** agents — the `AgentDef` manifest you
 author so a capability becomes routable. The two substrates are reconciled by the

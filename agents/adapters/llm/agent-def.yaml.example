@@ -17,7 +17,6 @@ endpoint: :50070
 # localhost and fail (issue #1371). Defaults to endpoint only if endpoint
 # carries an explicit host.
 advertise_endpoint: llm-adapter:50070
-registry_endpoint: agent-registry:50052
 
 provider:
   name: openai            # one of: openai | bedrock | ollama

@@ -43,7 +43,7 @@ func TestRun_MissingRequiredFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	// valid YAML but missing agent_id
-	_, _ = f.WriteString("endpoint: \"0.0.0.0:8080\"\nregistry_endpoint: \"localhost:9090\"\ncapabilities:\n  - name: x\n    method: POST\n    url: http://x\n")
+	_, _ = f.WriteString("endpoint: \"0.0.0.0:8080\"\ncapabilities:\n  - name: x\n    method: POST\n    url: http://x\n")
 	_ = f.Close()
 	t.Setenv("ADAPTER_CONFIG", f.Name())
 	if err := run(); err == nil {
@@ -57,7 +57,7 @@ func TestRun_InvalidListenAddr(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Valid config but an invalid TCP listen address → net.Listen fails.
-	_, _ = f.WriteString("agent_id: test\nname: test\nendpoint: \"localhost:-1\"\nregistry_endpoint: \"127.0.0.1:9090\"\ncapabilities:\n  - name: api\n    method: POST\n    url: http://example.com\n")
+	_, _ = f.WriteString("agent_id: test\nname: test\nendpoint: \"localhost:-1\"\ncapabilities:\n  - name: api\n    method: POST\n    url: http://example.com\n")
 	_ = f.Close()
 	t.Setenv("ADAPTER_CONFIG", f.Name())
 	if err := run(); err == nil {

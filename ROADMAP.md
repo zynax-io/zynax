@@ -300,7 +300,7 @@ dual-engine e2e into a named conformance suite.
 > Label: `milestone: M9` · GitHub milestone **#11** · Target **v0.8.0** · Plan:
 > [docs/milestones/M9-planning.md](docs/milestones/M9-planning.md)
 
-- [ ] agent-registry push path hard-removal (ADR-039) — epic #1674
+- [x] agent-registry push path hard-removal (ADR-039) — epic #1674 ✅ 2026-08-04
 - [x] `services/event-bus/` facade hard-removal (ADR-046) — epic #1675 ✅ 2026-08-04
 - [ ] Named engine-conformance suite over the existing dual-engine e2e — epic #1692
 

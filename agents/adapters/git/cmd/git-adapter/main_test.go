@@ -58,7 +58,7 @@ func TestRun_MissingRequiredFields(t *testing.T) {
 	}
 	// Valid YAML but missing agent_id → config.validate returns error.
 	_, _ = f.WriteString(
-		"endpoint: \":50060\"\nregistry_endpoint: \"localhost:50052\"\n" +
+		"endpoint: \":50060\"\n" +
 			"git:\n  provider: github\n  auth_env: TEST_TOKEN\n" +
 			"capabilities:\n  - name: open_pr\n    owner: o\n    repo: r\n",
 	)
@@ -96,7 +96,7 @@ func TestRun_InvalidListenAddr(t *testing.T) {
 	// Port -1 is an invalid listen address → net.Listen fails.
 	_, _ = fmt.Fprintf(f,
 		"agent_id: git-test\nname: Git Test\n"+
-			"endpoint: \"localhost:-1\"\nregistry_endpoint: \"127.0.0.1:9090\"\n"+
+			"endpoint: \"localhost:-1\"\n"+
 			"git:\n  provider: github\n  auth_env: GIT_TOKEN_TEST_717\n"+
 			"capabilities:\n  - name: open_pr\n    owner: o\n    repo: r\n",
 	)

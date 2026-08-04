@@ -15,6 +15,11 @@ description: Ollama-backed local LLM capabilities for the zero-cost quickstart.
 # localhost healthcheck would get connection refused → container unhealthy (#1371).
 endpoint: ":50070"
 advertise_endpoint: llm-adapter:50070
+# RETIRED but still SET on purpose (ADR-039, M9.A). The adapter code no longer
+# reads registry_endpoint, but the shipped llm-adapter:main image still declares
+# it REQUIRED until this change reaches main and the image is rebuilt. Removing
+# it here first fails config validation at startup. Drop it in a follow-up, AFTER
+# the rebuilt :main image ships.
 registry_endpoint: agent-registry:50052
 
 provider:

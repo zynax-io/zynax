@@ -48,9 +48,8 @@ func (s *stubStream) last() *zynaxv1.TaskEvent {
 
 func minimalCfg() *config.AdapterConfig {
 	return &config.AdapterConfig{
-		AgentID:          "ci-test",
-		Endpoint:         ":50099",
-		RegistryEndpoint: "localhost:50052",
+		AgentID:  "ci-test",
+		Endpoint: ":50099",
 		CI: config.CIConfig{
 			Provider:                  "github-actions",
 			TokenEnv:                  "GH_TOKEN",

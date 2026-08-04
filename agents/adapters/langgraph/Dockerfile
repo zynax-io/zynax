@@ -5,7 +5,7 @@
 #   builder  — python:3.12-alpine + uv; installs locked dependencies into /app/.venv
 #   runtime  — python:3.12-alpine; copies venv + source + proto stubs; runs as zynax (UID 1001)
 #
-# Required env vars at runtime: LANGGRAPH_MOUNTS (JSON), REGISTRY_ADDR, AGENT_ID, ADAPTER_ENDPOINT
+# Required env var at runtime: LANGGRAPH_MOUNTS (JSON)
 # Optional: ZYNAX_LANGGRAPH_ADAPTER_GRPC_PORT (default 50058)
 #
 # LANGGRAPH_MOUNTS format (JSON array):

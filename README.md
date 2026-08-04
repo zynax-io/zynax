@@ -355,7 +355,7 @@ Layer 2 — WorkflowIR / Compiler (canonical representation)
          │  gRPC: CompileWorkflow / ValidateManifest / GetCompiledWorkflow
          ▼
 Layer 3 — Platform Services (Go, gRPC-only cross-service)
-    services/agent-registry/   capability catalogue
+    services/agent-registry/   Agent CRD scheduler (SelectAgent)
     services/task-broker/      capability routing + dispatch
     services/engine-adapter/   IR → Temporal / LangGraph / Argo
     services/memory-service/   KV + vector context store
@@ -473,7 +473,7 @@ Current implementation status per service and adapter (as of M9 active developme
 | workflow-compiler | ✅ Implemented | YAML → WorkflowIR; stateless — no in-memory IR store ([#466](https://github.com/zynax-io/zynax/issues/466)); multi-namespace support ([#767](https://github.com/zynax-io/zynax/issues/767)) |
 | engine-adapter | ✅ Implemented | Temporal + Argo backends ([#766](https://github.com/zynax-io/zynax/issues/766)); cel-go guard evaluation; CloudEvents lifecycle events published directly to NATS JetStream via `libs/zynaxevents` (#827) |
 | task-broker | ✅ Implemented | Postgres-backed TaskRepository on pgx/v5 (EPIC [#626](https://github.com/zynax-io/zynax/issues/626)); gRPC wired in compose + Helm |
-| agent-registry | ✅ Implemented | Postgres-backed AgentRepository on pgx/v5 (EPIC [#626](https://github.com/zynax-io/zynax/issues/626)); round-robin with heartbeat |
+| agent-registry | ✅ Implemented | **Stateless** CRD scheduler (ADR-039): watches `zynax.io/v1alpha1` `Agent` custom resources and serves `SchedulerService.SelectAgent` (readiness-filtered, metrics-aware scoring). Push registration and its Postgres `AgentRepository` were hard-removed in M9 ([EPIC #1674](https://github.com/zynax-io/zynax/issues/1674)) |
 | memory-service | ✅ Implemented | M6 — Redis KV + pgvector; all 10 RPCs, namespace TTL isolation, integration + BDD tests (EPIC #773) |
 
 > **Eventing is not a service.** The `event-bus` service (`EventBusService` gRPC facade,
@@ -521,7 +521,7 @@ services/            Go platform services
   workflow-compiler/ YAML → WorkflowIR compiler (M2 — complete)
   engine-adapter/    Temporal execution engine bridge (M3 — complete)
   api-gateway/       HTTP REST entry point: /api/v1/apply + /api/v1/workflows (M4 — complete)
-  agent-registry/    Capability catalogue service (M4+)
+  agent-registry/    Agent CRD scheduler — SelectAgent over Agent CRs (ADR-039)
   task-broker/       Capability routing service (M4+)
   memory-service/    KV + vector context store (M4+)
 libs/zynaxevents/    Shared NATS JetStream client — direct publish/subscribe (ADR-046)

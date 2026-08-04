@@ -42,10 +42,9 @@ func (s *stubStream) last() *zynaxv1.TaskEvent {
 func newTestServer(t *testing.T, apiURL string) *adapter.AgentServer {
 	t.Helper()
 	cfg := &config.AdapterConfig{
-		AgentID:          "git-test",
-		Name:             "Git Test",
-		Endpoint:         ":50060",
-		RegistryEndpoint: "localhost:50052",
+		AgentID:  "git-test",
+		Name:     "Git Test",
+		Endpoint: ":50060",
 		Git: config.GitConfig{
 			Provider: "github",
 			AuthEnv:  "TEST_GITHUB_TOKEN",

@@ -6,9 +6,10 @@
 **Issue:** #1674
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-07-08
-**Status:** Aligned
+**Status:** Implemented
 
-> Story issues: step 1 → #1697 · step 2 → #1698 · step 3 → #1598 · step 4 → #1699
+> Story issues: step 1 → #1697 ✅ · step 2 → #1698 ✅ · step 3 → #1598 ✅ · step 4 → #1699 ✅
+> Delivered 2026-08-04; epic #1674 closed.
 
 ---
 
@@ -48,7 +49,9 @@
 - **Retirement error** — the documented, user-facing rejection text pointing to the Agent CRD
   migration guide (`docs/patterns/agent-crd-migration.md`).
 - **Spike branch** — `spike/adr-039-crd-scheduler-proof`, the ADR's de-risk artifact; kept by
-  standing instruction until this removal build lands; retired in step 4.
+  standing instruction until this removal build lands; **deleted (local + remote) in step 4 on
+  2026-08-04**, last SHA `1c30b17`. The standing "keep the spike branch" instruction is retired
+  with it — the merged M9.A removal build is now the verification artifact.
 
 ```
 caller removal          implementation removal        contract removal        truth pass
@@ -109,10 +112,25 @@ caller removal          implementation removal        contract removal        tr
    `agent_registry.proto`; regenerate Go+Python stubs; documented-intentional `buf breaking`
    exception scoped to these RPCs; `AgentDef`/`CapabilityDef` messages stay (scheduler.proto
    reuse); release-notes line.
-4. **migration sweep + spike retirement** (#1699, `docs:`) — agent-crd-migration.md to
-   post-removal tense; repo-wide push-path reference sweep (historical mentions only remain);
-   status surfaces in the same diff; delete `spike/adr-039-crd-scheduler-proof` with a
-   traceable PR-body note; tick epic boxes; canvas → Implemented.
+4. ✅ **migration sweep + spike retirement** (#1699, shipped as `chore:` — see below) —
+   agent-crd-migration.md to post-removal tense; repo-wide push-path reference sweep
+   (historical mentions only remain); status surfaces in the same diff; deleted
+   `spike/adr-039-crd-scheduler-proof`; epic boxes ticked; canvas → Implemented.
+
+> **Divergence from the plan (sync note, 2026-08-04).** Step 4 was planned as `docs:` but
+> shipped as `chore:`: #1598 deferred two non-doc items to it — the dead *required* adapter
+> config keys `registry_endpoint` (adk/ci/git/http/llm) and `REGISTRY_ADDR` (langgraph), and
+> the `zynax agent publish` CLI alias, whose only purpose was pushing an AgentDef through the
+> retired gateway route. Config removal is safe **image-first only**: a new image tolerates a
+> config that still sets the key (Go `yaml.Unmarshal` is non-strict; the langgraph settings
+> model is `extra="ignore"`), but an old image whose key was deleted fails startup validation.
+> The deployed manifests therefore keep the keys behind a comment until the rebuilt `:main`
+> images ship — a follow-up removes them. `agent publish` became a
+> hidden retirement stub rather than a plain deletion: a cobra parent with no `Run` answers an
+> unknown subcommand with help and **exit 0**, which would silently no-op an existing
+> deployment script. `zynax init expert` / `agent init` and the AgentDef JSON schema were
+> deliberately KEPT — an AgentDef manifest is still the expert-definition authoring format
+> (ADR-028/ADR-033), validated locally; only *pushing* it to the api-gateway is gone.
 
 ## N — Norms
 

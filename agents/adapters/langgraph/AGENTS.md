@@ -44,10 +44,17 @@ JSON array. Each entry declares one capability:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `LANGGRAPH_MOUNTS` | ✓ | — | JSON array of graph mount objects (see above). |
-| `AGENT_ID` | ✓ | — | Unique agent identifier registered with agent-registry. |
-| `ADAPTER_ENDPOINT` | ✓ | — | gRPC address the task-broker dials, e.g. `langgraph-adapter:50058`. |
-| `REGISTRY_ADDR` | ✓ | — | agent-registry gRPC address, e.g. `agent-registry:50052`. |
 | `ZYNAX_LANGGRAPH_ADAPTER_GRPC_PORT` | — | `50058` | TCP port the adapter's gRPC server binds to. |
+
+`REGISTRY_ADDR` was removed in M9.A (ADR-039): the adapter never dials the
+agent-registry — identity is declared by the `zynax.io/v1alpha1` `Agent` custom
+resource. Unknown environment variables are ignored (`extra="ignore"`), so a
+deployment that still exports it boots unchanged.
+
+`AGENT_ID` and `ADAPTER_ENDPOINT` are still set by the shipped manifests but are
+**not read by this process** — they are push-era leftovers kept only so the
+manifests stay self-describing. Treat them as deployment metadata, not adapter
+configuration.
 
 ## gRPC Port
 

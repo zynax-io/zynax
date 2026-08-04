@@ -17,7 +17,6 @@ agent_id: git-adapter-test
 name: Git Adapter Test
 description: test
 endpoint: :50060
-registry_endpoint: localhost:50052
 git:
   provider: github
   auth_env: GITHUB_TOKEN
@@ -69,7 +68,6 @@ func TestValidate_MissingAgentID(t *testing.T) {
 	t.Parallel()
 	path := writeYAML(t, `
 endpoint: :50060
-registry_endpoint: localhost:50052
 git:
   provider: github
   auth_env: GITHUB_TOKEN
@@ -89,7 +87,6 @@ func TestValidate_MissingGitProvider(t *testing.T) {
 	path := writeYAML(t, `
 agent_id: git-adapter
 endpoint: :50060
-registry_endpoint: localhost:50052
 git:
   auth_env: GITHUB_TOKEN
 capabilities:
@@ -108,7 +105,6 @@ func TestValidate_MissingAuthEnv(t *testing.T) {
 	path := writeYAML(t, `
 agent_id: git-adapter
 endpoint: :50060
-registry_endpoint: localhost:50052
 git:
   provider: github
 capabilities:
@@ -127,7 +123,6 @@ func TestValidate_MissingCapabilityOwner(t *testing.T) {
 	path := writeYAML(t, `
 agent_id: git-adapter
 endpoint: :50060
-registry_endpoint: localhost:50052
 git:
   provider: github
   auth_env: GITHUB_TOKEN
