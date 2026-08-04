@@ -97,10 +97,10 @@ deploy removal        code removal              contract removal       spec/docs
 > Each step = one PR. Order is load-bearing (deploy → code → contract → spec):
 > #1700 → #1701 → #1702 → #1703. Global gate: v0.7.0 release published first.
 
-1. **Deployment surface retired** (#1700, `chore:`) — chart + umbrella block + cert entry +
+1. ✅ **Deployment surface retired** (#1700, `chore:`) — chart + umbrella block + cert entry +
    NATS identity map + 50054 egress removed; `helm dependency build` + lint green; e2e both
    legs with no event-bus Deployment; runtime smoke ×2 (subscribe → terminal-close intact).
-2. **Source tree + release wiring deleted** (#1701, `chore:`) — `services/event-bus/` gone;
+2. ✅ **Source tree + release wiring deleted** (#1701, `chore:`) — `services/event-bus/` gone;
    release matrix lane, images SoT entry (`make sync-images`), `go.work` line cleaned;
    event-bus BDD suites retired with pointer to `libs/zynaxevents` suites; goldens pass
    unchanged; repo grep: no `services/event-bus` references outside history/docs-archive.

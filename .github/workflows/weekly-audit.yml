@@ -61,7 +61,7 @@ jobs:
           REGISTRY="${{ env.REGISTRY }}"
 
           # Audit pulls :latest — simplest, matches what a user would pull.
-          for svc in api-gateway engine-adapter workflow-compiler task-broker agent-registry event-bus; do
+          for svc in api-gateway engine-adapter workflow-compiler task-broker agent-registry; do
             IMAGE="${REGISTRY}/${svc}:latest"
             printf '[image-test] Pulling %s\n' "$IMAGE"
             if ! docker pull "$IMAGE" 2>/dev/null; then

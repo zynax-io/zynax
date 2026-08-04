@@ -359,7 +359,7 @@ Layer 3 — Platform Services (Go, gRPC-only cross-service)
     services/task-broker/      capability routing + dispatch
     services/engine-adapter/   IR → Temporal / LangGraph / Argo
     services/memory-service/   KV + vector context store
-    services/event-bus/        NATS JetStream async pub/sub
+    libs/zynaxevents/          NATS JetStream client — direct async pub/sub (ADR-046)
          │
          │  gRPC: AgentService contract (protos/zynax/v1/agent.proto)
          ▼
@@ -519,7 +519,7 @@ services/            Go platform services
   agent-registry/    Capability catalogue service (M4+)
   task-broker/       Capability routing service (M4+)
   memory-service/    KV + vector context store (M4+)
-  event-bus/         NATS JetStream async pub/sub (M4+)
+libs/zynaxevents/    Shared NATS JetStream client — direct publish/subscribe (ADR-046)
 cmd/zynax/           zynax CLI — apply, get, delete, status (M4 — complete)
 cmd/zynax-ci/        zynax-ci CI toolchain — validate canvas/schema/manifests, check ai-context
 agents/              Python execution adapters + zynax-sdk

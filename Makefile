@@ -110,7 +110,7 @@ CLUSTER_DOWN  := scripts/e2e/cluster-down.sh
 # Stack profile for the kind targets (ADR-041). Explicit PROFILE=... always
 # wins (command line or env). Unset, each target picks its natural default
 # (#1716): `make demo` → lite (lean first-run: 1 node, in-memory dev Temporal,
-# no event-bus/NATS/memory-service — same charts, same hero workflow), while
+# no NATS/memory-service — same charts, same hero workflow), while
 # `make kind-up` → full (prod-mirroring topology, same as the CI e2e harness).
 PROFILE      ?=
 DEMO_PROFILE  = $(if $(PROFILE),$(PROFILE),lite)
@@ -145,7 +145,7 @@ STREAM       ?=
 # ollama container reuses host models read-only), otherwise the codereview 404s.
 DEMO_MODEL   := $(shell awk '/^[[:space:]]*model:/{print $$2; exit}' infra/ollama/llm-adapter.config.yaml)
 # Services the demo needs; `up --wait` boots their depends_on closure (workflow-compiler,
-# engine-adapter, task-broker, agent-registry, temporal, event-bus, nats, postgres*, ollama).
+# engine-adapter, task-broker, agent-registry, temporal, nats, postgres*, ollama).
 # Deliberately EXCLUDES the git/ci/langgraph adapters — they require GITHUB_TOKEN or are unused, and
 # `up --wait` (no service list) would otherwise gate the whole demo on their health — and the
 # standalone Temporal UI.

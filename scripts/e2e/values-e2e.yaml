@@ -11,12 +11,13 @@
 # band (ADR-021); they do NOT use these values.
 
 # ── Service images ──────────────────────────────────────────────────────────
-# Pin all 7 services to the floating `main` tag, which CI publishes on every
-# merge (pre-merge staging build + retag promotion, ADR-027). The chart default
-# (Chart.AppVersion → "0.4.0") was never pushed to GHCR, so the default tag
-# fails ImagePull. event-bus + memory-service images ship since #1089 (canvas
-# 1086 O3), so both are enabled below and their CloudEvent / memory-Get
-# assertions run unskipped (#1090, canvas 1086 O4).
+# Pin every deployed service to the floating `main` tag, which CI publishes on
+# every merge (pre-merge staging build + retag promotion, ADR-027). The chart
+# default (Chart.AppVersion → "0.4.0") was never pushed to GHCR, so the default
+# tag fails ImagePull. memory-service ships since #1089 (canvas 1086 O3) and is
+# enabled below so its memory-Get assertion runs unskipped (#1090, canvas 1086
+# O4); the CloudEvent assertions ride the direct JetStream path since the
+# event-bus facade was retired (ADR-046, #1700/#1701).
 #
 # fullnameOverride (#1086 O2): the umbrella wires inter-service addresses as
 # "zynax-<svc>" (registryAddr/compilerAddr/engineAddr/taskBrokerAddr), but the
@@ -123,8 +124,9 @@ zynax-memory-service:
 # before/after analysis. Key levers: drop unused pods (NATS, Temporal Web UI),
 # slash Temporal history shards, and cap the otherwise-unbounded Temporal pods.
 
-# NATS backs event-bus (enabled above, #1090): the StatefulSet must run so the
-# CloudEvent assertions have a JetStream to land on. Keep it as small as the
+# NATS is the eventing backbone the services publish to directly via
+# libs/zynaxevents (ADR-046): the StatefulSet must run so the CloudEvent
+# assertions have a JetStream to land on. Keep it as small as the
 # smoke runner demands: cap the otherwise-unbounded server container, drop the
 # config reloader (the smoke config never changes), and shrink the JetStream
 # PVC. nats-box stays — e2e-happy.sh uses its `nats` CLI for the stream

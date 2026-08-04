@@ -60,7 +60,7 @@ env:
   IMAGE_PREFIX: ghcr.io/zynax-io/zynax
   STAGING_PREFIX: ghcr.io/zynax-io/zynax/staging
   # Must match the build-images matrix in ci.yml — update both together.
-  SERVICE_IMAGES: "api-gateway engine-adapter workflow-compiler task-broker agent-registry event-bus memory-service http-adapter llm-adapter langgraph-adapter ci-adapter git-adapter"
+  SERVICE_IMAGES: "api-gateway engine-adapter workflow-compiler task-broker agent-registry memory-service http-adapter llm-adapter langgraph-adapter ci-adapter git-adapter"
   SYFT_VERSION: "1.44.0"
   GHCR_KEEP_VERSIONS: "5"
 
@@ -517,7 +517,7 @@ jobs:
       fail-fast: false
       matrix:
         service: [api-gateway, engine-adapter, workflow-compiler, task-broker,
-                  agent-registry, event-bus, memory-service, http-adapter,
+                  agent-registry, memory-service, http-adapter,
                   llm-adapter, langgraph-adapter, ci-adapter, git-adapter,
                   tools, ci-runner]
     steps:

@@ -124,7 +124,7 @@ jobs:
           fi
           echo "Docker-relevant changes — waiting for staging images (pr-${HEAD_SHA})…"
           DEADLINE=$(( $(date +%s) + 1200 ))   # build-images runs in parallel in ci.yml
-          for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry event-bus memory-service; do
+          for svc in api-gateway workflow-compiler engine-adapter task-broker agent-registry memory-service; do
             IMG="ghcr.io/zynax-io/zynax/staging/${svc}:pr-${HEAD_SHA}"
             until docker manifest inspect "${IMG}" >/dev/null 2>&1; do
               if [ "$(date +%s)" -ge "${DEADLINE}" ]; then

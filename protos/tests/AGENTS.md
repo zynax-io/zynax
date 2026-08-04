@@ -29,7 +29,6 @@ protos/tests/
 │   ├── agent_registry_service.feature
 │   ├── cloudevents_envelope.feature
 │   ├── engine_adapter_service.feature
-│   ├── event_bus_service.feature
 │   ├── memory_service.feature
 │   ├── task_broker_service.feature
 │   └── workflow_compiler_service.feature
@@ -39,11 +38,20 @@ protos/tests/
 ├── engine_adapter_service/
 │   ├── lifecycle_steps_test.go     ← two-file split
 │   └── signals_steps_test.go
-├── event_bus_service/steps_test.go
 ├── memory_service/steps_test.go
 ├── task_broker_service/steps_test.go
 └── workflow_compiler_service/steps_test.go
 ```
+
+> **Retired suite — `event_bus_service`.** The `EventBusService` gRPC facade was
+> removed in M9.B (ADR-046, epic #1675): eventing is a shared client library, not
+> a service, so there is no gRPC boundary left for a contract suite to guard. The
+> coverage did not drop — it moved with the boundary (ADR-016). Its successors are
+> `libs/zynaxevents/tests/features/events_client.feature` (+ `tests/steps_test.go`)
+> for the publish/subscribe/DLQ behaviour and `libs/zynaxevents/golden_test.go`
+> (+ `testdata/golden/`) for the byte-compat pins of the JetStream naming
+> conventions. `features/cloudevents_envelope.feature` still guards the wire
+> envelope. See `docs/patterns/direct-jetstream-events.md`.
 
 ---
 
