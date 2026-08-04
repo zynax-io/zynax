@@ -35,3 +35,20 @@ breaking:
   # against-branch no longer carries event_bus.proto (i.e. after the v0.8.0 tag).
   ignore:
     - zynax/v1/event_bus.proto
+  # Same mechanism, narrower scope — zynax/v1/agent_registry.proto keeps its
+  # AgentDef/CapabilityDef messages, so only the two rules the removal actually
+  # trips are waived rather than the whole file.
+  #   (a) ADR-039 §Consequences — push registration deprecated in M8, removed in
+  #       M9; the ADR-048 §Decision 3 notice window is satisfied (the deprecation
+  #       shipped in v0.7.0 and every RPC answered UNIMPLEMENTED from #1584).
+  #   (b) this stanza: agent_registry.proto lost its AgentRegistryService
+  #       (SERVICE_NO_DELETE) and the five RPCs' nine request/response messages
+  #       (MESSAGE_NO_DELETE) in #1598. The surviving messages are untouched and
+  #       stay guarded by every other FILE rule.
+  # Delete this block once the against-branch no longer carries the removed
+  # surface (i.e. after the v0.8.0 tag).
+  ignore_only:
+    MESSAGE_NO_DELETE:
+      - zynax/v1/agent_registry.proto
+    SERVICE_NO_DELETE:
+      - zynax/v1/agent_registry.proto

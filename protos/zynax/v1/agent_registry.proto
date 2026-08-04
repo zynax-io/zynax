@@ -1,22 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// AgentRegistryService — capability provider registry contract.
+// Agent identity messages — AgentDef and CapabilityDef.
 //
-// Agents and adapters call RegisterAgent on startup to announce themselves
-// and their capabilities. The task broker queries this registry at dispatch
-// time via FindByCapability to locate agents without hardcoded addresses.
+// This file no longer declares a service. The push-registration RPCs
+// (RegisterAgent, DeregisterAgent, GetAgent, ListAgents, FindByCapability)
+// were deprecated in M8 (#1584) and hard-removed in M9 (#1598) under the
+// ADR-039 removal clause: the zynax.io/v1alpha1 Agent custom resource is the
+// single source of truth for agent identity, and dispatch selection lives in
+// SchedulerService.SelectAgent (scheduler.proto).
 //
-// Design rationale: ADR-001 (gRPC as inter-service protocol), ADR-013
-// (adapter-first, no SDK required). Registration is the only mechanism
-// by which an agent becomes visible to the platform.
+// The messages below survive because scheduler.proto reuses them — SelectAgent
+// answers with the AgentDef it picked. The file name is retained so importers
+// keep resolving (renaming it would be a second, unnecessary break).
+//
+// Design rationale: ADR-001 (gRPC as inter-service protocol), ADR-039
+// (CRD-native scheduler), ADR-048 (deprecation policy — this removal shipped a
+// deprecation in v0.7.0 first, with the buf breaking exception scoped to this
+// file in protos/buf.yaml).
 //
 // Contract invariants:
-//   1. agent_id is the caller-supplied idempotency key — must be unique.
-//   2. DEREGISTERED agents are retained for audit; they are excluded from
-//      FindByCapability and ListAgents results.
-//   3. capability.name must be unique within an AgentDef.
-//   4. label keys and values follow Kubernetes label syntax constraints.
-//   5. input_schema and output_schema, when non-empty, MUST be valid JSON.
+//   1. capability.name must be unique within an AgentDef.
+//   2. label keys and values follow Kubernetes label syntax constraints.
+//   3. input_schema and output_schema, when non-empty, MUST be valid JSON.
 
 syntax = "proto3";
 
@@ -26,67 +31,23 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1;zynaxv1";
 
-// AgentRegistryService is the platform's capability index.
-//
-// DEPRECATED (ADR-039, M8): the Agent custom resource (zynax.io/v1alpha1) is
-// now the single source of truth for agent identity, and dispatch selection
-// moved to SchedulerService.SelectAgent (scheduler.proto). Every RPC below is
-// deprecated and answers UNIMPLEMENTED with a migration pointer
-// (docs/patterns/agent-crd-migration.md); hard removal is scheduled for M9.
-// The AgentDef/CapabilityDef messages live on — scheduler.proto reuses them.
-service AgentRegistryService {
-  // RegisterAgent records an agent and its capabilities in the registry.
-  // Returns ALREADY_EXISTS if the agent_id is already registered and active.
-  // Returns INVALID_ARGUMENT if required fields are empty or schemas are invalid.
-  rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse) {
-    option deprecated = true;
-  }
-
-  // DeregisterAgent marks an agent as DEREGISTERED.
-  // The record is retained for audit; the agent is excluded from discovery.
-  // Returns NOT_FOUND if no active agent with the given agent_id exists.
-  rpc DeregisterAgent(DeregisterAgentRequest) returns (DeregisterAgentResponse) {
-    option deprecated = true;
-  }
-
-  // GetAgent returns the full AgentDef for the given agent_id, including
-  // its current status. Returns NOT_FOUND if the agent_id is unknown.
-  rpc GetAgent(GetAgentRequest) returns (AgentDef) {
-    option deprecated = true;
-  }
-
-  // ListAgents returns all agents matching the optional label selector.
-  // DEREGISTERED agents are excluded unless include_deregistered is set.
-  // An empty selector matches all active agents.
-  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse) {
-    option deprecated = true;
-  }
-
-  // FindByCapability returns all active agents that declare the named
-  // capability. Returns an empty list (not NOT_FOUND) when no agents match.
-  // Returns INVALID_ARGUMENT if capability_name is empty.
-  rpc FindByCapability(FindByCapabilityRequest) returns (FindByCapabilityResponse) {
-    option deprecated = true;
-  }
-}
-
-// AgentStatus is the lifecycle state of a registered agent.
+// AgentStatus is the lifecycle state of an agent.
 // Ordinal values are permanent — never reorder or reassign (ADR-001 §backward-compat).
 enum AgentStatus {
-  // Never used by the registry. Proto3 default sentinel; presence indicates
+  // Never set by the platform. Proto3 default sentinel; presence indicates
   // a missing or corrupt status field.
   AGENT_STATUS_UNSPECIFIED = 0;
 
   // The agent is active and eligible for capability routing.
   AGENT_STATUS_REGISTERED = 1;
 
-  // The agent has been deregistered. It is excluded from discovery results
-  // but retained in the registry for audit and replay purposes.
+  // The agent is no longer eligible for dispatch. Retained for audit and
+  // replay purposes.
   AGENT_STATUS_DEREGISTERED = 2;
 }
 
 // CapabilityDef declares a single named capability an agent can execute.
-// The task broker matches incoming tasks to agents via capability_name.
+// The scheduler matches incoming tasks to agents via capability name.
 message CapabilityDef {
   // Unique capability identifier within this agent. Matches the
   // capability_name field in ExecuteCapabilityRequest (AgentService).
@@ -107,11 +68,11 @@ message CapabilityDef {
   bytes output_schema = 4;
 }
 
-// AgentDef is the canonical record for a registered agent.
-// It is returned by GetAgent, ListAgents, and FindByCapability.
+// AgentDef is the canonical record for an agent.
+// It is projected from the zynax.io/v1alpha1 Agent custom resource and
+// returned by SchedulerService.SelectAgent (scheduler.proto).
 message AgentDef {
-  // Unique identifier for this agent. Caller-supplied; used as an
-  // idempotency key during registration. Must be non-empty.
+  // Unique identifier for this agent. Must be non-empty.
   string agent_id = 1;
 
   // Human-readable name for operator dashboards and logs.
@@ -128,101 +89,17 @@ message AgentDef {
   // capability.name must be unique within this list.
   repeated CapabilityDef capabilities = 5;
 
-  // Arbitrary key-value metadata for filtering via ListAgents label selectors.
+  // Arbitrary key-value metadata used for selector-based filtering.
   // Keys and values follow Kubernetes label syntax: alphanumeric, '-', '_', '.'.
   // Maximum 63 characters per key and value.
   map<string, string> labels = 6;
 
-  // Current lifecycle state of this agent. Set by the registry; ignored on
-  // RegisterAgent input.
+  // Current lifecycle state of this agent.
   AgentStatus status = 7;
 
-  // Wall-clock time when the agent was first registered. Set by the registry.
+  // Wall-clock time when the agent record was first observed.
   google.protobuf.Timestamp registered_at = 8;
 
-  // Wall-clock time of the most recent status change (register or deregister).
+  // Wall-clock time of the most recent status change.
   google.protobuf.Timestamp updated_at = 9;
-}
-
-// RegisterAgentRequest carries the agent's self-description.
-message RegisterAgentRequest {
-  // The agent manifest to register. All required fields within AgentDef
-  // (agent_id, endpoint, at least one capability) must be populated.
-  AgentDef agent = 1;
-}
-
-// RegisterAgentResponse confirms successful registration.
-message RegisterAgentResponse {
-  // Echoes the agent_id from the request for caller confirmation.
-  string agent_id = 1;
-
-  // Wall-clock time the registry recorded the registration.
-  google.protobuf.Timestamp registered_at = 2;
-}
-
-// DeregisterAgentRequest identifies the agent to deregister.
-message DeregisterAgentRequest {
-  // The agent to deregister. Required: empty string is rejected with
-  // INVALID_ARGUMENT.
-  string agent_id = 1;
-}
-
-// DeregisterAgentResponse confirms successful deregistration.
-message DeregisterAgentResponse {
-  // Wall-clock time the registry recorded the deregistration.
-  google.protobuf.Timestamp deregistered_at = 1;
-}
-
-// GetAgentRequest identifies the agent to retrieve.
-message GetAgentRequest {
-  // Required: empty string is rejected with INVALID_ARGUMENT.
-  string agent_id = 1;
-}
-
-// ListAgentsRequest supports optional label-selector filtering and pagination.
-// Pagination follows AIP-158 (cursor-based, not offset-based).
-message ListAgentsRequest {
-  // Kubernetes-style equality-based label selector.
-  // Examples: "env=production", "env=production,tier=standard".
-  // Empty string matches all active agents.
-  string label_selector = 1;
-
-  // When true, DEREGISTERED agents are included in results.
-  // Default: false (active agents only).
-  bool include_deregistered = 2;
-
-  // Opaque cursor returned by the previous ListAgents call as next_page_token.
-  // Omit or leave empty to start from the first page.
-  string page_token = 3;
-
-  // Maximum number of agents to return per page.
-  // 0 means the server chooses a default (currently 100).
-  // Values above the server maximum (1000) are clamped.
-  int32 page_size = 4;
-}
-
-// ListAgentsResponse carries the matched agent records for one page.
-message ListAgentsResponse {
-  // Agents matching the request filter for the current page.
-  // Empty list when none match or no further pages exist.
-  repeated AgentDef agents = 1;
-
-  // Cursor for the next page of results. Empty string indicates this is the
-  // last page. Pass this value as page_token in the next request.
-  string next_page_token = 2;
-}
-
-// FindByCapabilityRequest identifies the capability to search for.
-message FindByCapabilityRequest {
-  // The capability name to search for. Matched against CapabilityDef.name
-  // across all active registered agents.
-  // Required: empty string is rejected with INVALID_ARGUMENT.
-  string capability_name = 1;
-}
-
-// FindByCapabilityResponse carries all agents that declare the capability.
-message FindByCapabilityResponse {
-  // Active agents that declared the requested capability.
-  // Empty list when no agents match (this is not an error condition).
-  repeated AgentDef agents = 1;
 }

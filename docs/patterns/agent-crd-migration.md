@@ -2,11 +2,14 @@
 
 > **Audience:** operators and adapter authors still calling
 > `AgentRegistryService.RegisterAgent` (or applying `kind: AgentDef` through
-> the api-gateway). **Since M8 (ADR-039)** those paths answer
-> `UNIMPLEMENTED` / HTTP 410 — agent identity lives in the
+> the api-gateway). Those paths are **gone as of M9 (ADR-039)**: the RPCs were
+> deprecated in M8, answered `UNIMPLEMENTED` throughout v0.7.0, and were
+> deleted from the contract in #1598. Agent identity lives in the
 > `zynax.io/v1alpha1` **`Agent`** custom resource, and dispatch selection
-> uses `SchedulerService.SelectAgent`. Hard removal of the deprecated RPCs
-> is scheduled for **M9**.
+> uses `SchedulerService.SelectAgent`. A client built against the removed
+> RPCs now fails at compile time (Go/Python stubs) or with `UNIMPLEMENTED`
+> from gRPC itself; `kind: AgentDef` applies answer HTTP 400
+> `UNSUPPORTED_KIND`.
 
 ## Why this changed
 
@@ -86,16 +89,19 @@ and label the CR with `zynax.io/expert-scope` for strict expert targeting
   API; without it, selection runs readiness-filtered rotation (degraded
   mode — correct, never failing).
 
-## Rollback (pre-M9 window)
+## Rollback
 
-The push-era code paths still exist behind the deprecation until M9:
-reverting the M8 retirement PR restores them. After M9's hard removal the
-CRD path is the only path — plan migrations before then.
+**The rollback window is closed.** It ran from M8 (deprecation) to M9 (hard
+removal): until #1598 the push-era code paths still existed behind the
+deprecation and reverting the M8 retirement PR restored them. The contract,
+the adapter registration clients, and the gateway route are now deleted, so
+the CRD path is the only path. Operators pinned to the push registry must
+stay on a v0.7.x release and migrate before upgrading.
 
 ## Schedule
 
 | Milestone | State |
 |---|---|
 | M7 | ADR-039 accepted; KIND-verified spike |
-| **M8 (now)** | `Agent` CR is the source of truth; push RPCs answer `UNIMPLEMENTED`; gateway `AgentDef` answers 410 |
-| M9 | Deprecated RPCs and push-era code removed |
+| M8 | `Agent` CR is the source of truth; push RPCs answer `UNIMPLEMENTED`; gateway `AgentDef` answers 410 |
+| **M9 (now)** | Deprecated RPCs and push-era code removed; `kind: AgentDef` answers 400 `UNSUPPORTED_KIND` |

@@ -138,10 +138,13 @@ Feature: Proto stub generation pipeline
   # These scenarios verify the initial generated stubs are committed to the
   # repo, activating the proto-stubs-fresh freshness gate in CI.
 
+  # agent_registry.proto declares no service since M9.A (ADR-039, #1598) — it
+  # carries only the AgentDef/CapabilityDef messages scheduler.proto reuses, so
+  # protoc-gen-go-grpc emits no agent_registry_grpc.pb.go for it.
   Scenario: Go stubs are committed for every proto service
     Given the repository contains protos/generated/go/zynax/v1/
     Then it contains "agent.pb.go" and "agent_grpc.pb.go"
-    And it contains "agent_registry.pb.go" and "agent_registry_grpc.pb.go"
+    And it contains "agent_registry.pb.go"
     And it contains "task_broker.pb.go" and "task_broker_grpc.pb.go"
     And it contains "workflow_compiler.pb.go" and "workflow_compiler_grpc.pb.go"
     And it contains "engine_adapter.pb.go" and "engine_adapter_grpc.pb.go"
