@@ -17,7 +17,7 @@ experience, and the AI-methodology/tooling stack — distinct from end-user UX (
 
 | EPIC | Issue | State | Notes |
 |------|-------|-------|-------|
-| Contributor Experience — fast-lane + PR ergonomics + automation | [#1391](https://github.com/zynax-io/zynax/issues/1391) | open, aggregator | children #1361, #1363, #1366, #1368, #1369 (all open) |
+| Contributor Experience — fast-lane + PR ergonomics + automation | [#1391](https://github.com/zynax-io/zynax/issues/1391) | open, aggregator | children #1361, #1366, #1368, #1369 open; #1363 ✅ (pulled forward 2026-08-04 — the PR-size gate was blocking M9 hard removals) |
 | SDK & Adapter-Author Experience | [#1392](https://github.com/zynax-io/zynax/issues/1392) | open, placeholder | no children filed yet |
 | SPDD methodology | [#205](https://github.com/zynax-io/zynax/issues/205) | open, **delivered** | all 9 children closed — recommended close (see triage notes 2026-07-08) |
 | Technical Excellence Modernization | [#173](https://github.com/zynax-io/zynax/issues/173) | open, ~88% done | open stragglers: #146, #233, #234, #244, #245 |
@@ -52,5 +52,5 @@ Loose stories currently in the milestone: #1361, #1363, #1366, #1368, #1369 (via
 ## 5 — Exit criteria
 
 To be defined at `/milestone open M-dx` time. Seed: fast-lane merged (#1361), PR-size
-split-not-possible honored (#1363), integration suites green in gate (#1368), SDK author
-guide shipped (#1392 child).
+split-not-possible honored (#1363 ✅ 2026-08-04), integration suites green in gate (#1368),
+SDK author guide shipped (#1392 child).

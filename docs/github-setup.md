@@ -394,7 +394,7 @@ gh label create "needs-rfc"           --color "8b5cf6" --description "RFC must b
 gh label create "PROTO REVIEWED"      --color "0e8a16" --description "Proto change reviewed by proto-owners"
 gh label create "ai-assisted"         --color "d4c5f9" --description "AI tools used in generating this change"
 gh label create "ai-reviewed"         --color "d4c5f9" --description "AI tools used to assist in reviewing"
-gh label create "split-not-possible"  --color "d93f0b" --description "PR >400 lines; maintainer approved exception"
+gh label create "split-not-possible"  --color "d93f0b" --description "Irreducible oversize PR; maintainer approved exception"
 gh label create "do not merge"        --color "b60205" --description "Blocked from merge — see comments"
 gh label create "duplicate"           --color "cfd3d7" --description "Duplicate of another issue"
 gh label create "wontfix"             --color "ffffff" --description "Explicitly out of scope"

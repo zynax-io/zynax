@@ -258,10 +258,16 @@ GPG proves identity; DCO certifies you have the right to contribute (Apache 2.0)
 | ≤ 200 | Ideal |
 | 201–400 | Acceptable |
 | 401–900 | Justify in PR description why it cannot be split |
-| > 900 | **Blocked** — decompose before requesting review |
+| > 900 | **Blocked** — decompose before requesting review, unless labelled (see below) |
 
 **Exclusions from count:** generated code (`*.pb.go`, `*_pb2.py`), lock files,
 schema fixtures, CI workflow files (`.github/workflows/`).
+
+**Irreducible changes:** when a change genuinely cannot be decomposed — retiring a
+module, for instance, where splitting the deletions would leave `main` non-compiling —
+a maintainer applies the `split-not-possible` label and the > 900 gate reports the size
+as a warning instead of blocking. Push a commit after labelling so the gate re-evaluates,
+and justify the exception in the PR description.
 
 Large features ship as a **PR chain** — a sequence of small, mergeable PRs where
 each one compiles, passes tests, and delivers observable value. Reference the
