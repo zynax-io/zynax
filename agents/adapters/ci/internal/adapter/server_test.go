@@ -22,6 +22,7 @@ import (
 const (
 	codeInvalidInput      = "INVALID_INPUT"
 	codeResourceExhausted = "RESOURCE_EXHAUSTED"
+	codeTimeout           = "TIMEOUT"
 )
 
 // stubStream captures events; implements AgentService_ExecuteCapabilityServer.
@@ -292,7 +293,7 @@ func TestTriggerWorkflow_TriggerTimeout(t *testing.T) {
 			InputPayload: jsonBytes(map[string]string{"ref": "main"}), TimeoutSeconds: 10,
 		}, s)
 	last := s.last()
-	if last == nil || last.Error == nil || last.Error.Code != "TIMEOUT" {
+	if last == nil || last.Error == nil || last.Error.Code != codeTimeout {
 		t.Fatalf("want TIMEOUT, got %v", last)
 	}
 }
@@ -382,8 +383,78 @@ func TestGetRunStatus_ContextTimeout(t *testing.T) {
 			InputPayload: jsonBytes(map[string]int64{"run_id": 99}), TimeoutSeconds: 3,
 		}, s)
 	last := s.last()
-	if last == nil || last.Error == nil || last.Error.Code != "TIMEOUT" {
+	if last == nil || last.Error == nil || last.Error.Code != codeTimeout {
 		t.Fatalf("want TIMEOUT, got %v", last)
+	}
+}
+
+// hangingServer returns a server whose handler blocks until the client gives up
+// or the test ends, so a request is guaranteed to still be in flight when the
+// caller's deadline expires.
+func hangingServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	release := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done(): // client gave up — the path under test
+		case <-release:
+		}
+	}))
+	// LIFO: unblock the handler before waiting on Close.
+	t.Cleanup(ts.Close)
+	t.Cleanup(func() { close(release) })
+	return ts
+}
+
+// TestGetRunStatus_DeadlineDuringRequest pins the mid-request timeout path: the
+// deadline expires while the poll's HTTP call is in flight, so it surfaces as a
+// transport error instead of ctx.Done(). It must still report TIMEOUT.
+//
+// Before requestFailure this path reported UPSTREAM_ERROR, which is what made
+// TestGetRunStatus_ContextTimeout flaky — that test races between the two paths
+// and so saw whichever code the race produced.
+func TestGetRunStatus_DeadlineDuringRequest(t *testing.T) {
+	t.Parallel()
+	ts := hangingServer(t)
+
+	cfg := minimalCfg()
+	cfg.CI.PollIntervalSeconds = 1 // poll starts at t=1s; deadline lands at t=2s, mid-flight
+
+	s := newStream()
+	_ = adapter.NewAgentServerWithURL(cfg, "tok", ts.URL).ExecuteCapability(
+		&zynaxv1.ExecuteCapabilityRequest{
+			TaskId: "t1", CapabilityName: "get_run_status",
+			InputPayload: jsonBytes(map[string]int64{"run_id": 99}), TimeoutSeconds: 2,
+		}, s)
+
+	last := s.last()
+	if last == nil || last.Error == nil {
+		t.Fatalf("want a FAILED event carrying an error, got %v", last)
+	}
+	if last.Error.Code != codeTimeout {
+		t.Fatalf("want TIMEOUT, got %s (%s)", last.Error.Code, last.Error.Message)
+	}
+}
+
+// TestTriggerWorkflow_DeadlineDuringRequest pins the same path for the
+// trigger_workflow dispatch call, which classifies request errors identically.
+func TestTriggerWorkflow_DeadlineDuringRequest(t *testing.T) {
+	t.Parallel()
+	ts := hangingServer(t)
+
+	s := newStream()
+	_ = adapter.NewAgentServerWithURL(minimalCfg(), "tok", ts.URL).ExecuteCapability(
+		&zynaxv1.ExecuteCapabilityRequest{
+			TaskId: "t1", CapabilityName: "trigger_workflow",
+			InputPayload: jsonBytes(map[string]string{"ref": "main"}), TimeoutSeconds: 1,
+		}, s)
+
+	last := s.last()
+	if last == nil || last.Error == nil {
+		t.Fatalf("want a FAILED event carrying an error, got %v", last)
+	}
+	if last.Error.Code != codeTimeout {
+		t.Fatalf("want TIMEOUT, got %s (%s)", last.Error.Code, last.Error.Message)
 	}
 }
 

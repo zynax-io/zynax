@@ -5,6 +5,7 @@ package adapter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -22,6 +23,18 @@ const (
 	maxBodyBytes    = 10 * 1024 * 1024 // 10 MB response body cap
 	maxErrMsgLen    = 512
 	githubAPIAccept = "application/vnd.github+json"
+
+	// Messages emitted when the capability exceeds timeout_seconds. Each poll
+	// loop reports the same message whether it observed ctx.Done() itself or the
+	// deadline landed inside an in-flight request — see requestFailure.
+	timeoutMsgTrigger   = "trigger_workflow: request exceeded timeout_seconds"
+	timeoutMsgRunStatus = "get_run_status: request exceeded timeout_seconds"
+
+	// JSON keys shared by the PROGRESS and COMPLETED payloads.
+	keyRunID      = "run_id"
+	keyRunURL     = "run_url"
+	keyStatus     = "status"
+	keyConclusion = "conclusion"
 )
 
 // executeStream is the minimal interface used by the handler (enables testing with mocks).
@@ -116,7 +129,8 @@ func (h *ciHandler) triggerWorkflow(
 
 	code, _, apiErr := h.doRequest(ctx, http.MethodPost, dispatchURL, body)
 	if apiErr != nil {
-		return sendFailed(stream, taskID, ciErrCode(code), sanitise(apiErr.Error()))
+		errCode, errMsg := requestFailure(ctx, code, apiErr, timeoutMsgTrigger)
+		return sendFailed(stream, taskID, errCode, errMsg)
 	}
 
 	// Poll the runs list until the new run ID appears or the trigger timeout expires.
@@ -137,12 +151,13 @@ func (h *ciHandler) triggerWorkflow(
 
 		runID, runURL, found, statusCode, reqErr := h.findNewRun(ctx, runsURL, triggerTime)
 		if reqErr != nil {
-			return sendFailed(stream, taskID, ciErrCode(statusCode), sanitise(reqErr.Error()))
+			errCode, errMsg := requestFailure(ctx, statusCode, reqErr, timeoutMsgTrigger)
+			return sendFailed(stream, taskID, errCode, errMsg)
 		}
 		if found {
 			out, _ := json.Marshal(map[string]interface{}{
-				"run_id":  runID,
-				"run_url": runURL,
+				keyRunID:  runID,
+				keyRunURL: runURL,
 			})
 			return stream.Send(completedEvent(taskID, out)) //nolint:wrapcheck
 		}
@@ -237,13 +252,14 @@ func (h *ciHandler) pollLoop(
 	for {
 		select {
 		case <-ctx.Done():
-			return sendFailed(stream, taskID, "TIMEOUT", "get_run_status: request exceeded timeout_seconds")
+			return sendFailed(stream, taskID, "TIMEOUT", timeoutMsgRunStatus)
 		case <-time.After(interval):
 		}
 
 		statusCode, data, err := h.doRequest(ctx, http.MethodGet, apiURL, nil)
 		if err != nil {
-			return sendFailed(stream, taskID, ciErrCode(statusCode), sanitise(err.Error()))
+			errCode, errMsg := requestFailure(ctx, statusCode, err, timeoutMsgRunStatus)
+			return sendFailed(stream, taskID, errCode, errMsg)
 		}
 
 		var run struct {
@@ -255,15 +271,15 @@ func (h *ciHandler) pollLoop(
 		}
 
 		progPayload, _ := json.Marshal(map[string]string{
-			"run_url": runURL,
-			"status":  run.Status,
+			keyRunURL: runURL,
+			keyStatus: run.Status,
 		})
 
 		if run.Status == "completed" {
 			out, _ := json.Marshal(map[string]string{
-				"run_url":    runURL,
-				"status":     run.Status,
-				"conclusion": run.Conclusion,
+				keyRunURL:     runURL,
+				keyStatus:     run.Status,
+				keyConclusion: run.Conclusion,
 			})
 			return stream.Send(completedEvent(taskID, out)) //nolint:wrapcheck
 		}
@@ -271,9 +287,9 @@ func (h *ciHandler) pollLoop(
 		// Also treat known terminal conclusions as completed (defensive: some API versions may set conclusion early).
 		if terminalConclusions[run.Conclusion] {
 			out, _ := json.Marshal(map[string]string{
-				"run_url":    runURL,
-				"status":     run.Status,
-				"conclusion": run.Conclusion,
+				keyRunURL:     runURL,
+				keyStatus:     run.Status,
+				keyConclusion: run.Conclusion,
 			})
 			return stream.Send(completedEvent(taskID, out)) //nolint:wrapcheck
 		}
@@ -328,6 +344,29 @@ func (h *ciHandler) doRequest(ctx context.Context, method, url string, body []by
 	}
 
 	return resp.StatusCode, data, nil
+}
+
+// requestFailure maps a failed GitHub API call to a CapabilityError code and
+// message.
+//
+// A call that fails once the caller's deadline has expired failed because the
+// capability ran out of time, not because GitHub faulted. The poll loops race
+// between observing ctx.Done() themselves — which reports TIMEOUT — and having
+// the deadline land inside an in-flight request, which surfaces as a transport
+// error and would otherwise be reported as UPSTREAM_ERROR. Both outcomes are
+// reachable for the same timeout, so without this the emitted code is
+// nondeterministic; agent.proto requires exceeding timeout_seconds to report
+// "TIMEOUT".
+//
+// timeoutMsg mirrors the message the caller's own ctx.Done() branch emits, so
+// the two paths are indistinguishable to the client. Only the caller's deadline
+// is treated this way: an http.Client.Timeout firing while the capability still
+// has time left is a genuine upstream stall and stays UPSTREAM_ERROR.
+func requestFailure(ctx context.Context, statusCode int, err error, timeoutMsg string) (code, message string) {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return "TIMEOUT", timeoutMsg
+	}
+	return ciErrCode(statusCode), sanitise(err.Error())
 }
 
 // ciErrCode maps GitHub API HTTP status codes to CapabilityError codes.
