@@ -91,6 +91,7 @@ func run(cfg config) error {
 		grpc.ChainStreamInterceptor(tracingStream),
 	)
 	reflection.Register(srv)
+	//nolint:staticcheck // SA1019: the service must keep serving its own deprecated facade until the M9.B hard removal (ADR-046, #1675).
 	zynaxv1.RegisterEventBusServiceServer(srv, handler)
 
 	healthSvc := health.NewServer()
