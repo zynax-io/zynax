@@ -13,5 +13,6 @@ Zynax Agent Registry deployed as {{ include "zynax.fullname" . }}.
       zynax.v1.SchedulerService/SelectAgent
 
   The service is STATELESS: no database; the scheduler resyncs its index
-  from the API server on restart. Push-era AgentRegistryService RPCs answer
-  UNIMPLEMENTED (migration: docs/patterns/agent-crd-migration.md).
+  from the API server on restart. The push-era AgentRegistryService surface
+  is no longer served — any surviving push client gets UNIMPLEMENTED
+  (migration: docs/patterns/agent-crd-migration.md).

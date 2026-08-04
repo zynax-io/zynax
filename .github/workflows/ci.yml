@@ -664,13 +664,15 @@ jobs:
 # silently — when its scope is empty: a SKIPPED required check is treated as
 # neutral by GitHub and would bypass the gate entirely (#986).
 #
-# Scope = the M5.C cross-service dispatch-path services named in #553 AC#1
-# (task-broker, agent-registry), whose integration suites are green and
-# deterministic. INTEGRATION_SUITES is an explicit allowlist, NOT env
-# SERVICE_LIST: SERVICE_LIST omits the services with integration suites, and a
-# blind glob would also pull in event-bus + memory-service, whose integration
-# suites have pre-existing deterministic failures (event-bus godog step arity +
-# DLQ timeout; memory-service DeleteNamespace cascade) tracked as a follow-up.
+# Scope = the M5.C cross-service dispatch-path services named in #553 AC#1 that
+# still own a datastore, i.e. task-broker. agent-registry left the allowlist in
+# M9 (#1698): ADR-039 made it a stateless CRD scheduler, so its Postgres
+# repository — and the only integration suite it had — was deleted.
+# INTEGRATION_SUITES is an explicit allowlist, NOT env SERVICE_LIST:
+# SERVICE_LIST omits the services with integration suites, and a blind glob
+# would also pull in event-bus + memory-service, whose integration suites have
+# pre-existing deterministic failures (event-bus godog step arity + DLQ
+# timeout; memory-service DeleteNamespace cascade) tracked as a follow-up.
 # A self-check below FAILS if any allowlisted suite loses its build-tagged files,
 # so the gate can never silently shrink to a no-op. Expand the allowlist as each
 # additional suite is fixed and proven green.
@@ -687,7 +689,7 @@ jobs:
     env:
       # Explicit allowlist of dispatch-path service dirs with green integration
       # suites (#553 AC#1). Keep in sync with branch-protection required check.
-      INTEGRATION_SUITES: "task-broker agent-registry"
+      INTEGRATION_SUITES: "task-broker"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 

@@ -38,8 +38,9 @@ env:
 
 # The registry is STATELESS (ADR-039): agent identity lives in the Agent
 # custom resource; on restart the scheduler resyncs its index from the API
-# server. There is no database. (The push-era Postgres wiring was removed
-# in M8; see docs/patterns/agent-crd-migration.md.)
+# server. There is no database and no `db` value to set — the push-era
+# repositories and their Postgres wiring were removed in M9 (#1698); see
+# docs/patterns/agent-crd-migration.md.
 
 # mTLS secret — set to empty string to disable TLS (dev only).
 # When set, the secret must contain tls.crt, tls.key, and ca.crt.
