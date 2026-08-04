@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// This file implements the SchedulerService gRPC handler (ADR-039):
-// SelectAgent over the informer-backed capability index + scoring pipeline.
-// Registered only when the CRD informer is enabled — the legacy
-// AgentRegistryService surface is untouched.
-
+// Package api implements the agent-registry gRPC surface.
+//
+// CRD era (ADR-039): the Agent custom resource is the single source of truth
+// for agent identity and SchedulerService.SelectAgent — served here over the
+// informer-backed capability index + scoring pipeline, registered only when
+// the CRD informer is enabled — is the dispatch surface. The push-era
+// AgentRegistryService handler was removed in M9 (#1698, ADR-039 removal
+// clause); a surviving push client now gets UNIMPLEMENTED from gRPC itself.
 package api
 
 import (

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package main is the entry point for the agent-registry service.
-// It wires the repository (memory or Postgres), domain service, and gRPC server.
+// It wires the CRD informer, the scheduler index, and the gRPC server.
+// The service is stateless (ADR-039): no repository, no database.
 // All business logic lives in internal/.
 package main
 
@@ -91,10 +92,9 @@ func run(cfg config) error {
 		return fmt.Errorf("agent-registry: tls credentials: %w", err)
 	}
 
-	// CRD era (ADR-039): the push-era repositories (memory/Postgres) are no
-	// longer wired — the deprecated AgentRegistryService surface answers
-	// UNIMPLEMENTED and the Agent CR is the single source of truth. The
-	// repository code itself is deleted with the M9 hard RPC removal.
+	// CRD era (ADR-039, #1698): the push-era repositories (memory/Postgres)
+	// and their handler shims are gone — the Agent CR is the single source of
+	// truth and the informer resyncs the index from the API server on restart.
 	var schedHandler *api.SchedulerHandler
 	if cfg.CRDInformerEnabled {
 		idx, err := startCRDInformer(ctx, cfg)
@@ -134,6 +134,9 @@ func run(cfg config) error {
 // newGRPCServer builds the agent-registry gRPC server with OTEL tracing (server
 // stats handler + "<service>.<rpc>" span interceptors, canvas O.3) and the RED
 // metrics interceptor, then registers the service handler and reflection.
+// SchedulerService is the only application surface: the push-era
+// AgentRegistryService is no longer served (ADR-039 removal clause, #1698), so
+// any surviving push client gets UNIMPLEMENTED straight from gRPC.
 func newGRPCServer(creds credentials.TransportCredentials, sched *api.SchedulerHandler) *grpc.Server {
 	tracingUnary, tracingStream := zynaxobs.TracingServerInterceptors()
 	srv := grpc.NewServer(
@@ -143,7 +146,6 @@ func newGRPCServer(creds credentials.TransportCredentials, sched *api.SchedulerH
 		grpc.ChainStreamInterceptor(tracingStream),
 	)
 	reflection.Register(srv)
-	zynaxv1.RegisterAgentRegistryServiceServer(srv, api.NewHandler())
 	if sched != nil {
 		zynaxv1.RegisterSchedulerServiceServer(srv, sched)
 		slog.Info("agent-registry: SchedulerService registered (SelectAgent live)")
@@ -156,8 +158,8 @@ func newGRPCServer(creds credentials.TransportCredentials, sched *api.SchedulerH
 // data source (O-step 4), and the Lease-elected readiness reconciler that
 // derives Agent status from EndpointSlices (single writer, O-step 5).
 // The manager runs until ctx is cancelled; a manager error is fatal for the
-// informer only, not for the gRPC surface (logged, not propagated), so the
-// legacy registry path keeps serving during partial failures.
+// informer only, not for the gRPC surface (logged, not propagated), so health
+// and reflection keep serving during partial failures.
 func startCRDInformer(ctx context.Context, cfg config) (*scheduler.Index, error) {
 	// controller-runtime demands a logger before manager construction;
 	// bridge it into the service's structured slog output.
@@ -213,10 +215,12 @@ func newScorer(cfg config) *scheduler.Scorer {
 }
 
 // setHealth sets both the overall "" key and the per-service named key to the
-// given serving status (canvas O-step 2, #656).
+// given serving status (canvas O-step 2, #656). The named key tracks
+// SchedulerService — the only surface this deployment serves since the
+// push-era AgentRegistryService was removed (ADR-039, #1698).
 func setHealth(h *health.Server, st grpc_health_v1.HealthCheckResponse_ServingStatus) {
 	h.SetServingStatus("", st)
-	h.SetServingStatus(zynaxv1.AgentRegistryService_ServiceDesc.ServiceName, st)
+	h.SetServingStatus(zynaxv1.SchedulerService_ServiceDesc.ServiceName, st)
 }
 
 func parseLogLevel(level string) slog.Level {
