@@ -187,16 +187,20 @@ ci: lint test security gitleaks ## ★ Full local CI gate — lint → test (inc
 lint: lint-protos lint-go lint-go-adapters lint-agents ## Lint everything (proto + Go services + Go adapters + Python)
 
 lint-go: ensure-tools ## Lint all Go platform services with golangci-lint
-	@for svc in $(GO_SERVICES); do \
+	@failed=false; \
+	for svc in $(GO_SERVICES); do \
 		echo "🔍 $$svc"; \
-		$(TOOLS_RUN) sh -c "cd services/$$svc && golangci-lint run ./... --config ../../tools/golangci-lint.yml"; \
-	done && echo "✅ Go lint passed"
+		$(TOOLS_RUN) sh -c "cd services/$$svc && golangci-lint run ./... --config ../../tools/golangci-lint.yml" || failed=true; \
+	done; \
+	$$failed && exit 1 || echo "✅ Go lint passed"
 
 lint-go-adapters: ensure-tools ## Lint all Go adapter modules with golangci-lint
-	@for adp in $(GO_ADAPTERS); do \
+	@failed=false; \
+	for adp in $(GO_ADAPTERS); do \
 		echo "🔍 adapters/$$adp"; \
-		$(TOOLS_RUN) sh -c "cd agents/adapters/$$adp && golangci-lint run ./... --config ../../../tools/golangci-lint.yml"; \
-	done && echo "✅ Go adapter lint passed"
+		$(TOOLS_RUN) sh -c "cd agents/adapters/$$adp && golangci-lint run ./... --config ../../../tools/golangci-lint.yml" || failed=true; \
+	done; \
+	$$failed && exit 1 || echo "✅ Go adapter lint passed"
 
 lint-go-svc: ensure-tools ## Lint one Go service: make lint-go-svc SVC=agent-registry
 	$(TOOLS_RUN) sh -c "cd services/$(SVC) && golangci-lint run ./... --config ../../tools/golangci-lint.yml"
@@ -373,12 +377,20 @@ gitleaks: ensure-tools ## Scan working tree for secrets/PII — mirrors the ci.y
 	  --verbose
 
 security-go: ensure-tools ## govulncheck on all Go services
-	@for svc in $(GO_SERVICES); do $(TOOLS_RUN) sh -c "cd services/$$svc && govulncheck ./..."; done
+	@failed=false; \
+	for svc in $(GO_SERVICES); do \
+		echo "🔍 govulncheck: $$svc"; \
+		$(TOOLS_RUN) sh -c "cd services/$$svc && GOWORK=off govulncheck ./..." || failed=true; \
+	done; \
+	$$failed && exit 1 || echo "✅ Go security scan passed"
 
 security-go-adapters: ensure-tools ## govulncheck on all Go adapter modules
-	@for adp in $(GO_ADAPTERS); do \
-		$(TOOLS_RUN) sh -c "cd agents/adapters/$$adp && GOWORK=off govulncheck ./..."; \
-	done && echo "✅ Adapter security scan passed"
+	@failed=false; \
+	for adp in $(GO_ADAPTERS); do \
+		echo "🔍 govulncheck: adapters/$$adp"; \
+		$(TOOLS_RUN) sh -c "cd agents/adapters/$$adp && GOWORK=off govulncheck ./..." || failed=true; \
+	done; \
+	$$failed && exit 1 || echo "✅ Adapter security scan passed"
 
 security-agents: ensure-tools ## bandit + pip-audit on SDK + all agents
 	@$(TOOLS_RUN) sh -c "cd agents/sdk && uv run bandit -r src/ -ll && uv run pip-audit --ignore-vuln PYSEC-2026-196"
