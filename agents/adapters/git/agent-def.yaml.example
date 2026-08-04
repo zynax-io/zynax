@@ -23,7 +23,6 @@ agent_id: git-adapter
 name: Git Adapter
 description: Wraps GitHub repository operations as Zynax capabilities.
 endpoint: :50060
-registry_endpoint: agent-registry:50052
 
 git:
   provider: github

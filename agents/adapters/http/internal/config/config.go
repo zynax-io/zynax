@@ -14,12 +14,11 @@ import (
 // AdapterConfig is the top-level YAML struct parsed from the file at startup.
 // Path is read from the ADAPTER_CONFIG env var by the bootstrap layer.
 type AdapterConfig struct {
-	AgentID          string        `yaml:"agent_id"`
-	Name             string        `yaml:"name"`
-	Description      string        `yaml:"description"`
-	Endpoint         string        `yaml:"endpoint"`
-	RegistryEndpoint string        `yaml:"registry_endpoint"`
-	Capabilities     []RouteConfig `yaml:"capabilities"`
+	AgentID      string        `yaml:"agent_id"`
+	Name         string        `yaml:"name"`
+	Description  string        `yaml:"description"`
+	Endpoint     string        `yaml:"endpoint"`
+	Capabilities []RouteConfig `yaml:"capabilities"`
 }
 
 // RouteConfig maps one capability name to a static HTTP route.
@@ -61,9 +60,6 @@ func validate(cfg *AdapterConfig) error {
 	}
 	if cfg.Endpoint == "" {
 		return fmt.Errorf("config: endpoint is required")
-	}
-	if cfg.RegistryEndpoint == "" {
-		return fmt.Errorf("config: registry_endpoint is required")
 	}
 	if len(cfg.Capabilities) == 0 {
 		return fmt.Errorf("config: at least one capability is required")

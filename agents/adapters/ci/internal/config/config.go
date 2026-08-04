@@ -22,13 +22,12 @@ var ErrTokenMissing = errors.New("config: auth token env var is not set")
 // AdapterConfig is the top-level YAML struct parsed from the file at startup.
 // Path is read from the ADAPTER_CONFIG env var by the bootstrap layer.
 type AdapterConfig struct {
-	AgentID          string               `yaml:"agent_id"`
-	Name             string               `yaml:"name"`
-	Description      string               `yaml:"description"`
-	Endpoint         string               `yaml:"endpoint"`
-	RegistryEndpoint string               `yaml:"registry_endpoint"`
-	CI               CIConfig             `yaml:"ci"`
-	Capabilities     []CICapabilityConfig `yaml:"capabilities"`
+	AgentID      string               `yaml:"agent_id"`
+	Name         string               `yaml:"name"`
+	Description  string               `yaml:"description"`
+	Endpoint     string               `yaml:"endpoint"`
+	CI           CIConfig             `yaml:"ci"`
+	Capabilities []CICapabilityConfig `yaml:"capabilities"`
 }
 
 // CIConfig holds provider-level settings shared across all capabilities.
@@ -110,9 +109,6 @@ func validate(cfg *AdapterConfig) error {
 	}
 	if cfg.Endpoint == "" {
 		return fmt.Errorf("config: endpoint is required")
-	}
-	if cfg.RegistryEndpoint == "" {
-		return fmt.Errorf("config: registry_endpoint is required")
 	}
 	if cfg.CI.Provider == "" {
 		return fmt.Errorf("config: ci.provider is required")

@@ -28,7 +28,6 @@ name: LLM Adapter Test
 description: test
 endpoint: :50070
 advertise_endpoint: llm-adapter:50070
-registry_endpoint: localhost:50052
 capabilities:
   - name: chat_completion
     timeout_seconds: 60
@@ -68,7 +67,6 @@ func TestLoad_ValidOllama(t *testing.T) {
 agent_id: llm-ollama
 endpoint: :50070
 advertise_endpoint: llm-adapter:50070
-registry_endpoint: localhost:50052
 capabilities:
   - name: chat_completion
 provider:
@@ -108,7 +106,6 @@ func TestLoad_MissingField(t *testing.T) {
 	}{
 		{"no agent_id", strings.Replace(validOpenAI, "agent_id: llm-adapter-test", "", 1), "agent_id"},
 		{"no endpoint", strings.Replace(validOpenAI, "endpoint: :50070", "", 1), "endpoint"},
-		{"no registry", strings.Replace(validOpenAI, "registry_endpoint: localhost:50052", "", 1), "registry_endpoint"},
 		{"no capabilities", strings.Split(validOpenAI, "capabilities:")[0] + "provider:\n  name: openai\n  model: gpt-4o\n  api_key_env: OPENAI_API_KEY\n", "capability"},
 		{"no model", strings.Replace(validOpenAI, "model: gpt-4o", "", 1), "model"},
 		{"no api_key_env openai", strings.Replace(validOpenAI, "api_key_env: OPENAI_API_KEY", "", 1), "api_key_env"},
@@ -145,7 +142,6 @@ func TestLoad_BedrockRequiresRegion(t *testing.T) {
 agent_id: llm-bedrock
 endpoint: :50070
 advertise_endpoint: llm-adapter:50070
-registry_endpoint: localhost:50052
 capabilities:
   - name: chat_completion
 provider:
@@ -249,7 +245,6 @@ func TestResolveSecret_NoEnvDeclared(t *testing.T) {
 agent_id: llm-ollama
 endpoint: :50070
 advertise_endpoint: llm-adapter:50070
-registry_endpoint: localhost:50052
 capabilities:
   - name: chat_completion
 provider:

@@ -26,11 +26,10 @@ const codeInvalidInput = "INVALID_INPUT"
 func newTestServerWithCapability(t *testing.T, capName, baseURL string) *adapter.AgentServer {
 	t.Helper()
 	cfg := &config.AdapterConfig{
-		AgentID:          "git-test-helper",
-		Name:             "Git Test Helper",
-		Endpoint:         ":50061",
-		RegistryEndpoint: "localhost:50052",
-		Git:              config.GitConfig{Provider: "github", AuthEnv: "TEST_TOKEN"},
+		AgentID:  "git-test-helper",
+		Name:     "Git Test Helper",
+		Endpoint: ":50061",
+		Git:      config.GitConfig{Provider: "github", AuthEnv: "TEST_TOKEN"},
 		Capabilities: []config.GitCapabilityConfig{
 			{Name: capName, Owner: "test-owner", Repo: "test-repo"},
 		},

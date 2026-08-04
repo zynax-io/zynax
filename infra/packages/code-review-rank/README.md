@@ -14,8 +14,8 @@ runs to a ranked code review with zero further steps.
 |------|------|---------|
 | `ollama.yaml` | Deployment + PVC + Service | In-cluster Ollama, serves `qwen2.5-coder:0.5b`; pulls it on first start, caches on the PVC; readiness gated on the model being present. |
 | `llm-adapter-config.yaml` | ConfigMap | The adapter's YAML config: capabilities `codereview` + `summarize`, ollama provider at `http://ollama:11434`. |
-| `llm-adapter.yaml` | Deployment + Service | The `llm-adapter` gRPC capability provider; self-registers both capabilities with the agent-registry (advertises `llm-adapter:50070`). |
-| `agentdef.yaml` | ConfigMap | The logical `AgentDef` (both capabilities) the apply-Job POSTs to the gateway. |
+| `llm-adapter.yaml` | Deployment + Service | The `llm-adapter` gRPC capability provider, serving `codereview` + `summarize` on `llm-adapter:50070`. It does **not** self-register — push registration was hard-removed in M9.A (ADR-039). |
+| `agentdef.yaml` | ConfigMap | The logical `AgentDef` (both capabilities). The apply-Job still POSTs it, but the gateway retired `kind: AgentDef` in M9.A and answers `400 UNSUPPORTED_KIND`; the POST is an unchecked no-op. See the note below. |
 | `workflow.yaml` | ConfigMap | The self-contained rank `Workflow` (diff baked inline) the apply-Job POSTs. |
 | `apply-job.yaml` | Job | Waits for ollama's model to be pulled **and** the adapter to be serving, then POSTs the AgentDef and Workflow to the api-gateway with a Bearer token; prints the `run_id`. Gating on the model first makes a cold `apply -k` succeed on the first run. |
 | `kustomization.yaml` | Kustomization | Bundles all of the above into namespace `zynax`. |
@@ -34,8 +34,17 @@ kubectl apply -k infra/packages/code-review-rank/
 ```
 
 This brings up Ollama (first run pulls the ~398 MB model — under a minute), then
-the `llm-adapter` (which self-registers `codereview` + `summarize`), then the
-apply-Job submits the AgentDef and Workflow and prints the `run_id`.
+the `llm-adapter` (serving `codereview` + `summarize`), then the apply-Job
+submits the AgentDef (retired no-op, see below) and Workflow and prints the
+`run_id`.
+
+> **Post-M9.A gap.** Agent identity is now declared by a `zynax.io/v1alpha1`
+> `Agent` custom resource (ADR-039, [docs/patterns/agent-crd-migration.md](../../docs/patterns/agent-crd-migration.md)),
+> and this package does not yet ship one — the scheduler has nothing to select,
+> so the workflow will not dispatch to `llm-adapter` until an `Agent` CR is added
+> and verified on a live cluster. Tracked as a follow-up to epic #1674; the
+> AgentDef POST in `apply-job.yaml` is left in place (unchecked, harmless) until
+> that change lands and can be runtime-verified as one edit.
 
 ### Watch it come up
 

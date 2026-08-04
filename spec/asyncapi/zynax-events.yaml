@@ -307,36 +307,47 @@ channels:
 
   # ── Agent lifecycle ─────────────────────────────────────────────────────────
 
+  # RETIRED — no producer since M9.A (ADR-039). These two channels described the
+  # push-registration lifecycle; RegisterAgent/DeregisterAgent were deleted from
+  # agent_registry.proto in #1598, so nothing publishes them any more. Agent
+  # lifecycle is now observed through the zynax.io/v1alpha1 Agent custom resource
+  # (`kubectl get agents -w`), not the event bus. The channel definitions are kept
+  # so consumers replaying historical streams can still resolve the schema — do
+  # NOT build new subscribers on them. See docs/patterns/agent-crd-migration.md.
   zynax.agent.registered:
     description: >
-      Published by the AgentRegistryService when a new AgentDef is stored
-      and the agent is available for task routing.
+      RETIRED (ADR-039, M9.A) — no producer. Was published by the
+      AgentRegistryService when a new AgentDef was stored via RegisterAgent.
+      Retained for historical replay only; watch Agent custom resources instead.
     x-zynax-schema-version: v1
     x-zynax-schema-rev: "agent/registered@v1"
+    x-zynax-status: retired
     publish:
       operationId: onAgentRegistered
-      summary: A new agent has been registered and is available for routing.
+      summary: RETIRED — was emitted when an agent became available for routing.
       message:
         messageId: agent.registered
         name: AgentRegistered
-        summary: Emitted when RegisterAgent succeeds and the agent is REGISTERED.
+        summary: RETIRED — was emitted when RegisterAgent succeeded.
         contentType: application/json
         payload:
           $ref: "#/components/schemas/CloudEvent"
 
   zynax.agent.deregistered:
     description: >
-      Published by the AgentRegistryService when an agent is soft-deleted
-      via DeregisterAgent. DEREGISTERED agents are excluded from discovery.
+      RETIRED (ADR-039, M9.A) — no producer. Was published by the
+      AgentRegistryService when an agent was soft-deleted via DeregisterAgent.
+      Retained for historical replay only; watch Agent custom resources instead.
     x-zynax-schema-version: v1
     x-zynax-schema-rev: "agent/deregistered@v1"
+    x-zynax-status: retired
     publish:
       operationId: onAgentDeregistered
-      summary: An agent has been deregistered and removed from routing.
+      summary: RETIRED — was emitted when an agent was removed from routing.
       message:
         messageId: agent.deregistered
         name: AgentDeregistered
-        summary: Emitted when DeregisterAgent marks the agent as DEREGISTERED.
+        summary: RETIRED — was emitted when DeregisterAgent marked the agent DEREGISTERED.
         contentType: application/json
         payload:
           $ref: "#/components/schemas/CloudEvent"

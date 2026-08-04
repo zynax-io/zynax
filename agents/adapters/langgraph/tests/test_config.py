@@ -41,15 +41,13 @@ class TestGraphMount:
 
 
 class TestAdapterConfigValid:
-    """AdapterConfig loads from LANGGRAPH_MOUNTS and REGISTRY_ADDR."""
+    """AdapterConfig loads from LANGGRAPH_MOUNTS."""
 
     def test_valid_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("LANGGRAPH_MOUNTS", VALID_MOUNTS_JSON)
-        monkeypatch.setenv("REGISTRY_ADDR", "localhost:50052")
         cfg = AdapterConfig()
         assert len(cfg.graph_mounts) == 1
         assert cfg.graph_mounts[0].capability_name == "research_topic"
-        assert cfg.registry_addr == "localhost:50052"
 
     def test_multiple_mounts(self, monkeypatch: pytest.MonkeyPatch) -> None:
         mounts = [
@@ -57,10 +55,17 @@ class TestAdapterConfigValid:
             {"capability_name": "summarise", "module": "pkg.summarise", "graph": "wf"},
         ]
         monkeypatch.setenv("LANGGRAPH_MOUNTS", json.dumps(mounts))
-        monkeypatch.setenv("REGISTRY_ADDR", "registry:50052")
         cfg = AdapterConfig()
         assert len(cfg.graph_mounts) == 2
         assert cfg.graph_mounts[1].capability_name == "summarise"
+
+    def test_stale_registry_addr_env_is_ignored(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A deployment still exporting the retired REGISTRY_ADDR still boots (ADR-039)."""
+        monkeypatch.setenv("LANGGRAPH_MOUNTS", VALID_MOUNTS_JSON)
+        monkeypatch.setenv("REGISTRY_ADDR", "zynax-agent-registry:50052")
+        cfg = AdapterConfig()
+        assert len(cfg.graph_mounts) == 1
+        assert not hasattr(cfg, "registry_addr")
 
 
 class TestAdapterConfigMissingEnvVars:
@@ -68,13 +73,6 @@ class TestAdapterConfigMissingEnvVars:
 
     def test_missing_mounts_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("LANGGRAPH_MOUNTS", raising=False)
-        monkeypatch.setenv("REGISTRY_ADDR", "localhost:50052")
-        with pytest.raises(ValidationError):
-            AdapterConfig()
-
-    def test_missing_registry_addr_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("LANGGRAPH_MOUNTS", VALID_MOUNTS_JSON)
-        monkeypatch.delenv("REGISTRY_ADDR", raising=False)
         with pytest.raises(ValidationError):
             AdapterConfig()
 
@@ -84,25 +82,21 @@ class TestAdapterConfigMalformedMounts:
 
     def test_invalid_json_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("LANGGRAPH_MOUNTS", "not-json")
-        monkeypatch.setenv("REGISTRY_ADDR", "localhost:50052")
         with pytest.raises(_StartupError):
             AdapterConfig()
 
     def test_json_object_not_array_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("LANGGRAPH_MOUNTS", json.dumps({"key": "val"}))
-        monkeypatch.setenv("REGISTRY_ADDR", "localhost:50052")
         with pytest.raises(_StartupError):
             AdapterConfig()
 
     def test_empty_array_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("LANGGRAPH_MOUNTS", "[]")
-        monkeypatch.setenv("REGISTRY_ADDR", "localhost:50052")
         with pytest.raises(ValidationError):
             AdapterConfig()
 
     def test_mount_missing_field_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         bad_mount = [{"capability_name": "cap", "module": "m"}]  # missing graph
         monkeypatch.setenv("LANGGRAPH_MOUNTS", json.dumps(bad_mount))
-        monkeypatch.setenv("REGISTRY_ADDR", "localhost:50052")
         with pytest.raises(ValidationError):
             AdapterConfig()

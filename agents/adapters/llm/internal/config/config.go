@@ -47,7 +47,6 @@ type AdapterConfig struct {
 	// but only if Endpoint carries an explicit host (see AdvertisedEndpoint).
 	// Mirrors the langgraph-adapter ADAPTER_ENDPOINT split (bind vs advertise).
 	AdvertiseEndpoint string             `yaml:"advertise_endpoint"`
-	RegistryEndpoint  string             `yaml:"registry_endpoint"`
 	Capabilities      []CapabilityConfig `yaml:"capabilities"`
 	Provider          ProviderConfig     `yaml:"provider"`
 }
@@ -124,9 +123,6 @@ func (c *AdapterConfig) validateIdentity() error {
 	}
 	if c.Endpoint == "" {
 		return fmt.Errorf("config: endpoint is required")
-	}
-	if c.RegistryEndpoint == "" {
-		return fmt.Errorf("config: registry_endpoint is required")
 	}
 	// The address advertised to the registry must be routable. A hostless bind
 	// endpoint (":50070") advertised verbatim makes the broker dial localhost

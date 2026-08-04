@@ -36,7 +36,6 @@ type AdapterConfig struct {
 	// adapter, e.g. "adk-adapter:50080". When empty it falls back to Endpoint —
 	// but only if Endpoint carries an explicit host (see AdvertisedEndpoint).
 	AdvertiseEndpoint string             `yaml:"advertise_endpoint"`
-	RegistryEndpoint  string             `yaml:"registry_endpoint"`
 	Model             ModelConfig        `yaml:"model"`
 	Capabilities      []CapabilityConfig `yaml:"capabilities"`
 }
@@ -91,9 +90,6 @@ func Load(path string) (*AdapterConfig, error) {
 func (c *AdapterConfig) validate() error {
 	if c.AgentID == "" {
 		return fmt.Errorf("config: agent_id is required")
-	}
-	if c.RegistryEndpoint == "" {
-		return fmt.Errorf("config: registry_endpoint is required")
 	}
 	// The address advertised to the registry must be routable. A hostless bind
 	// endpoint (":50080") advertised verbatim makes the broker dial localhost

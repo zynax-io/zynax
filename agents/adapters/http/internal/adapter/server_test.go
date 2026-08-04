@@ -45,10 +45,9 @@ func (f *fakeStream) lastEvent() *zynaxv1.TaskEvent {
 func newServer(t *testing.T, url string) *adapter.AgentServer {
 	t.Helper()
 	return adapter.NewAgentServer(&config.AdapterConfig{
-		AgentID:          "test",
-		Endpoint:         "0.0.0.0:8080",
-		RegistryEndpoint: "registry:9090",
-		Capabilities:     []config.RouteConfig{{Name: "call_api", Method: "POST", URL: url}},
+		AgentID:      "test",
+		Endpoint:     "0.0.0.0:8080",
+		Capabilities: []config.RouteConfig{{Name: "call_api", Method: "POST", URL: url}},
 	})
 }
 
@@ -202,9 +201,8 @@ func TestExecuteCapability_SchemaValidation_InvalidPayload(t *testing.T) {
 	defer srv.Close()
 
 	s := adapter.NewAgentServer(&config.AdapterConfig{
-		AgentID:          "test",
-		Endpoint:         "0.0.0.0:8080",
-		RegistryEndpoint: "registry:9090",
+		AgentID:  "test",
+		Endpoint: "0.0.0.0:8080",
 		Capabilities: []config.RouteConfig{{
 			Name:            "typed_api",
 			Method:          "POST",
@@ -232,9 +230,8 @@ func TestExecuteCapability_SchemaValidation_InvalidPayload(t *testing.T) {
 
 func TestGetCapabilitySchema_Known(t *testing.T) {
 	s := adapter.NewAgentServer(&config.AdapterConfig{
-		AgentID:          "test",
-		Endpoint:         "0.0.0.0:8080",
-		RegistryEndpoint: "registry:9090",
+		AgentID:  "test",
+		Endpoint: "0.0.0.0:8080",
 		Capabilities: []config.RouteConfig{{
 			Name:            "call_api",
 			Method:          "POST",
@@ -303,9 +300,8 @@ func TestExecuteCapability_NonJSONPayload(t *testing.T) {
 	defer srv.Close()
 
 	s := adapter.NewAgentServer(&config.AdapterConfig{
-		AgentID:          "test",
-		Endpoint:         "0.0.0.0:8080",
-		RegistryEndpoint: "registry:9090",
+		AgentID:  "test",
+		Endpoint: "0.0.0.0:8080",
 		Capabilities: []config.RouteConfig{{
 			Name:            "typed_api",
 			Method:          "POST",
@@ -360,9 +356,8 @@ func TestExecuteCapability_InvalidSchemaConfig(t *testing.T) {
 	defer srv.Close()
 
 	s := adapter.NewAgentServer(&config.AdapterConfig{
-		AgentID:          "test",
-		Endpoint:         "0.0.0.0:8080",
-		RegistryEndpoint: "registry:9090",
+		AgentID:  "test",
+		Endpoint: "0.0.0.0:8080",
 		Capabilities: []config.RouteConfig{{
 			Name:            "typed_api",
 			Method:          "POST",
@@ -393,7 +388,7 @@ func TestHandler_LongErrorSanitised(t *testing.T) {
 	// maxErrMsgLen, exercising the sanitise truncation branch.
 	longHost := "http://" + strings.Repeat("a", 510) + ".example.invalid/api"
 	s := adapter.NewAgentServer(&config.AdapterConfig{
-		AgentID: "test", Endpoint: "0.0.0.0:8080", RegistryEndpoint: "r:9090",
+		AgentID: "test", Endpoint: "0.0.0.0:8080",
 		Capabilities: []config.RouteConfig{{Name: "call_api", Method: "GET", URL: longHost}},
 	})
 	stream := &fakeStream{ctx: context.Background()}

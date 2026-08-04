@@ -24,10 +24,9 @@ func writeConfig(t *testing.T, body string) string {
 
 func serveConfig() *config.AdapterConfig {
 	return &config.AdapterConfig{
-		AgentID:          "adk-1",
-		Endpoint:         "127.0.0.1:0", // port 0 → a free port
-		RegistryEndpoint: "127.0.0.1:50052",
-		Capabilities:     []config.CapabilityConfig{{Name: "triage"}},
+		AgentID:      "adk-1",
+		Endpoint:     "127.0.0.1:0", // port 0 → a free port
+		Capabilities: []config.CapabilityConfig{{Name: "triage"}},
 	}
 }
 
@@ -47,7 +46,7 @@ func TestRun_MissingFile(t *testing.T) {
 
 func TestRun_InvalidConfig(t *testing.T) {
 	// Valid YAML, but missing agent_id → config.validate fails before serve().
-	path := writeConfig(t, "registry_endpoint: r:1\ncapabilities:\n  - {name: c}\n")
+	path := writeConfig(t, "capabilities:\n  - {name: c}\n")
 	t.Setenv("ADAPTER_CONFIG", path)
 	if err := run(); err == nil {
 		t.Fatal("expected error for invalid config")

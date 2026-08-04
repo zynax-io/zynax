@@ -39,7 +39,7 @@ dual-engine e2e into a named conformance suite.
 
 | EPIC | Issue | Canvas | Stories (in delivery order) |
 |------|-------|--------|------------------------------|
-| M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Aligned (#1734) | #1697 ✅ → #1698 ✅ (stateless scheduler: repos + DB gone, resync verified live) → #1598 ✅ (RPCs gone from the contract; file-scoped `buf breaking` exception per ADR-048 §4; shipped as 7 disjoint slices #1757–#1764) → #1699 |
+| M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) ✅ **closed** | `docs/spdd/1674-agent-registry-push-removal/` — Implemented (#1699) | #1697 ✅ → #1698 ✅ (stateless scheduler: repos + DB gone, resync verified live) → #1598 ✅ (RPCs gone from the contract; file-scoped `buf breaking` exception per ADR-048 §4; shipped as 7 disjoint slices #1757–#1764) → #1699 ✅ (docs sweep + retired config keys/CLI alias; spike branch deleted; EPIC closed) |
 | M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) ✅ **closed** | `docs/spdd/1675-event-bus-facade-removal/` — Implemented (#1703) | #1700 ✅ → #1701 ✅ (facade tree + build/release wiring deleted) → #1702 ✅ (proto + stubs removed) → #1703 ✅ (AsyncAPI + docs truth pass; EPIC closed) |
 | M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → (steps 2–4 filed via `/lib:spdd-story`) |
 | M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
@@ -142,6 +142,28 @@ strategy, load/SLO).
     advisory: it asserts the message lands on `DLQ_<src>`, byte-identical to the still-present
     source, and that replaying the advisory does not duplicate it. Verified twice on one
     file-backed JetStream volume; the golden byte-compat fixtures are unchanged.
+
+12. ✅ M9.A step 4 delivered ([#1699](https://github.com/zynax-io/zynax/issues/1699), as of
+     2026-08-04) — **EPIC #1674 closed, M9.A complete**. Docs/status truth pass plus the two
+     items #1598 deferred: the dead *required* config keys `registry_endpoint` (adk/ci/git/http/
+     llm) and `REGISTRY_ADDR` (langgraph) are gone, and `zynax agent publish` is a hidden
+     retirement stub. The directions are **not** symmetric, and CI proved it: a NEW image with
+     the key still set boots fine (Go `yaml.Unmarshal` is non-strict; the langgraph model is
+     `extra="ignore"`), but an OLD image with the key *deleted* fails startup validation — the
+     first push dropped `REGISTRY_ADDR` from `scripts/e2e/manifests/echo-worker.yaml` and both
+     e2e legs timed out because that Deployment pins `langgraph-adapter:main`, an image the PR
+     does not rebuild. So the code stops reading the keys here and the deployed manifests keep
+     them behind an explanatory comment; a follow-up drops them once the rebuilt `:main` images
+     ship. Documented as an ordering rule in `docs/patterns/agent-crd-migration.md`. `zynax init expert` /
+     `agent init` and `spec/schemas/agent-def.schema.json` were **kept**: an AgentDef manifest is
+     still the expert-authoring format (ADR-028/ADR-033), only its api-gateway push is gone.
+     `spike/adr-039-crd-scheduler-proof` deleted (local + remote, last SHA `1c30b17`) — the
+     standing "keep the spike" instruction is retired. History (CHANGELOG, ADRs, past canvases,
+     M1–M8 plans, `docs/reviews/`, `docs/due-diligence/`, `docs/ai-learnings/`) left intact.
+     **Two pre-existing breakages found and NOT fixed here** (runtime-confirmed against a booted
+     api-gateway, follow-up filed): `zynax apply <scenario-dir>` aborts because a Scenario's
+     `apply_order` POSTs its AgentDef members to `/api/v1/apply` (400 `UNSUPPORTED_KIND`), and
+     `infra/packages/code-review-rank/apply-job.yaml` does the same while shipping no `Agent` CR.
 
 ---
 

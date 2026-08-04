@@ -2,9 +2,12 @@
 """LangGraph adapter configuration — graph mounts and serving port via environment variables.
 
 ``LANGGRAPH_MOUNTS`` is a JSON-encoded list of ``GraphMount`` objects that map capability
-names to Python module import paths and graph attribute names. ``REGISTRY_ADDR`` specifies
-the agent-registry gRPC endpoint. Both are required — the adapter process fails fast if
-either is absent or malformed.
+names to Python module import paths and graph attribute names. It is required — the adapter
+process fails fast if it is absent or malformed.
+
+``REGISTRY_ADDR`` is no longer read (ADR-039, M9.A): agent identity is declared by the
+``zynax.io/v1alpha1`` ``Agent`` custom resource, not pushed to the agent-registry on boot.
+Deployments that still set it are unaffected — unknown environment variables are ignored.
 """
 
 from __future__ import annotations
@@ -42,19 +45,15 @@ class AdapterConfig(BaseSettings):
     """Top-level LangGraph adapter configuration loaded from environment variables.
 
     ``LANGGRAPH_MOUNTS`` is a JSON array of graph-mount objects. Each object must
-    supply ``capability_name``, ``module``, and ``graph``. ``REGISTRY_ADDR`` is the
-    host:port of the agent-registry gRPC server; it is retained as a required
-    deployment variable but no longer dialled — agent identity is declared by the
-    Agent custom resource (ADR-039).
+    supply ``capability_name``, ``module``, and ``graph``.
 
-    Raises ``ValidationError`` on startup if either variable is missing, empty, or
-    contains malformed JSON. A missing required field inside a mount object also
+    Raises ``ValidationError`` on startup if ``LANGGRAPH_MOUNTS`` is missing, empty,
+    or contains malformed JSON. A missing required field inside a mount object also
     raises ``ValidationError``.
 
     Attributes:
         graph_mounts: Ordered list of graph-to-capability mappings loaded from
             ``LANGGRAPH_MOUNTS``.
-        registry_addr: Agent-registry gRPC endpoint, e.g. ``"localhost:50052"``.
         grpc_port: Port the adapter's own gRPC server binds to
             (``ZYNAX_LANGGRAPH_ADAPTER_GRPC_PORT``, default ``50058``).
     """
@@ -65,7 +64,6 @@ class AdapterConfig(BaseSettings):
         default_factory=list,
         alias="LANGGRAPH_MOUNTS",
     )
-    registry_addr: str = Field(..., alias="REGISTRY_ADDR", min_length=1)
     grpc_port: int = Field(default=50058, alias="ZYNAX_LANGGRAPH_ADAPTER_GRPC_PORT", ge=1)
 
     @field_validator("graph_mounts", mode="before")

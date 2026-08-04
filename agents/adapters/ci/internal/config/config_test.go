@@ -18,7 +18,6 @@ agent_id: test-ci-adapter
 name: CI Adapter
 description: Triggers and monitors CI pipelines
 endpoint: "localhost:50060"
-registry_endpoint: "localhost:50052"
 ci:
   provider: github-actions
   token_env: GITHUB_TOKEN
@@ -96,7 +95,6 @@ func TestLoad_MissingAgentID(t *testing.T) {
 	yaml := `
 name: CI Adapter
 endpoint: "localhost:50060"
-registry_endpoint: "localhost:50052"
 ci:
   provider: github-actions
   token_env: GITHUB_TOKEN
@@ -117,7 +115,6 @@ func TestLoad_MissingEndpoint(t *testing.T) {
 	yaml := `
 agent_id: test-ci-adapter
 name: CI Adapter
-registry_endpoint: "localhost:50052"
 ci:
   provider: github-actions
   token_env: GITHUB_TOKEN
@@ -134,33 +131,11 @@ capabilities:
 	}
 }
 
-func TestLoad_MissingRegistryEndpoint(t *testing.T) {
-	yaml := `
-agent_id: test-ci-adapter
-name: CI Adapter
-endpoint: "localhost:50060"
-ci:
-  provider: github-actions
-  token_env: GITHUB_TOKEN
-capabilities:
-  - name: trigger_workflow
-    owner: my-org
-    repo: my-repo
-    workflow_id: ci.yml
-`
-	path := writeTemp(t, yaml)
-	_, err := config.Load(path)
-	if err == nil {
-		t.Error("Load() expected error for missing registry_endpoint, got nil")
-	}
-}
-
 func TestLoad_MissingProvider(t *testing.T) {
 	yaml := `
 agent_id: test-ci-adapter
 name: CI Adapter
 endpoint: "localhost:50060"
-registry_endpoint: "localhost:50052"
 ci:
   token_env: GITHUB_TOKEN
 capabilities:
@@ -181,7 +156,6 @@ func TestLoad_MissingTokenEnv(t *testing.T) {
 agent_id: test-ci-adapter
 name: CI Adapter
 endpoint: "localhost:50060"
-registry_endpoint: "localhost:50052"
 ci:
   provider: github-actions
 capabilities:
@@ -202,7 +176,6 @@ func TestLoad_NoCapabilities(t *testing.T) {
 agent_id: test-ci-adapter
 name: CI Adapter
 endpoint: "localhost:50060"
-registry_endpoint: "localhost:50052"
 ci:
   provider: github-actions
   token_env: GITHUB_TOKEN
@@ -220,7 +193,6 @@ func TestLoad_CapabilityMissingOwner(t *testing.T) {
 agent_id: test-ci-adapter
 name: CI Adapter
 endpoint: "localhost:50060"
-registry_endpoint: "localhost:50052"
 ci:
   provider: github-actions
   token_env: GITHUB_TOKEN
@@ -241,7 +213,6 @@ func TestLoad_CapabilityMissingRepo(t *testing.T) {
 agent_id: test-ci-adapter
 name: CI Adapter
 endpoint: "localhost:50060"
-registry_endpoint: "localhost:50052"
 ci:
   provider: github-actions
   token_env: GITHUB_TOKEN
@@ -262,7 +233,6 @@ func TestLoad_CapabilityMissingWorkflowID(t *testing.T) {
 agent_id: test-ci-adapter
 name: CI Adapter
 endpoint: "localhost:50060"
-registry_endpoint: "localhost:50052"
 ci:
   provider: github-actions
   token_env: GITHUB_TOKEN

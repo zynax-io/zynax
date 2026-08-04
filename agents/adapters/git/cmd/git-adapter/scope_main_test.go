@@ -122,7 +122,7 @@ func TestNewScopeProbe_Default(t *testing.T) {
 func writeScopeCfg(t *testing.T, path string) {
 	t.Helper()
 	const body = "agent_id: git-test\nname: Git Test\n" +
-		"endpoint: \"127.0.0.1:0\"\nregistry_endpoint: \"127.0.0.1:9090\"\n" +
+		"endpoint: \"127.0.0.1:0\"\n" +
 		"git:\n  provider: github\n  auth_env: GIT_TOKEN_SCOPE_1260\n" +
 		"capabilities:\n  - name: open_pr\n    owner: o\n    repo: r\n"
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {

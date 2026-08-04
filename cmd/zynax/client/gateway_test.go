@@ -54,27 +54,28 @@ func TestApply_Workflow_Returns202(t *testing.T) {
 	}
 }
 
-// TestApply_AgentDef_Retired410 covers AC1 of #1697: applying a kind: AgentDef
-// manifest returns the documented retirement error naming the Agent custom
-// resource — the gateway's push forward is deleted (ADR-039) and answers 410.
-func TestApply_AgentDef_Retired410(t *testing.T) {
+// TestApply_AgentDef_UnsupportedKind400 covers the M9.A end state: kind: AgentDef
+// left the gateway's kind allowlist entirely (#1598), so an apply is refused at
+// DetectKind with 400 UNSUPPORTED_KIND — no 410 retirement branch remains in the
+// client. Agent identity is declared by the zynax.io/v1alpha1 Agent CR (ADR-039).
+func TestApply_AgentDef_UnsupportedKind400(t *testing.T) {
 	gw := newGW(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusGone)
+		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "AgentDef push registration retired (ADR-039) — apply a zynax.io/v1alpha1 Agent custom resource with kubectl instead (docs/patterns/agent-crd-migration.md)",
-			"code":  "AGENTDEF_RETIRED",
+			"error": `api-gateway: kind "AgentDef": unknown kind`,
+			"code":  "UNSUPPORTED_KIND",
 		})
 	})
 	runID, agentID, _, err := gw.Apply(context.Background(), []byte("kind: AgentDef"), "")
 	if err == nil {
-		t.Fatal("expected a retirement error for kind: AgentDef, got nil")
+		t.Fatal("expected an error for kind: AgentDef, got nil")
 	}
 	if runID != "" || agentID != "" {
-		t.Errorf("no ids expected for a retired AgentDef apply; got run=%q agent=%q", runID, agentID)
+		t.Errorf("no ids expected for a rejected AgentDef apply; got run=%q agent=%q", runID, agentID)
 	}
-	for _, want := range []string{"Agent custom resource", "kubectl", "agent-crd-migration"} {
+	for _, want := range []string{"HTTP 400", "UNSUPPORTED_KIND"} {
 		if !strings.Contains(err.Error(), want) {
-			t.Errorf("retirement error must mention %q; got %q", want, err.Error())
+			t.Errorf("apply error must mention %q; got %q", want, err.Error())
 		}
 	}
 }

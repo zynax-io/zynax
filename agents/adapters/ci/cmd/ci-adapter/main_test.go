@@ -56,7 +56,7 @@ func TestRun_MissingRequiredFields(t *testing.T) {
 	}
 	// Valid YAML but missing agent_id → validate returns error.
 	_, _ = f.WriteString(
-		"endpoint: \":50055\"\nregistry_endpoint: \"localhost:50052\"\n" +
+		"endpoint: \":50055\"\n" +
 			"ci:\n  provider: github-actions\n  token_env: GH_TOKEN\n" +
 			"capabilities:\n  - name: trigger_workflow\n    owner: o\n    repo: r\n    workflow_id: ci.yml\n",
 	)
@@ -90,7 +90,7 @@ func TestRun_InvalidListenAddr(t *testing.T) {
 	// Port -1 is invalid → net.Listen fails.
 	_, _ = fmt.Fprintf(f,
 		"agent_id: ci-test\nname: CI Test\n"+
-			"endpoint: \"localhost:-1\"\nregistry_endpoint: \"127.0.0.1:9090\"\n"+
+			"endpoint: \"localhost:-1\"\n"+
 			"ci:\n  provider: github-actions\n  token_env: CI_TOKEN_TEST_407\n"+
 			"capabilities:\n  - name: trigger_workflow\n    owner: o\n    repo: r\n    workflow_id: ci.yml\n",
 	)
@@ -106,10 +106,9 @@ func TestRun_InvalidListenAddr(t *testing.T) {
 
 func TestServe_GracefulShutdown(t *testing.T) {
 	cfg := &config.AdapterConfig{
-		AgentID:          "ci-test",
-		Name:             "CI Test",
-		Endpoint:         "127.0.0.1:0",
-		RegistryEndpoint: "127.0.0.1:0",
+		AgentID:  "ci-test",
+		Name:     "CI Test",
+		Endpoint: "127.0.0.1:0",
 		CI: config.CIConfig{
 			Provider:                  "github-actions",
 			TokenEnv:                  "IGNORED",
@@ -152,12 +151,11 @@ func TestServe_DegradedNoSecret(t *testing.T) {
 	_ = lis.Close()
 
 	cfg := &config.AdapterConfig{
-		AgentID:          "ci-test",
-		Name:             "CI Test",
-		Endpoint:         addr,
-		RegistryEndpoint: "127.0.0.1:0",
-		CI:               config.CIConfig{Provider: "github-actions", TokenEnv: "IGNORED"},
-		Capabilities:     []config.CICapabilityConfig{{Name: "trigger_workflow", Owner: "o", Repo: "r", WorkflowID: "ci.yml"}},
+		AgentID:      "ci-test",
+		Name:         "CI Test",
+		Endpoint:     addr,
+		CI:           config.CIConfig{Provider: "github-actions", TokenEnv: "IGNORED"},
+		Capabilities: []config.CICapabilityConfig{{Name: "trigger_workflow", Owner: "o", Repo: "r", WorkflowID: "ci.yml"}},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

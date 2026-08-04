@@ -23,7 +23,6 @@ const validConfig = `
 agent_id: llm-adapter-test
 name: LLM Adapter
 endpoint: 127.0.0.1:0
-registry_endpoint: localhost:50052
 capabilities:
   - name: chat_completion
 provider:
@@ -89,7 +88,6 @@ func TestRun_InvalidListenAddr(t *testing.T) {
 agent_id: llm-adapter-test
 name: LLM Adapter
 endpoint: 127.0.0.1:-1
-registry_endpoint: localhost:50052
 capabilities:
   - name: chat_completion
 provider:

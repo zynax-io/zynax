@@ -29,13 +29,17 @@ YAML file at the path given by `ADAPTER_CONFIG`. Key fields:
 
 | Field | Description |
 |-------|-------------|
-| `agent_id` | Unique identifier registered with agent-registry. |
+| `agent_id` | Unique identifier for this adapter. Not read by the process since M9.A (ADR-039) — the `Agent` CR carries identity; kept so manifests stay self-describing. |
 | `endpoint` | gRPC bind address (default `:50060`). |
-| `registry_endpoint` | agent-registry address (e.g. `agent-registry:50052`). |
 | `git.provider` | `github` (GitLab returns `INTERNAL` "not implemented" in M5). |
 | `git.auth_env` | Name of the env var holding the token (e.g. `GITHUB_TOKEN`). |
 | `capabilities[].owner` | Static GitHub org or user — never from `input_payload`. |
 | `capabilities[].repo` | Static repository name — never from `input_payload`. |
+
+`registry_endpoint` was removed in M9.A (ADR-039): the adapter never dials the
+agent-registry — identity is declared by the `zynax.io/v1alpha1` `Agent` custom
+resource. Config parsing is non-strict (`yaml.Unmarshal`), so a deployment whose
+file still carries the key boots unchanged.
 
 ## Credential — token scope and lifecycle
 

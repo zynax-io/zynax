@@ -28,10 +28,9 @@ func tokenN(n int) string { return "ghs_rotated_v" + string(rune('0'+n)) } //nol
 
 func sourceTestCfg() *config.AdapterConfig {
 	return &config.AdapterConfig{
-		AgentID:          "git-test",
-		Endpoint:         ":50060",
-		RegistryEndpoint: "localhost:50052",
-		Git:              config.GitConfig{Provider: "github"},
+		AgentID:  "git-test",
+		Endpoint: ":50060",
+		Git:      config.GitConfig{Provider: "github"},
 		Capabilities: []config.GitCapabilityConfig{
 			{Name: "open_pr", Owner: "test-owner", Repo: "test-repo", TimeoutSeconds: 5},
 		},

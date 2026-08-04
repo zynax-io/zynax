@@ -24,13 +24,12 @@ var ErrCredentialMissing = errors.New("config: credential env var is not set")
 // AdapterConfig is the top-level YAML struct parsed from the file at startup.
 // Path is read from the ADAPTER_CONFIG env var by the bootstrap layer.
 type AdapterConfig struct {
-	AgentID          string                `yaml:"agent_id"`
-	Name             string                `yaml:"name"`
-	Description      string                `yaml:"description"`
-	Endpoint         string                `yaml:"endpoint"`
-	RegistryEndpoint string                `yaml:"registry_endpoint"`
-	Git              GitConfig             `yaml:"git"`
-	Capabilities     []GitCapabilityConfig `yaml:"capabilities"`
+	AgentID      string                `yaml:"agent_id"`
+	Name         string                `yaml:"name"`
+	Description  string                `yaml:"description"`
+	Endpoint     string                `yaml:"endpoint"`
+	Git          GitConfig             `yaml:"git"`
+	Capabilities []GitCapabilityConfig `yaml:"capabilities"`
 }
 
 // GitConfig holds provider-level settings shared across all capabilities.
@@ -105,9 +104,6 @@ func validate(cfg *AdapterConfig) error {
 	}
 	if cfg.Endpoint == "" {
 		return fmt.Errorf("config: endpoint is required")
-	}
-	if cfg.RegistryEndpoint == "" {
-		return fmt.Errorf("config: registry_endpoint is required")
 	}
 	if cfg.Git.Provider == "" {
 		return fmt.Errorf("config: git.provider is required")

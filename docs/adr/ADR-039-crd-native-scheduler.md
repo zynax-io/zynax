@@ -144,7 +144,13 @@ store into a **stateless, informer-backed Scheduler**.
   **deprecation, not deletion** — `buf breaking` is file-scoped, so the new `scheduler.proto`
   is safe to add, but the `AgentRegistryService` RPCs in `agent_registry.proto` are marked
   `deprecated` and return `UNIMPLEMENTED` in M8 (their `AgentDef`/`CapabilityDef` messages are
-  reused by `scheduler.proto`), with hard removal scheduled for M9. Enable leader election for
+  reused by `scheduler.proto`), with hard removal scheduled for M9. **Discharged 2026-08-04:**
+  the M9 hard removal shipped as epic [#1674](https://github.com/zynax-io/zynax/issues/1674)
+  (#1697 caller → #1698 implementation → #1598 contract → #1699 docs sweep); the
+  `AgentDef`/`CapabilityDef` messages survive as planned, the `buf breaking` exception is
+  file-scoped in `protos/buf.yaml`, and the KIND-verified spike branch
+  `spike/adr-039-crd-scheduler-proof` was deleted at that point — the merged removal build
+  replaces it as the verification artifact. Enable leader election for
   the single-writer status reconciler while keeping the select path always-serving. Cache
   Prometheus reads with a short TTL to protect the hot path. Settle the multi-runtime
   positioning question (k3d-for-local recommended) in the M8 first-run work.

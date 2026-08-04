@@ -24,7 +24,6 @@ description: Google ADK (Go) agents exposed as Zynax capabilities, zero-secret o
 # hostless bind endpoint must never be advertised verbatim (issue #1371).
 endpoint: ":50080"
 advertise_endpoint: adk-adapter:50080
-registry_endpoint: agent-registry:50052
 
 model:
   provider: ollama
