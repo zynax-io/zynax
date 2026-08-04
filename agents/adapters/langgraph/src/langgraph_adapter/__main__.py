@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-"""langgraph-adapter bootstrap — load graphs, register, serve, deregister on SIGTERM."""
+"""langgraph-adapter bootstrap — load graphs, serve, drain on SIGTERM.
+
+Agent identity and capabilities are declared by the Agent custom resource
+(zynax.io/v1alpha1, ADR-039); the adapter announces nothing at boot.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +16,6 @@ import grpc.aio  # type: ignore[import-untyped]
 from google.protobuf import (
     timestamp_pb2 as _timestamp_pb2,  # noqa: F401 — must precede zynax pb2 imports to seed the descriptor pool
 )
-from zynax.v1 import agent_registry_pb2_grpc  # type: ignore[import-untyped]
 from zynax.v1.agent_pb2_grpc import (
     add_AgentServiceServicer_to_server,  # type: ignore[import-untyped]
 )
@@ -20,12 +23,6 @@ from zynax.v1.agent_pb2_grpc import (
 from langgraph_adapter.config import AdapterConfig
 from langgraph_adapter.graph_loader import GraphLoader
 from langgraph_adapter.handler import LangGraphHandler
-from langgraph_adapter.registry.client import (
-    RegistrySettings,
-    build_agent_def,
-    deregister_agent,
-    register_agent,
-)
 from langgraph_adapter.router import CapabilityRouter
 from langgraph_adapter.server import AgentServicer
 
@@ -33,19 +30,14 @@ log = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    """Bootstrap: load graphs, register with agent-registry, serve, deregister on exit."""
+    """Bootstrap: load graphs, serve the AgentService, drain on SIGTERM."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     config = AdapterConfig()  # type: ignore[call-arg]
-    settings = RegistrySettings()  # type: ignore[call-arg]
     graphs = _load_graphs(config)
     router = CapabilityRouter(graphs)
-    channel = grpc.aio.insecure_channel(config.registry_addr)
-    stub = agent_registry_pb2_grpc.AgentRegistryServiceStub(channel)
-    agent_def = _build_def(settings, router)
-    await register_agent(agent_def, stub)
-    server = await _start_server(router, settings.grpc_port)
+    server = await _start_server(router, config.grpc_port)
     await _wait_for_signal()
-    await _shutdown(settings.agent_id, stub, server, channel)
+    await _shutdown(server)
 
 
 def _load_graphs(config: AdapterConfig) -> dict[str, object]:
@@ -62,21 +54,6 @@ def _load_graphs(config: AdapterConfig) -> dict[str, object]:
     except RuntimeError as exc:
         log.error("graph load failed — aborting", extra={"err": str(exc)})
         sys.exit(1)
-
-
-def _build_def(settings: RegistrySettings, router: CapabilityRouter) -> object:
-    """Construct the AgentDef proto from settings and router capability list.
-
-    Args:
-        settings: Registry settings containing agent_id and endpoint.
-        router: Built capability router; provides names and schema bytes.
-
-    Returns:
-        Populated AgentDef proto ready for registration.
-    """
-    cap_names = router.capability_names()
-    schemas = {n: router.get_schema(n) for n in cap_names}
-    return build_agent_def(settings, cap_names, schemas)
 
 
 async def _start_server(router: CapabilityRouter, port: int) -> grpc.aio.Server:
@@ -107,26 +84,13 @@ async def _wait_for_signal() -> None:
     await stop_event.wait()
 
 
-async def _shutdown(
-    agent_id: str,
-    stub: object,
-    server: grpc.aio.Server,
-    channel: grpc.aio.Channel,
-) -> None:
-    """Deregister, stop the gRPC server, and close the registry channel.
+async def _shutdown(server: grpc.aio.Server) -> None:
+    """Stop the gRPC server, draining in-flight calls.
 
     Args:
-        agent_id: The registered agent identifier to deregister.
-        stub: Registry stub used for DeregisterAgent.
         server: The running gRPC server to stop.
-        channel: The registry channel to close.
     """
-    try:
-        await deregister_agent(agent_id, stub)
-    except Exception as exc:
-        log.warning("deregister failed", extra={"err": str(exc)})
     await server.stop(grace=5)
-    await channel.close()
     log.info("langgraph-adapter stopped")
 
 

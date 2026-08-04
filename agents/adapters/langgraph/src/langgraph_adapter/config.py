@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""LangGraph adapter configuration — graph mounts and registry address via environment variables.
+"""LangGraph adapter configuration — graph mounts and serving port via environment variables.
 
 ``LANGGRAPH_MOUNTS`` is a JSON-encoded list of ``GraphMount`` objects that map capability
 names to Python module import paths and graph attribute names. ``REGISTRY_ADDR`` specifies
@@ -43,8 +43,9 @@ class AdapterConfig(BaseSettings):
 
     ``LANGGRAPH_MOUNTS`` is a JSON array of graph-mount objects. Each object must
     supply ``capability_name``, ``module``, and ``graph``. ``REGISTRY_ADDR`` is the
-    host:port of the agent-registry gRPC server used for ``RegisterAgent`` /
-    ``DeregisterAgent`` calls.
+    host:port of the agent-registry gRPC server; it is retained as a required
+    deployment variable but no longer dialled — agent identity is declared by the
+    Agent custom resource (ADR-039).
 
     Raises ``ValidationError`` on startup if either variable is missing, empty, or
     contains malformed JSON. A missing required field inside a mount object also
@@ -54,6 +55,8 @@ class AdapterConfig(BaseSettings):
         graph_mounts: Ordered list of graph-to-capability mappings loaded from
             ``LANGGRAPH_MOUNTS``.
         registry_addr: Agent-registry gRPC endpoint, e.g. ``"localhost:50052"``.
+        grpc_port: Port the adapter's own gRPC server binds to
+            (``ZYNAX_LANGGRAPH_ADAPTER_GRPC_PORT``, default ``50058``).
     """
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore")
@@ -63,6 +66,7 @@ class AdapterConfig(BaseSettings):
         alias="LANGGRAPH_MOUNTS",
     )
     registry_addr: str = Field(..., alias="REGISTRY_ADDR", min_length=1)
+    grpc_port: int = Field(default=50058, alias="ZYNAX_LANGGRAPH_ADAPTER_GRPC_PORT", ge=1)
 
     @field_validator("graph_mounts", mode="before")
     @classmethod
