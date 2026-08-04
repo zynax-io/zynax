@@ -4,10 +4,10 @@
 
 Zynax services publish and consume platform events **directly over NATS
 JetStream** through the shared client — `libs/zynaxevents` (Go) — not through
-a broker-fronting service (ADR-046, M8.H). The former `EventBusService` gRPC
-facade is deprecated and is removed in M9; the **AsyncAPI spec
-(`spec/asyncapi/zynax-events.yaml`) remains the single contract of record**,
-realised by the client library.
+a broker-fronting service (ADR-046). The `EventBusService` gRPC facade was
+removed in M9 (EPIC #1675); this is now the only eventing path. The **AsyncAPI
+spec (`spec/asyncapi/zynax-events.yaml`) remains the single contract of
+record**, realised by the client library.
 
 ## How it fits together
 

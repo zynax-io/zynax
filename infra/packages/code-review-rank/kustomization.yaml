@@ -9,7 +9,7 @@
 # Adds ONLY the capability-provider infra (ollama + llm-adapter) and the logical
 # manifests (AgentDef + Workflow, submitted by the apply-Job). It assumes the
 # Zynax platform (api-gateway, workflow-compiler, engine-adapter, task-broker,
-# agent-registry, temporal, event-bus) is already running in the `zynax`
+# agent-registry, temporal, nats) is already running in the `zynax`
 # namespace, and reuses the existing `zynax-gw-api-key` secret for auth.
 #
 # Flux-ready: point a Flux Kustomization at this directory (see README.md).

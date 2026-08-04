@@ -301,7 +301,7 @@ dual-engine e2e into a named conformance suite.
 > [docs/milestones/M9-planning.md](docs/milestones/M9-planning.md)
 
 - [ ] agent-registry push path hard-removal (ADR-039) — epic #1674
-- [ ] `services/event-bus/` facade hard-removal (ADR-046) — epic #1675
+- [x] `services/event-bus/` facade hard-removal (ADR-046) — epic #1675 ✅ 2026-08-04
 - [ ] Named engine-conformance suite over the existing dual-engine e2e — epic #1692
 
 ---

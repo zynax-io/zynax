@@ -18,7 +18,6 @@ and production. All other values are identical across environments.
 | `zynax-engine-adapter` | `1` | `2` | `3` |
 | `zynax-task-broker` | `1` | `2` | `3` |
 | `zynax-agent-registry` | `1` | `2` | `3` |
-| `zynax-event-bus` | `1` | `2` | `3` |
 | `zynax-memory-service` | `1` | `1` | `2` |
 
 ---

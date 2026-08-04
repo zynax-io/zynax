@@ -20,7 +20,7 @@ dual-engine e2e into a *named, published* conformance suite. Three epics, all sc
 | EPIC | Issue | Governs | Canvas |
 |------|-------|---------|--------|
 | **M9.A** — agent-registry push-path hard-removal | [#1674](https://github.com/zynax-io/zynax/issues/1674) | ADR-039 removal clause | `docs/spdd/1674-agent-registry-push-removal/canvas.md` |
-| **M9.B** — EventBusService facade hard-removal | [#1675](https://github.com/zynax-io/zynax/issues/1675) | ADR-046 Decision #6 | `docs/spdd/1675-event-bus-facade-removal/canvas.md` |
+| **M9.B** — EventBusService facade hard-removal ✅ **complete** (2026-08-04) | [#1675](https://github.com/zynax-io/zynax/issues/1675) | ADR-046 Decision #6 | `docs/spdd/1675-event-bus-facade-removal/canvas.md` |
 | **M9.C** — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | ROADMAP M9 exit criterion 3 (Fork A) | `docs/spdd/1692-engine-conformance-suite/canvas.md` |
 
 EPIC table order = delivery priority. M9.C lands its symmetry fix early — the suite is the
@@ -74,7 +74,7 @@ that ships the deprecation must exist before the removal lands).
 | 1 ✅ | [#1700](https://github.com/zynax-io/zynax/issues/1700) | chart + umbrella block + cert entry + `CN=zynax-event-bus` NATS identity + 50054 egress removed |
 | 2 ✅ | [#1701](https://github.com/zynax-io/zynax/issues/1701) | `services/event-bus/` + release/build wiring deleted; zynaxevents goldens unchanged; protos/tests `EventBusService` BDD suite retired with a pointer to the `libs/zynaxevents` suites |
 | 3 ✅ | [#1702](https://github.com/zynax-io/zynax/issues/1702) | `event_bus.proto` + stubs removed (zero-importer grep gate); file-scoped `buf breaking` exception in `protos/buf.yaml` |
-| 4 | [#1703](https://github.com/zynax-io/zynax/issues/1703) | AsyncAPI deprecated access path dropped; eventing docs truth pass; epic closes |
+| 4 ✅ | [#1703](https://github.com/zynax-io/zynax/issues/1703) | AsyncAPI deprecated access path dropped (channels byte-identical); eventing docs truth pass across spec, patterns, ARCHITECTURE, README and `services/task-broker/AGENTS.md`; historical records preserved; **EPIC #1675 closed** |
 
 ### M9.C — named engine-conformance suite (#1692)
 

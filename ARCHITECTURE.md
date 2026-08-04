@@ -96,7 +96,7 @@ Layer 3 engines are always behind the `WorkflowEngine` interface.
           │ workflow-     │ │ engine-adapter ✅   │
           │ compiler ✅   │ │ TemporalEngine      │
           │ ⚠ unbounded   │ │ IRInterpreterWorkflow│
-          │   IR map #466 │ │ ⚠ CloudEvents stub  │
+          │   IR map #466 │ │ ✅ CloudEvents (#827)│
           └───────────────┘ └─────────┬───────────┘
                                       │ gRPC: DispatchCapabilityActivity
                                       ▼
@@ -108,7 +108,7 @@ Layer 3 engines are always behind the `WorkflowEngine` interface.
                                        ▼
                   ┌────────────────────────────────────────┐
                   │ agent-registry  ✅ Postgres-backed (#626) │
-                  │ event-bus       ✅ NATS JetStream (#772)  │
+                  │ NATS JetStream  ✅ libs/zynaxevents (#1675)│
                   │ memory-service  ✅ Redis KV+pgvector (#773)│
                   └────────────────────────────────────────┘
                                        │
@@ -217,8 +217,8 @@ This cannot be cleanly expressed as a DAG.
 
 | Flow | Fowler Pattern | Current status |
 |---|---|---|
-| `zynax.workflow.state.entered/exited/completed/failed` | **Event Notification** | Log stub (#460 / M5.C) |
-| `task.completed` with result payload | **Event-Carried State Transfer** | Log stub (event-bus pending) |
+| `zynax.workflow.state.entered/exited/completed/failed` | **Event Notification** | ✅ `PublishLifecycleEventActivity` → JetStream (#827) |
+| `task.completed` with result payload | **Event-Carried State Transfer** | ✅ CloudEvents on JetStream via `libs/zynaxevents` |
 | Temporal activity history | **Event Sourcing** (Temporal-internal) | ✅ Temporal provides this |
 | `DispatchCapabilityActivity` → task-broker | **Command** (gRPC) | ✅ Correct — not an event |
 
@@ -255,7 +255,7 @@ Task Broker:
   2. Apply routing policy (round-robin for M5; least-loaded in M6)
   3. Dispatch → selected agent/adapter via ExecuteCapability gRPC
 
-Event Bus (when implemented):
+Event publish (libs/zynaxevents → NATS JetStream):
   emit: task.completed {capability: "summarize", result: ...}
 ```
 
@@ -338,12 +338,15 @@ in development.
 ### Asynchronous Path (NATS JetStream — implemented)
 
 ```
-engine-adapter → event-bus (gRPC) → NATS JetStream → subscribers
+engine-adapter → libs/zynaxevents → NATS JetStream → subscribers
 ```
 
-11 AsyncAPI event channels are defined in `spec/asyncapi/`. The EventBusService
-(EPIC #772, ADR-022) wraps NATS JetStream with Publish/Subscribe/Unsubscribe + DLQ,
-and `PublishLifecycleEventActivity` publishes workflow lifecycle CloudEvents through it (#827).
+11 AsyncAPI event channels are defined in `spec/asyncapi/` — the contract of record.
+Publishers and subscribers dial JetStream **directly** through the shared client
+`libs/zynaxevents`, which carries the conventions (stream derivation, DLQ, terminal-close)
+verbatim from the retired `EventBusService` facade; `PublishLifecycleEventActivity`
+publishes workflow lifecycle CloudEvents through it. The gRPC facade (EPIC #772, ADR-022)
+was deprecated in M8 and hard-removed in M9 (ADR-046, EPIC #1675).
 
 ---
 

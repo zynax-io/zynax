@@ -20,7 +20,7 @@ import (
 
 // EventBusPublisher is the minimal interface this package requires for publishing
 // lifecycle events directly to NATS JetStream through the shared events client
-// (ADR-046 — the EventBusService gRPC facade is deprecated). It is satisfied by
+// (ADR-046 — the EventBusService gRPC facade was removed). It is satisfied by
 // *zynaxevents.Client and can be replaced with a test stub without a live broker.
 type EventBusPublisher interface {
 	Publish(ctx context.Context, event zynaxevents.CloudEvent) (string, error)

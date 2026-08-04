@@ -23,7 +23,7 @@ const taskTopicPrefix = "zynax.v1.task-broker.task."
 
 // EventBusClient is the minimal interface this package requires for publishing
 // task lifecycle events directly to NATS JetStream via the shared events
-// client (ADR-046 — the EventBusService gRPC facade is deprecated). Satisfied
+// client (ADR-046 — the EventBusService gRPC facade was removed). Satisfied
 // by *zynaxevents.Client; replaced with a test stub in unit tests.
 type EventBusClient interface {
 	Publish(ctx context.Context, event zynaxevents.CloudEvent) (string, error)
