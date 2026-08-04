@@ -51,9 +51,18 @@ Order is load-bearing: caller → implementation → contract → docs.
 | Step | Story | What |
 |------|-------|------|
 | 1 ✅ | [#1697](https://github.com/zynax-io/zynax/issues/1697) | api-gateway AgentDef push path + CLI surface deleted; documented retirement error |
-| 2 | [#1698](https://github.com/zynax-io/zynax/issues/1698) | agent-registry push repos + Postgres dependency deleted; stateless resync verified live |
+| 2 ✅ | [#1698](https://github.com/zynax-io/zynax/issues/1698) | agent-registry push repos + Postgres dependency deleted; stateless resync verified live — landed as 3 PRs (#1751 → #1752 → #1754), see the size note below |
 | 3 | [#1598](https://github.com/zynax-io/zynax/issues/1598) | deprecated `AgentRegistryService` RPCs removed from proto + stubs (documented `buf breaking` exception) |
 | 4 | [#1699](https://github.com/zynax-io/zynax/issues/1699) | migration-guide sweep; status surfaces; retire `spike/adr-039-crd-scheduler-proof` |
+
+> **Sizing note for the remaining removal steps.** Step 2 measured 1846 counted lines and
+> could not clear the required 900-line `PR size label` gate as one PR; it shipped as three
+> disjoint slices merged in compile order. #1363 has since added a `split-not-possible`
+> label that downgrades the hard failure for *irreducible* PRs — but prefer splitting when
+> the layers are compile-independent (as here: handler shim → repo adapters → domain
+> package), and reserve the label for removals that genuinely cannot be cut, such as
+> #1701's `services/event-bus/` deletion. Size #1598 and M9.B's steps accordingly, up
+> front, instead of discovering the gate mid-delivery.
 
 ### M9.B — EventBusService facade hard-removal (#1675)
 

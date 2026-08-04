@@ -39,7 +39,7 @@ dual-engine e2e into a named conformance suite.
 
 | EPIC | Issue | Canvas | Stories (in delivery order) |
 |------|-------|--------|------------------------------|
-| M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Aligned (#1734) | #1697 ✅ → #1698 → #1598 → #1699 |
+| M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Aligned (#1734) | #1697 ✅ → #1698 ✅ (stateless scheduler: repos + DB gone, resync verified live) → #1598 → #1699 |
 | M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) | `docs/spdd/1675-event-bus-facade-removal/` — Aligned (#1734) | #1700 → #1701 → #1702 → #1703 (v0.7.0 gate now satisfied) |
 | M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → (steps 2–4 filed via `/lib:spdd-story`) |
 | M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
@@ -72,6 +72,21 @@ strategy, load/SLO).
    of them deletions; the smallest indivisible unit is 949) — they now merge under the
    labelled exception instead of an `--admin` gate bypass. Apply the label, then push a
    commit so the gate re-evaluates (a re-run replays the pre-label event payload).
+
+6. ✅ M9.A step 2 delivered ([#1698](https://github.com/zynax-io/zynax/issues/1698),
+   as of 2026-08-04): agent-registry is now physically stateless — memory + Postgres
+   `AgentRepository` adapters, the push handler shim, the push-era domain package, and the
+   umbrella DB wiring are deleted; `pgx`/`golang-migrate`/`testcontainers` left its `go.mod`
+   and `agent-registry` left the `test-integration` allowlist. Restart-recovery-by-informer-
+   resync verified twice on one live kind cluster. Next: #1598 (proto RPC removal).
+
+   **Landed as three PRs, not one** (#1751 → #1752 → #1754): at 1846 counted lines the
+   single-PR removal was over the 900-line gate, and this delivery predated item 5's
+   `split-not-possible` escape hatch. Unlike #1701, this removal *was* reducible — the
+   slices are disjoint file sets merged in compile order (handler shim → repo adapters →
+   domain package), so splitting was the honest fix rather than a labelled exception.
+   Rule of thumb for the remaining removals (#1598 proto, #1675/B `services/event-bus/`):
+   split when the layers are compile-independent; label when they genuinely are not.
 
 ---
 
