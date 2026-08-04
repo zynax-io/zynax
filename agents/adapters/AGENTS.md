@@ -60,8 +60,10 @@ when the wrapped system's primary SDK or framework is Python-native (AI/ML exclu
 ## The Two Adapter Interfaces
 
 **Zynax-facing:** Implement `ExecuteCapability` gRPC (stream of `TaskEvent`).
-Register capabilities in an `AgentDef` YAML on startup via `AgentRegistryService.RegisterAgent`.
-Deregister via `AgentRegistryService.DeregisterAgent` on graceful shutdown.
+Adapters announce nothing at boot: identity and capabilities are declared by a
+`zynax.io/v1alpha1` Agent custom resource applied with `kubectl`, and the
+scheduler discovers endpoints from EndpointSlices (ADR-039). Push registration
+was removed in M9.A (#1598) — never add a registry client to an adapter.
 
 **System-facing:** Whatever protocol the wrapped system speaks (REST, gRPC, CLI).
 The adapter translates between the two sides.
@@ -103,8 +105,8 @@ agents/adapters/<name>/
 ## Rules
 
 - Adapters are **stateless** — no adapter-local state that survives restart.
-- Capabilities declared in `AgentDef` YAML, not hardcoded in source.
-- Capability names must be `snake_case`, 1–64 characters, matching the registry entry exactly.
+- Capabilities declared in the adapter's config file, not hardcoded in source.
+- Capability names must be `snake_case`, 1–64 characters, matching the Agent CR entry exactly.
 - Emit at least one `TASK_EVENT_TYPE_PROGRESS` event for tasks >2 seconds.
 - Always emit exactly one `TASK_EVENT_TYPE_COMPLETED` or `TASK_EVENT_TYPE_FAILED` as the final event.
 - Never emit events after the terminal event.
@@ -121,5 +123,5 @@ agents/adapters/<name>/
 ## SSRF Prevention (http-adapter)
 
 The http-adapter maps capability names to HTTP routes via static config only. No URL fields are
-accepted in `input_payload` — all HTTP endpoints are declared in `AgentDef` YAML at startup.
+accepted in `input_payload` — all HTTP endpoints are declared in the adapter config at startup.
 This is a hard requirement enforced by the Canvas Safeguards (ADR-019).
