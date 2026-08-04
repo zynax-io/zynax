@@ -90,15 +90,33 @@ spec/workflows/examples/ --compile→IR→dispatch--> temporal leg --\
 > for alignment; their story issues are filed via `/lib:spdd-story` once a human aligns this
 > canvas (suite name + versioning scheme are the open design decisions).
 
+> **Naming decision — settled 2026-08-04 (maintainer).** The suite is the
+> **Zynax Engine Conformance Suite**, short form **ZECS**. It versions with the platform
+> release (first published version: **ZECS v0.8.0**), per this section's "version scheme tied
+> to releases" — the suite is a claim about a specific released build, so an independent
+> version line would only add a mapping to maintain.
+>
+> Rationale: the name states what is being tested — that a workflow *engine* conforms — which
+> matches this canvas's own vocabulary (engine legs, engine-adapter authors) and reads
+> conventionally beside other ecosystem conformance suites. Alternatives considered and
+> rejected: "Zynax Workflow Portability Suite" (leads with the promise, not the mechanism —
+> better marketing framing, weaker as a conformance artifact) and a bare "Zynax Conformance
+> Suite" (leaves room for future adapter/capability profiles, but is vague about today's
+> scope, and a profile qualifier can be added later without renaming).
+>
+> Referenced as `ZECS v<platform version>` in release notes; the definition lives under
+> `docs/conformance/`.
+
 1. **Leg symmetry** (#1620, `test:`, ✅ done) — extend the Workflow CRD reconcile e2e assertion
    to the argo engine leg; both legs assert identical reconcile behaviour; e2e green. Root cause
    was not an argo dispatch bug — the CR reconciles to `Dispatched=True` on both legs — but the
    assertion's `kubectl get workflow` short name resolved to the Argo CRD (`workflows.argoproj.io`,
    installed only on the argo leg) instead of `workflows.zynax.io`. The script now pins the
    fully-qualified name and the `matrix.engine == 'temporal'` guard is dropped.
-2. **Suite definition** (story on alignment, `docs:`/`test:`) — name the suite; version
-   scheme tied to releases; in-repo definition enumerating scenarios, legs, and pass
-   criteria; suite membership manifest over `spec/workflows/examples/`.
+2. **Suite definition** (story on alignment, `docs:`/`test:`) — publish the named suite
+   (**ZECS**, versioned with the platform release — see the naming decision above); in-repo
+   definition enumerating scenarios, legs, and pass criteria; suite membership manifest over
+   `spec/workflows/examples/`.
 3. **Matrix artifact** (story on alignment, `ci:`) — e2e workflow emits the machine-readable
    per-engine pass/fail report; artifact retained per run; one-command local invocation
    documented for adapter authors producing the same output.
