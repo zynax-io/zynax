@@ -78,15 +78,15 @@ Feature: API Gateway
     When GET /api/v1/workflows/ghost-run is called
     Then the HTTP status is 404
 
-  # ── POST /api/v1/apply — AgentDef kind retired (ADR-039, #1697) ─────────
-  # The Agent custom resource is the single source of truth; the gateway's push
-  # client is deleted (M9.A step 1), so kind: AgentDef is never parsed or
-  # forwarded — the route answers 410 Gone with a migration pointer.
+  # ── POST /api/v1/apply — AgentDef kind removed (ADR-039, #1598) ─────────
+  # The Agent custom resource is the single source of truth. M9.A step 3 dropped
+  # the AgentDef route entirely, so the kind is no longer in the gateway's
+  # allowlist and is rejected like any other unsupported manifest kind.
 
-  Scenario: POST /api/v1/apply with kind AgentDef returns 410 with migration pointer
+  Scenario: POST /api/v1/apply with kind AgentDef returns 400 unsupported kind
     When POST /api/v1/apply is called with a valid kind: AgentDef YAML body
-    Then the HTTP status is 410
-    And the response code is "AGENTDEF_RETIRED"
+    Then the HTTP status is 400
+    And the response code is "UNSUPPORTED_KIND"
 
   # ── POST /api/v1/apply — Idempotent Apply (#485) ────────────────────────
 
