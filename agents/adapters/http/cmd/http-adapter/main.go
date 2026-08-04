@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package main is the entry point for the http-adapter gRPC service.
-// Config path from ADAPTER_CONFIG env var; registry endpoint from config.
+// Config path from ADAPTER_CONFIG env var. Agent identity is declared by the
+// Agent custom resource (ADR-039) — the adapter announces nothing at boot.
 package main
 
 import (
@@ -15,10 +16,8 @@ import (
 
 	"github.com/zynax-io/zynax/agents/adapters/http/internal/adapter"
 	"github.com/zynax-io/zynax/agents/adapters/http/internal/config"
-	"github.com/zynax-io/zynax/agents/adapters/http/internal/registry"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -42,14 +41,16 @@ func run() error {
 	}
 	slog.Info("config loaded", "agent_id", cfg.AgentID, "endpoint", cfg.Endpoint) //nolint:gosec // values from trusted config file
 
-	regConn, err := grpc.NewClient(cfg.RegistryEndpoint,
-		grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return fmt.Errorf("registry dial %s: %w", cfg.RegistryEndpoint, err)
-	}
-	defer func() { _ = regConn.Close() }()
-	regClient := zynaxv1.NewAgentRegistryServiceClient(regConn)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
 
+	return serve(ctx, cfg)
+}
+
+// serve binds the gRPC server, registers AgentService + health, reports
+// SERVING, and blocks until the context is cancelled — then reports
+// NOT_SERVING and drains gracefully.
+func serve(ctx context.Context, cfg *config.AdapterConfig) error {
 	lis, err := net.Listen("tcp", cfg.Endpoint)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", cfg.Endpoint, err)
@@ -60,13 +61,6 @@ func run() error {
 	healthSrv := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcSrv, healthSrv)
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer stop()
-
-	def := registry.BuildAgentDef(cfg)
-	if err := registry.RegisterAgent(ctx, regClient, def); err != nil {
-		return fmt.Errorf("register: %w", err)
-	}
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	slog.Info("http-adapter serving", "endpoint", cfg.Endpoint) //nolint:gosec // value from trusted config file
 
@@ -81,10 +75,6 @@ func run() error {
 	}
 
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-	deregCtx := context.Background()
-	if err := registry.DeregisterAgent(deregCtx, regClient, cfg.AgentID); err != nil {
-		slog.Warn("deregister failed", "err", err)
-	}
 	grpcSrv.GracefulStop()
 	slog.Info("http-adapter stopped")
 	return nil

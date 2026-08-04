@@ -10,5 +10,5 @@ _PROTO_PYTHON = os.path.abspath(
 if _PROTO_PYTHON not in sys.path:
     sys.path.insert(0, _PROTO_PYTHON)
 
-# Pre-register the well-known timestamp descriptor required by agent_registry_pb2.
+# Pre-register the well-known timestamp descriptor required by the zynax pb2 modules.
 import google.protobuf.timestamp_pb2  # noqa: E402, F401
