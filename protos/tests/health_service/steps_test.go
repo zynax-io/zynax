@@ -20,8 +20,8 @@ import (
 )
 
 // namedKey is the per-service named serving key under test. Any of the Zynax
-// service descriptors works; agent-registry is representative.
-var namedKey = zynaxv1.AgentRegistryService_ServiceDesc.ServiceName
+// service descriptors works; the scheduler is representative.
+var namedKey = zynaxv1.SchedulerService_ServiceDesc.ServiceName
 
 type healthCtx struct {
 	client     grpc_health_v1.HealthClient

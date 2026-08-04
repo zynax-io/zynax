@@ -33,10 +33,10 @@ package zynax.v1;
 option go_package = "github.com/zynax-io/zynax/gen/go/zynax/v1";
 
 // Service: PascalCase, singular
-service AgentRegistryService { ... }
+service SchedulerService { ... }
 
 // RPC: PascalCase verb+noun, full request/response wrappers
-rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
+rpc SelectAgent(SelectAgentRequest) returns (SelectAgentResponse);
 rpc WatchAgentEvents(WatchAgentEventsRequest) returns (stream AgentEvent);
 
 // Enums: SCREAMING_SNAKE_CASE, prefixed with type name, 0 = UNSPECIFIED

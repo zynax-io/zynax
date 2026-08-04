@@ -7,9 +7,9 @@
 > `SchedulerService.SelectAgent` (readiness- and metrics-aware, structured
 > rationale), and a Lease-elected readiness reconciler deriving Agent status
 > from EndpointSlices. The push-era `AgentRegistryService` surface, its
-> repository adapters, and the database wiring were **removed** in M9 (#1698,
-> ADR-039 removal clause) — a surviving push client gets UNIMPLEMENTED from
-> gRPC itself (migration: docs/patterns/agent-crd-migration.md). No database.
+> repository adapters, and the database wiring were **removed** in M9 (#1698 +
+> #1598, ADR-039 removal clause) — the RPCs no longer exist in the contract
+> (migration: docs/patterns/agent-crd-migration.md). No database.
 
 ---
 
@@ -82,9 +82,10 @@ There is **no** `ZYNAX_REGISTRY_DB_*` variable — the service is stateless.
 
 Proto source: `protos/zynax/v1/scheduler.proto`
 
-The push-era `AgentRegistryService` is no longer registered on this server
-(#1698). `protos/zynax/v1/agent_registry.proto` still declares it until the
-contract removal in #1598; its `AgentDef` / `CapabilityDef` messages stay
+The push-era `AgentRegistryService` is gone: unregistered from this server in
+#1698 and deleted from `protos/zynax/v1/agent_registry.proto` in #1598 under a
+file-scoped `buf breaking` exception (`protos/buf.yaml`, ADR-048 §4). That file
+now carries only the `AgentDef` / `CapabilityDef` messages, which stay
 permanently — `scheduler.proto` reuses them.
 
 ---
