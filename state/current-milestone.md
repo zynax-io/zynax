@@ -65,6 +65,14 @@ strategy, load/SLO).
    resolved to the co-installed Argo CRD; the script now pins `workflow.zynax.io` and the
    `matrix.engine == 'temporal'` guard is dropped. Verified on a live argo kind cluster.
 
+5. ✅ Hard-removal PRs unblocked ([#1363](https://github.com/zynax-io/zynax/issues/1363),
+   2026-08-04): `.github/workflows/pr-size.yml` now honors the documented
+   `split-not-possible` label, downgrading the > 900-line hard failure to a warning. M9
+   removals are irreducible by construction (PR #1750 for #1701 counts 4,068 lines, 4,038
+   of them deletions; the smallest indivisible unit is 949) — they now merge under the
+   labelled exception instead of an `--admin` gate bypass. Apply the label, then push a
+   commit so the gate re-evaluates (a re-run replays the pre-label event payload).
+
 ---
 
 ## v0.7.0 close ritual — completed 2026-07-10

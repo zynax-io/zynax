@@ -151,11 +151,19 @@ Labels use a `group: value` naming convention so they sort and filter predictabl
 | `PROTO REVIEWED` | `#0e8a16` (green) | Proto change has been reviewed by proto-owners |
 | `ai-assisted` | `#d4c5f9` (lavender) | AI tools (Claude, Copilot, etc.) used in generating the change |
 | `ai-reviewed` | `#d4c5f9` (lavender) | AI tools used to assist in reviewing the PR |
-| `split-not-possible` | `#d93f0b` (orange) | PR > 400 lines; maintainer has approved exception |
+| `split-not-possible` | `#d93f0b` (orange) | Irreducible oversize PR; maintainer has approved the exception (enforced — see note below) |
 | `do not merge` | `#b60205` (dark red) | Blocked from merge — see comments for reason |
 | `duplicate` | `#cfd3d7` (grey) | Duplicate of another issue |
 | `wontfix` | `#ffffff` (white) | Explicitly out of scope — closed with explanation |
 | `invalid` | `#e4e669` (yellow) | Not a valid issue for this project |
+
+> **`split-not-possible` is enforced.** `.github/workflows/pr-size.yml` downgrades the hard
+> failure above 900 counted lines to a warning when the label is present; the size is still
+> computed and reported. Use it only for genuinely irreducible changes (e.g. retiring a module —
+> its deletions cannot be split without leaving `main` non-compiling), and justify the exception
+> in the PR description. The gate reads labels from the `pull_request` event payload, so **push a
+> commit after labelling** to re-evaluate — re-running the existing check replays the pre-label
+> payload. At or below 900 lines the label has no effect (401–900 is already just a warning).
 
 ---
 

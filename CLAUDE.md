@@ -43,6 +43,10 @@ binary fixtures (`*.png`, `*.jpg`, `*.gif`, `*.svg`), `CHANGELOG.md`, `.github/w
 `automation/`, `Makefile`, `CLAUDE.md`, `ROADMAP.md`, `README.md`.
 One commit per logical change · one PR per issue · never squash unrelated work.
 
+**Oversize exception:** a maintainer-applied `split-not-possible` label ([docs/labels.md](docs/labels.md))
+downgrades the > 900 block to a warning, for irreducible changes only. Push a commit after
+labelling — the gate reads labels from the event payload, so a re-run replays the old one.
+
 ## Development workflow
 
 ```bash

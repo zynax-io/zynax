@@ -10,6 +10,13 @@
 #
 # The job name stays "PR size label" — it is a required status check context
 # in the main branch ruleset; renaming the job would orphan that requirement.
+#
+# Oversize exception: the maintainer-applied "split-not-possible" label
+# (docs/labels.md §Process Labels) downgrades the >900 hard failure to a
+# warning. Labels come from the event payload (pull_request.labels) — no extra
+# API call, so the job keeps its read-only, checkout-free shape. No "labeled"
+# trigger is wired; because a re-run replays the ORIGINAL event payload, the
+# gate re-evaluates on the next push to the PR branch, not on a re-run.
 
 name: PR Size
 
@@ -58,12 +65,27 @@ jobs:
               .filter(f => !skipPattern.test(f.filename))
               .reduce((total, f) => total + f.additions + f.deletions, 0);
 
+            // Maintainer-approved oversize exception. Read off the event payload
+            // instead of the labels API: no extra call, no extra token scope.
+            const OVERRIDE_LABEL = 'split-not-possible';
+            const labels = (context.payload.pull_request?.labels ?? []).map(l => l.name);
+            const splitNotPossible = labels.includes(OVERRIDE_LABEL);
+
             core.info(`PR changes: ${lines} lines (excluding generated/lock files)`);
 
-            if (lines > 900) {
+            if (lines > 900 && splitNotPossible) {
+              core.warning(
+                `PR is ${lines} lines — over the 900-line hard limit, downgraded to a ` +
+                `warning by the "${OVERRIDE_LABEL}" label.\n` +
+                `Justify the exception in the PR description.`
+              );
+            } else if (lines > 900) {
               core.setFailed(
                 `PR is ${lines} lines — exceeds the 900-line hard limit.\n` +
                 `Decompose this PR into smaller, reviewable units before requesting review.\n` +
+                `If the change is genuinely irreducible, a maintainer can apply the ` +
+                `"${OVERRIDE_LABEL}" label — then push a commit so this gate re-evaluates ` +
+                `(a re-run replays the pre-label event payload).\n` +
                 `See CONTRIBUTING.md §"PR Size Policy" for guidance.`
               );
             } else if (lines > 400) {
