@@ -11,8 +11,10 @@
 package zynaxevents_bdd_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -38,8 +40,17 @@ type ebSuite struct {
 	advCh      chan *nats.Msg
 	advSub     *nats.Subscription
 	advMsg     *nats.Msg
+	dlqFwd     *zynaxevents.DLQForwarder
+	dlqBefore  uint64
+	dlqMsgs    uint64
+	dlqSrcSeq  uint64
 	nc         *nats.Conn
 	js         nats.JetStreamContext
+}
+
+// dlqStreamFor returns the dead-letter stream name for the scenario's topic.
+func (s *ebSuite) dlqStreamFor() string {
+	return "DLQ_" + zynaxevents.StreamName(s.topic)
 }
 
 func startNATS(t *testing.T) (string, func()) {
@@ -330,13 +341,121 @@ func (s *ebSuite) maxDeliveriesAdvisoryEmitted() error {
 }
 
 func (s *ebSuite) dlqStreamProvisioned() error {
-	dlqName := "DLQ_" + zynaxevents.StreamName(s.topic)
+	dlqName := s.dlqStreamFor()
 	info, err := s.js.StreamInfo(dlqName)
 	if err != nil {
 		return fmt.Errorf("DLQ stream %s not provisioned: %w", dlqName, err)
 	}
 	if info.Config.Retention != nats.WorkQueuePolicy {
 		return fmt.Errorf("DLQ stream %s retention = %v, want WorkQueuePolicy", dlqName, info.Config.Retention)
+	}
+	return nil
+}
+
+// dlqForwarderRunning starts the opt-in mover for the scenario and records the
+// DLQ depth it starts from, so the assertions measure THIS rescue.
+func (s *ebSuite) dlqForwarderRunning() error {
+	if info, err := s.js.StreamInfo(s.dlqStreamFor()); err == nil {
+		s.dlqBefore = info.State.Msgs
+	}
+	fwd, err := s.bus.StartDLQForwarder(context.Background(), nil)
+	if err != nil {
+		return fmt.Errorf("start dlq forwarder: %w", err)
+	}
+	s.dlqFwd = fwd
+	return nil
+}
+
+// exhaustedEventLandsInDLQ is the end-to-end assertion #1653 exists for: the
+// message that ran out of delivery attempts is really sitting in DLQ_<src>, on
+// the stream's single reserved exact subject, with the published bytes intact.
+func (s *ebSuite) exhaustedEventLandsInDLQ() error {
+	dlqName := s.dlqStreamFor()
+	var info *nats.StreamInfo
+	var err error
+	for range 40 {
+		info, err = s.js.StreamInfo(dlqName)
+		if err == nil && info.State.Msgs > s.dlqBefore {
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	if err != nil {
+		return fmt.Errorf("dlq stream %s: %w", dlqName, err)
+	}
+	if info.State.Msgs <= s.dlqBefore {
+		return fmt.Errorf("no message reached %s within 10s (msgs=%d, was %d)",
+			dlqName, info.State.Msgs, s.dlqBefore)
+	}
+	s.dlqMsgs = info.State.Msgs
+
+	msg, err := s.js.GetMsg(dlqName, info.State.LastSeq)
+	if err != nil {
+		return fmt.Errorf("read dlq message %s:%d: %w", dlqName, info.State.LastSeq, err)
+	}
+	// The DLQ stream is provisioned with exactly one reserved subject; landing
+	// anywhere else would mean the deliver subject was derived wrongly.
+	if len(info.Config.Subjects) != 1 || msg.Subject != info.Config.Subjects[0] {
+		return fmt.Errorf("dlq message on subject %q, stream %s captures %v",
+			msg.Subject, dlqName, info.Config.Subjects)
+	}
+	if got := msg.Header.Get("ce-id"); got != s.event.ID {
+		return fmt.Errorf("dlq message ce-id = %q, want %q", got, s.event.ID)
+	}
+	if got := msg.Header.Get(zynaxevents.HeaderDLQSourceStream); got != zynaxevents.StreamName(s.topic) {
+		return fmt.Errorf("dlq message source-stream header = %q, want %q", got, zynaxevents.StreamName(s.topic))
+	}
+	seq, err := strconv.ParseUint(msg.Header.Get(zynaxevents.HeaderDLQSourceSequence), 10, 64)
+	if err != nil {
+		return fmt.Errorf("dlq message source-sequence header: %w", err)
+	}
+	s.dlqSrcSeq = seq
+
+	src, err := s.js.GetMsg(zynaxevents.StreamName(s.topic), seq)
+	if err != nil {
+		return fmt.Errorf("source message %d: %w", seq, err)
+	}
+	if !bytes.Equal(src.Data, msg.Data) {
+		return fmt.Errorf("dlq bytes drifted from the source event:\n src=%s\n dlq=%s", src.Data, msg.Data)
+	}
+	return nil
+}
+
+// sourceMessageStillPresent pins the "a failed rescue can never lose the
+// message" property: the mover copies, it never deletes.
+func (s *ebSuite) sourceMessageStillPresent() error {
+	if s.dlqSrcSeq == 0 {
+		return fmt.Errorf("no source sequence recorded")
+	}
+	if _, err := s.js.GetMsg(zynaxevents.StreamName(s.topic), s.dlqSrcSeq); err != nil {
+		return fmt.Errorf("source message %d was removed by the forwarder: %w", s.dlqSrcSeq, err)
+	}
+	return nil
+}
+
+// advisoryReplayDoesNotDuplicate replays the exact advisory the server emitted.
+// JetStream must collapse the second rescue onto the message already in the DLQ.
+func (s *ebSuite) advisoryReplayDoesNotDuplicate() error {
+	if s.advMsg == nil {
+		return fmt.Errorf("no advisory captured to replay")
+	}
+	if err := s.nc.Publish(s.advMsg.Subject, s.advMsg.Data); err != nil {
+		return fmt.Errorf("replay advisory: %w", err)
+	}
+	if err := s.nc.Flush(); err != nil {
+		return fmt.Errorf("flush advisory replay: %w", err)
+	}
+	time.Sleep(2 * time.Second)
+
+	info, err := s.js.StreamInfo(s.dlqStreamFor())
+	if err != nil {
+		return fmt.Errorf("dlq stream after replay: %w", err)
+	}
+	if info.State.Msgs != s.dlqMsgs {
+		return fmt.Errorf("advisory replay duplicated the rescue: %d -> %d", s.dlqMsgs, info.State.Msgs)
+	}
+	if got := s.dlqFwd.Stats().Deduplicated; got == 0 {
+		return fmt.Errorf("forwarder never observed a jetstream deduplication: %+v", s.dlqFwd.Stats())
 	}
 	return nil
 }
@@ -556,9 +675,13 @@ func (s *ebSuite) initScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^an event is published$`, s.anEventIsPublished)
 	sc.Step(`^the event is redelivered at least once$`, s.eventIsRedeliveredAtLeastOnce)
 	sc.Step(`^a subscriber that always fails$`, s.subscriberThatAlwaysFails)
+	sc.Step(`^the DLQ forwarder is running$`, s.dlqForwarderRunning)
 	sc.Step(`^(\d+) delivery attempts are exhausted$`, s.deliveryAttemptsExhausted)
 	sc.Step(`^a max-deliveries advisory is emitted for the consumer$`, s.maxDeliveriesAdvisoryEmitted)
 	sc.Step(`^the DLQ stream for the topic exists with WorkQueuePolicy retention$`, s.dlqStreamProvisioned)
+	sc.Step(`^the exhausted event lands on the DLQ stream with its bytes intact$`, s.exhaustedEventLandsInDLQ)
+	sc.Step(`^the source message is still present in its own stream$`, s.sourceMessageStillPresent)
+	sc.Step(`^replaying the advisory does not duplicate the message in the DLQ stream$`, s.advisoryReplayDoesNotDuplicate)
 	sc.Step(`^consumer "([^"]*)" was offline when an event was published$`, s.consumerWasOfflineWhenEventPublished)
 	sc.Step(`^consumer "([^"]*)" reconnects$`, s.consumerReconnects)
 	sc.Step(`^consumer "([^"]*)" receives the missed event$`, s.consumerReceivesMissedEvent)
@@ -616,6 +739,9 @@ func TestFeatures(t *testing.T) {
 				}
 				if s.advSub != nil {
 					_ = s.advSub.Unsubscribe()
+				}
+				if s.dlqFwd != nil {
+					s.dlqFwd.Stop()
 				}
 				return ctx, nil
 			})

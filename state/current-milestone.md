@@ -129,6 +129,20 @@ strategy, load/SLO).
     Runtime-verified: every adapter boots `SERVING` twice with the registry endpoint pointed
     at a dead port, and a live gateway rejects `kind: AgentDef` across a restart.
 
+11. ✅ DLQ forwarding delivered ([#1653](https://github.com/zynax-io/zynax/issues/1653), as of
+    2026-08-04): `libs/zynaxevents` now moves an exhausted message into `DLQ_<src>` instead of
+    only provisioning the stream. The opt-in `Client.StartDLQForwarder` consumes
+    `$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.>`, fetches the message by sequence and
+    republishes it byte-for-byte on the reserved exact `zynax.dlq.<prefix>.dead` subject; it
+    never deletes the source, and a deterministic `DLQ_<stream>:<sequence>` message id makes
+    replays, retries and a second forwarder collapse onto one DLQ message. Not started by
+    `Subscribe` — the advisory subject is server-global and the per-identity NATS policy
+    (ADR-046 Decision #4) grants no publisher advisory-subscribe or `zynax.dlq.>` publish, so
+    an implicit mover would regress every subscriber. The BDD scenario no longer stops at the
+    advisory: it asserts the message lands on `DLQ_<src>`, byte-identical to the still-present
+    source, and that replaying the advisory does not duplicate it. Verified twice on one
+    file-backed JetStream volume; the golden byte-compat fixtures are unchanged.
+
 ---
 
 ## v0.7.0 close ritual — completed 2026-07-10
