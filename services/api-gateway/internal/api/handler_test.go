@@ -420,9 +420,10 @@ const (
 	statusCompletedTest = "WORKFLOW_STATUS_COMPLETED"
 )
 
-// CRD era (ADR-039): applying kind: AgentDef answers 410 Gone with the
-// migration pointer — the push forward is retired.
-func TestHandler_Apply_AgentDef_Returns410Retired(t *testing.T) {
+// M9.A (ADR-039): the AgentDef route is gone, not merely retired — kind:
+// AgentDef is no longer in the gateway's allowlist, so it is rejected as an
+// unsupported kind like any other unknown manifest.
+func TestHandler_Apply_AgentDef_Returns400UnsupportedKind(t *testing.T) {
 	srv := newServer(&stubCompiler{}, &stubEngine{})
 	defer srv.Close()
 
@@ -432,15 +433,12 @@ func TestHandler_Apply_AgentDef_Returns410Retired(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusGone {
-		t.Errorf("status: got %d, want 410", resp.StatusCode)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status: got %d, want 400", resp.StatusCode)
 	}
 	body := decodeBody(t, resp)
-	if body["code"] != "AGENTDEF_RETIRED" {
-		t.Errorf("code: got %v, want AGENTDEF_RETIRED", body["code"])
-	}
-	if msg, _ := body["error"].(string); !strings.Contains(msg, "agent-crd-migration") {
-		t.Errorf("error message must point at the migration guide, got %q", msg)
+	if body["code"] != "UNSUPPORTED_KIND" {
+		t.Errorf("code: got %v, want UNSUPPORTED_KIND", body["code"])
 	}
 }
 

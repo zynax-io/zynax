@@ -431,9 +431,9 @@ func TestFeatures(t *testing.T) {
 				return ctx, nil // status check is sufficient
 			})
 
-			// ── AgentDef apply — retired (ADR-039) ────────────────────────────
-			// The push forward is deleted (#1697): kind: AgentDef answers 410
-			// Gone unconditionally, so no registry precondition is wired.
+			// ── AgentDef apply — route removed (ADR-039) ──────────────────────
+			// M9.A step 3 (#1598) dropped the route: kind: AgentDef is no longer
+			// allowlisted, so the apply is rejected as an unsupported kind.
 			sc.Step(`^POST /api/v1/apply is called with a valid kind: AgentDef YAML body$`,
 				func(ctx context.Context) (context.Context, error) {
 					return ctx, env.do(http.MethodPost, "/api/v1/apply", []byte(agentDefYAML), env.apiKey)

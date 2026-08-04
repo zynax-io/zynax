@@ -135,15 +135,6 @@ func (s *ApplyService) submit(ctx context.Context, manifestYAML []byte, compiled
 	return ApplyResult{RunID: runID, Warnings: compiled.Warnings, Status: "new"}, nil
 }
 
-// ApplyAgentDef is retired (ADR-039): the Agent custom resource is the single
-// source of truth for agent identity, so the gateway no longer forwards
-// AgentDef manifests as push registrations — the push client was deleted in
-// M9.A step 1 (#1697). The route answers unconditionally with a migration
-// pointer to the Agent CRD; the request body is never parsed or forwarded.
-func (s *ApplyService) ApplyAgentDef(_ context.Context, _ ApplyRequest) (ApplyResult, error) {
-	return ApplyResult{}, ErrAgentDefRetired
-}
-
 // GetWorkflowStatus returns the current status of a workflow run.
 func (s *ApplyService) GetWorkflowStatus(ctx context.Context, runID string) (WorkflowRunSummary, error) {
 	run, err := s.engine.GetWorkflowStatus(ctx, runID)

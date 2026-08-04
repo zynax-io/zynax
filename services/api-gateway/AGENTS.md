@@ -10,7 +10,7 @@
 The API Gateway is the **single external entry point** to the Zynax platform.
 It accepts HTTP requests, routes by manifest `kind`, and delegates to internal domain services.
 
-- `POST /api/v1/apply` — compile + submit a `Workflow`, or register an `AgentDef`
+- `POST /api/v1/apply` — compile + submit a `Workflow` (the only allowlisted kind)
 - `GET /api/v1/workflows/{id}` — fetch workflow run status
 - `DELETE /api/v1/workflows/{id}` — cancel a running workflow
 - `?dry_run=true` — validate without submitting; returns compile errors
@@ -29,7 +29,7 @@ services/api-gateway/
 │   │   ├── ports.go                 ← CompilerPort, EnginePort, EventBusPort interfaces
 │   │   ├── apply.go                 ← ApplyService (kind-routing, dry-run, cancel)
 │   │   ├── kindrouter.go            ← extracts kind/apiVersion from raw YAML bytes
-│   │   └── errors.go                ← ErrNotFound, ErrEngineUnavailable, ErrAgentDefRetired
+│   │   └── errors.go                ← ErrNotFound, ErrEngineUnavailable, ErrUnknownKind
 │   ├── api/
 │   │   └── handler.go               ← HTTP mux, request/response JSON, error mapping
 │   └── infrastructure/
@@ -55,10 +55,11 @@ GetWorkflowStatus(ctx, runID string) (WorkflowRunSummary, error)
 CancelWorkflow(ctx, runID string) error
 ```
 
-There is no registry port. Push registration is retired (ADR-039): `kind: AgentDef`
-applies answer 410 Gone (`ErrAgentDefRetired`) pointing at the Agent custom
-resource; the gateway never dials `AgentRegistryService` (push client deleted in
-M9.A step 1, #1697). Agent identity is the `zynax.io/v1alpha1` Agent CR.
+There is no registry port and no `AgentDef` route. Push registration is gone
+(ADR-039): the push client was deleted in M9.A step 1 (#1697) and the route
+itself in step 3 (#1598), so `kind: AgentDef` is no longer allowlisted and
+applies answer 400 `UNSUPPORTED_KIND`. Agent identity is the
+`zynax.io/v1alpha1` Agent CR, applied with `kubectl`.
 
 ---
 

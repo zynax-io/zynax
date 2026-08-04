@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package main is the entry point for the git-adapter gRPC service.
-// Config path from ADAPTER_CONFIG env var; registry endpoint from config.
+// Config path from ADAPTER_CONFIG env var. Agent identity is declared by the
+// Agent custom resource (ADR-039) — the adapter announces nothing at boot.
 package main
 
 import (
@@ -22,10 +23,8 @@ import (
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/credential"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/mcp"
 	"github.com/zynax-io/zynax/agents/adapters/git/internal/redact"
-	"github.com/zynax-io/zynax/agents/adapters/git/internal/registry"
 	zynaxv1 "github.com/zynax-io/zynax/protos/generated/go/zynax/v1"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -82,22 +81,16 @@ func run() error {
 
 		// `git-adapter mcp` runs the thin MCP stdio shim over the same handlers
 		// instead of the runtime gRPC server (ADR-032 — one implementation, two
-		// surfaces). It needs no registry and binds no port.
+		// surfaces). It binds no port.
 		if len(os.Args) > 1 && os.Args[1] == "mcp" {
 			return serveMCP(cfg, src, seedToken, os.Stdin, os.Stdout)
 		}
 	}
 
-	regClient, cleanup, err := dialRegistry(cfg.RegistryEndpoint)
-	if err != nil {
-		return err
-	}
-	defer cleanup()
-
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	return serve(ctx, cfg, src, seedToken, degraded, regClient)
+	return serve(ctx, cfg, src, seedToken, degraded)
 }
 
 // resolveCredentialSource builds the credential.Source for the configured mode.
@@ -205,15 +198,7 @@ func serveMCP(cfg *config.AdapterConfig, src credential.Source, seedToken string
 	return nil
 }
 
-func dialRegistry(endpoint string) (zynaxv1.AgentRegistryServiceClient, func(), error) {
-	conn, err := grpc.NewClient(endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, nil, fmt.Errorf("registry dial %s: %w", endpoint, err)
-	}
-	return zynaxv1.NewAgentRegistryServiceClient(conn), func() { _ = conn.Close() }, nil
-}
-
-func serve(ctx context.Context, cfg *config.AdapterConfig, src credential.Source, seedToken string, degraded bool, regClient zynaxv1.AgentRegistryServiceClient) error {
+func serve(ctx context.Context, cfg *config.AdapterConfig, src credential.Source, seedToken string, degraded bool) error {
 	lis, err := net.Listen("tcp", cfg.Endpoint)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", cfg.Endpoint, err)
@@ -226,46 +211,23 @@ func serve(ctx context.Context, cfg *config.AdapterConfig, src credential.Source
 	healthSrv := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcSrv, healthSrv)
 
-	// Degraded mode (issue #1375): no credential resolved, so the adapter does not
-	// register its capabilities and reports NOT_SERVING. The gRPC + health servers
-	// still run so the process stays alive and observable instead of crash-looping.
+	// Degraded mode (issue #1375): no credential resolved, so the adapter serves
+	// no AgentService and reports NOT_SERVING. The gRPC + health servers still run
+	// so the process stays alive and observable instead of crash-looping.
 	if degraded {
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-		slog.Warn("git-adapter serving DEGRADED (capabilities not registered)", "endpoint", cfg.Endpoint) //nolint:gosec
-		return runDegraded(ctx, grpcSrv, lis)
+		slog.Warn("git-adapter serving DEGRADED (capabilities unavailable)", "endpoint", cfg.Endpoint) //nolint:gosec
+		return runServer(ctx, grpcSrv, lis)
 	}
 
-	def := registry.BuildAgentDef(cfg)
-	if err := registry.RegisterAgent(ctx, regClient, def); err != nil {
-		return fmt.Errorf("register: %w", err)
-	}
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	slog.Info("git-adapter serving", "endpoint", cfg.Endpoint) //nolint:gosec
-
-	serveErr := make(chan error, 1)
-	go func() { serveErr <- grpcSrv.Serve(lis) }()
-
-	select {
-	case <-ctx.Done():
-		slog.Info("shutdown signal received")
-	case err := <-serveErr:
-		return fmt.Errorf("grpc serve: %w", err)
-	}
-
-	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-	deregCtx := context.Background()
-	if err := registry.DeregisterAgent(deregCtx, regClient, cfg.AgentID); err != nil { //nolint:contextcheck // signal ctx already cancelled; fresh ctx for cleanup is intentional
-		slog.Warn("deregister failed", "err", err)
-	}
-	grpcSrv.GracefulStop()
-	slog.Info("git-adapter stopped")
-	return nil
+	return runServer(ctx, grpcSrv, lis)
 }
 
-// runDegraded serves gRPC until the context is cancelled or the server errors.
-// The degraded path (issue #1375) registers no AgentService and no registry
-// entry, so it just keeps the process alive and drains on shutdown.
-func runDegraded(ctx context.Context, grpcSrv *grpc.Server, lis net.Listener) error {
+// runServer serves gRPC until the context is cancelled or the server errors,
+// then drains gracefully.
+func runServer(ctx context.Context, grpcSrv *grpc.Server, lis net.Listener) error {
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- grpcSrv.Serve(lis) }()
 

@@ -20,14 +20,13 @@ func TestDetectKind_Workflow(t *testing.T) {
 	}
 }
 
-func TestDetectKind_AgentDef(t *testing.T) {
+// TestDetectKind_AgentDefRemoved pins the M9.A contract (ADR-039): kind:
+// AgentDef left the allowlist with the push path, so it is now an unknown kind.
+func TestDetectKind_AgentDefRemoved(t *testing.T) {
 	yaml := []byte("kind: AgentDef\napiVersion: zynax.io/v1alpha1\n")
-	got, err := domain.DetectKind(yaml)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != domain.KindAgentDef {
-		t.Errorf("got %q, want %q", got, domain.KindAgentDef)
+	_, err := domain.DetectKind(yaml)
+	if !errors.Is(err, domain.ErrUnknownKind) {
+		t.Errorf("got %v, want ErrUnknownKind", err)
 	}
 }
 

@@ -12,9 +12,10 @@ import (
 type Kind string
 
 // Allowlisted manifest kinds. Unknown values are rejected at the gateway.
+// kind: AgentDef was removed in M9.A (ADR-039): agent identity is declared by
+// the zynax.io/v1alpha1 Agent custom resource, applied with kubectl.
 const (
 	KindWorkflow Kind = "Workflow"
-	KindAgentDef Kind = "AgentDef"
 )
 
 // DetectKind reads only the top-level kind: field from manifestYAML.
@@ -30,8 +31,6 @@ func DetectKind(manifestYAML []byte) (Kind, error) {
 	switch Kind(envelope.Kind) {
 	case KindWorkflow:
 		return KindWorkflow, nil
-	case KindAgentDef:
-		return KindAgentDef, nil
 	default:
 		return "", fmt.Errorf("api-gateway: kind %q: %w", envelope.Kind, ErrUnknownKind)
 	}

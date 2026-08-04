@@ -209,19 +209,6 @@ func TestApplyService_GetWorkflowStatus_NotFound(t *testing.T) {
 	}
 }
 
-// CRD era (ADR-039): the AgentDef push forward is retired — every apply of
-// kind: AgentDef answers with the migration pointer. The push client has been
-// deleted (#1697), so the gateway holds no registry port at all.
-func TestApplyService_ApplyAgentDef_Retired(t *testing.T) {
-	svc := domain.NewApplyService(&stubCompiler{}, &stubEngine{}, nil)
-	_, err := svc.ApplyAgentDef(context.Background(), domain.ApplyRequest{
-		ManifestYAML: []byte("kind: AgentDef\n"),
-	})
-	if !errors.Is(err, domain.ErrAgentDefRetired) {
-		t.Fatalf("expected ErrAgentDefRetired, got %v", err)
-	}
-}
-
 func TestApplyService_WatchWorkflowLogs_DeliversEvents(t *testing.T) {
 	events := []domain.WatchEvent{
 		{RunID: "r1", EventType: "state.entered", ToState: "review", Status: "WORKFLOW_STATUS_RUNNING"},
