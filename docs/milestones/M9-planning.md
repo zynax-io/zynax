@@ -71,8 +71,8 @@ that ships the deprecation must exist before the removal lands).
 
 | Step | Story | What |
 |------|-------|------|
-| 1 | [#1700](https://github.com/zynax-io/zynax/issues/1700) | chart + umbrella block + cert entry + `CN=zynax-event-bus` NATS identity + 50054 egress removed |
-| 2 | [#1701](https://github.com/zynax-io/zynax/issues/1701) | `services/event-bus/` + release/build wiring deleted; zynaxevents goldens unchanged |
+| 1 ✅ | [#1700](https://github.com/zynax-io/zynax/issues/1700) | chart + umbrella block + cert entry + `CN=zynax-event-bus` NATS identity + 50054 egress removed |
+| 2 ✅ | [#1701](https://github.com/zynax-io/zynax/issues/1701) | `services/event-bus/` + release/build wiring deleted; zynaxevents goldens unchanged; protos/tests `EventBusService` BDD suite retired with a pointer to the `libs/zynaxevents` suites |
 | 3 | [#1702](https://github.com/zynax-io/zynax/issues/1702) | `event_bus.proto` + stubs removed (zero-importer grep gate) |
 | 4 | [#1703](https://github.com/zynax-io/zynax/issues/1703) | AsyncAPI deprecated access path dropped; eventing docs truth pass; epic closes |
 

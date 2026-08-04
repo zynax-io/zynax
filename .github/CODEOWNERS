@@ -22,7 +22,6 @@
 /services/agent-registry/       @zynax-io/maintainers
 /services/task-broker/          @zynax-io/maintainers
 /services/memory-service/       @zynax-io/maintainers
-/services/event-bus/            @zynax-io/maintainers
 /services/api-gateway/          @zynax-io/maintainers
 /services/workflow-compiler/    @zynax-io/maintainers
 /services/engine-adapter/       @zynax-io/maintainers

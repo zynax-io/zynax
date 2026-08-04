@@ -73,7 +73,7 @@ func TestDoctor_AllOK(t *testing.T) {
 	for _, want := range []string{
 		"✓ Cluster", "✓ Helm release",
 		"✓ Pods: API gateway", "✓ Pods: Agent registry", "✓ Pods: Runtime (engine-adapter)",
-		"✓ Pods: Event bus", "✓ Pods: Storage (Postgres)",
+		"✓ Pods: Storage (Postgres)",
 		"✓ API gateway", "✓ Model (" + defaultModel + ")",
 	} {
 		if !strings.Contains(out, want) {

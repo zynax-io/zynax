@@ -36,12 +36,14 @@ type doctorComponent struct {
 
 // doctorComponents are the platform workloads doctor asserts are Ready. Names
 // match scripts/e2e/cluster-up.sh (namespace zynax, release zynax) exactly:
-// the 5 Gherkin lines API/Registry/Runtime/Event Bus/Storage.
+// the 4 Gherkin lines API/Registry/Runtime/Storage. The Event bus line was
+// dropped with the EventBusService facade Deployment (ADR-046, #1700/#1701):
+// eventing rides libs/zynaxevents straight to NATS JetStream, so there is no
+// zynax-event-bus workload left to roll out — asserting it always failed.
 var doctorComponents = []doctorComponent{
 	{"API gateway", "deployment/zynax-api-gateway", "kubectl -n " + doctorNamespace + " rollout status deployment/zynax-api-gateway"},
 	{"Agent registry", "deployment/zynax-agent-registry", "kubectl -n " + doctorNamespace + " rollout status deployment/zynax-agent-registry"},
 	{"Runtime (engine-adapter)", "deployment/zynax-engine-adapter", "kubectl -n " + doctorNamespace + " rollout status deployment/zynax-engine-adapter"},
-	{"Event bus", "deployment/zynax-event-bus", "kubectl -n " + doctorNamespace + " rollout status deployment/zynax-event-bus"},
 	{"Storage (Postgres)", "statefulset/zynax-postgresql", "kubectl -n " + doctorNamespace + " rollout status statefulset/zynax-postgresql"},
 }
 

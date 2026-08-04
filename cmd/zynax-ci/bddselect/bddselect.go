@@ -21,12 +21,14 @@ const All = "ALL"
 
 // pkgMap maps a changed protos/zynax/v1/*.proto basename to its BDD package
 // (parity with the PKG_MAP associative array in bdd-select-packages.sh).
+// No `event_bus.proto` entry: the EventBusService facade and its contract suite
+// were removed in M9.B (ADR-046, #1701), so there is no package to select — the
+// eventing contract is guarded by libs/zynaxevents instead.
 var pkgMap = map[string]string{
 	"agent.proto":             "agent_service",
 	"agent_registry.proto":    "agent_registry_service",
 	"cloudevents.proto":       "cloudevents_envelope",
 	"engine_adapter.proto":    "engine_adapter_service",
-	"event_bus.proto":         "event_bus_service",
 	"memory.proto":            "memory_service",
 	"task_broker.proto":       "task_broker_service",
 	"workflow_compiler.proto": "workflow_compiler_service",

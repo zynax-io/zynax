@@ -670,9 +670,10 @@ jobs:
 # repository — and the only integration suite it had — was deleted.
 # INTEGRATION_SUITES is an explicit allowlist, NOT env SERVICE_LIST:
 # SERVICE_LIST omits the services with integration suites, and a blind glob
-# would also pull in event-bus + memory-service, whose integration suites have
-# pre-existing deterministic failures (event-bus godog step arity + DLQ
-# timeout; memory-service DeleteNamespace cascade) tracked as a follow-up.
+# would also pull in memory-service, whose integration suite has a pre-existing
+# deterministic failure (DeleteNamespace cascade) tracked as a follow-up.
+# event-bus left the picture entirely in M9 (#1701): ADR-046 deleted the facade
+# tree, so its godog step-arity + DLQ-timeout failures are moot.
 # A self-check below FAILS if any allowlisted suite loses its build-tagged files,
 # so the gate can never silently shrink to a no-op. Expand the allowlist as each
 # additional suite is fixed and proven green.
@@ -898,7 +899,6 @@ jobs:
           - { service: workflow-compiler }
           - { service: task-broker }
           - { service: agent-registry }
-          - { service: event-bus }
           - { service: memory-service }
           # Adapters — per-adapter Dockerfiles (same model — spec Q3C locked)
           - { service: http-adapter,      dockerfile: agents/adapters/http/Dockerfile }

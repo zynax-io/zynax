@@ -4,8 +4,9 @@ package zynaxevents
 
 // Golden byte-compat gate (M8.H, ADR-046). The fixtures under testdata/golden/
 // pin the wire shape and naming conventions the retired event-bus facade
-// produces — this library must reproduce them EXACTLY. The facade asserts the
-// same fixtures (services/event-bus golden_compat_test.go) until M9 removes it.
+// produced — this library must reproduce them EXACTLY. The facade asserted the
+// same fixtures until M9.B deleted it (#1701); these are now the sole assertion
+// of record for the conventions, so never weaken them.
 
 import (
 	"encoding/base64"

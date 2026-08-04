@@ -17,7 +17,6 @@ use (
 	./services/agent-registry
 	./services/api-gateway
 	./services/engine-adapter
-	./services/event-bus
 	./services/memory-service
 	./services/task-broker
 	./services/workflow-compiler

@@ -152,11 +152,6 @@ images:
     digest: sha256:252a60cea650516a38552911ac2aaa454bc381ce7e3d5a14cf9f2ddad23e3ba1
     consumers: []
 
-  - name: event-bus
-    ref: ghcr.io/zynax-io/zynax/event-bus
-    digest: sha256:b52fc61957bc10104c7328c55e7c2bd91fe3887cf449ffebb0a5c24b4b0a35aa
-    consumers: []
-
   - name: memory-service
     ref: ghcr.io/zynax-io/zynax/memory-service
     digest: sha256:54ee717c93539df0670bec5fb4539e59dd0733e9b20759c10e211fc3e450408d

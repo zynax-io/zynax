@@ -40,7 +40,7 @@ dual-engine e2e into a named conformance suite.
 | EPIC | Issue | Canvas | Stories (in delivery order) |
 |------|-------|--------|------------------------------|
 | M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Aligned (#1734) | #1697 ✅ → #1698 ✅ (stateless scheduler: repos + DB gone, resync verified live) → #1598 → #1699 |
-| M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) | `docs/spdd/1675-event-bus-facade-removal/` — Aligned (#1734) | #1700 → #1701 → #1702 → #1703 (v0.7.0 gate now satisfied) |
+| M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) | `docs/spdd/1675-event-bus-facade-removal/` — Aligned (#1734) | #1700 ✅ → #1701 ✅ (facade tree + build/release wiring deleted) → #1702 → #1703 |
 | M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → (steps 2–4 filed via `/lib:spdd-story`) |
 | M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
 
@@ -87,6 +87,15 @@ strategy, load/SLO).
    domain package), so splitting was the honest fix rather than a labelled exception.
    Rule of thumb for the remaining removals (#1598 proto, #1675/B `services/event-bus/`):
    split when the layers are compile-independent; label when they genuinely are not.
+
+7. ✅ M9.B steps 1–2 delivered (as of 2026-08-04): the `zynax-event-bus` chart, umbrella
+   block, cert identity and 50054 egress are gone ([#1700](https://github.com/zynax-io/zynax/issues/1700),
+   PR #1741), and `services/event-bus/` plus its build/release wiring (`go.work`,
+   `images/images.yaml`, release + build-images + cleanup matrices, `.dockerignore`,
+   CODEOWNERS) are deleted ([#1701](https://github.com/zynax-io/zynax/issues/1701)). The
+   `EventBusService` protos/tests BDD suite is retired with a pointer to the
+   `libs/zynaxevents` suites, which stay the conventions' contract of record. Remaining:
+   #1702 (proto + stubs), #1703 (AsyncAPI + docs truth pass, epic close).
 
 ---
 

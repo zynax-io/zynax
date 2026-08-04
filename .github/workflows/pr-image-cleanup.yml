@@ -67,7 +67,6 @@ jobs:
           - workflow-compiler
           - task-broker
           - agent-registry
-          - event-bus
           - memory-service
           - http-adapter
           - llm-adapter
