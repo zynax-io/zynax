@@ -494,7 +494,7 @@ validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI 
 	# asyncapi-latest-version: suppressed — spec stays at 2.6.0; upgrading to 3.x
 	# requires a breaking structural rewrite. Revisit when 3.x tooling matures.
 	docker run --rm \
-		-v "$(PWD)/spec":/spec \
+		-v "$(CURDIR)/spec":/spec \
 		asyncapi/cli:6.0.0 \
 		validate /spec/asyncapi/zynax-events.yaml \
 		--suppressWarnings asyncapi-latest-version
