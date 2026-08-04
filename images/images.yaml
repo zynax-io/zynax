@@ -16,7 +16,7 @@ images:
 
   - name: ci-runner
     ref: ghcr.io/zynax-io/zynax/ci-runner
-    digest: sha256:27d2443c5e30355a88099f31a213597a3246938ae2928b213c2c3a2cffb9a43e
+    digest: sha256:21fea33e1aff25dcfab19c238f9c64ad7c3f62a7bd466742b6bd7c9448fe2185
     consumers:
       - .github/workflows/ai-context-budget.yml
       - .github/workflows/ci.yml
