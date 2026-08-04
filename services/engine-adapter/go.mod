@@ -4,7 +4,7 @@ module github.com/zynax-io/zynax/services/engine-adapter
 go 1.26.4
 
 require (
-	github.com/google/cel-go v0.28.1
+	github.com/google/cel-go v0.29.2
 	github.com/google/uuid v1.6.0
 	github.com/nats-io/nats.go v1.52.0
 	github.com/zynax-io/zynax/libs/zynaxevents v0.0.0-00010101000000-000000000000
