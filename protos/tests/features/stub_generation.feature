@@ -146,7 +146,6 @@ Feature: Proto stub generation pipeline
     And it contains "workflow_compiler.pb.go" and "workflow_compiler_grpc.pb.go"
     And it contains "engine_adapter.pb.go" and "engine_adapter_grpc.pb.go"
     And it contains "memory.pb.go" and "memory_grpc.pb.go"
-    And it contains "event_bus.pb.go" and "event_bus_grpc.pb.go"
     And it contains "cloudevents.pb.go"
 
   Scenario: Python stubs are committed for every proto service
@@ -157,8 +156,24 @@ Feature: Proto stub generation pipeline
     And it contains "workflow_compiler_pb2.py" and "workflow_compiler_pb2_grpc.py"
     And it contains "engine_adapter_pb2.py" and "engine_adapter_pb2_grpc.py"
     And it contains "memory_pb2.py" and "memory_pb2_grpc.py"
-    And it contains "event_bus_pb2.py" and "event_bus_pb2_grpc.py"
     And it contains "cloudevents_pb2.py" and "cloudevents_pb2_grpc.py"
+
+  # ─── Removed contract: EventBusService (ADR-046 §6, #1702) ────────────────
+  # The gRPC facade was hard-removed on the M9 milestone boundary — eventing is
+  # AsyncAPI + libs/zynaxevents, not gRPC. These scenarios keep a regenerated
+  # stub from silently reappearing.
+
+  Scenario: the removed event_bus contract has no proto file
+    Given the repository contains protos/zynax/v1/
+    Then it does not contain "event_bus.proto"
+
+  Scenario: the removed event_bus contract has no Go stubs
+    Given the repository contains protos/generated/go/zynax/v1/
+    Then it does not contain "event_bus.pb.go" or "event_bus_grpc.pb.go"
+
+  Scenario: the removed event_bus contract has no Python stubs
+    Given the repository contains protos/generated/python/zynax/v1/
+    Then it does not contain "event_bus_pb2.py" or "event_bus_pb2_grpc.py"
 
   Scenario: Generated stubs are not excluded by .gitignore
     Given the file ".gitignore" at the repository root

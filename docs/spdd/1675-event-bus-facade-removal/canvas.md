@@ -104,9 +104,11 @@ deploy removal        code removal              contract removal       spec/docs
    release matrix lane, images SoT entry (`make sync-images`), `go.work` line cleaned;
    event-bus BDD suites retired with pointer to `libs/zynaxevents` suites; goldens pass
    unchanged; repo grep: no `services/event-bus` references outside history/docs-archive.
-3. **Contract removed** (#1702, `chore:`) — `event_bus.proto` + regenerated stubs deleted;
-   documented-intentional `buf breaking` exception scoped to this file; zero-importer grep
-   gate; release-notes line naming `libs/zynaxevents` + AsyncAPI as the replacement.
+3. ✅ **Contract removed** (#1702, `chore:`) — `event_bus.proto` + regenerated stubs deleted;
+   documented-intentional `buf breaking` exception in `protos/buf.yaml` scoped to this file
+   (ADR-048 §Decision 4), proven scoped by a control run; zero-importer grep gate; CHANGELOG
+   entry naming `libs/zynaxevents` + AsyncAPI as the replacement; `stub_generation.feature`
+   now asserts the artefacts stay absent.
 4. **Spec + docs truth pass** (#1703, `docs:`) — AsyncAPI deprecated-access-path block
    removed (channels intact, `make validate-spec` green); eventing-doc sweep (historical
    mentions only remain; #1653 pointers preserved); status surfaces in the same diff; epic
