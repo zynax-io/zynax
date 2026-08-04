@@ -26,14 +26,12 @@ protos/tests/
 ├── testserver/server.go            ← shared bufconn helper (used by all packages)
 ├── features/                       ← Gherkin feature files (one per service)
 │   ├── agent_service.feature
-│   ├── agent_registry_service.feature
 │   ├── cloudevents_envelope.feature
 │   ├── engine_adapter_service.feature
 │   ├── memory_service.feature
 │   ├── task_broker_service.feature
 │   └── workflow_compiler_service.feature
 ├── agent_service/steps_test.go
-├── agent_registry_service/steps_test.go
 ├── cloudevents_envelope/steps_test.go
 ├── engine_adapter_service/
 │   ├── lifecycle_steps_test.go     ← two-file split
@@ -63,7 +61,7 @@ cd protos/tests
 GOWORK=off go test ./... -v -timeout 120s
 
 # One service package
-GOWORK=off go test ./agent_registry_service/... -v -timeout 60s
+GOWORK=off go test ./scheduler_service/... -v -timeout 60s
 
 # With race detector
 GOWORK=off go test -race ./... -timeout 120s

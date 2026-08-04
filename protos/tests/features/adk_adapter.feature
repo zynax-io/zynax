@@ -15,13 +15,13 @@ Feature: adk-adapter — Google ADK (Go) capability adapter
     Given an adk-adapter configured with model provider "ollama"
     And the adapter declares a capability "triage" with an instruction and JSON schemas
 
-  # ─── Lifecycle: register + health (S2 skeleton, #1478) ───────────────────
+  # ─── Lifecycle: health (S2 skeleton, #1478) ──────────────────────────────
 
-  Scenario: Adapter registers its capabilities and reports SERVING on startup
+  Scenario: Adapter serves its capabilities and reports SERVING on startup
     When the adapter starts
-    Then it registers an AgentDef with AgentRegistryService
+    Then it serves AgentService for the capabilities in its config
     And the gRPC health status is SERVING
-    And on graceful shutdown it deregisters and reports NOT_SERVING
+    And on graceful shutdown it reports NOT_SERVING and drains
 
   # ─── GetCapabilitySchema (S2 skeleton, #1478) ────────────────────────────
 

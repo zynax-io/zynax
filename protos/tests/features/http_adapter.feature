@@ -22,7 +22,7 @@ Feature: http-adapter — config-driven REST capability proxy
     Given an http-adapter configured with the following route:
       | capability_name | method | url                           |
       | call_api        | POST   | http://upstream-test/v1/data  |
-    And the adapter is registered with AgentRegistryService
+    And the adapter is declared by a zynax.io/v1alpha1 Agent custom resource
 
   # ─── Happy path ─────────────────────────────────────────────────────────────
 
@@ -154,17 +154,19 @@ Feature: http-adapter — config-driven REST capability proxy
     And the CapabilityError code is "UPSTREAM_ERROR"
     And the CapabilityError message indicates the response was too large
 
-  # ─── Registration lifecycle ──────────────────────────────────────────────────
+  # ─── Serving lifecycle ───────────────────────────────────────────────────────
+  # Push registration was removed in M9.A (ADR-039, #1598): the adapter announces
+  # nothing at boot — its identity is the zynax.io/v1alpha1 Agent custom resource.
 
-  Scenario: Adapter registers with AgentRegistryService on startup
+  Scenario: Adapter serves its declared capabilities on startup
     Given the http-adapter starts with a valid AdapterConfig
     When the adapter initialises
-    Then AgentRegistryService.RegisterAgent is called with the configured agent_id
-    And the registered AgentDef contains all capabilities declared in the config
-    And the registered endpoint matches the adapter's configured bind address
+    Then AgentService is served on the adapter's configured bind address
+    And every capability declared in the config is routable
+    And the gRPC health status is SERVING
 
-  Scenario: Adapter deregisters from AgentRegistryService on graceful shutdown
-    Given the http-adapter is running and registered
+  Scenario: Adapter drains on graceful shutdown
+    Given the http-adapter is running
     When a SIGTERM signal is received
-    Then AgentRegistryService.DeregisterAgent is called with the configured agent_id
+    Then the gRPC health status is NOT_SERVING
     And the gRPC server performs a graceful stop

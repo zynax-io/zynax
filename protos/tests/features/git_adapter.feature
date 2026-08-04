@@ -20,7 +20,7 @@ Feature: git-adapter — source-code hosting capability adapter
 
   Background:
     Given a git-adapter configured for provider "github-stub"
-    And the adapter is registered with AgentRegistryService
+    And the adapter is declared by a zynax.io/v1alpha1 Agent custom resource
 
   # ─── open_pr ────────────────────────────────────────────────────────────────
 

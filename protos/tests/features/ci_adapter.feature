@@ -20,7 +20,7 @@ Feature: ci-adapter — CI pipeline trigger capability adapter
 
   Background:
     Given a ci-adapter configured for provider "github-actions-stub"
-    And the adapter is registered with AgentRegistryService
+    And the adapter is declared by a zynax.io/v1alpha1 Agent custom resource
 
   # ─── trigger_workflow ────────────────────────────────────────────────────────
 

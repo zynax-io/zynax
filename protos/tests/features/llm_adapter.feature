@@ -20,7 +20,7 @@ Feature: llm-adapter — LLM provider capability adapter
 
   Background:
     Given an llm-adapter configured for provider "openai-stub"
-    And the adapter is registered with AgentRegistryService
+    And the adapter is declared by a zynax.io/v1alpha1 Agent custom resource
 
   # ─── chat_completion — provider parity ──────────────────────────────────────
 
