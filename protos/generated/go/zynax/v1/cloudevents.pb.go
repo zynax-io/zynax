@@ -4,8 +4,9 @@
 //
 // All async events in Zynax use this envelope so that external consumers
 // (monitoring, audit, third-party tooling) can process events without
-// Zynax-specific clients. Every event published to the EventBusService
-// is wrapped in a CloudEvent.
+// Zynax-specific clients. Every event published to NATS JetStream through
+// libs/zynaxevents is wrapped in a CloudEvent (ADR-046; the EventBusService
+// gRPC facade that previously owned the publish path was removed in M9).
 //
 // Design rationale: ADR-001 (gRPC inter-service protocol). The CloudEvent
 // message follows the CloudEvents v1.0 specification attribute names and
@@ -47,7 +48,7 @@ const (
 
 // CloudEvent is a CNCF CloudEvents v1.0 compatible event envelope.
 // All Zynax async events are wrapped in this message before publication
-// to the EventBusService.
+// to NATS JetStream via libs/zynaxevents.
 type CloudEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Unique identifier for this event. Required; MUST be non-empty.

@@ -22,3 +22,16 @@ lint:
 breaking:
   use:
     - FILE  # Detect breaking changes at the file boundary between versions
+  # Documented intentional-removal exception (ADR-048 §Decision 4: an intentional
+  # break is mergeable only with a governing ADR removal clause plus a documented,
+  # file-scoped exception in the same PR).
+  #
+  # zynax/v1/event_bus.proto — the EventBusService gRPC facade. Deprecated in
+  # v0.7.0 (option deprecated = true, ADR-046 Decision 6), zero callers after
+  # #1700/#1701, removed on the M9 milestone boundary (#1702). Replacement:
+  # libs/zynaxevents over NATS JetStream, contract of record
+  # spec/asyncapi/zynax-events.yaml. The entry is scoped to this one file: every
+  # other proto stays under the full FILE ruleset. Delete this block once the
+  # against-branch no longer carries event_bus.proto (i.e. after the v0.8.0 tag).
+  ignore:
+    - zynax/v1/event_bus.proto

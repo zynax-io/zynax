@@ -14,6 +14,17 @@ Versioning follows [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Removed
+- **BREAKING — `EventBusService` gRPC contract (`protos/zynax/v1/event_bus.proto`) and its
+  generated Go/Python stubs are deleted.** Deprecated in v0.7.0 (`option deprecated = true`,
+  ADR-046 Decision 6), removed on the M9 milestone boundary per the ADR-048 removal policy.
+  **Replacement:** publish/subscribe over NATS JetStream through the shared
+  [`libs/zynaxevents`](libs/zynaxevents) client; the contract of record is
+  [`spec/asyncapi/zynax-events.yaml`](spec/asyncapi/zynax-events.yaml). No in-repo caller
+  referenced the stubs — the facade Deployment and source tree were retired first
+  (#1700, #1701). The `buf breaking` gate carries a documented exception scoped to this one
+  file in `protos/buf.yaml`. (#1702)
+
 ### Supply chain
 - **SDK provenance:** PyPI Trusted Publisher (OIDC) configuration for `zynax-sdk` is recorded in
   [M7-planning §14 — PyPI Trusted Publisher History](docs/milestones/M7-planning.md#14--pypi-trusted-publisher-history).

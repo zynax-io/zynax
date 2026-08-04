@@ -7,6 +7,7 @@ package stub_generation_test
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -457,36 +458,62 @@ func (s *stubSuite) theRepositoryContainsPyStubsDir() error {
 	return s.theRepositoryContains("protos/generated/python/zynax/v1/")
 }
 
-// itContainsPair verifies two stub files exist. It auto-selects the correct
-// generated directory based on file extension (.py → python, else go).
-func (s *stubSuite) itContainsPair(a, b string) error {
-	var dir string
-	if strings.HasSuffix(a, ".py") {
-		dir = filepath.Join(s.root, "protos", "generated", "python", "zynax", "v1")
-	} else {
-		dir = filepath.Join(s.root, "protos", "generated", "go", "zynax", "v1")
+func (s *stubSuite) theRepositoryContainsProtoDir() error {
+	return s.theRepositoryContains("protos/zynax/v1/")
+}
+
+// artifactDir resolves the directory holding a proto artefact from its file
+// extension: .proto → the contract dir, .py → Python stubs, else Go stubs.
+func (s *stubSuite) artifactDir(name string) string {
+	switch {
+	case strings.HasSuffix(name, ".proto"):
+		return filepath.Join(s.root, "protos", "zynax", "v1")
+	case strings.HasSuffix(name, ".py"):
+		return filepath.Join(s.root, "protos", "generated", "python", "zynax", "v1")
+	default:
+		return filepath.Join(s.root, "protos", "generated", "go", "zynax", "v1")
 	}
+}
+
+// itContainsPair verifies two stub files exist.
+func (s *stubSuite) itContainsPair(a, b string) error {
 	for _, name := range []string{a, b} {
-		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
-			return fmt.Errorf("expected stub %q: %w", name, err)
+		if err := s.itContainsSingle(name); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-// itContainsSingle verifies a single stub file exists, detecting directory
-// from the file extension.
+// itContainsSingle verifies a single stub file exists.
 func (s *stubSuite) itContainsSingle(name string) error {
-	var dir string
-	if strings.HasSuffix(name, ".py") {
-		dir = filepath.Join(s.root, "protos", "generated", "python", "zynax", "v1")
-	} else {
-		dir = filepath.Join(s.root, "protos", "generated", "go", "zynax", "v1")
-	}
-	if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
+	if _, err := os.Stat(filepath.Join(s.artifactDir(name), name)); err != nil {
 		return fmt.Errorf("expected stub %q: %w", name, err)
 	}
 	return nil
+}
+
+// itDoesNotContainPair guards a hard-removed contract (ADR-046 §6, #1702):
+// neither artefact may reappear on the next `make generate-protos`.
+func (s *stubSuite) itDoesNotContainPair(a, b string) error {
+	for _, name := range []string{a, b} {
+		if err := s.itDoesNotContainSingle(name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *stubSuite) itDoesNotContainSingle(name string) error {
+	_, err := os.Stat(filepath.Join(s.artifactDir(name), name))
+	switch {
+	case err == nil:
+		return fmt.Errorf("removed artefact %q is present again", name)
+	case errors.Is(err, os.ErrNotExist):
+		return nil
+	default:
+		return fmt.Errorf("stat %q: %w", name, err)
+	}
 }
 
 func (s *stubSuite) theGitignoreFileAtRepoRoot() error {
@@ -618,6 +645,9 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the repository contains protos/generated/python/zynax/v1/$`, s.theRepositoryContainsPyStubsDir)
 	ctx.Step(`^it contains "([^"]*)" and "([^"]*)"$`, s.itContainsPair)
 	ctx.Step(`^it contains "([^"]*)"$`, s.itContainsSingle)
+	ctx.Step(`^the repository contains protos/zynax/v1/$`, s.theRepositoryContainsProtoDir)
+	ctx.Step(`^it does not contain "([^"]*)" or "([^"]*)"$`, s.itDoesNotContainPair)
+	ctx.Step(`^it does not contain "([^"]*)"$`, s.itDoesNotContainSingle)
 
 	// .gitignore
 	ctx.Step(`^the file "\.gitignore" at the repository root$`, s.theGitignoreFileAtRepoRoot)
