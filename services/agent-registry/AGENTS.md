@@ -1,14 +1,15 @@
 # services/agent-registry — AGENTS.md
 
 > Go toolchain pinned in the workspace [`go.work`](../../go.work). Inherits rules from root `AGENTS.md` and `services/AGENTS.md`.
-> **Status: M8 — CRD-native Scheduler (ADR-039, EPIC #1571).** The `Agent`
+> **Status: M9 — CRD-native Scheduler (ADR-039, EPICs #1571 + #1674).** The `Agent`
 > custom resource (zynax.io/v1alpha1) is the single source of truth; this
 > service is the STATELESS scheduler over it: informer-fed capability index,
 > `SchedulerService.SelectAgent` (readiness- and metrics-aware, structured
 > rationale), and a Lease-elected readiness reconciler deriving Agent status
-> from EndpointSlices. Push-era `AgentRegistryService` RPCs answer
-> UNIMPLEMENTED (migration: docs/patterns/agent-crd-migration.md); hard
-> removal lands in M9. No database.
+> from EndpointSlices. The push-era `AgentRegistryService` surface, its
+> repository adapters, and the database wiring were **removed** in M9 (#1698,
+> ADR-039 removal clause) — a surviving push client gets UNIMPLEMENTED from
+> gRPC itself (migration: docs/patterns/agent-crd-migration.md). No database.
 
 ---
 
@@ -19,12 +20,13 @@ the `Agent` custom resource is the source of truth for identity and
 capabilities; this service watches it and answers "which ONE agent should
 take this capability now?"
 
-- Registers agents with their capabilities, endpoint, and metadata on startup.
-- Discovers agents by capability name for task-broker dispatch routing.
-- Deregisters agents gracefully; deregistered records are retained for audit.
-- All state is in-memory (single replica, no persistence — M6+ adds Postgres).
+- Watches `Agent` CRs in its namespace and maintains the capability index.
+- Answers `SchedulerService.SelectAgent` with exactly one agent + a structured
+  rationale (readiness-filtered; metrics-weighted when `PROM_URL` is set).
+- Reconciles `Agent` readiness from EndpointSlices under a Lease election.
 
-Does NOT: assign tasks · store agent memory · authenticate external callers · publish events (M6+).
+Does NOT: register agents (apply an `Agent` CR instead) · persist anything ·
+assign tasks · store agent memory · authenticate external callers.
 
 ---
 
@@ -33,24 +35,25 @@ Does NOT: assign tasks · store agent memory · authenticate external callers ·
 ```
 services/agent-registry/
 ├── cmd/agent-registry/
-│   └── main.go             ← composition root (envconfig, gRPC server, graceful shutdown)
+│   └── main.go                  ← composition root (envconfig, informer, gRPC server, graceful shutdown)
 ├── internal/
 │   ├── api/
-│   │   └── handler.go      ← 5 RPCs: RegisterAgent, DeregisterAgent, GetAgent, ListAgents, FindByCapability
+│   │   └── scheduler_handler.go ← SchedulerService.SelectAgent over the index + scorer
 │   ├── domain/
-│   │   ├── model.go        ← Agent, Capability, AgentStatus, ListFilter, ListResult
-│   │   ├── service.go      ← AgentRegistryService (Register, Deregister, GetByID, FindByCapability, List)
-│   │   ├── repository.go   ← AgentRepository interface (port)
-│   │   └── errors.go       ← ErrAgentNotFound, ErrAgentAlreadyExists, ErrInvalidArgument
+│   │   └── scheduler/
+│   │       ├── index.go         ← informer-fed capability index (capability → candidates)
+│   │       └── scorer.go        ← filter → readiness → score pipeline + rationale
 │   └── infrastructure/
-│       └── memory_repo.go  ← in-memory AgentRepository (map + sync.RWMutex + capability secondary index)
-├── tests/
-│   └── features/
-│       └── agent_registry.feature  ← BDD spec (trimmed to proto scope in #526)
-├── go.mod                  ← module github.com/zynax-io/zynax/services/agent-registry
-├── go.sum
-└── Dockerfile              ← multi-stage: golang:1.26.3-alpine builder → alpine:3.20 runtime
+│       ├── crd/                 ← controller-runtime manager: Agent informer + readiness reconciler
+│       ├── promql/              ← Prometheus HTTP API metrics source (short-TTL cache)
+│       └── tlscreds.go          ← mTLS transport credentials (ADR-020)
+├── go.mod                       ← module github.com/zynax-io/zynax/services/agent-registry
+└── go.sum
 ```
+
+There is no `internal/domain/repository.go`, no repository adapter, and no
+`tests/` BDD suite: the push surface they served was removed in #1698. The
+`SchedulerService` contract is covered by `protos/tests/scheduler_service/`.
 
 ---
 
@@ -59,9 +62,15 @@ services/agent-registry/
 | Env var | Default | Description |
 |---------|---------|-------------|
 | `ZYNAX_REGISTRY_GRPC_PORT` | `50052` | gRPC listener port |
+| `ZYNAX_REGISTRY_METRICS_PORT` | `9090` | Prometheus `/metrics` port |
 | `ZYNAX_REGISTRY_LOG_LEVEL` | `info` | Log level: debug, info, warn, error |
+| `ZYNAX_REGISTRY_CRD_INFORMER_ENABLED` | `false` | Watch `Agent` CRs and serve `SelectAgent` |
+| `ZYNAX_REGISTRY_WATCH_NAMESPACE` | pod namespace | Namespace scope for the informer + Lease |
+| `ZYNAX_REGISTRY_PROM_URL` | *(empty)* | Prometheus HTTP API; empty ⇒ degraded readiness-filtered selection |
+| `ZYNAX_REGISTRY_TLS_CERT` / `_KEY` / `_CA` | *(empty)* | mTLS material (ADR-020) |
 
 Config prefix: `ZYNAX_REGISTRY_` (via `kelseyhightower/envconfig`).
+There is **no** `ZYNAX_REGISTRY_DB_*` variable — the service is stateless.
 
 ---
 
@@ -69,24 +78,28 @@ Config prefix: `ZYNAX_REGISTRY_` (via `kelseyhightower/envconfig`).
 
 | RPC | Request | Response | Notes |
 |-----|---------|----------|-------|
-| `RegisterAgent` | `RegisterAgentRequest` | `RegisterAgentResponse` | Returns ALREADY_EXISTS if active agent exists |
-| `DeregisterAgent` | `DeregisterAgentRequest` | `DeregisterAgentResponse` | Returns NOT_FOUND if unknown |
-| `GetAgent` | `GetAgentRequest` | `AgentDef` | Returns deregistered agents (audit) |
-| `ListAgents` | `ListAgentsRequest` | `ListAgentsResponse` | Label selector + pagination; excludes deregistered by default |
-| `FindByCapability` | `FindByCapabilityRequest` | `FindByCapabilityResponse` | Hot path for task-broker dispatch; secondary index O(1) |
+| `SelectAgent` | `SelectAgentRequest` | `SelectAgentResponse` | Exactly one agent + structured rationale; registered only when the CRD informer is enabled |
 
-Proto source: `protos/zynax/v1/agent_registry.proto`
+Proto source: `protos/zynax/v1/scheduler.proto`
+
+The push-era `AgentRegistryService` is no longer registered on this server
+(#1698). `protos/zynax/v1/agent_registry.proto` still declares it until the
+contract removal in #1598; its `AgentDef` / `CapabilityDef` messages stay
+permanently — `scheduler.proto` reuses them.
 
 ---
 
-## In-Memory Store Invariants
+## Stateless Invariants (ADR-039)
 
-- **Primary store**: `map[string]domain.Agent` keyed by `agent_id`.
-- **Secondary index**: `map[string]map[string]struct{}` (capability name → set of registered agent IDs). Updated atomically with `Save`/`Delete` under write lock.
-- `FindByCapability` returns only `AGENT_STATUS_REGISTERED` agents (enforced by the secondary index).
-- `GetAgent` returns agents of any status (for audit purposes).
-- `ListAgents` excludes deregistered agents unless `include_deregistered` is set.
-- State is lost on restart — M6 will add Postgres persistence.
+- **No persistence.** The `Agent` CR in the API server is the only store; the
+  informer cache is a derived, rebuildable view.
+- **Restart = resync.** A killed pod rebuilds the capability index from the
+  API server; nothing is written back except `Agent` `.status` by the
+  Lease-elected readiness reconciler (single writer).
+- **`SelectAgent` never fails on metrics.** No Prometheus ⇒ degraded
+  readiness-filtered round-robin, not an error (ADR-039 §3).
+- **Namespaced RBAC.** The informer watches one namespace; `WATCH_NAMESPACE`
+  is mandatory when the informer is enabled.
 
 ---
 
@@ -98,14 +111,15 @@ GOWORK=off go test ./... -race -timeout 60s
 
 # BDD contract tests (proto-level, separate module)
 cd protos/tests
-GOWORK=off go test ./agent_registry_service/... -v -timeout 60s
+GOWORK=off go test ./scheduler_service/... -v -timeout 60s
 ```
 
-## Known Limitations (M5)
+## Known Limitations
 
-- No persistence — in-memory only; single replica.
-- No heartbeat / liveness tracking — M6+ adds `Heartbeat` streaming RPC.
-- No authentication middleware — M6+.
-- No event publishing (`AgentRegistered`, `AgentDeregistered`) — M6+.
+- Selection metrics come from Prometheus only; no direct agent heartbeat.
+- Readiness is derived from EndpointSlices, so an agent outside the cluster
+  network cannot be marked Ready.
+- No authentication middleware — mTLS at the transport only (ADR-020).
 
-See `docs/spdd/480-agent-registry/canvas.md` for the full REASONS Canvas.
+See `docs/spdd/480-agent-registry/canvas.md` for the original REASONS Canvas
+and `docs/spdd/1674-agent-registry-push-removal/canvas.md` for the removal.

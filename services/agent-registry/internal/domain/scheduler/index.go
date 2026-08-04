@@ -69,11 +69,10 @@ func (c Candidate) CapabilityByID(id string) (Capability, bool) {
 }
 
 // Index is the informer-backed cache: agents keyed by "namespace/name" plus a
-// secondary capability index (capability -> set of agent keys). Shape mirrors
-// services/agent-registry/internal/infrastructure/memory_repo.go's capIndex —
-// "exactly the shape a Kubernetes informer cache would maintain from watch
-// events" (ADR-039). Safe for concurrent use: watch events write, the select
-// path reads.
+// secondary capability index (capability -> set of agent keys) — "exactly the
+// shape a Kubernetes informer cache would maintain from watch events"
+// (ADR-039); the push-era repository that first carried this shape was deleted
+// in #1698. Safe for concurrent use: watch events write, the select path reads.
 type Index struct {
 	mu       sync.RWMutex
 	agents   map[string]Candidate
@@ -89,8 +88,8 @@ func NewIndex() *Index {
 	}
 }
 
-// Upsert inserts or replaces a candidate and rebuilds its capability links.
-// Mirrors memory_repo addToCapIndex/removeFromCapIndex semantics.
+// Upsert inserts or replaces a candidate and rebuilds its capability links:
+// stale capability entries are dropped before the new set is linked.
 func (i *Index) Upsert(c Candidate) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
