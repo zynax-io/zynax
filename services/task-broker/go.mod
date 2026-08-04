@@ -11,7 +11,7 @@ require (
 	github.com/zynax-io/zynax/libs/zynaxconfig v0.0.0-00010101000000-000000000000
 	github.com/zynax-io/zynax/libs/zynaxevents v0.0.0-00010101000000-000000000000
 	github.com/zynax-io/zynax/protos/generated/go v0.0.0
-	google.golang.org/grpc v1.81.1
+	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
 )
 

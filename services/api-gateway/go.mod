@@ -11,7 +11,7 @@ require (
 	github.com/nats-io/nats.go v1.52.0
 	github.com/zynax-io/zynax/libs/zynaxevents v0.0.0-00010101000000-000000000000
 	github.com/zynax-io/zynax/protos/generated/go v0.0.0
-	google.golang.org/grpc v1.81.1
+	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apimachinery v0.35.6
