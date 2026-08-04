@@ -13,8 +13,10 @@ package zynaxevents_bdd_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,6 +46,7 @@ type ebSuite struct {
 	dlqBefore  uint64
 	dlqMsgs    uint64
 	dlqSrcSeq  uint64
+	unsubErr   error
 	nc         *nats.Conn
 	js         nats.JetStreamContext
 }
@@ -662,6 +665,162 @@ func (s *ebSuite) eventChannelRemainsOpen() error {
 	}
 }
 
+// Scenarios 10/11/12 — Unsubscribe tears the durable consumer down (#1657)
+
+// unsubDLQTopic is the dedicated topic for the DLQ-skip scenario: its own
+// entity prefix keeps the planted DLQ consumer away from every other
+// scenario's streams (MaxConsumers=1 on a DLQ stream leaves no room to share).
+const unsubDLQTopic = "zynax.v1.bdd.unsubdlq.event"
+
+// errText renders an error for an assertion message. The nil case is the one
+// these assertions care about most, and handing a nil error to %v trips
+// errorlint while %w renders it as "%!w(<nil>)" — so format the text directly.
+func errText(err error) string {
+	if err == nil {
+		return "<nil>"
+	}
+	return err.Error()
+}
+
+// consumerNames is the JetStream API equivalent of `nats consumer ls <stream>`.
+// ConsumerNames drops API errors on the floor (it just closes the channel), so
+// the stream is probed first to turn a wrong stream name into a real failure
+// instead of a silently empty list.
+func (s *ebSuite) consumerNames(stream string) ([]string, error) {
+	if _, err := s.js.StreamInfo(stream); err != nil {
+		return nil, fmt.Errorf("stream %s: %w", stream, err)
+	}
+	var names []string
+	for name := range s.js.ConsumerNames(stream) {
+		names = append(names, name)
+	}
+	return names, nil
+}
+
+// subscriberIsSubscribedToTopic opens a subscription and LEAVES IT RUNNING:
+// nats.go marks a consumer it created itself for deletion on the subscription's
+// own Unsubscribe/Drain (js.go, "the library created the JS consumer"), so
+// cancelling the context first would delete the durable before Client.Unsubscribe
+// ever ran and the scenario would prove nothing. Teardown is the suite's After
+// hook, which cancels every registered context.
+func (s *ebSuite) subscriberIsSubscribedToTopic(subscriberID, topic string) error {
+	s.topic = topic
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancelFn[subscriberID] = cancel
+	ch, err := s.bus.Subscribe(ctx, zynaxevents.SubscribeRequest{
+		SubscriberID: subscriberID, TypePattern: topic,
+	})
+	if err != nil {
+		cancel()
+		return fmt.Errorf("subscribe %s: %w", subscriberID, err)
+	}
+	s.channels[subscriberID] = ch
+	return nil
+}
+
+func (s *ebSuite) durableConsumerExistsOnStream(subscriberID, stream string) error {
+	dur := zynaxevents.DurableConsumerName(subscriberID)
+	if _, err := s.js.ConsumerInfo(stream, dur); err != nil {
+		return fmt.Errorf("durable %s missing from stream %s: %w", dur, stream, err)
+	}
+	return nil
+}
+
+// durableExistsOnlyOnDLQStream plants a durable carrying the subscriber's
+// consumer name on the DLQ stream and nowhere else. Both streams are
+// provisioned through the production Subscribe path (a throwaway subscriber),
+// never hand-rolled, so the DLQ config under test is the real one.
+func (s *ebSuite) durableExistsOnlyOnDLQStream(subscriberID, dlqStream string) error {
+	if want := "DLQ_" + zynaxevents.StreamName(unsubDLQTopic); dlqStream != want {
+		return fmt.Errorf("scenario names DLQ stream %q, but %q derives %q",
+			dlqStream, unsubDLQTopic, want)
+	}
+	s.topic = unsubDLQTopic
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ch, err := s.bus.Subscribe(ctx, zynaxevents.SubscribeRequest{
+		SubscriberID: "bdd-unsubdlq-setup", TypePattern: unsubDLQTopic,
+	})
+	if err != nil {
+		cancel()
+		return fmt.Errorf("provision streams for %s: %w", unsubDLQTopic, err)
+	}
+	cancel()
+	for {
+		if _, ok := <-ch; !ok {
+			break
+		}
+	}
+
+	dur := zynaxevents.DurableConsumerName(subscriberID)
+	// A DLQ stream is WorkQueuePolicy: an explicit ack policy is mandatory.
+	if _, err := s.js.AddConsumer(dlqStream, &nats.ConsumerConfig{
+		Durable: dur, AckPolicy: nats.AckExplicitPolicy,
+	}); err != nil {
+		return fmt.Errorf("plant durable %s on %s: %w", dur, dlqStream, err)
+	}
+	source := strings.TrimPrefix(dlqStream, "DLQ_")
+	if _, err := s.js.ConsumerInfo(source, dur); err == nil {
+		return fmt.Errorf("durable %s also exists on source stream %s — "+
+			"the scenario needs it on the DLQ stream only", dur, source)
+	}
+	return nil
+}
+
+// subscriberUnsubscribes records the outcome; the Then steps assert on it.
+func (s *ebSuite) subscriberUnsubscribes(subscriberID string) error {
+	s.unsubErr = s.bus.Unsubscribe(context.Background(), subscriberID)
+	return nil
+}
+
+func (s *ebSuite) unsubscribeSucceeds() error {
+	if s.unsubErr != nil {
+		return fmt.Errorf("unsubscribe failed: %w", s.unsubErr)
+	}
+	return nil
+}
+
+func (s *ebSuite) unsubscribeFailsSubscriberNotFound() error {
+	if !errors.Is(s.unsubErr, zynaxevents.ErrSubscriberNotFound) {
+		return fmt.Errorf("unsubscribe error = %s, want ErrSubscriberNotFound", errText(s.unsubErr))
+	}
+	return nil
+}
+
+func (s *ebSuite) durableConsumerGoneFromStream(subscriberID, stream string) error {
+	dur := zynaxevents.DurableConsumerName(subscriberID)
+	names, err := s.consumerNames(stream)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		if name == dur {
+			return fmt.Errorf("durable %s still listed on stream %s (consumers: %v)",
+				dur, stream, names)
+		}
+	}
+	if _, err := s.js.ConsumerInfo(stream, dur); !errors.Is(err, nats.ErrConsumerNotFound) {
+		return fmt.Errorf("ConsumerInfo(%s, %s) error = %s, want ErrConsumerNotFound",
+			stream, dur, errText(err))
+	}
+	return nil
+}
+
+func (s *ebSuite) durableConsumerStillExistsOnStream(subscriberID, stream string) error {
+	dur := zynaxevents.DurableConsumerName(subscriberID)
+	names, err := s.consumerNames(stream)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		if name == dur {
+			return nil
+		}
+	}
+	return fmt.Errorf("durable %s was deleted from stream %s (consumers: %v)",
+		dur, stream, names)
+}
+
 // ── godog wiring ──────────────────────────────────────────────────────────────
 
 func (s *ebSuite) initScenario(sc *godog.ScenarioContext) {
@@ -697,6 +856,14 @@ func (s *ebSuite) initScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the subscriber receives the terminal event$`, s.subscriberReceivesTerminalEvent)
 	sc.Step(`^the event channel is closed$`, s.eventChannelIsClosed)
 	sc.Step(`^the event channel remains open$`, s.eventChannelRemainsOpen)
+	sc.Step(`^subscriber "([^"]*)" is subscribed to topic "([^"]*)"$`, s.subscriberIsSubscribedToTopic)
+	sc.Step(`^the durable consumer for "([^"]*)" exists on stream "([^"]*)"$`, s.durableConsumerExistsOnStream)
+	sc.Step(`^a durable consumer for "([^"]*)" exists only on stream "([^"]*)"$`, s.durableExistsOnlyOnDLQStream)
+	sc.Step(`^subscriber "([^"]*)" unsubscribes$`, s.subscriberUnsubscribes)
+	sc.Step(`^the unsubscribe call succeeds$`, s.unsubscribeSucceeds)
+	sc.Step(`^the unsubscribe call fails with ErrSubscriberNotFound$`, s.unsubscribeFailsSubscriberNotFound)
+	sc.Step(`^the durable consumer for "([^"]*)" is gone from stream "([^"]*)"$`, s.durableConsumerGoneFromStream)
+	sc.Step(`^the durable consumer for "([^"]*)" still exists on stream "([^"]*)"$`, s.durableConsumerStillExistsOnStream)
 }
 
 // ── test runner ───────────────────────────────────────────────────────────────
