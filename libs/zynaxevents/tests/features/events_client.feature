@@ -4,8 +4,9 @@
 # This file is the SPECIFICATION for the shared events client
 # (libs/zynaxevents). It pins the DLQ and durable-consumer semantics the
 # client preserves VERBATIM from the event-bus facade it replaces — the six
-# facade scenarios carry over unchanged, plus the #1149 disjoint-stream rule
-# and the workflow-scoped terminal-close contracts. The golden byte-compat
+# facade scenarios carry over unchanged, plus the #1149 disjoint-stream rule,
+# the workflow-scoped terminal-close contracts and the Unsubscribe teardown
+# contract (durable deleted, DLQ_* skipped). The golden byte-compat
 # fixtures live in libs/zynaxevents/testdata/golden/ and are asserted against
 # BOTH implementations until the facade is removed (M9).
 #
@@ -77,3 +78,31 @@ Feature: Direct JetStream events client — delivery, DLQ, durable consumers, te
     When a "zynax.v1.bdd.wfwild.workflow.completed" event for workflow "wf-terminal-2" is published
     Then the subscriber receives the terminal event
     And the event channel remains open
+
+  # Unsubscribe (#1657). Unsubscribe is the explicit teardown of a durable
+  # consumer, independent of the subscription's context: it walks every stream,
+  # deletes the durable named after the subscriber, and reports
+  # ErrSubscriberNotFound when no stream owned one. The subscription below is
+  # deliberately still live when Unsubscribe is called — nats.go deletes a
+  # library-created durable on the subscription's own Unsubscribe/Drain, so
+  # cancelling first would leave nothing for the client call to delete and the
+  # scenario would assert nothing.
+  Scenario: Unsubscribing deletes the subscriber's durable consumer
+    Given subscriber "bdd-unsub-live" is subscribed to topic "zynax.v1.bdd.unsub.event"
+    And the durable consumer for "bdd-unsub-live" exists on stream "ZYNAX_V1_BDD_UNSUB"
+    When subscriber "bdd-unsub-live" unsubscribes
+    Then the unsubscribe call succeeds
+    And the durable consumer for "bdd-unsub-live" is gone from stream "ZYNAX_V1_BDD_UNSUB"
+
+  Scenario: Unsubscribing an unknown subscriber reports it as not found
+    When subscriber "bdd-unsub-ghost" unsubscribes
+    Then the unsubscribe call fails with ErrSubscriberNotFound
+
+  # DLQ_* streams are skipped on purpose: dead-letter consumers belong to the
+  # DLQ machinery, never to the subscriber. A durable that exists ONLY on a DLQ
+  # stream is therefore both "not found" and left standing.
+  Scenario: Unsubscribe never deletes a consumer from a DLQ stream
+    Given a durable consumer for "bdd-unsub-dlq" exists only on stream "DLQ_ZYNAX_V1_BDD_UNSUBDLQ"
+    When subscriber "bdd-unsub-dlq" unsubscribes
+    Then the unsubscribe call fails with ErrSubscriberNotFound
+    And the durable consumer for "bdd-unsub-dlq" still exists on stream "DLQ_ZYNAX_V1_BDD_UNSUBDLQ"
