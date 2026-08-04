@@ -52,7 +52,7 @@ Order is load-bearing: caller → implementation → contract → docs.
 |------|-------|------|
 | 1 ✅ | [#1697](https://github.com/zynax-io/zynax/issues/1697) | api-gateway AgentDef push path + CLI surface deleted; documented retirement error |
 | 2 ✅ | [#1698](https://github.com/zynax-io/zynax/issues/1698) | agent-registry push repos + Postgres dependency deleted; stateless resync verified live — landed as 3 PRs (#1751 → #1752 → #1754), see the size note below |
-| 3 | [#1598](https://github.com/zynax-io/zynax/issues/1598) | deprecated `AgentRegistryService` RPCs removed from proto + stubs (documented `buf breaking` exception) |
+| 3 ✅ | [#1598](https://github.com/zynax-io/zynax/issues/1598) | deprecated `AgentRegistryService` RPCs removed from proto + stubs; file-scoped `buf breaking` exception per ADR-048 §Decision 4 — landed as 7 disjoint slices (#1757, #1758, #1759, #1760, #1762, #1763 → #1764), see the size note below |
 | 4 | [#1699](https://github.com/zynax-io/zynax/issues/1699) | migration-guide sweep; status surfaces; retire `spike/adr-039-crd-scheduler-proof` |
 
 > **Sizing note for the remaining removal steps.** Step 2 measured 1846 counted lines and
@@ -63,6 +63,14 @@ Order is load-bearing: caller → implementation → contract → docs.
 > package), and reserve the label for removals that genuinely cannot be cut, such as
 > #1701's `services/event-bus/` deletion. Size #1598 and M9.B's steps accordingly, up
 > front, instead of discovering the gate mid-delivery.
+>
+> Step 3 measured **5115** counted lines — 5.7× the hard limit — and shipped as **seven**
+> disjoint slices merged caller → spec → contract: specs (#1757, #1758), then the five
+> adapters and the gateway route (#1759, #1760, #1762, #1763), then the proto + regenerated
+> stubs (#1764). No `split-not-possible` label was needed: every layer was
+> compile-independent, so slices 1–6 merged in parallel and only the contract slice had to
+> wait. The binding constraint on how finely to cut was the 900-line cap per slice, not the
+> dependency graph — bin-pack the measured per-directory totals before opening anything.
 
 ### M9.B — EventBusService facade hard-removal (#1675)
 

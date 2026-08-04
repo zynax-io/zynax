@@ -39,7 +39,7 @@ dual-engine e2e into a named conformance suite.
 
 | EPIC | Issue | Canvas | Stories (in delivery order) |
 |------|-------|--------|------------------------------|
-| M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Aligned (#1734) | #1697 ✅ → #1698 ✅ (stateless scheduler: repos + DB gone, resync verified live) → #1598 → #1699 |
+| M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Aligned (#1734) | #1697 ✅ → #1698 ✅ (stateless scheduler: repos + DB gone, resync verified live) → #1598 ✅ (RPCs gone from the contract; file-scoped `buf breaking` exception per ADR-048 §4; shipped as 7 disjoint slices #1757–#1764) → #1699 |
 | M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) ✅ **closed** | `docs/spdd/1675-event-bus-facade-removal/` — Implemented (#1703) | #1700 ✅ → #1701 ✅ (facade tree + build/release wiring deleted) → #1702 ✅ (proto + stubs removed) → #1703 ✅ (AsyncAPI + docs truth pass; EPIC closed) |
 | M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → (steps 2–4 filed via `/lib:spdd-story`) |
 | M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
@@ -112,6 +112,22 @@ strategy, load/SLO).
    `ZYNAX_BROKER_NATS_URL`). Historical records (CHANGELOG, ADR-022/046, M1/M5/M6/M8 planning,
    past canvases, `docs/ai-learnings/`) were left intact by design. `make validate-spec` green.
    ADR-046 is now fully executed: deploy → code → contract → spec.
+
+10. ✅ M9.A step 3 delivered ([#1598](https://github.com/zynax-io/zynax/issues/1598), as of
+    2026-08-04): the five deprecated `AgentRegistryService` RPCs and their nine
+    request/response messages are gone from `protos/zynax/v1/agent_registry.proto`;
+    `AgentDef`/`CapabilityDef`/`AgentStatus` stay (scheduler.proto reuses them) so the file
+    keeps its name and every importer still resolves. `buf breaking` was **not** disabled —
+    `protos/buf.yaml` carries a documented `ignore_only` stanza scoped to this one file and
+    the exact two rules the removal trips (`SERVICE_NO_DELETE`, `MESSAGE_NO_DELETE`), the
+    ADR-048 §Decision 4 mechanism #1756 established for `event_bus.proto`. All six caller
+    surfaces went first: the five Go/Python adapter registration clients with their
+    `UNIMPLEMENTED` tolerance shims, the SDK + contract BDD suites, and the api-gateway's
+    `kind: AgentDef` route (now 400 `UNSUPPORTED_KIND`, not 410 — the migration window is
+    closed). 5115 counted lines shipped as seven disjoint slices
+    (#1757, #1758, #1759, #1760, #1762, #1763 → #1764) with no `split-not-possible` label.
+    Runtime-verified: every adapter boots `SERVING` twice with the registry endpoint pointed
+    at a dead port, and a live gateway rejects `kind: AgentDef` across a restart.
 
 ---
 
