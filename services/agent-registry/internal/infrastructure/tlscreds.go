@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+// Package infrastructure holds the agent-registry's outbound adapters.
+// Since the ADR-039 hard removal (#1698) the service is stateless, so this
+// package carries no repository: only the mTLS transport credentials here,
+// plus the crd/ (Agent informer + readiness reconciler) and promql/
+// (selection metrics) subpackages.
 package infrastructure
 
 import (

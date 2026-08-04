@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Production overrides — do NOT store secret values here.
-# DB DSN and TLS are wired from K8s Secrets (see values.yaml db.* and tlsSecretName).
+# TLS is wired from a K8s Secret (see values.yaml tlsSecretName). The service is
+# stateless (ADR-039): there is no database and no DSN secret.
 replicaCount: 2
 
 autoscaling:
@@ -17,9 +18,6 @@ resources:
   limits:
     cpu: 500m
     memory: 256Mi
-
-# Wire the Postgres DSN secret created by the Postgres subchart or external secret operator.
-# Stateless since M8 (ADR-039): no database.
 
 # Wire the cert-manager issued certificate secret (ADR-020).
 tlsSecretName: "zynax-agent-registry-tls"

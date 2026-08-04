@@ -47,14 +47,14 @@ zynax-task-broker:
   db:
     secretName: ""
 
+# Stateless by design (ADR-039): agent identity lives in the Agent custom
+# resource, so this subchart takes no database wiring — the scheduler resyncs
+# its index from the API server on restart.
 zynax-agent-registry:
   enabled: true
   replicaCount: 1
   env:
     logLevel: "info"
-  # Set db.secretName to the K8s Secret containing ZYNAX_REGISTRY_DB_DSN.
-  db:
-    secretName: ""
 
 # Placeholder — disabled until EPIC J (#773) implementation merges.
 zynax-memory-service:
