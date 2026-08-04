@@ -16,7 +16,7 @@ The Task Broker is the **work scheduler** of the mesh.
 - Drives the task lifecycle state machine: `PENDING → DISPATCHED → COMPLETED | FAILED | CANCELLED`. Failed tasks with remaining retries transition to `RETRYING` before re-dispatching.
 - Executes capability invocations via `CapabilityExecutor` (HTTP-based agent call).
 - **Startup recovery:** `RecoverInFlight` re-launches all non-terminal tasks from the repository at boot, so an in-flight fan-out survives a broker restart (durable with the Postgres repo, #626).
-- **Lifecycle events (optional):** when `ZYNAX_BROKER_EVENTBUS_ADDR` is set, task transitions are published best-effort as CloudEvents on topics `zynax.v1.task-broker.task.<status>` (ADR-022).
+- **Lifecycle events (optional):** when `ZYNAX_BROKER_NATS_URL` is set, task transitions are published best-effort as CloudEvents on topics `zynax.v1.task-broker.task.<status>`, directly to NATS JetStream via `libs/zynaxevents` (ADR-046).
 - Exposes `AcknowledgeTask` for agents to report outcomes; applies retry logic in the domain layer.
 - Exposes `ListTasks` for filtered, paginated queries (by workflow, status, or agent).
 
@@ -73,7 +73,7 @@ services/task-broker/
 │   └── infrastructure/
 │       ├── memory_repo.go           ← in-memory TaskRepository (M5; Postgres in M6)
 │       ├── agent_executor.go        ← CapabilityExecutor: HTTP invocation of agent endpoints
-│       ├── event_publisher.go       ← TaskEventPublisher: best-effort CloudEvents to event-bus
+│       ├── event_publisher.go       ← TaskEventPublisher: best-effort CloudEvents to JetStream
 │       └── registry_client.go       ← AgentFinder: gRPC client for agent-registry
 ├── tests/
 │   └── features/task_broker.feature ← BDD contract scenarios
@@ -95,7 +95,7 @@ services/task-broker/
 |---------|---------|-------------|
 | `ZYNAX_BROKER_GRPC_PORT` | `50053` | gRPC listen port |
 | `ZYNAX_BROKER_REGISTRY_ADDR` | `localhost:50052` | agent-registry gRPC address |
-| `ZYNAX_BROKER_EVENTBUS_ADDR` | _(empty)_ | event-bus gRPC address; empty disables task lifecycle CloudEvents |
+| `ZYNAX_BROKER_NATS_URL` | _(empty)_ | NATS JetStream URL; empty disables task lifecycle CloudEvents |
 | `ZYNAX_BROKER_LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 
 ---

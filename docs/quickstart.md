@@ -40,7 +40,7 @@ make demo            # create kind cluster → load images → install Helm umbr
 signal — it is gated on `kubectl rollout status` for all services.
 
 By default the demo runs the **lite** profile (single node, one in-cluster dev Temporal, no
-event-bus / memory-service — same charts, same hero workflow, half the footprint). Want the
+NATS / memory-service — same charts, same hero workflow, half the footprint). Want the
 prod-mirroring topology CI runs? `PROFILE=full make demo`.
 
 ---

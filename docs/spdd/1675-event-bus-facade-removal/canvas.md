@@ -6,7 +6,7 @@
 **Issue:** #1675
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-07-08
-**Status:** Aligned
+**Status:** Implemented
 
 > Story issues: step 1 → #1700 · step 2 → #1701 · step 3 → #1702 · step 4 → #1703
 
@@ -109,7 +109,7 @@ deploy removal        code removal              contract removal       spec/docs
    (ADR-048 §Decision 4), proven scoped by a control run; zero-importer grep gate; CHANGELOG
    entry naming `libs/zynaxevents` + AsyncAPI as the replacement; `stub_generation.feature`
    now asserts the artefacts stay absent.
-4. **Spec + docs truth pass** (#1703, `docs:`) — AsyncAPI deprecated-access-path block
+4. ✅ **Spec + docs truth pass** (#1703, `docs:`) — AsyncAPI deprecated-access-path block
    removed (channels intact, `make validate-spec` green); eventing-doc sweep (historical
    mentions only remain; #1653 pointers preserved); status surfaces in the same diff; epic
    boxes ticked; canvas → Implemented.

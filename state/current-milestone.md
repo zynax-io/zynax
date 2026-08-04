@@ -40,7 +40,7 @@ dual-engine e2e into a named conformance suite.
 | EPIC | Issue | Canvas | Stories (in delivery order) |
 |------|-------|--------|------------------------------|
 | M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) | `docs/spdd/1674-agent-registry-push-removal/` — Aligned (#1734) | #1697 ✅ → #1698 ✅ (stateless scheduler: repos + DB gone, resync verified live) → #1598 → #1699 |
-| M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) | `docs/spdd/1675-event-bus-facade-removal/` — Aligned (#1734) | #1700 ✅ → #1701 ✅ (facade tree + build/release wiring deleted) → #1702 ✅ (proto + stubs removed) → #1703 |
+| M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) ✅ **closed** | `docs/spdd/1675-event-bus-facade-removal/` — Implemented (#1703) | #1700 ✅ → #1701 ✅ (facade tree + build/release wiring deleted) → #1702 ✅ (proto + stubs removed) → #1703 ✅ (AsyncAPI + docs truth pass; EPIC closed) |
 | M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → (steps 2–4 filed via `/lib:spdd-story`) |
 | M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
 
@@ -101,7 +101,17 @@ strategy, load/SLO).
    the first proto hard-removal in the repo. `buf breaking` carries a documented
    intentional-removal exception in `protos/buf.yaml` scoped to that single file
    (ADR-048 §Decision 4); a control run proved another deleted proto still fails the gate.
-   Remaining: #1703 (AsyncAPI + docs truth pass, epic close).
+
+9. ✅ **M9.B complete — EPIC [#1675](https://github.com/zynax-io/zynax/issues/1675) closed**
+   (as of 2026-08-04): step 4 ([#1703](https://github.com/zynax-io/zynax/issues/1703)) dropped
+   the `x-zynax-deprecated` gRPC access path from `spec/asyncapi/zynax-events.yaml` (channels
+   byte-identical — they are the contract, realised by `libs/zynaxevents`) and truth-passed the
+   eventing surfaces: `docs/patterns/direct-jetstream-events.md`, ARCHITECTURE §8 async path,
+   the README service table, and `services/task-broker/AGENTS.md` (which documented
+   `ZYNAX_BROKER_EVENTBUS_ADDR`, an env var that never existed in code — the real gate is
+   `ZYNAX_BROKER_NATS_URL`). Historical records (CHANGELOG, ADR-022/046, M1/M5/M6/M8 planning,
+   past canvases, `docs/ai-learnings/`) were left intact by design. `make validate-spec` green.
+   ADR-046 is now fully executed: deploy → code → contract → spec.
 
 ---
 

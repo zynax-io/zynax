@@ -63,7 +63,7 @@ spec:
   states:
     # ── fan_out — dispatch all 9 expert reviews in parallel ────────────────
     # All actions start before the state machine waits for a transition
-    # (workflow.schema.json semantics) — the EventBus (ADR-022) carries the
+    # (workflow.schema.json semantics) — NATS JetStream (ADR-046) carries the
     # durable fan-out and collection. Per-expert timeout 5m mirrors
     # fan_out.timeout_seconds: 300; on timeout the orchestrator continues
     # with partial outputs.

@@ -331,7 +331,7 @@ Replace `api-gateway` with any image name from the table above.
               ↓
     Execution Adapters Layer   ← LLM / HTTP / Git / CI / LangGraph / ADK
               ↓
-     Event Bus — NATS (Go)     ← All events
+   NATS JetStream (direct)     ← All events (libs/zynaxevents)
               ↓
     Memory Service (Go)        ← KV + Vector context
 ```
@@ -471,11 +471,16 @@ Current implementation status per service and adapter (as of M9 active developme
 |---------|--------|-------|
 | api-gateway | ✅ Implemented | REST → gRPC translation, bearer auth, context deadline propagation |
 | workflow-compiler | ✅ Implemented | YAML → WorkflowIR; stateless — no in-memory IR store ([#466](https://github.com/zynax-io/zynax/issues/466)); multi-namespace support ([#767](https://github.com/zynax-io/zynax/issues/767)) |
-| engine-adapter | ✅ Implemented | Temporal + Argo backends ([#766](https://github.com/zynax-io/zynax/issues/766)); cel-go guard evaluation; CloudEvents lifecycle events published via event-bus (#827) |
+| engine-adapter | ✅ Implemented | Temporal + Argo backends ([#766](https://github.com/zynax-io/zynax/issues/766)); cel-go guard evaluation; CloudEvents lifecycle events published directly to NATS JetStream via `libs/zynaxevents` (#827) |
 | task-broker | ✅ Implemented | Postgres-backed TaskRepository on pgx/v5 (EPIC [#626](https://github.com/zynax-io/zynax/issues/626)); gRPC wired in compose + Helm |
 | agent-registry | ✅ Implemented | Postgres-backed AgentRepository on pgx/v5 (EPIC [#626](https://github.com/zynax-io/zynax/issues/626)); round-robin with heartbeat |
-| event-bus | ✅ Implemented | NATS JetStream gRPC wrapper (EPIC #772: Publish/Subscribe/Unsubscribe + DLQ, ADR-022); engine-adapter lifecycle wiring merged (#827) |
 | memory-service | ✅ Implemented | M6 — Redis KV + pgvector; all 10 RPCs, namespace TTL isolation, integration + BDD tests (EPIC #773) |
+
+> **Eventing is not a service.** The `event-bus` service (`EventBusService` gRPC facade,
+> EPIC #772 / ADR-022) was deprecated in M8 and **hard-removed in M9**
+> ([EPIC #1675](https://github.com/zynax-io/zynax/issues/1675), ADR-046). Publishers and
+> subscribers now dial NATS JetStream directly through the shared `libs/zynaxevents` client;
+> `spec/asyncapi/zynax-events.yaml` stays the contract of record.
 
 ### Execution Adapters
 

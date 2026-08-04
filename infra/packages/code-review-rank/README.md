@@ -23,7 +23,7 @@ runs to a ranked code review with zero further steps.
 ## Prerequisites
 
 - A running Zynax platform in namespace `zynax` (api-gateway, workflow-compiler,
-  engine-adapter, task-broker, agent-registry, temporal, event-bus).
+  engine-adapter, task-broker, agent-registry, temporal, nats).
 - The platform's gateway auth secret `zynax-gw-api-key` (key `api-key`) in the
   `zynax` namespace — the apply-Job reads it for the `Authorization: Bearer` header.
 

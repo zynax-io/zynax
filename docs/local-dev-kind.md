@@ -66,7 +66,7 @@ export ZYNAX_API_KEY=$(kubectl -n zynax get secret zynax-gw-api-key -o jsonpath=
 |---|--------------------------|----------------|
 | Topology | 3-node (`kind-config.yaml`) | **single-node** (`kind-config-lite.yaml`) |
 | Temporal | 5-pod chart + admintools + schema Job | **1** in-memory `start-dev` pod (`scripts/e2e/manifests/temporal-dev.yaml`) |
-| event-bus + NATS | on | **off** |
+| NATS JetStream (eventing) | on | **off** |
 | memory-service + Redis | on | **off** |
 | Postgres PVC | 10 GiB | **2 GiB** |
 | Pods | 18 | **8** |

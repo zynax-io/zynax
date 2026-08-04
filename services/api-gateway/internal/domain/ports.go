@@ -78,7 +78,8 @@ type EventPublish struct {
 	Data  []byte
 }
 
-// EventBusPort is the gateway's outbound dependency on EventBusService. It
+// EventBusPort is the gateway's outbound dependency on the event bus (NATS
+// JetStream, dialled directly via libs/zynaxevents — ADR-046). It
 // delivers capability-level CloudEvents (e.g. task dispatched/completed) so the
 // streaming /logs endpoint can merge them with the engine's state-transition
 // history into a single chronological stream, and accepts injected

@@ -71,7 +71,7 @@ the single source of truth that planning, review, execution, and docs all point 
               ↓
     Execution Adapters Layer     ← LLM · HTTP · Git · CI · LangGraph
               ↓
-     Event Bus — NATS (Go)       ← All async events (AsyncAPI spec)
+   NATS JetStream (direct)       ← All async events (AsyncAPI spec)
               ↓
      Memory Service (Go)         ← KV + Vector context
 ```
