@@ -24,7 +24,9 @@ experience, and the AI-methodology/tooling stack — distinct from end-user UX (
 | AI agent knowledge base | [#148](https://github.com/zynax-io/zynax/issues/148) | open, near-done | only #146 open — recommended fold into #173 |
 
 Loose stories currently in the milestone: #1361, #1363, #1366, #1368, #1369 (via #1391) ·
-#146 (double-parented #148/#173). Good-first-issue pool routed here: #1657, #1660, #1661.
+#146 (double-parented #148/#173). Good-first-issue pool routed here: #1657, #1661 ·
+delivered from that pool: #1660 ✅ multi-namespace engine allow-list worked example
+(2026-08-04).
 
 ## 2 — Known scope-shaping facts
 
