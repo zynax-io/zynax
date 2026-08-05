@@ -1,0 +1,163 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# ZECS membership manifest — the machine-readable form of docs/conformance/README.md.
+#
+# This file ANNOTATES spec/workflows/examples/ (one corpus, no shadow copy): every
+# `source.path` below points at a real file in the repo. `zynax-ci check conformance`
+# (`make check-conformance`) fails on any drift between this file, the corpus, the
+# engines the engine-adapter can be configured with, and the e2e matrix legs — see
+# docs/conformance/README.md §8.
+#
+# Editing rules:
+#   - `legs:` mirrors the engine-adapter's selectable engines. Do NOT curate it by
+#     hand to silence the drift guard: add the leg to the runner, or accept red.
+#   - Every scenario must carry an entry for EVERY leg. A leg that is not executed is
+#     `status: not_run` with a reason — omission is a check failure, and a skipped leg
+#     is reported SKIPPED, never PASS.
+#   - `asserts:` is a summary index into README §5, not the assertion source of truth.
+#     The scripts are.
+
+suite: Zynax Engine Conformance Suite
+short_name: ZECS
+version: v0.8.0                      # tracks the platform release
+definition: docs/conformance/README.md
+corpus: spec/workflows/examples
+
+# Mirror of the engines selectable via ZYNAX_ENGINE_ADAPTER_ACTIVE_ENGINE
+# (services/engine-adapter/cmd/engine-adapter/main.go) and of matrix.engine in
+# .github/workflows/e2e-smoke.yml. Drift between the three is a check failure.
+legs:
+  - temporal
+  - argo
+
+scenarios:
+  - id: echo-happy-path
+    description: >-
+      A single-capability workflow submitted over REST runs to a terminal success on
+      each engine, confirmed on that engine's own source of truth.
+    source:
+      kind: corpus
+      path: spec/workflows/examples/e2e-demo.yaml
+    submission: rest-apply
+    legs:
+      temporal:
+        status: run
+        runner: scripts/e2e/e2e-happy.sh
+        asserts:
+          - terminal-success-status
+          - lifecycle-cloudevents-on-jetstream
+          - terminal-completed-cloudevent
+          - memory-service-kv-roundtrip   # platform plane, not portability evidence
+      argo:
+        status: run
+        runner: scripts/e2e/e2e-argo.sh
+        asserts:
+          - terminal-success-status
+          - argo-workflow-cr-phase-succeeded
+
+  - id: workflow-crd-reconcile
+    description: >-
+      A kind:Workflow custom resource reconciles through the same compile->submit path
+      to a dispatched run, keeps a thin status, and is idempotent (ADR-043).
+    source:
+      kind: fixture
+      path: scripts/e2e/manifests/workflow-cr.yaml
+    submission: crd-apply
+    legs:
+      temporal:
+        status: run
+        runner: scripts/e2e/e2e-workflow-crd.sh
+        asserts: &crd_asserts
+          - dispatched-true-with-runid
+          - thin-status-keys-only
+          - idempotent-reconcile
+          - engine-allowlist-admission   # skipped when the VAP is not installed
+      argo:
+        status: run
+        runner: scripts/e2e/e2e-workflow-crd.sh
+        asserts: *crd_asserts
+
+  - id: hello-world-outputs
+    description: >-
+      A zero-dependency workflow declaring a terminal output runs to COMPLETED and the
+      declared output is readable over REST — the only output-equality assertion in ZECS.
+    source:
+      kind: corpus
+      path: spec/workflows/examples/hello-world.yaml
+    submission: rest-apply
+    legs:
+      temporal:
+        status: run
+        runner: scripts/e2e/hello-world-smoke.sh
+        asserts:
+          - terminal-success-status
+          - workflow-execution-completed-in-logs
+          - declared-output-equals-manifest-value
+      argo:
+        status: not_run
+        reason: >-
+          The hello-world step in .github/workflows/e2e-smoke.yml is gated
+          `if: matrix.engine == 'temporal'`. Gap G3 — output portability is unproven
+          across engines until this runs on every leg.
+
+  - id: capability-timeout-failure
+    description: >-
+      A workflow whose first state invokes an unserved capability reaches a terminal
+      failure and emits the terminal failed CloudEvent.
+    source:
+      kind: generated
+      # Deliberately NOT committed under spec/workflows/examples/: it references a
+      # capability no agent serves, and publishing it would advertise a broken
+      # workflow as a reference. The generator is the checked path.
+      path: scripts/e2e/e2e-failure.sh
+    submission: rest-apply
+    legs:
+      temporal:
+        status: run
+        runner: scripts/e2e/e2e-failure.sh
+        asserts:
+          - terminal-failure-status
+          - terminal-failed-cloudevent
+          # the failure-reason string check is soft — see README §5.4
+      argo:
+        status: not_run
+        reason: >-
+          The failure-path step in .github/workflows/e2e-smoke.yml is gated
+          `if: matrix.engine == 'temporal'`. Gap G5 — failure-semantics portability
+          is unproven.
+
+# Corpus manifests (kind: Workflow) that are NOT ZECS scenarios. Every one of them
+# must be listed here with a reason, so a manifest can never drop out of the suite
+# silently. kind: AgentDef and kind: Policy manifests in the corpus are not workflows
+# and are out of scope by construction — they are not listed.
+non_members:
+  - path: spec/workflows/examples/code-review.yaml
+    reason: >-
+      Reference workflow with six agent capabilities (request_review, merge_pr, ...)
+      that the e2e kind cluster does not deploy. Covered at the compile tier only
+      (services/workflow-compiler/internal/api/examples_test.go) — engine-independent,
+      so not conformance evidence. Gap G1.
+  - path: spec/workflows/examples/ci-pipeline.yaml
+    reason: >-
+      Same as code-review.yaml: multi-capability reference workflow, compile-tier
+      coverage only, no agents deployed on the e2e cluster. Gap G1.
+  - path: spec/workflows/examples/feature-implementation.yaml
+    reason: >-
+      Same as code-review.yaml: multi-capability reference workflow, compile-tier
+      coverage only. Gap G1.
+  - path: spec/workflows/examples/research-task.yaml
+    reason: >-
+      Same as code-review.yaml: multi-capability reference workflow, compile-tier
+      coverage only. Gap G1.
+  - path: spec/workflows/examples/code-review-ollama.yaml
+    reason: >-
+      Requires a local Ollama model runtime serving the `codereview` capability; the
+      e2e cluster deploys no model runtime. Would make the suite depend on model
+      output, which is not engine behaviour.
+  - path: spec/workflows/examples/code-review-rank-ollama.yaml
+    reason: >-
+      Same as code-review-ollama.yaml (adds a `summarize` capability).
+  - path: spec/workflows/examples/adk-code-review-ollama.yaml
+    reason: >-
+      Same as code-review-ollama.yaml, plus the ADK adapter — model-dependent, not
+      deployed on the e2e cluster.

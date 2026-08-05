@@ -41,7 +41,7 @@ dual-engine e2e into a named conformance suite.
 |------|-------|--------|------------------------------|
 | M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) ✅ **closed** | `docs/spdd/1674-agent-registry-push-removal/` — Implemented (#1699) | #1697 ✅ → #1698 ✅ (stateless scheduler: repos + DB gone, resync verified live) → #1598 ✅ (RPCs gone from the contract; file-scoped `buf breaking` exception per ADR-048 §4; shipped as 7 disjoint slices #1757–#1764) → #1699 ✅ (docs sweep + retired config keys/CLI alias; spike branch deleted; EPIC closed) |
 | M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) ✅ **closed** | `docs/spdd/1675-event-bus-facade-removal/` — Implemented (#1703) | #1700 ✅ → #1701 ✅ (facade tree + build/release wiring deleted) → #1702 ✅ (proto + stubs removed) → #1703 ✅ (AsyncAPI + docs truth pass; EPIC closed) |
-| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → (steps 2–4 filed via `/lib:spdd-story`) |
+| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → #1773 ✅ (ZECS defined in `docs/conformance/` with honest pass criteria + gap list; membership drift guard) → #1774 → #1775 |
 | M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
 
 The three M9 epics are mutually parallel; #1620 has no gate and can merge first. Also riding
@@ -164,6 +164,21 @@ strategy, load/SLO).
      api-gateway, follow-up filed): `zynax apply <scenario-dir>` aborts because a Scenario's
      `apply_order` POSTs its AgentDef members to `/api/v1/apply` (400 `UNSUPPORTED_KIND`), and
      `infra/packages/code-review-rank/apply-job.yaml` does the same while shipping no `Agent` CR.
+
+13. ✅ M9.C step 2 delivered ([#1773](https://github.com/zynax-io/zynax/issues/1773), as of
+     2026-08-05): the suite is named and defined — **ZECS v0.8.0** in `docs/conformance/`
+     (definition + `scenarios.yaml` membership manifest over `spec/workflows/examples/`, no
+     shadow copy, no second harness). The pass criteria are transcribed from what
+     `scripts/e2e/*.sh` actually assert, so the definition ships with a **gap list**: ZECS runs
+     4 scenarios, only **1** (`e2e-demo.yaml`) on **both** legs; the two legs assert different
+     depths for it (the enforced intersection is terminal status — the argo leg asserts no
+     CloudEvents and no outputs); declared-output equality and the failure path are
+     temporal-only; the CRD scenario asserts dispatch, not completion; and the `argo` leg is
+     still advisory, not required, on `main`. Gaps G1–G6 are written into the reference doc for
+     a follow-up story. New drift guard `zynax-ci check conformance` (`make check-conformance`,
+     unconditional `conformance-check` job in `ci.yml`) reconciles membership ↔ corpus ↔ the
+     engine-adapter's selectable engines ↔ the e2e matrix legs — no engine name is hardcoded in
+     it, so engine N+1 turns the suite red until the leg really runs. PR cadence unchanged.
 
 ---
 

@@ -446,13 +446,13 @@ clean-caches: ## Remove the named Docker volumes holding the Go/uv tool caches
 clean-all: clean dev-down clean-tools clean-caches ## ⚠ Remove everything
 
 # ── Spec validation ───────────────────────────────────────────────────────────
-.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping validate-canvas validate-milestone-state dry-run
+.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping check-conformance validate-canvas validate-milestone-state dry-run
 
 validate-milestone-state: ## Validate state/milestone.yaml against state/milestone.schema.json
 	cd cmd/zynax-ci && GOWORK=off go run . validate milestone --root "$(CURDIR)"
 	@echo "✅ Milestone state valid"
 
-validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def + policy + scenario manifests + expert mapping)
+validate-spec: validate-asyncapi validate-capability-schemas validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping check-conformance ## Validate all specs (AsyncAPI + capability schemas + workflow + agent-def + policy + scenario manifests + expert mapping + ZECS membership)
 
 validate-canvas: ensure-tools ## Validate REASONS Canvas files under docs/spdd/ (SPDD — ADR-019)
 	$(TOOLS_RUN) zynax-ci validate canvas docs/spdd/
@@ -488,6 +488,9 @@ validate-scenario-schema: ensure-tools ## Validate Scenario index files in spec/
 
 check-expert-mapping: ## Drift guard: authoring <-> runtime expert mapping (ADR-033)
 	cd cmd/zynax-ci && GOWORK=off go run . check expert-mapping --root "$(CURDIR)"
+
+check-conformance: ## Drift guard: ZECS membership <-> corpus <-> engine legs (docs/conformance/)
+	cd cmd/zynax-ci && GOWORK=off go run . check conformance --root "$(CURDIR)"
 
 validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)
 	# renovate: datasource=docker depName=asyncapi/cli

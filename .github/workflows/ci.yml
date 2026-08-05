@@ -584,6 +584,31 @@ jobs:
           CLI_CHANGED: ${{ needs.changes.outputs.cli }}
         run: bash tools/ci/zynax-ci-run.sh check expert-mapping --root "$GITHUB_WORKSPACE"
 
+# ── ZECS definition drift guard (#1773) ───────────────────────────────────────
+# Static consistency check for the Zynax Engine Conformance Suite definition
+# (docs/conformance/README.md §8): membership manifest <-> spec/workflows/examples
+# corpus <-> engine-adapter selectable engines <-> e2e matrix legs. Seconds, no
+# cluster. This is NOT a conformance run and asserts nothing about engine results —
+# the suite itself runs on the gated e2e matrix, unchanged by this job.
+# Deliberately unfiltered: the guarded inputs span docs/, spec/, services/ and
+# .github/, so a path filter would let a scenario rename slip through silently.
+  conformance-check:
+    name: conformance-check
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:94dba19d07afaad6f0c6508d7400b1e60990f1e1276b68f9f84198dfd2c2add2
+      options: --user root
+    needs: [changes]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: zynax-ci check conformance (ZECS membership drift)
+        # Baked runner binary; compiles from source only when the PR touches
+        # cmd/zynax-ci so CLI changes self-test in the same run (#1715).
+        env:
+          CLI_CHANGED: ${{ needs.changes.outputs.cli }}
+        run: bash tools/ci/zynax-ci-run.sh check conformance --root "$GITHUB_WORKSPACE"
+
 # ── Tests: Go ─────────────────────────────────────────────────────────────────
 # Calls _test-go.yml reusable workflow (Go unit + BDD + coverage gates).
 # always() breaks cascade-skip when lint lanes are skipped on path-filtered PRs.
