@@ -104,9 +104,9 @@ versioning scheme are the open design decisions a human settles at alignment).
 | Step | Story | What |
 |------|-------|------|
 | 1 ✅ | [#1620](https://github.com/zynax-io/zynax/issues/1620) | Workflow CRD reconcile e2e assertion extended to the argo leg (leg symmetry) — **done**: argo dispatch was never broken; the assertion's `kubectl get workflow` short name resolved to the Argo CRD (`workflows.argoproj.io`) on that leg. Script now pins `workflow.zynax.io`; guard dropped; verified on a live argo kind cluster |
-| 2 | *(on alignment)* | suite definition: name, version scheme, scenario membership, pass criteria |
-| 3 | *(on alignment)* | machine-readable per-engine matrix artifact + one-command local run |
-| 4 | *(on alignment)* | per-release publication + adapter-author how-to |
+| 2 ✅ | [#1773](https://github.com/zynax-io/zynax/issues/1773) | **ZECS v0.8.0** defined in `docs/conformance/` — scenarios, legs, pass criteria transcribed from what `scripts/e2e/*.sh` actually assert (gaps G1–G6 recorded, not papered over), `scenarios.yaml` membership over `spec/workflows/examples/`, and the `zynax-ci check conformance` drift guard (membership ↔ corpus ↔ selectable engines ↔ e2e matrix legs). No second harness; PR cadence unchanged |
+| 3 | [#1774](https://github.com/zynax-io/zynax/issues/1774) | machine-readable per-engine matrix artifact + one-command local run |
+| 4 | [#1775](https://github.com/zynax-io/zynax/issues/1775) | per-release publication + adapter-author how-to |
 
 ## 3 — Dependency graph & critical path
 
