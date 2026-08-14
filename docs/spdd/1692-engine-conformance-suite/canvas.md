@@ -113,10 +113,17 @@ spec/workflows/examples/ --compile→IR→dispatch--> temporal leg --\
    assertion's `kubectl get workflow` short name resolved to the Argo CRD (`workflows.argoproj.io`,
    installed only on the argo leg) instead of `workflows.zynax.io`. The script now pins the
    fully-qualified name and the `matrix.engine == 'temporal'` guard is dropped.
-2. **Suite definition** (story on alignment, `docs:`/`test:`) — publish the named suite
-   (**ZECS**, versioned with the platform release — see the naming decision above); in-repo
-   definition enumerating scenarios, legs, and pass criteria; suite membership manifest over
-   `spec/workflows/examples/`.
+2. **Suite definition** (#1773, `docs:`, ✅ done) — **ZECS v0.8.0** published under
+   `docs/conformance/`: definition (scenarios, legs, pass criteria, versioning) plus
+   `scenarios.yaml`, a membership manifest annotating `spec/workflows/examples/` (no shadow
+   copy). The pass criteria are transcribed from what `scripts/e2e/*.sh` actually assert, so
+   the definition ships a gap list: 4 scenarios, only `e2e-demo.yaml` on both legs; the legs
+   assert different depths (enforced intersection = terminal status); output equality and the
+   failure path are temporal-only; the CRD scenario asserts dispatch, not completion; the argo
+   leg is advisory on `main` (G1–G6). Membership↔corpus↔engine-leg drift is caught by
+   `zynax-ci check conformance` (`make check-conformance` + an unconditional `conformance-check`
+   CI job) — legs are read from the engine-adapter's selectable engines and the e2e matrix, so
+   no engine name is hardcoded. No second harness; PR e2e cadence unchanged.
 3. **Matrix artifact** (story on alignment, `ci:`) — e2e workflow emits the machine-readable
    per-engine pass/fail report; artifact retained per run; one-command local invocation
    documented for adapter authors producing the same output.

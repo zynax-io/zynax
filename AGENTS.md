@@ -232,6 +232,7 @@ Observed mistakes in AI-assisted contributions — check before writing code.
 | Multi-language proto consuming guide | `docs/patterns/proto-interop.md` |
 | BDD contract testing (bufconn, godog, two-file split) | `docs/patterns/bdd-contract-testing.md` |
 | Helm chart templates (Deployment, HPA, NetworkPolicy, PDB) | `docs/patterns/helm-charts.md` |
+| Engine conformance suite (ZECS) — scenarios, engine legs, pass criteria, known gaps | `docs/conformance/README.md` |
 | Architecture Decision Records | `docs/adr/INDEX.md` |
 | Current milestone and active PRs | `state/current-milestone.md` |
 | Run the stack with raw `docker compose` (no `make`) | `docs/running-with-docker-compose.md` |
