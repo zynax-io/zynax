@@ -41,9 +41,12 @@ type zecsSource struct {
 }
 
 type zecsLeg struct {
-	Status string `yaml:"status"`
-	Runner string `yaml:"runner"`
-	Reason string `yaml:"reason"`
+	Status  string   `yaml:"status"`
+	Runner  string   `yaml:"runner"`
+	Reason  string   `yaml:"reason"`
+	Gap     string   `yaml:"gap"`
+	CIStep  string   `yaml:"ci_step"`
+	Asserts []string `yaml:"asserts"`
 }
 
 type zecsScenario struct {
@@ -58,10 +61,16 @@ type zecsNonMember struct {
 }
 
 type zecsManifest struct {
-	Corpus     string          `yaml:"corpus"`
-	Legs       []string        `yaml:"legs"`
-	Scenarios  []zecsScenario  `yaml:"scenarios"`
-	NonMembers []zecsNonMember `yaml:"non_members"`
+	Suite       string            `yaml:"suite"`
+	ShortName   string            `yaml:"short_name"`
+	Version     string            `yaml:"version"`
+	Definition  string            `yaml:"definition"`
+	Corpus      string            `yaml:"corpus"`
+	Legs        []string          `yaml:"legs"`
+	Enforcement map[string]string `yaml:"enforcement"`
+	MatrixNotes []string          `yaml:"matrix_notes"`
+	Scenarios   []zecsScenario    `yaml:"scenarios"`
+	NonMembers  []zecsNonMember   `yaml:"non_members"`
 }
 
 // Conformance runs the ZECS membership drift guard against the repo at root
@@ -96,6 +105,7 @@ func Conformance(root string) (problems []string, count int, err error) {
 
 	legs := stringSet(man.Legs)
 	problems = append(problems, checkLegMirror(legs, engines, matrixLegs)...)
+	problems = append(problems, checkLegEnforcement(man, legs)...)
 	problems = append(problems, checkScenarios(root, man, legs)...)
 	problems = append(problems, checkCorpusMembership(man, corpus)...)
 	return problems, count, nil
@@ -126,6 +136,26 @@ func checkLegMirror(legs, engines, matrixLegs map[string]bool) []string {
 	if extra := sortedDiff(matrixLegs, legs); len(extra) > 0 {
 		problems = append(problems, fmt.Sprintf(
 			"e2e matrix legs in %s not declared by ZECS: %v", e2eWorkflowPath, extra))
+	}
+	return problems
+}
+
+// checkLegEnforcement asserts every declared leg states whether its e2e check is
+// required or advisory on main (README §3, gap G6). The published matrix carries
+// this per leg, so a new leg must not inherit an authority claim by omission.
+func checkLegEnforcement(man zecsManifest, legs map[string]bool) []string {
+	var problems []string
+	for _, leg := range sortedKeysOf(legs) {
+		switch e := man.Enforcement[leg]; e {
+		case enforcementRequired, enforcementAdvisory:
+		case "":
+			problems = append(problems, fmt.Sprintf(
+				"%s: leg %q has no 'enforcement' entry — a published matrix must state whether the leg blocks a merge",
+				zecsManifestPath, leg))
+		default:
+			problems = append(problems, fmt.Sprintf("%s: enforcement[%s] = %q is not %q or %q",
+				zecsManifestPath, leg, e, enforcementRequired, enforcementAdvisory))
+		}
 	}
 	return problems
 }
@@ -175,6 +205,11 @@ func checkScenarioLegs(root string, sc zecsScenario, legs map[string]bool) []str
 			} else if !fileExists(root, entry.Runner) {
 				problems = append(problems, fmt.Sprintf(
 					"%s[%s]: runner %q does not exist", sc.ID, leg, entry.Runner))
+			}
+			// The matrix reads this leg's outcome under its ci_step key (#1774).
+			if entry.CIStep == "" {
+				problems = append(problems, fmt.Sprintf(
+					"%s[%s]: status 'run' with no 'ci_step' — the matrix would have no outcome to read", sc.ID, leg))
 			}
 		case legStatusNotRun:
 			if strings.TrimSpace(entry.Reason) == "" {

@@ -23,11 +23,16 @@ const (
 // cleanZECS is a well-formed membership manifest: one scenario that runs on both
 // legs, and one corpus manifest declared as a reasoned non-member.
 const cleanZECS = `suite: Zynax Engine Conformance Suite
+short_name: ZECS
 version: v0.0.0
+definition: docs/conformance/README.md
 corpus: spec/workflows/examples
 legs:
   - temporal
   - argo
+enforcement:
+  temporal: required
+  argo: advisory
 scenarios:
   - id: echo-happy-path
     source:
@@ -37,9 +42,11 @@ scenarios:
       temporal:
         status: run
         runner: scripts/e2e/e2e-happy.sh
+        ci_step: happy-path
       argo:
         status: run
         runner: scripts/e2e/e2e-happy.sh
+        ci_step: happy-path
 non_members:
   - path: spec/workflows/examples/code-review.yaml
     reason: needs agents the e2e cluster does not deploy
@@ -170,6 +177,7 @@ func TestConformance_ScenarioOmitsLeg(t *testing.T) {
 	manifest := strings.Replace(cleanZECS, `      argo:
         status: run
         runner: scripts/e2e/e2e-happy.sh
+        ci_step: happy-path
 `, "", 1)
 	writeRepoFile(t, root, zecsManifestRel, manifest)
 	assertProblem(t, root, "no entry for leg")
@@ -181,9 +189,27 @@ func TestConformance_NotRunLegWithoutReason(t *testing.T) {
 	manifest := strings.Replace(cleanZECS, `      argo:
         status: run
         runner: scripts/e2e/e2e-happy.sh
+        ci_step: happy-path
 `, "      argo:\n        status: not_run\n", 1)
 	writeRepoFile(t, root, zecsManifestRel, manifest)
 	assertProblem(t, root, "no 'reason'")
+}
+
+// The rules the published matrix depends on (#1774): a leg must state whether it
+// blocks a merge (else an advisory leg could read as authoritative — gap G6), and
+// a runnable leg must name the e2e step id the matrix reads its outcome from
+// (else the scenario would render unobserved on every run).
+func TestConformance_MatrixInputRules(t *testing.T) {
+	for _, tc := range []struct{ name, from, want string }{
+		{"leg without enforcement", "  argo: advisory\n", "no 'enforcement' entry"},
+		{"run leg without ci_step", "        ci_step: happy-path\n", "no 'ci_step'"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := buildCleanZECSRepo(t)
+			writeRepoFile(t, root, zecsManifestRel, strings.Replace(cleanZECS, tc.from, "", 1))
+			assertProblem(t, root, tc.want)
+		})
+	}
 }
 
 // A non-member without a reason must be caught.

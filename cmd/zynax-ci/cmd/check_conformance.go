@@ -26,6 +26,8 @@ Suite (ZECS) membership manifest — against the repository and fail on any drif
      configured with (ADR-015) and the e2e matrix legs in e2e-smoke.yml.
   4. Every scenario carries an explicit entry for every leg; a leg that does not
      run says so with a reason (a skipped leg is SKIPPED, never PASS).
+  5. Every leg declares whether its e2e check is required or advisory on main,
+     and every runnable leg names the e2e step id the matrix reads (#1774).
 
 This is NOT a conformance run: it executes no workflow and reports no per-engine
 result. It only proves the suite definition is consistent with the repo, in about
