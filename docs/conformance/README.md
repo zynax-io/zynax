@@ -2,8 +2,8 @@
 # Zynax Engine Conformance Suite (ZECS)
 
 > **Reference.** What the suite *is* — scenarios, engine legs, pass criteria, versioning.
-> Running it against your own engine adapter is a how-to and lands with step 4
-> ([#1775](https://github.com/zynax-io/zynax/issues/1775)).
+> Running it against your own engine adapter is a how-to:
+> [`how-to-run-zecs.md`](how-to-run-zecs.md).
 
 **ZECS** is the named, versioned set of workflow scenarios Zynax executes on **every** engine
 adapter to substantiate one claim: *one manifest, N engines*. It is a **name and a report over
@@ -21,7 +21,8 @@ delegation discipline, applied to our own tooling).
 | Membership manifest | [`scenarios.yaml`](scenarios.yaml) |
 | Consistency check | `make check-conformance` |
 | Result matrix | `zecs-matrix.json` — [§10](#10--the-result-matrix); emitted per e2e run, reproducible locally with `make conformance-matrix ENGINE=<engine>` |
-| Published results | not yet linked from a release — per-release publication is step 4 ([#1775](https://github.com/zynax-io/zynax/issues/1775)) |
+| Published results | attached to every GitHub Release, with the table rendered into its notes — [§11](#11--publication-per-release) |
+| Adapter-author how-to | [`how-to-run-zecs.md`](how-to-run-zecs.md) |
 
 ---
 
@@ -231,13 +232,17 @@ fall out of the suite silently.
 5. a scenario that omits an entry for a declared leg, a `not_run` leg with no reason, or a `run`
    leg whose runner script does not exist;
 6. duplicate or empty scenario ids;
-7. a leg that does not declare its `enforcement`, or a `run` leg that declares no `ci_step` —
-   the two fields the result matrix ([§10](#10--the-result-matrix)) depends on.
+7. a leg that does not declare its `enforcement`; a `run` leg that declares no `ci_step`; or a
+   `ci_step` that is not the id of any step in the `e2e` job — the fields the result matrix
+   ([§10](#10--the-result-matrix)) depends on.
 
-It deliberately stops short of resolving each `ci_step` against the step ids in `e2e-smoke.yml`.
-A mismatch there is caught one layer later and just as loudly — the cell renders `not_executed`
-and the leg `INCOMPLETE` in the next run's matrix — and `actionlint` already fails a workflow
-whose recording step references a step id that no longer exists.
+Rule 7 resolves each `run` leg's `ci_step` against the **real step ids** of the `e2e` job in
+`e2e-smoke.yml`. That resolution landed with publication (#1775) for a specific reason: without
+it, a renamed step first surfaces as a `not_executed` cell and an `INCOMPLETE` leg in the *next*
+matrix — which, once matrices are attached to releases, is a claim already published. Renaming a
+step id now fails at PR time in both directions: `actionlint` fails the stale
+`steps.<id>.outcome` reference in the recording step, and this guard fails the manifest entry
+that no longer resolves.
 
 **Why a static check and not a test run:** rules 1–6 are answerable by reading files, in about a
 second, with no cluster. Running the suite to discover that a manifest was renamed would cost a
@@ -253,16 +258,17 @@ pass/fail per engine — it only proves the *definition* is internally consisten
 | ZECS scenarios execute | on the existing gated e2e matrix: PRs touching `helm/**`, `services/**`, `engine-adapter/**`, `scripts/e2e/**`, or `e2e-smoke.yml`, plus `workflow_dispatch` |
 | PR gating | unchanged by ZECS. `e2e smoke (temporal)` stays required (with the path shim); `e2e smoke (argo)` stays advisory. **No PR is gated on a full ZECS run** |
 | Consistency check | every PR (`conformance-check`), seconds, no cluster |
-| Per-engine matrix | emitted by the `ZECS matrix` job on every e2e run — **advisory, never a gate** ([§10](#10--the-result-matrix)). Linking it from a release is step 4 |
+| Per-engine matrix | emitted by the `ZECS matrix` job on every e2e run — **advisory, never a gate** ([§10](#10--the-result-matrix)) |
+| Publication | per release, never per PR ([§11](#11--publication-per-release)) |
 
 ## 10 — The result matrix
 
 Every e2e run emits one machine-readable result document, `zecs-matrix.json`, as a run artifact
 (90-day retention; the per-leg inputs are kept 14 days). It is **JSON**, not YAML: it is written
 and read by machines — the release flow, `jq`, an adapter author's script — and JSON is the format
-those already speak. The job summary embeds that same document verbatim, so what a human reads in
-the run and what a consumer parses cannot disagree. (A rendered table belongs with publication,
-step 4 — [#1775](https://github.com/zynax-io/zynax/issues/1775).)
+those already speak. The job summary shows the table *rendered from that document* and embeds the
+document itself verbatim underneath, so what a human reads in the run and what a consumer parses
+cannot disagree ([§11](#11--publication-per-release) — the same rendering a release publishes).
 
 The matrix is a **report over the existing e2e matrix**, produced by the same run — no second
 harness (ADR-040). Each leg records its per-scenario step outcomes; the `ZECS matrix` job renders
@@ -340,8 +346,55 @@ engine N+1 to the engine-adapter makes it a row here with no change to the tool.
 `zynax-ci conformance matrix --help` documents the flags, including the CI form
 (`--outcomes <dir>`) that renders a document from a run's recorded step outcomes.
 
-## 11 — Related
+## 11 — Publication (per release)
 
+Every GitHub Release publishes a ZECS result — that is what makes the portability claim
+checkable from the release page alone, without opening CI.
+
+| | |
+|---|---|
+| Attached assets | `zecs-matrix.json` (the document) and `zecs-conformance.md` (the table) |
+| Release notes | carry the rendered section, headed by the one-line claim, e.g. `ZECS v0.8.0 — argo PASS (advisory), temporal PASS (required) · required legs: PASS · all legs: PASS` |
+| Produced by | `zynax-ci conformance render`, in the `release` job of [`.github/workflows/release.yml`](../../.github/workflows/release.yml) |
+| Cadence | per release only. Nothing here runs on, or gates, a pull request ([§9](#9--cadence-and-enforcement)) |
+
+**The table is rendered from the attached document, never hand-written.** Both are pure
+functions of one `zecs-matrix.json`, so the claim in the notes and the artifact a script parses
+cannot drift, and no release note can assert a result the run did not produce.
+
+**Every leg is named with its enforcement, and both aggregates are published.** `required legs:`
+covers only the legs whose e2e check is required on `main`; `all legs:` covers every leg. A red
+advisory leg therefore reads as `argo FAIL (advisory) · required legs: PASS · all legs: FAIL` —
+the result is not hidden, and it is not dressed up as merge-blocking either (gap
+[**G6**](#7--known-gaps); the branch-protection decision is
+[#1778](https://github.com/zynax-io/zynax/issues/1778)). Promoting a leg to required changes the
+published line by itself: the words come from `enforcement:` in
+[`scenarios.yaml`](scenarios.yaml), not from a template.
+
+### 11.1 Which run a release may cite
+
+The release cites the most recent e2e run whose head revision is an **ancestor of the released
+commit** — code that is really in the release. PR-head runs are excluded by construction (a
+squash merge rewrites the SHA), so a release never quotes a matrix measured on code it does not
+ship. The notes state the run URL and the measured revision, and say when that revision is an
+ancestor rather than the released commit itself.
+
+### 11.2 When no run qualifies
+
+`e2e-smoke.yml` is PR-triggered and path-conditional, so a release commit usually has **no run of
+its own**, and run artifacts expire after 90 days. When nothing qualifies, the release publishes
+a document emitted by the same tool in which **every leg is `NOT_RUN` and `complete` is false**,
+and the notes lead with `INCOMPLETE run — not a conformance result`.
+
+That is deliberate. Silently omitting the matrix would let a release look unmeasured-by-accident,
+and publishing a partial run as complete is the exact failure this suite exists to prevent — so
+the honest third option is to publish "not run" in the same shape as any other result. To publish
+a real result, dispatch `e2e smoke` on the release commit before tagging; the matrix from that
+run is then the newest ancestor and is picked up automatically.
+
+## 12 — Related
+
+- [`how-to-run-zecs.md`](how-to-run-zecs.md) — running ZECS against your own engine adapter
 - Epic [#1692](https://github.com/zynax-io/zynax/issues/1692) ·
   canvas [`docs/spdd/1692-engine-conformance-suite/canvas.md`](../spdd/1692-engine-conformance-suite/canvas.md)
 - [ADR-015 — pluggable workflow engines](../adr/ADR-015-pluggable-workflow-engines.md) (the

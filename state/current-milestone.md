@@ -41,12 +41,12 @@ dual-engine e2e into a named conformance suite.
 |------|-------|--------|------------------------------|
 | M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) ✅ **closed** | `docs/spdd/1674-agent-registry-push-removal/` — Implemented (#1699) | #1697 ✅ → #1698 ✅ (stateless scheduler: repos + DB gone, resync verified live) → #1598 ✅ (RPCs gone from the contract; file-scoped `buf breaking` exception per ADR-048 §4; shipped as 7 disjoint slices #1757–#1764) → #1699 ✅ (docs sweep + retired config keys/CLI alias; spike branch deleted; EPIC closed) |
 | M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) ✅ **closed** | `docs/spdd/1675-event-bus-facade-removal/` — Implemented (#1703) | #1700 ✅ → #1701 ✅ (facade tree + build/release wiring deleted) → #1702 ✅ (proto + stubs removed) → #1703 ✅ (AsyncAPI + docs truth pass; EPIC closed) |
-| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → #1773 ✅ (ZECS defined in `docs/conformance/` with honest pass criteria + gap list; membership drift guard) → #1774 ✅ (`zecs-matrix.json` emitted per e2e run + `make conformance-matrix ENGINE=<engine>`; a leg that did not run renders NOT_RUN/SKIPPED, never PASS) → #1775 |
+| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) ✅ **closed** | `docs/spdd/1692-engine-conformance-suite/` — Implemented (#1775) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → #1773 ✅ (ZECS defined in `docs/conformance/` with honest pass criteria + gap list; membership drift guard) → #1774 ✅ (`zecs-matrix.json` emitted per e2e run + `make conformance-matrix ENGINE=<engine>`; a leg that did not run renders NOT_RUN/SKIPPED, never PASS) → #1775 ✅ (matrix + rendered table published per release, each leg with its enforcement; how-to for adapter authors; EPIC closed) |
 | M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
 
-The three M9 epics are mutually parallel; #1620 has no gate and can merge first. Also riding
-alongside: ADR proposals #1693–#1696 (ADR-048..051 — API versioning, OIDC edge auth, fuzz
-strategy, load/SLO).
+All three M9 epics are closed (2026-08-14); what remains for the milestone is the v0.8.0
+release itself. Also riding alongside: ADR proposals #1693–#1696 (ADR-048..051 — API
+versioning, OIDC edge auth, fuzz strategy, load/SLO).
 
 ### Delivery status — `/deliver` unblocked 2026-07-10
 
@@ -193,6 +193,28 @@ strategy, load/SLO).
      `make conformance-matrix ENGINE=<engine>` reproduces the same document locally by running
      that leg's manifest runners. The job is advisory by construction: it reports, it never
      gates, and it cannot turn an e2e leg red — the PR e2e gate is byte-for-byte unchanged.
+
+15. ✅ M9.C step 4 delivered and **EPIC #1692 closed** — the last open M9 epic
+     ([#1775](https://github.com/zynax-io/zynax/issues/1775), as of 2026-08-14): the portability
+     claim is now checkable from a release page. Every release attaches `zecs-matrix.json` plus
+     `zecs-conformance.md` and carries the rendered section in its notes, headed by the one-line
+     claim (`ZECS v0.8.0 — argo PASS (advisory), temporal PASS (required) · required legs: PASS
+     · all legs: PASS`). The table is rendered from the attached document by
+     `zynax-ci conformance render` — never hand-written — and the e2e job summary now uses the
+     same rendering over the same JSON, so the human view and the machine view cannot drift.
+     Each leg is published with its `enforcement` and both aggregates, so an advisory PASS never
+     reads as merge-blocking and the open branch-protection decision
+     ([#1778](https://github.com/zynax-io/zynax/issues/1778)) changes the line with no template
+     edit. A release may cite only a run whose revision is an ancestor of the released commit
+     (PR-head runs are excluded by construction); when none qualifies — e2e is PR-triggered and
+     path-conditional, artifacts expire at 90 days — the same tool emits an all-`NOT_RUN`,
+     `complete: false` document and the notes lead with "INCOMPLETE run — not a conformance
+     result", rather than omitting the matrix or presenting a partial run as complete. Adapter
+     authors get a Diátaxis how-to (`docs/conformance/how-to-run-zecs.md`) beside the reference.
+     Step 3's deferral is closed too: `ci_step` keys resolve statically against the e2e job's
+     step ids, so a renamed step fails at PR time instead of inside a published matrix.
+     All three M9 epics (#1674, #1675, #1692) are now closed; M9 stays **Active** until the
+     v0.8.0 release itself is cut.
 
 ---
 

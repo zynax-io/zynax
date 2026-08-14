@@ -263,7 +263,8 @@ jobs:
 #
 # ADVISORY BY CONSTRUCTION: it reports, it does not gate. `always()` so it runs
 # on a red leg (that is when the matrix matters most), and the emit step cannot
-# turn a leg red. Per-release publication of this artifact is #1775.
+# turn a leg red. Per-release publication of this artifact (#1775) reads the
+# uploaded document and renders it — see docs/conformance/README.md §11.
   zecs-matrix:
     name: ZECS matrix
     needs: [e2e]
@@ -300,11 +301,22 @@ jobs:
             --out "$GITHUB_WORKSPACE/zecs-matrix.json" \
             --revision "${{ github.event.pull_request.head.sha || github.sha }}" \
             --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # The table is RENDERED FROM the emitted document (#1775), and the
+          # document itself stays embedded verbatim below it: the human view and
+          # the machine view are two renderings of one file, so they cannot drift.
+          bash tools/ci/zynax-ci-run.sh conformance render \
+            --matrix "$GITHUB_WORKSPACE/zecs-matrix.json" \
+            --out "$GITHUB_WORKSPACE/zecs-matrix.md"
           {
-            echo "### ZECS engine conformance matrix"
+            cat "$GITHUB_WORKSPACE/zecs-matrix.md"
+            echo ""
+            echo "<details><summary>zecs-matrix.json — the artifact this table renders</summary>"
+            echo ""
             echo '```json'
             cat "$GITHUB_WORKSPACE/zecs-matrix.json"
             echo '```'
+            echo ""
+            echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the ZECS matrix

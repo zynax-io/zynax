@@ -446,7 +446,7 @@ clean-caches: ## Remove the named Docker volumes holding the Go/uv tool caches
 clean-all: clean dev-down clean-tools clean-caches ## ⚠ Remove everything
 
 # ── Spec validation ───────────────────────────────────────────────────────────
-.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping check-conformance conformance-matrix validate-canvas validate-milestone-state dry-run
+.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping check-conformance conformance-matrix conformance-render validate-canvas validate-milestone-state dry-run
 
 validate-milestone-state: ## Validate state/milestone.yaml against state/milestone.schema.json
 	cd cmd/zynax-ci && GOWORK=off go run . validate milestone --root "$(CURDIR)"
@@ -497,7 +497,13 @@ conformance-matrix: ## Emit the ZECS matrix for one engine leg (ENGINE=<engine>;
 	@mkdir -p bin
 	cd cmd/zynax-ci && GOWORK=off go run . conformance matrix \
 		--root "$(CURDIR)" --run --leg "$(ENGINE)" --out "$(CURDIR)/bin/zecs-matrix.json"
-	@echo "→ bin/zecs-matrix.json"
+	cd cmd/zynax-ci && GOWORK=off go run . conformance render \
+		--matrix "$(CURDIR)/bin/zecs-matrix.json" --out "$(CURDIR)/bin/zecs-matrix.md"
+	@echo "→ bin/zecs-matrix.json  bin/zecs-matrix.md"
+
+conformance-render: ## Render an emitted ZECS matrix as Markdown (MATRIX=<path>, default bin/zecs-matrix.json)
+	cd cmd/zynax-ci && GOWORK=off go run . conformance render \
+		--matrix "$(if $(MATRIX),$(MATRIX),$(CURDIR)/bin/zecs-matrix.json)"
 
 validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)
 	# renovate: datasource=docker depName=asyncapi/cli

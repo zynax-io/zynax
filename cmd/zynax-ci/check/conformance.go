@@ -94,7 +94,7 @@ func Conformance(root string) (problems []string, count int, err error) {
 	if err != nil {
 		return nil, count, err
 	}
-	matrixLegs, err := discoverE2EMatrixLegs(filepath.Join(root, e2eWorkflowPath))
+	matrixLegs, stepIDs, err := discoverE2EJob(filepath.Join(root, e2eWorkflowPath))
 	if err != nil {
 		return nil, count, err
 	}
@@ -106,7 +106,7 @@ func Conformance(root string) (problems []string, count int, err error) {
 	legs := stringSet(man.Legs)
 	problems = append(problems, checkLegMirror(legs, engines, matrixLegs)...)
 	problems = append(problems, checkLegEnforcement(man, legs)...)
-	problems = append(problems, checkScenarios(root, man, legs)...)
+	problems = append(problems, checkScenarios(root, man, legs, stepIDs)...)
 	problems = append(problems, checkCorpusMembership(man, corpus)...)
 	return problems, count, nil
 }
@@ -163,7 +163,7 @@ func checkLegEnforcement(man zecsManifest, legs map[string]bool) []string {
 // checkScenarios asserts every scenario resolves to a real file, has a unique id,
 // and carries an explicit entry for EVERY declared leg (a leg that does not run must
 // say so with a reason — omission would let a skipped leg read as a pass).
-func checkScenarios(root string, man zecsManifest, legs map[string]bool) []string {
+func checkScenarios(root string, man zecsManifest, legs, stepIDs map[string]bool) []string {
 	var problems []string
 	seen := map[string]bool{}
 	for i, sc := range man.Scenarios {
@@ -182,13 +182,13 @@ func checkScenarios(root string, man zecsManifest, legs map[string]bool) []strin
 			problems = append(problems, fmt.Sprintf(
 				"%s: source.path %q does not exist", sc.ID, sc.Source.Path))
 		}
-		problems = append(problems, checkScenarioLegs(root, sc, legs)...)
+		problems = append(problems, checkScenarioLegs(root, sc, legs, stepIDs)...)
 	}
 	return problems
 }
 
 // checkScenarioLegs applies the per-leg rules for one scenario.
-func checkScenarioLegs(root string, sc zecsScenario, legs map[string]bool) []string {
+func checkScenarioLegs(root string, sc zecsScenario, legs, stepIDs map[string]bool) []string {
 	var problems []string
 	for _, leg := range sortedKeysOf(legs) {
 		entry, ok := sc.Legs[leg]
@@ -207,9 +207,18 @@ func checkScenarioLegs(root string, sc zecsScenario, legs map[string]bool) []str
 					"%s[%s]: runner %q does not exist", sc.ID, leg, entry.Runner))
 			}
 			// The matrix reads this leg's outcome under its ci_step key (#1774).
-			if entry.CIStep == "" {
+			// Resolving that key against the workflow's real step ids is what stops
+			// a renamed step from surfacing only later, as a `not_executed` cell in
+			// a PUBLISHED matrix (#1775): publication is exactly where that failure
+			// becomes externally visible and hard to retract.
+			switch {
+			case entry.CIStep == "":
 				problems = append(problems, fmt.Sprintf(
 					"%s[%s]: status 'run' with no 'ci_step' — the matrix would have no outcome to read", sc.ID, leg))
+			case !stepIDs[entry.CIStep]:
+				problems = append(problems, fmt.Sprintf(
+					"%s[%s]: ci_step %q is not the id of any step in %s — the matrix would render this scenario 'not_executed' and the leg INCOMPLETE",
+					sc.ID, leg, entry.CIStep, e2eWorkflowPath))
 			}
 		case legStatusNotRun:
 			if strings.TrimSpace(entry.Reason) == "" {
@@ -334,11 +343,13 @@ func discoverSelectableEngines(path string) (map[string]bool, error) {
 	return engines, nil
 }
 
-// discoverE2EMatrixLegs returns jobs.e2e.strategy.matrix.engine from the e2e workflow.
-func discoverE2EMatrixLegs(path string) (map[string]bool, error) {
+// discoverE2EJob returns the two things the suite mirrors from the e2e workflow:
+// jobs.e2e.strategy.matrix.engine (the leg set) and the ids of the job's steps
+// (the keys the result matrix reads per-scenario outcomes under).
+func discoverE2EJob(path string) (legs, stepIDs map[string]bool, err error) {
 	raw, err := os.ReadFile(path) //nolint:gosec // caller-supplied repo path
 	if err != nil {
-		return nil, fmt.Errorf("check conformance: read %q: %w", path, err)
+		return nil, nil, fmt.Errorf("check conformance: read %q: %w", path, err)
 	}
 	var wf struct {
 		Jobs struct {
@@ -348,18 +359,27 @@ func discoverE2EMatrixLegs(path string) (map[string]bool, error) {
 						Engine []string `yaml:"engine"`
 					} `yaml:"matrix"`
 				} `yaml:"strategy"`
+				Steps []struct {
+					ID string `yaml:"id"`
+				} `yaml:"steps"`
 			} `yaml:"e2e"`
 		} `yaml:"jobs"`
 	}
 	if err := yaml.Unmarshal(raw, &wf); err != nil {
-		return nil, fmt.Errorf("check conformance: parse %q: %w", path, err)
+		return nil, nil, fmt.Errorf("check conformance: parse %q: %w", path, err)
 	}
-	legs := wf.Jobs.E2E.Strategy.Matrix.Engine
-	if len(legs) == 0 {
-		return nil, fmt.Errorf(
+	engines := wf.Jobs.E2E.Strategy.Matrix.Engine
+	if len(engines) == 0 {
+		return nil, nil, fmt.Errorf(
 			"check conformance: %q: jobs.e2e.strategy.matrix.engine is empty — the runner's leg list moved", path)
 	}
-	return stringSet(legs), nil
+	stepIDs = map[string]bool{}
+	for _, step := range wf.Jobs.E2E.Steps {
+		if step.ID != "" {
+			stepIDs[step.ID] = true
+		}
+	}
+	return stringSet(engines), stepIDs, nil
 }
 
 // discoverCorpusWorkflows returns the repo-relative paths of the kind:Workflow

@@ -397,7 +397,7 @@ func EncodeMatrix(w io.Writer, doc MatrixDoc) error {
 }
 
 // Summary is the one-line verdict for a log. The JSON document is the artifact;
-// rendering it for humans belongs with publication (#1775).
+// the published renderings live in matrix_render.go (#1775).
 func Summary(doc MatrixDoc) string {
 	legs := make([]string, 0, len(doc.Legs))
 	for _, leg := range doc.Legs {
