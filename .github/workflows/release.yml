@@ -640,6 +640,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write   # creates the GitHub Release with binaries + SBOMs
+      actions: read     # reads the e2e run's ZECS matrix artifact (#1775)
     steps:
       - name: Resolve version
         id: ver
@@ -651,6 +652,15 @@ jobs:
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # Checked out for the ZECS publication step below: it renders with the
+      # zynax-ci of the RELEASED revision and resolves run ancestry from real
+      # history. First step of the job — checkout cleans the workspace, so it
+      # must precede the artifact downloads.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.ver.outputs.version }}
+          fetch-depth: 0
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -675,6 +685,75 @@ jobs:
           (cd dist/cli     && sha256sum * > ../checksums-cli.txt)
           (cd dist/zynax-ci && sha256sum * > ../checksums-zynax-ci.txt)
 
+      # ── ZECS engine conformance (#1775, M9.C step 4) ──────────────────────────
+      # An adopter must be able to check the portability claim from the release
+      # page alone, so every release publishes a ZECS result document plus a table
+      # RENDERED FROM IT (docs/conformance/README.md §11). Nothing here is
+      # hand-written and nothing recomputes a verdict: the attached JSON and the
+      # notes are two renderings of one artifact.
+      #
+      # Which run may be cited: the newest e2e-smoke run whose head SHA is an
+      # ANCESTOR of the released commit — code that is really in this release.
+      # That excludes PR-head runs by construction (a squash merge rewrites the
+      # SHA), so a release never cites a matrix measured on code it does not ship.
+      #
+      # When nothing qualifies — e2e-smoke is PR-triggered and path-conditional,
+      # so a release commit usually has no run of its own, and artifacts expire
+      # after 90 days — the SAME tool emits an all-NOT_RUN document
+      # (`complete: false`) and the notes say so in their first line. Publishing
+      # "not run" is honest; omitting the matrix, or presenting a run that skipped
+      # a leg as complete, is the failure this story exists to prevent. To publish
+      # a real result, dispatch e2e-smoke on the release commit before tagging.
+      - name: Publish the ZECS conformance matrix
+        id: zecs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/dist/zecs" "$GITHUB_WORKSPACE/zecs-no-outcomes"
+          MATRIX="$GITHUB_WORKSPACE/dist/zecs/zecs-matrix.json"
+          SECTION="$GITHUB_WORKSPACE/dist/zecs/zecs-conformance.md"
+          RELEASE_SHA="$(git rev-parse HEAD)"
+          SOURCE=""
+
+          RUNS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/e2e-smoke.yml/runs?per_page=50" \
+                    --jq '.workflow_runs[] | "\(.id):\(.head_sha)"' || true)"
+          for ENTRY in ${RUNS}; do
+            RUN_ID="${ENTRY%%:*}"
+            RUN_SHA="${ENTRY##*:}"
+            git merge-base --is-ancestor "${RUN_SHA}" "${RELEASE_SHA}" 2>/dev/null || continue
+            gh run download "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" \
+              --name zecs-matrix --dir "$GITHUB_WORKSPACE/dist/zecs" 2>/dev/null || continue
+            SOURCE="e2e run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}, measured at \`${RUN_SHA}\`"
+            if [ "${RUN_SHA}" != "${RELEASE_SHA}" ]; then
+              SOURCE="${SOURCE} — an ancestor of the released commit, not the released commit itself"
+            fi
+            break
+          done
+
+          if [ -z "${SOURCE}" ]; then
+            echo "::warning::no ZECS matrix artifact for any revision contained in ${VERSION} — publishing an all-NOT_RUN document"
+            bash tools/ci/zynax-ci-run.sh conformance matrix \
+              --root "$GITHUB_WORKSPACE" \
+              --outcomes "$GITHUB_WORKSPACE/zecs-no-outcomes" \
+              --out "${MATRIX}" \
+              --revision "${RELEASE_SHA}"
+            SOURCE="no conformance run is available for a revision contained in this release"
+          fi
+
+          bash tools/ci/zynax-ci-run.sh conformance render --matrix "${MATRIX}" --out "${SECTION}"
+          {
+            echo ""
+            echo "Source: ${SOURCE}. Released commit: \`${RELEASE_SHA}\`."
+          } >> "${SECTION}"
+          {
+            echo "section<<ZECS_SECTION_EOF"
+            cat "${SECTION}"
+            echo "ZECS_SECTION_EOF"
+          } >> "$GITHUB_OUTPUT"
+          bash tools/ci/zynax-ci-run.sh conformance render --matrix "${MATRIX}" --headline
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
@@ -690,6 +769,14 @@ jobs:
             All service images are retag-promoted from the pre-merge security
             gate (ADR-027): the digests below are the exact binaries that
             passed Trivy before merge.
+
+            ${{ steps.zecs.outputs.section }}
+
+            The document this section renders is attached as `zecs-matrix.json`
+            (machine-readable; `jq -e '.result == "PASS" and .complete'`), with the
+            same table as `zecs-conformance.md`. Read what each leg actually
+            asserts, and the suite's known gaps, before citing it:
+            https://github.com/zynax-io/zynax/blob/${{ steps.ver.outputs.version }}/docs/conformance/README.md
 
             ### Install zynax CLI
 
@@ -757,5 +844,6 @@ jobs:
             dist/cli/*
             dist/zynax-ci/*
             dist/sboms/*
+            dist/zecs/*
             dist/checksums-cli.txt
             dist/checksums-zynax-ci.txt

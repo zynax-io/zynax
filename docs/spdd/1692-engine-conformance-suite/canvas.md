@@ -6,7 +6,7 @@
 **Issue:** #1692
 **Author:** Oscar Gómez Manresa
 **Date:** 2026-07-08
-**Status:** Aligned
+**Status:** Implemented
 
 > Story issues: step 1 → #1620 · steps 2–4 → filed via `/lib:spdd-story` on alignment
 > (the suite's name/versioning scheme is the open design question a human aligns first).
@@ -136,9 +136,22 @@ spec/workflows/examples/ --compile→IR→dispatch--> temporal leg --\
    separately (`enforced_result`), so an advisory red argo leg never reads as merge-blocking (G6).
    `make conformance-matrix ENGINE=<engine>` reproduces the same document locally by running that
    leg's manifest runners.
-4. **Release publication** (story on alignment, `ci:`/`docs:`) — release flow uploads/links
-   the matrix; release-notes template gains the conformance line; adapter-author how-to
-   published under docs/conformance/.
+4. **Release publication** (#1775, `ci:`, ✅ done) — every release attaches `zecs-matrix.json`
+   plus `zecs-conformance.md` and carries the rendered section in its notes, headed by the
+   one-line claim (`ZECS v0.8.0 — argo PASS (advisory), temporal PASS (required) · required
+   legs: PASS · all legs: PASS`). The table is **rendered from the attached document**
+   (`zynax-ci conformance render`), never hand-written, so the notes and the artifact cannot
+   drift; the e2e job summary uses the same rendering over the same JSON. Each leg is published
+   with its `enforcement` and both aggregates, so an advisory PASS never reads as
+   merge-blocking and the open branch-protection decision (#1778) changes the line with no
+   template edit. A release may cite only a run whose revision is an ancestor of the released
+   commit; when none qualifies (e2e is PR-triggered and path-conditional; artifacts expire at
+   90 d) the same tool emits an all-`NOT_RUN`, `complete: false` document and the notes lead
+   with "INCOMPLETE run — not a conformance result" — publishing "not run" rather than omitting
+   the matrix or dressing a partial run as complete. Adapter-author how-to:
+   `docs/conformance/how-to-run-zecs.md` (Diátaxis how-to beside step 2's reference). Also
+   closed step 3's deferral: `ci_step` keys now resolve statically against the e2e job's step
+   ids, so a renamed step fails at PR time instead of inside a published matrix.
 
 ## N — Norms
 

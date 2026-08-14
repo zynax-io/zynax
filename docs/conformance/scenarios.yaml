@@ -19,9 +19,9 @@
 #   - `ci_step:` is the `id` of the step in .github/workflows/e2e-smoke.yml that runs
 #     this scenario on this leg; `zynax-ci conformance matrix` reads the leg's outcome
 #     under that key (#1774). Rename a step id here AND there together: the drift guard
-#     requires the key to be declared but does not resolve it against the workflow, so a
-#     mismatch surfaces as a `not_executed` cell (an INCOMPLETE leg) in the next run's
-#     matrix rather than at PR time.
+#     resolves every `run` leg's key against the e2e job's real step ids (#1775), so a
+#     mismatch fails at PR time instead of surfacing later as a `not_executed` cell (an
+#     INCOMPLETE leg) in a matrix that has already been published with a release.
 
 suite: Zynax Engine Conformance Suite
 short_name: ZECS

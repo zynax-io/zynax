@@ -62,13 +62,19 @@ const (
 )
 `
 
-// e2eWorkflow mirrors the e2e matrix leg list.
+// e2eWorkflow mirrors the two things the suite reads from the runner: the matrix
+// leg list and the step ids the result matrix keys per-scenario outcomes on.
 const e2eWorkflow = `name: e2e smoke
 jobs:
   e2e:
     strategy:
       matrix:
         engine: [temporal, argo]
+    steps:
+      - name: Checkout
+      - name: Happy-path workflow assertion
+        id: happy-path
+        run: scripts/e2e/e2e-happy.sh
 `
 
 func writeRepoFile(t *testing.T, root, rel, content string) {
@@ -209,6 +215,25 @@ func TestConformance_MatrixInputRules(t *testing.T) {
 			writeRepoFile(t, root, zecsManifestRel, strings.Replace(cleanZECS, tc.from, "", 1))
 			assertProblem(t, root, tc.want)
 		})
+	}
+}
+
+// A ci_step that names no real step in the e2e job must be caught at PR time
+// (#1775): without this, a renamed step first surfaces as a `not_executed` cell
+// and an INCOMPLETE leg in the next PUBLISHED matrix — after the claim is out.
+func TestConformance_CIStepNamesNoWorkflowStep(t *testing.T) {
+	root := buildCleanZECSRepo(t)
+	writeRepoFile(t, root, ".github/workflows/e2e-smoke.yml",
+		strings.Replace(e2eWorkflow, "id: happy-path", "id: happy-path-renamed", 1))
+	problems, _, err := check.Conformance(root)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(problems) != 2 { // one per leg — both legs read this scenario's outcome
+		t.Fatalf("expected the renamed step to be reported for both legs, got %d: %v", len(problems), problems)
+	}
+	if !strings.Contains(problems[0], "is not the id of any step") {
+		t.Errorf("problem %q does not name the unresolvable ci_step", problems[0])
 	}
 }
 
