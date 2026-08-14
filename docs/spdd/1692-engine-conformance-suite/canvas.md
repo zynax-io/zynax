@@ -124,9 +124,18 @@ spec/workflows/examples/ --compile→IR→dispatch--> temporal leg --\
    `zynax-ci check conformance` (`make check-conformance` + an unconditional `conformance-check`
    CI job) — legs are read from the engine-adapter's selectable engines and the e2e matrix, so
    no engine name is hardcoded. No second harness; PR e2e cadence unchanged.
-3. **Matrix artifact** (story on alignment, `ci:`) — e2e workflow emits the machine-readable
-   per-engine pass/fail report; artifact retained per run; one-command local invocation
-   documented for adapter authors producing the same output.
+3. **Matrix artifact** (#1774, `ci:`, ✅ done) — every e2e run emits `zecs-matrix.json`, one JSON
+   document covering **every** engine the engine-adapter can be configured with: each leg records
+   its per-scenario step outcomes, a fan-in `ZECS matrix` job renders them, and the artifact is
+   retained per run (90 d; per-leg inputs 14 d). Advisory by construction — it reports, it never
+   gates, and it cannot turn an e2e leg red. Correctness property, asserted not intended: only an
+   observed success renders `PASS`; a leg that never ran is present as `NOT_RUN`, never omitted;
+   and the two skips stay distinct (`not_in_leg` = the manifest says this leg does not run it, vs
+   `not_executed` = it was meant to and produced nothing, which makes the leg `INCOMPLETE` and the
+   run `complete: false`). Enforcement is carried per leg and the required legs aggregate
+   separately (`enforced_result`), so an advisory red argo leg never reads as merge-blocking (G6).
+   `make conformance-matrix ENGINE=<engine>` reproduces the same document locally by running that
+   leg's manifest runners.
 4. **Release publication** (story on alignment, `ci:`/`docs:`) — release flow uploads/links
    the matrix; release-notes template gains the conformance line; adapter-author how-to
    published under docs/conformance/.

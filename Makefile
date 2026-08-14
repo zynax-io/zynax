@@ -446,7 +446,7 @@ clean-caches: ## Remove the named Docker volumes holding the Go/uv tool caches
 clean-all: clean dev-down clean-tools clean-caches ## ⚠ Remove everything
 
 # ── Spec validation ───────────────────────────────────────────────────────────
-.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping check-conformance validate-canvas validate-milestone-state dry-run
+.PHONY: validate-spec validate-asyncapi validate-workflow-schema validate-agent-def-schema validate-policy-schema validate-scenario-schema check-expert-mapping check-conformance conformance-matrix validate-canvas validate-milestone-state dry-run
 
 validate-milestone-state: ## Validate state/milestone.yaml against state/milestone.schema.json
 	cd cmd/zynax-ci && GOWORK=off go run . validate milestone --root "$(CURDIR)"
@@ -491,6 +491,13 @@ check-expert-mapping: ## Drift guard: authoring <-> runtime expert mapping (ADR-
 
 check-conformance: ## Drift guard: ZECS membership <-> corpus <-> engine legs (docs/conformance/)
 	cd cmd/zynax-ci && GOWORK=off go run . check conformance --root "$(CURDIR)"
+
+conformance-matrix: ## Emit the ZECS matrix for one engine leg (ENGINE=<engine>; needs a live cluster)
+	@test -n "$(ENGINE)" || { echo "ENGINE is required, e.g. make conformance-matrix ENGINE=temporal"; exit 1; }
+	@mkdir -p bin
+	cd cmd/zynax-ci && GOWORK=off go run . conformance matrix \
+		--root "$(CURDIR)" --run --leg "$(ENGINE)" --out "$(CURDIR)/bin/zecs-matrix.json"
+	@echo "→ bin/zecs-matrix.json"
 
 validate-asyncapi: ## Validate spec/asyncapi/zynax-events.yaml via AsyncAPI CLI (Docker)
 	# renovate: datasource=docker depName=asyncapi/cli

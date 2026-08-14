@@ -41,7 +41,7 @@ dual-engine e2e into a named conformance suite.
 |------|-------|--------|------------------------------|
 | M9.A — agent-registry push-path hard-removal (ADR-039) | [#1674](https://github.com/zynax-io/zynax/issues/1674) ✅ **closed** | `docs/spdd/1674-agent-registry-push-removal/` — Implemented (#1699) | #1697 ✅ → #1698 ✅ (stateless scheduler: repos + DB gone, resync verified live) → #1598 ✅ (RPCs gone from the contract; file-scoped `buf breaking` exception per ADR-048 §4; shipped as 7 disjoint slices #1757–#1764) → #1699 ✅ (docs sweep + retired config keys/CLI alias; spike branch deleted; EPIC closed) |
 | M9.B — EventBusService facade hard-removal (ADR-046) | [#1675](https://github.com/zynax-io/zynax/issues/1675) ✅ **closed** | `docs/spdd/1675-event-bus-facade-removal/` — Implemented (#1703) | #1700 ✅ → #1701 ✅ (facade tree + build/release wiring deleted) → #1702 ✅ (proto + stubs removed) → #1703 ✅ (AsyncAPI + docs truth pass; EPIC closed) |
-| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → #1773 ✅ (ZECS defined in `docs/conformance/` with honest pass criteria + gap list; membership drift guard) → #1774 → #1775 |
+| M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) | `docs/spdd/1692-engine-conformance-suite/` — Aligned (#1734) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → #1773 ✅ (ZECS defined in `docs/conformance/` with honest pass criteria + gap list; membership drift guard) → #1774 ✅ (`zecs-matrix.json` emitted per e2e run + `make conformance-matrix ENGINE=<engine>`; a leg that did not run renders NOT_RUN/SKIPPED, never PASS) → #1775 |
 | M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
 
 The three M9 epics are mutually parallel; #1620 has no gate and can merge first. Also riding
@@ -179,6 +179,20 @@ strategy, load/SLO).
      unconditional `conformance-check` job in `ci.yml`) reconciles membership ↔ corpus ↔ the
      engine-adapter's selectable engines ↔ the e2e matrix legs — no engine name is hardcoded in
      it, so engine N+1 turns the suite red until the leg really runs. PR cadence unchanged.
+
+14. ✅ M9.C step 3 delivered ([#1774](https://github.com/zynax-io/zynax/issues/1774), as of
+     2026-08-14): a ZECS run now produces a machine-readable result. Every e2e leg records its
+     per-scenario step outcomes and a fan-in `ZECS matrix` job renders one `zecs-matrix.json`
+     covering **every** engine the engine-adapter can be configured with (90-day retention;
+     per-leg inputs 14 days). The correctness property is asserted, not intended: only an
+     observed success renders `PASS`, a leg that never ran is present as `NOT_RUN` rather than
+     omitted, and `not_in_leg` (the manifest says this leg does not run it) stays distinct from
+     `not_executed` (it was meant to and produced nothing → the leg is `INCOMPLETE` and the run
+     `complete: false`). Enforcement is carried per leg with a separate `enforced_result`, so the
+     advisory argo leg (gap G6) can never read as merge-blocking.
+     `make conformance-matrix ENGINE=<engine>` reproduces the same document locally by running
+     that leg's manifest runners. The job is advisory by construction: it reports, it never
+     gates, and it cannot turn an e2e leg red — the PR e2e gate is byte-for-byte unchanged.
 
 ---
 

@@ -13,6 +13,11 @@
 #     CR reaches phase Succeeded). cluster-up.sh additionally installs the Argo
 #     Workflows control plane (pinned argo-helm chart) for this leg.
 #
+# These legs ARE the Zynax Engine Conformance Suite run (ZECS,
+# docs/conformance/README.md). Each leg records its per-scenario step outcomes
+# and the zecs-matrix job renders one machine-readable matrix over all legs
+# (#1774) — a report over this matrix, never a second harness (ADR-040).
+#
 # GATED, NOT a required PR gate: it triggers ONLY on changes to helm/**,
 # services/**, or engine-adapter/**, plus manual workflow_dispatch. It is
 # deliberately excluded from the branch-protection required-check set — only
@@ -152,7 +157,14 @@ jobs:
           EDGE_ENABLED: "true"
         run: scripts/e2e/cluster-up.sh
 
+      # The `id:` of every scenario step below is the `ci_step` key the ZECS
+      # membership manifest (docs/conformance/scenarios.yaml) maps its scenarios
+      # to (#1774). Rename one here and you must rename it there: actionlint
+      # catches the stale `steps.<id>.outcome` reference in the recording step
+      # below, and a manifest still naming the old id renders that scenario
+      # `not_executed` — an INCOMPLETE leg, never a silent PASS.
       - name: Happy-path workflow assertion
+        id: happy-path
         if: matrix.engine == 'temporal'
         # Submits code-review.yaml via api-gateway, asserts the workflow
         # reaches a terminal success state, the workflow.completed CloudEvent
@@ -161,6 +173,7 @@ jobs:
         run: scripts/e2e/e2e-happy.sh
 
       - name: Workflow output read-path assertion
+        id: hello-world-outputs
         if: matrix.engine == 'temporal'
         # Submits hello-world.yaml (which declares a terminal `outputs:` block),
         # asserts it reaches COMPLETED, then reads GET /api/v1/workflows/{id}/outputs
@@ -169,6 +182,7 @@ jobs:
         run: scripts/e2e/hello-world-smoke.sh
 
       - name: Failure-path workflow assertion
+        id: failure-path
         if: matrix.engine == 'temporal'
         # Submits a workflow whose first state invokes an unreachable
         # capability, asserts it reaches a terminal failed state and the
@@ -176,6 +190,7 @@ jobs:
         run: scripts/e2e/e2e-failure.sh
 
       - name: Argo happy-path workflow assertion
+        id: argo-happy-path
         if: matrix.engine == 'argo'
         # Submits code-review.yaml via api-gateway against the ArgoEngine and
         # asserts the gateway projection reaches a terminal success state AND
@@ -184,6 +199,7 @@ jobs:
         run: scripts/e2e/e2e-argo.sh
 
       - name: Workflow CRD reconcile assertion
+        id: workflow-crd
         # Both engine legs (ADR-043, M8.E; #1620, M9.C): kubectl apply a Workflow
         # custom resource and assert the api-gateway's embedded controller
         # reconciles it through the same compile->submit path to a Dispatched run,
@@ -203,6 +219,98 @@ jobs:
         # Temporal engine mid-leg on the argo leg.
         run: scripts/e2e/helm-upgrade.sh
 
+      # ── ZECS matrix input (#1774, M9.C step 3) ────────────────────────────
+      # Recording only: no assertion, no gate, and nothing here can change this
+      # leg's conclusion. `always()` is load-bearing — a leg that failed early
+      # must still report, and every step that never executed reports `skipped`,
+      # which the matrix renders SKIPPED/not_executed (never PASS) and which
+      # makes the leg INCOMPLETE. The matrix itself is rendered once, for all
+      # legs, in the zecs-matrix job below.
+      - name: Record ZECS scenario outcomes
+        if: always()
+        run: |
+          {
+            echo "leg=${{ matrix.engine }}"
+            echo "happy-path=${{ steps.happy-path.outcome }}"
+            echo "hello-world-outputs=${{ steps.hello-world-outputs.outcome }}"
+            echo "failure-path=${{ steps.failure-path.outcome }}"
+            echo "argo-happy-path=${{ steps.argo-happy-path.outcome }}"
+            echo "workflow-crd=${{ steps.workflow-crd.outcome }}"
+          } > "zecs-outcomes-${{ matrix.engine }}.txt"
+          cat "zecs-outcomes-${{ matrix.engine }}.txt"
+
+      - name: Upload ZECS leg outcomes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zecs-outcomes-${{ matrix.engine }}
+          path: zecs-outcomes-${{ matrix.engine }}.txt
+          retention-days: 14
+          if-no-files-found: error
+
       - name: Tear down cluster
         if: always()
         run: scripts/e2e/cluster-down.sh
+
+# ── ZECS per-engine matrix (#1774, M9.C step 3) ───────────────────────────────
+# Fan-in: renders ONE machine-readable matrix covering every engine leg the
+# engine-adapter can be configured with (ADR-015) — enumerated by the tool from
+# services/engine-adapter/cmd/engine-adapter/main.go, so engine N+1 appears here
+# with no edit to this workflow. A leg whose outcome artifact is missing (job
+# cancelled, runner lost, upload failed) renders NOT_RUN and sets
+# `complete: false`; it is never omitted, so a partial run cannot be published as
+# a conformance result.
+#
+# ADVISORY BY CONSTRUCTION: it reports, it does not gate. `always()` so it runs
+# on a red leg (that is when the matrix matters most), and the emit step cannot
+# turn a leg red. Per-release publication of this artifact is #1775.
+  zecs-matrix:
+    name: ZECS matrix
+    needs: [e2e]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download per-leg outcomes
+        # Advisory: with no matching artifact (both legs died before recording)
+        # download-artifact errors, and the matrix must still be emitted — every
+        # leg then renders NOT_RUN with complete:false.
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: zecs-outcomes
+          pattern: zecs-outcomes-*
+          merge-multiple: true
+
+      - name: Emit the ZECS per-engine matrix
+        # zynax-ci-run.sh compiles from source outside the ci-runner container,
+        # so this always runs the verb as it exists on this ref (no baked-binary
+        # staleness window). Paths MUST be absolute: that helper cd's into
+        # cmd/zynax-ci, so a relative --outcomes/--out resolves there instead.
+        # mkdir -p: with no leg artifact at all the download step above fails and
+        # creates nothing, and the matrix must still be emitted (all legs NOT_RUN).
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/zecs-outcomes"
+          bash tools/ci/zynax-ci-run.sh conformance matrix \
+            --root "$GITHUB_WORKSPACE" \
+            --outcomes "$GITHUB_WORKSPACE/zecs-outcomes" \
+            --out "$GITHUB_WORKSPACE/zecs-matrix.json" \
+            --revision "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          {
+            echo "### ZECS engine conformance matrix"
+            echo '```json'
+            cat "$GITHUB_WORKSPACE/zecs-matrix.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the ZECS matrix
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zecs-matrix
+          path: zecs-matrix.json
+          retention-days: 90
+          if-no-files-found: error

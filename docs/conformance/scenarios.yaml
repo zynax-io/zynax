@@ -16,6 +16,12 @@
 #     is reported SKIPPED, never PASS.
 #   - `asserts:` is a summary index into README §5, not the assertion source of truth.
 #     The scripts are.
+#   - `ci_step:` is the `id` of the step in .github/workflows/e2e-smoke.yml that runs
+#     this scenario on this leg; `zynax-ci conformance matrix` reads the leg's outcome
+#     under that key (#1774). Rename a step id here AND there together: the drift guard
+#     requires the key to be declared but does not resolve it against the workflow, so a
+#     mismatch surfaces as a `not_executed` cell (an INCOMPLETE leg) in the next run's
+#     matrix rather than at PR time.
 
 suite: Zynax Engine Conformance Suite
 short_name: ZECS
@@ -30,6 +36,29 @@ legs:
   - temporal
   - argo
 
+# Whether each leg's e2e status check blocks a merge on `main` (README §3, gap G6).
+# The published matrix carries this per leg and aggregates the `required` legs
+# separately: a PASS on an advisory leg is not a merge-blocking guarantee. Every
+# declared leg needs an entry — the drift guard fails otherwise, so engine N+1
+# cannot inherit an authority claim by omission.
+enforcement:
+  temporal: required
+  argo: advisory
+
+# Caveats copied verbatim into every emitted result matrix, so a document that
+# travels away from this repo carries its own limits (README §10.2). The
+# run-dependent caveat — which legs were advisory — is appended by the emitter.
+matrix_notes:
+  - >-
+    Results are per leg. The legs do not assert the same things for a shared
+    scenario: compare each cell's `asserts` and read docs/conformance/README.md
+    §6 before reading PASS on two legs as proof that the legs verified the same
+    behaviour.
+  - >-
+    `complete: false` means a leg, or a scenario a leg was meant to run, produced
+    no observation. Such a document reports what happened; it is not a
+    conformance result for the suite.
+
 scenarios:
   - id: echo-happy-path
     description: >-
@@ -43,6 +72,7 @@ scenarios:
       temporal:
         status: run
         runner: scripts/e2e/e2e-happy.sh
+        ci_step: happy-path
         asserts:
           - terminal-success-status
           - lifecycle-cloudevents-on-jetstream
@@ -51,6 +81,7 @@ scenarios:
       argo:
         status: run
         runner: scripts/e2e/e2e-argo.sh
+        ci_step: argo-happy-path
         asserts:
           - terminal-success-status
           - argo-workflow-cr-phase-succeeded
@@ -67,6 +98,7 @@ scenarios:
       temporal:
         status: run
         runner: scripts/e2e/e2e-workflow-crd.sh
+        ci_step: workflow-crd
         asserts: &crd_asserts
           - dispatched-true-with-runid
           - thin-status-keys-only
@@ -75,6 +107,7 @@ scenarios:
       argo:
         status: run
         runner: scripts/e2e/e2e-workflow-crd.sh
+        ci_step: workflow-crd
         asserts: *crd_asserts
 
   - id: hello-world-outputs
@@ -89,12 +122,14 @@ scenarios:
       temporal:
         status: run
         runner: scripts/e2e/hello-world-smoke.sh
+        ci_step: hello-world-outputs
         asserts:
           - terminal-success-status
           - workflow-execution-completed-in-logs
           - declared-output-equals-manifest-value
       argo:
         status: not_run
+        gap: G3
         reason: >-
           The hello-world step in .github/workflows/e2e-smoke.yml is gated
           `if: matrix.engine == 'temporal'`. Gap G3 — output portability is unproven
@@ -115,12 +150,14 @@ scenarios:
       temporal:
         status: run
         runner: scripts/e2e/e2e-failure.sh
+        ci_step: failure-path
         asserts:
           - terminal-failure-status
           - terminal-failed-cloudevent
           # the failure-reason string check is soft — see README §5.4
       argo:
         status: not_run
+        gap: G5
         reason: >-
           The failure-path step in .github/workflows/e2e-smoke.yml is gated
           `if: matrix.engine == 'temporal'`. Gap G5 — failure-semantics portability

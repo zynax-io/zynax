@@ -20,7 +20,8 @@ delegation discipline, applied to our own tooling).
 | Corpus | [`spec/workflows/examples/`](../../spec/workflows/examples/) — annotated, never copied |
 | Membership manifest | [`scenarios.yaml`](scenarios.yaml) |
 | Consistency check | `make check-conformance` |
-| Published results | none yet — the machine-readable matrix is step 3 ([#1774](https://github.com/zynax-io/zynax/issues/1774)); per-release publication is step 4 ([#1775](https://github.com/zynax-io/zynax/issues/1775)) |
+| Result matrix | `zecs-matrix.json` — [§10](#10--the-result-matrix); emitted per e2e run, reproducible locally with `make conformance-matrix ENGINE=<engine>` |
+| Published results | not yet linked from a release — per-release publication is step 4 ([#1775](https://github.com/zynax-io/zynax/issues/1775)) |
 
 ---
 
@@ -74,7 +75,9 @@ document. It derives from the engines the engine-adapter can be configured with 
 | `argo` | `ArgoEngine` (`services/engine-adapter/internal/infrastructure/argo_engine.go`) | `e2e smoke (argo)` — **advisory**: it runs on every e2e-relevant PR but is not in the required-check set (decision recorded on [#1092](https://github.com/zynax-io/zynax/issues/1092)) |
 
 > The asymmetry in the last column is real and matters to anyone reading a ZECS result: a red
-> `argo` leg does not block a merge today.
+> `argo` leg does not block a merge today. Every leg's enforcement is carried in the result
+> matrix ([§10](#10--the-result-matrix)); it is mirrored machine-readably in
+> [`scenarios.yaml`](scenarios.yaml) under `enforcement:`.
 
 ## 4 — Scenarios (ZECS v0.8.0)
 
@@ -204,7 +207,7 @@ per engine" and what ZECS v0.8.0 enforces.
 | **G3** | Declared-output equality is asserted on the temporal leg only (`hello-world-outputs`) | Output portability across engines is unproven |
 | **G4** | `workflow-crd-reconcile` asserts dispatch, not completion | The CRD path is proved to *start* portable runs, not to finish them |
 | **G5** | The failure path (`capability-timeout-failure`) runs on the temporal leg only | Failure-semantics portability is unproven |
-| **G6** | The `argo` leg is advisory, not required, on `main` | A red argo leg does not block a merge; a published matrix must therefore carry the leg's enforcement status |
+| **G6** | The `argo` leg is advisory, not required, on `main` | A red argo leg does not block a merge. The result matrix carries `enforcement` per leg and aggregates the required legs separately as `enforced_result` ([§10](#10--the-result-matrix)), so a result never claims more authority than branch protection gives it — but the gap itself is open |
 
 Closing G1–G5 is corpus and assertion work that belongs to follow-on stories (the Fork A
 20-scenario target referenced by the epic canvas); G6 is a branch-protection decision. None of
@@ -227,7 +230,14 @@ fall out of the suite silently.
 4. a `legs:` list that disagrees with the `matrix.engine` list in `e2e-smoke.yml`;
 5. a scenario that omits an entry for a declared leg, a `not_run` leg with no reason, or a `run`
    leg whose runner script does not exist;
-6. duplicate or empty scenario ids.
+6. duplicate or empty scenario ids;
+7. a leg that does not declare its `enforcement`, or a `run` leg that declares no `ci_step` —
+   the two fields the result matrix ([§10](#10--the-result-matrix)) depends on.
+
+It deliberately stops short of resolving each `ci_step` against the step ids in `e2e-smoke.yml`.
+A mismatch there is caught one layer later and just as loudly — the cell renders `not_executed`
+and the leg `INCOMPLETE` in the next run's matrix — and `actionlint` already fails a workflow
+whose recording step references a step id that no longer exists.
 
 **Why a static check and not a test run:** rules 1–6 are answerable by reading files, in about a
 second, with no cluster. Running the suite to discover that a manifest was renamed would cost a
@@ -243,9 +253,94 @@ pass/fail per engine — it only proves the *definition* is internally consisten
 | ZECS scenarios execute | on the existing gated e2e matrix: PRs touching `helm/**`, `services/**`, `engine-adapter/**`, `scripts/e2e/**`, or `e2e-smoke.yml`, plus `workflow_dispatch` |
 | PR gating | unchanged by ZECS. `e2e smoke (temporal)` stays required (with the path shim); `e2e smoke (argo)` stays advisory. **No PR is gated on a full ZECS run** |
 | Consistency check | every PR (`conformance-check`), seconds, no cluster |
-| Published per-engine matrix | not yet — steps 3 and 4 of the epic |
+| Per-engine matrix | emitted by the `ZECS matrix` job on every e2e run — **advisory, never a gate** ([§10](#10--the-result-matrix)). Linking it from a release is step 4 |
 
-## 10 — Related
+## 10 — The result matrix
+
+Every e2e run emits one machine-readable result document, `zecs-matrix.json`, as a run artifact
+(90-day retention; the per-leg inputs are kept 14 days). It is **JSON**, not YAML: it is written
+and read by machines — the release flow, `jq`, an adapter author's script — and JSON is the format
+those already speak. The job summary embeds that same document verbatim, so what a human reads in
+the run and what a consumer parses cannot disagree. (A rendered table belongs with publication,
+step 4 — [#1775](https://github.com/zynax-io/zynax/issues/1775).)
+
+The matrix is a **report over the existing e2e matrix**, produced by the same run — no second
+harness (ADR-040). Each leg records its per-scenario step outcomes; the `ZECS matrix` job renders
+them. It reports and exits 0 even on a red matrix: nothing here gates a PR ([§9](#9--cadence-and-enforcement)).
+
+### 10.1 Shape
+
+```jsonc
+{
+  "schema_version": "1",
+  "version": "v0.8.0",            // ZECS version = platform release (§2)
+  "revision": "<sha>",            // what was under test
+  "run_url": "…/actions/runs/…",
+  "result": "PASS|FAIL|INCOMPLETE",          // all legs
+  "enforced_result": "PASS|FAIL|INCOMPLETE", // legs whose check is REQUIRED on main
+  "complete": true,
+  "legs": [{
+    "engine": "temporal",
+    "enforcement": "required|advisory|unknown",  // §3, gap G6
+    "executed": true,
+    "complete": true,
+    "result": "PASS|FAIL|INCOMPLETE|NOT_RUN",
+    "scenarios": [{
+      "id": "echo-happy-path",
+      "result": "PASS|FAIL|SKIPPED",
+      "planned": true,
+      "skip_kind": "not_in_leg|not_executed",  // only when SKIPPED
+      "asserts": ["terminal-success-status", "…"],  // what THIS leg checked (§5)
+      "observed": "success"
+    }]
+  }],
+  "notes": ["…"]
+}
+```
+
+### 10.2 Reading it honestly
+
+**Read `complete` before `result`.** A matrix is a conformance result only when `complete` is
+true. These are the three things it is built not to let you misread:
+
+1. **A leg that did not run is present and `NOT_RUN` — never absent.** Every engine the
+   engine-adapter can be configured with gets a row, whether or not it produced any evidence. A
+   missing leg artifact (cancelled job, lost runner) yields `NOT_RUN`, `complete: false`. You
+   cannot mistake a one-leg run for a full one, because the other leg is right there saying it
+   did not run.
+2. **The two skips are different, and the dangerous one is loud.** `not_in_leg` means the
+   membership manifest says this leg does not run that scenario — expected, carries the manifest's
+   reason and its gap id (G3, G5), and does **not** make the leg incomplete. `not_executed` means
+   the scenario was meant to run here and produced no success or failure — the leg becomes
+   `INCOMPLETE` and the run `complete: false`. There is no path from "did not run" to `PASS`:
+   only an observed success renders `PASS`, an observed failure renders `FAIL`, and *everything*
+   else (skipped, cancelled, absent, unrecognised) renders `SKIPPED`.
+3. **`PASS` on two legs is not proof the legs verified the same behaviour.** The legs assert
+   different things (gap **G2**) — compare each cell's `asserts` and read
+   [§6](#6--what-cross-leg-parity-actually-means-today). And `result` covers all legs while
+   `enforced_result` covers only the legs whose e2e check is *required* on `main`: a red advisory
+   leg makes `result` `FAIL` and leaves `enforced_result` `PASS`, because it blocks no merge
+   today (gap **G6**).
+
+### 10.3 Producing it locally
+
+One command, one engine, against a cluster you brought up — same tool, same document, same schema
+as CI:
+
+```bash
+E2E_ENGINE=<engine> scripts/e2e/cluster-up.sh      # your engine's stack (see scripts/e2e/README.md)
+make conformance-matrix ENGINE=<engine>            # runs that leg's scenarios; writes zecs-matrix.json
+```
+
+It executes exactly the `runner:` scripts the manifest declares `run` for that leg — the same
+scripts CI runs — and records each one's exit status. The legs you did not run appear as
+`NOT_RUN`, so the document says plainly that a single-engine run is not a suite result. Adding
+engine N+1 to the engine-adapter makes it a row here with no change to the tool.
+
+`zynax-ci conformance matrix --help` documents the flags, including the CI form
+(`--outcomes <dir>`) that renders a document from a run's recorded step outcomes.
+
+## 11 — Related
 
 - Epic [#1692](https://github.com/zynax-io/zynax/issues/1692) ·
   canvas [`docs/spdd/1692-engine-conformance-suite/canvas.md`](../spdd/1692-engine-conformance-suite/canvas.md)
