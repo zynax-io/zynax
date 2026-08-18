@@ -60,7 +60,7 @@ jobs:
     name: dco
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:79b3b6e54b14c5dadbe188eb1dbb0c86dd12d273fcc34d56739f3f6a6acf05f5
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:a334be0089fdbe516b38001cc530af7fec41a0fb5b09893ce52ac709ab04383b
       options: --user root
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -113,7 +113,7 @@ jobs:
     name: changes
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:79b3b6e54b14c5dadbe188eb1dbb0c86dd12d273fcc34d56739f3f6a6acf05f5
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:a334be0089fdbe516b38001cc530af7fec41a0fb5b09893ce52ac709ab04383b
       options: --user root
     # No needs: dco runs in parallel as its own required check — serializing
     # change detection behind it only delayed every downstream job (~25 s).
@@ -269,7 +269,7 @@ jobs:
     name: lint-proto
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:79b3b6e54b14c5dadbe188eb1dbb0c86dd12d273fcc34d56739f3f6a6acf05f5
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:a334be0089fdbe516b38001cc530af7fec41a0fb5b09893ce52ac709ab04383b
       options: --user root
     needs: [changes]
     if: needs.changes.outputs.proto == 'true'
@@ -421,7 +421,7 @@ jobs:
     name: lint-go
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:79b3b6e54b14c5dadbe188eb1dbb0c86dd12d273fcc34d56739f3f6a6acf05f5
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:a334be0089fdbe516b38001cc530af7fec41a0fb5b09893ce52ac709ab04383b
       options: --user root
     needs: [changes]
     if: needs.changes.outputs.go == 'true'
@@ -516,7 +516,7 @@ jobs:
     name: lint-python
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:79b3b6e54b14c5dadbe188eb1dbb0c86dd12d273fcc34d56739f3f6a6acf05f5
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:a334be0089fdbe516b38001cc530af7fec41a0fb5b09893ce52ac709ab04383b
       options: --user root
     needs: [changes]
     if: needs.changes.outputs.python == 'true'
@@ -596,7 +596,7 @@ jobs:
     name: conformance-check
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:79b3b6e54b14c5dadbe188eb1dbb0c86dd12d273fcc34d56739f3f6a6acf05f5
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:a334be0089fdbe516b38001cc530af7fec41a0fb5b09893ce52ac709ab04383b
       options: --user root
     needs: [changes]
     steps:
@@ -662,7 +662,7 @@ jobs:
     name: test-unit
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:79b3b6e54b14c5dadbe188eb1dbb0c86dd12d273fcc34d56739f3f6a6acf05f5
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:a334be0089fdbe516b38001cc530af7fec41a0fb5b09893ce52ac709ab04383b
       options: --user root
     needs: [test-go, test-python]
     if: always()
@@ -766,7 +766,7 @@ jobs:
     name: security
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:79b3b6e54b14c5dadbe188eb1dbb0c86dd12d273fcc34d56739f3f6a6acf05f5
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:a334be0089fdbe516b38001cc530af7fec41a0fb5b09893ce52ac709ab04383b
       options: --user root
     needs: [dco, changes]
     if: github.event_name != 'push' || needs.changes.outputs.code == 'true'
