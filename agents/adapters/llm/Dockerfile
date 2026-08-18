@@ -2,7 +2,7 @@
 # Build context: repo root  (docker build -f agents/adapters/llm/Dockerfile .)
 #
 # Go re-implementation of the llm-adapter (ADR-035). Multi-stage build:
-#   builder  — golang:1.26.5-alpine; compiles a static CGO_ENABLED=0 binary
+#   builder  — golang:1.26.6-alpine; compiles a static CGO_ENABLED=0 binary
 #   runtime  — distroless/static:nonroot; carries only the adapter + healthcheck
 #
 # Config is read from the YAML file named by ZYNAX_LLM_CONFIG (default below
@@ -15,12 +15,12 @@
 # and the example config; no interpreter, no venv, no proto-stub tree).
 
 # BEGIN zynax-ci:images:golang-alpine
-ARG GO_ALPINE_DIGEST=sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2
+ARG GO_ALPINE_DIGEST=sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83
 # END zynax-ci:images:golang-alpine
 # BEGIN zynax-ci:images:distroless-static
 ARG DISTROLESS_DIGEST=sha256:dfadf31470f770fcabd48903762dce126958e98d1ce320acf1216bbfaa42d79c
 # END zynax-ci:images:distroless-static
-FROM golang:1.26.5-alpine@${GO_ALPINE_DIGEST} AS builder
+FROM golang:1.26.6-alpine@${GO_ALPINE_DIGEST} AS builder
 
 WORKDIR /workspace
 
