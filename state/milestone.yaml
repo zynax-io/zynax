@@ -8,22 +8,26 @@
 # Validated against state/milestone.schema.json by `make validate-milestone-state`
 # (containerized) and by the advisory milestone-state-check job in pr-checks.yml.
 
-# M9 opened 2026-07-10 — target v0.8.0 (GitHub milestone #11).
+# M9 CLOSED 2026-08-20 with the signed v0.8.0 release (GitHub milestone #11).
 # Scope: hard removals (ADR-039 push path, ADR-046 EventBus facade) + the named
-# engine-conformance suite. Epic #1680 (M8.I merge queue) is carried over from
-# M8 for its fork-canary close gate only — all five of its stories are closed.
+# engine-conformance suite. Epic #1680 (M8.I merge queue), carried over from M8
+# for its fork-canary close gate, closed with it.
+#
+# `active` still holds M9 at status: complete rather than being emptied: the
+# schema requires a fully-populated active object, so this is the documented
+# terminal state until /milestone open scaffolds the next milestone and rotates
+# M9 into history (the M7+M8 close did both in one commit — #1733).
 active:
   name: M9
   title: "Hard Removals + Conformance"
   github_milestone_number: 11
   version: v0.8.0
-  status: active # active | closing | complete
+  status: complete # active | closing | complete
   planning_doc: docs/milestones/M9-planning.md
   labels:
     milestone: "milestone: M9"
-  # EPIC A,B,C = #1674, #1675, #1692 (see docs/milestones/M9-planning.md).
-  # #1680 = M8.I tail (fork-PR canary evidence pending — maintainer-armed).
-  open_epics: [1674, 1675, 1692, 1680]
+  # All four EPICs (#1674, #1675, #1692 and the #1680 M8.I tail) are closed.
+  open_epics: []
 
 history:
   # M7 and M8 shipped together as the single signed v0.7.0 release on

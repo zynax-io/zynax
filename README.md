@@ -428,7 +428,7 @@ make test        # full suite (unit + BDD + coverage gate)
 
 ## Milestone Status
 
-Latest release: **v0.7.0 — Usable Workflows + Observability · CNCF Sandbox prep (M7+M8 ✅, released 2026-07-10)** · active milestone: **M9 — Hard Removals + Conformance** 🚧 (target v0.8.0) — live status in
+Latest release: **v0.8.0 — Hard Removals + Conformance (M9 ✅, released 2026-08-20)** · no milestone is currently open — live status in
 [state/current-milestone.md](state/current-milestone.md) · milestone goals and sequence in
 [ROADMAP.md](ROADMAP.md).
 
@@ -463,7 +463,7 @@ Canvas: `docs/spdd/314-yaml-system-cli/canvas.md`.
 
 ## Service Status
 
-Current implementation status per service and adapter (as of M9 active development; M7+M8 shipped as v0.7.0):
+Current implementation status per service and adapter (as of the v0.8.0 release closing M9):
 
 ### Platform Services
 

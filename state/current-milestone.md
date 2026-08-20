@@ -20,7 +20,8 @@
 | M6 — K8s Production-Ready | ✅ Complete | v0.5.0 |
 | M7 — Usable Workflows + Observability | ✅ Complete | v0.7.0¹ |
 | M8 — CNCF Sandbox + thin-Zynax reduction | ✅ Complete | v0.7.0¹ |
-| **M9 — Hard Removals + Conformance** | 🚧 **Active** (GitHub milestone #11) | **v0.8.0 (target)** |
+| M9 — Hard Removals + Conformance | ✅ Complete (GitHub milestone #11, closed) | v0.8.0 |
+| **No milestone open** | Run `/milestone open` to scaffold the next one | — |
 | M-dx — Developer Experience (GitHub #9) · M-UX — User Experience (GitHub #10) | 📅 Planned buckets | see ROADMAP version plan |
 
 ¹ **M7 and M8 shipped together as the single signed v0.7.0 release on 2026-07-10**
@@ -31,7 +32,7 @@ reserved for CNCF acceptance.
 
 ---
 
-## M9 — Hard Removals + Conformance (GitHub milestone #11, target v0.8.0) — ACTIVE
+## M9 — Hard Removals + Conformance (GitHub milestone #11, closed) — COMPLETE, released v0.8.0
 
 Plan: **[docs/milestones/M9-planning.md](../docs/milestones/M9-planning.md)** ·
 Goal: delete the paths M8 deprecated, per each ADR's removal clause, and formalise the
@@ -44,8 +45,12 @@ dual-engine e2e into a named conformance suite.
 | M9.C — named engine-conformance suite | [#1692](https://github.com/zynax-io/zynax/issues/1692) ✅ **closed** | `docs/spdd/1692-engine-conformance-suite/` — Implemented (#1775) | #1620 ✅ (CRD reconcile assertion now runs on both legs — argo-leg CRD-name collision fixed, verified live) → #1773 ✅ (ZECS defined in `docs/conformance/` with honest pass criteria + gap list; membership drift guard) → #1774 ✅ (`zecs-matrix.json` emitted per e2e run + `make conformance-matrix ENGINE=<engine>`; a leg that did not run renders NOT_RUN/SKIPPED, never PASS) → #1775 ✅ (matrix + rendered table published per release, each leg with its enforcement; how-to for adapter authors; EPIC closed) |
 | M8.I tail (carried over) — merge-queue fork-canary evidence | [#1680](https://github.com/zynax-io/zynax/issues/1680) — ✅ closed 2026-07-10 | `docs/spdd/1680-merge-queue/` — Implemented | all 5 stories closed; fork-canary PR #1668 merged through the queue unattended (evidence on #1685) |
 
-All three M9 epics are closed (2026-08-14); what remains for the milestone is the v0.8.0
-release itself. Also riding alongside: ADR proposals #1693–#1696 (ADR-048..051 — API
+All three M9 epics are closed (2026-08-14) and the milestone shipped as the signed
+**v0.8.0** release on 2026-08-20
+([release](https://github.com/zynax-io/zynax/releases/tag/v0.8.0)): 13 images retagged to
+the version, `zynax` + `zynax-ci` binaries for 5 platforms, per-service SBOMs, GitHub
+milestone #11 closed. The release also carries the Go 1.26.6 toolchain move (#1781, #1782)
+that cleared five stdlib advisories and unblocked the Weekly Audit's security rescan. Also riding alongside: ADR proposals #1693–#1696 (ADR-048..051 — API
 versioning, OIDC edge auth, fuzz strategy, load/SLO).
 
 ### Delivery status — `/deliver` unblocked 2026-07-10
