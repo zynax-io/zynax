@@ -56,7 +56,7 @@ Each roadmap milestone maps to a GitHub Milestone:
 | K8s Production (#6) | M6 | v0.5.0 |
 | Usable Workflows + Observability (#7) | M7 (reframed — first-run UX closeout) | v0.7.0¹ |
 | CNCF Sandbox (#8) | M8 (+ thin-Zynax reduction) | v0.7.0¹ |
-| Hard Removals + Conformance (#11) | **M9 — active** | v0.8.0 |
+| Hard Removals + Conformance (#11) | M9 — ✅ complete | v0.8.0 |
 | Developer Experience (#9) | M-dx (contributor / SDK / AI tooling) | unversioned program bucket² |
 | User Experience (#10) | M-UX (forward UX program) | unversioned program bucket² |
 
@@ -297,7 +297,7 @@ release) is the follow-on milestone item below.
 the EventBusService facade) per each ADR's removal clause, and formalise the
 dual-engine e2e into a named conformance suite.
 
-> Label: `milestone: M9` · GitHub milestone **#11** · Target **v0.8.0** · Plan:
+> Label: `milestone: M9` · GitHub milestone **#11** (closed) · Released **v0.8.0** (2026-08-20) · Plan:
 > [docs/milestones/M9-planning.md](docs/milestones/M9-planning.md)
 
 - [x] agent-registry push path hard-removal (ADR-039) — epic #1674 ✅ 2026-08-04
