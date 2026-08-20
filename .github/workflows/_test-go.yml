@@ -44,7 +44,7 @@ jobs:
     permissions:
       contents: read   # tests only; PR comments are posted by pr-comment.yml (workflow_run)
     container:
-      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:a334be0089fdbe516b38001cc530af7fec41a0fb5b09893ce52ac709ab04383b
+      image: ghcr.io/zynax-io/zynax/ci-runner@sha256:69f070746916e011aa57335acbb7502aca776e308a1b4041364b346f4eae8525
       options: --user root
     env:
       UV_LINK_MODE: copy
