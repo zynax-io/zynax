@@ -14,6 +14,10 @@ Versioning follows [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+---
+
+## [0.8.0] — M9 (Hard Removals + Conformance) — 2026-08-20
+
 ### Added
 - **Dead-letter forwarding in [`libs/zynaxevents`](libs/zynaxevents)** — the conventions
   provisioned `DLQ_<src>` and stopped redelivery at `MaxDeliver=5`, but nothing ever moved an
@@ -41,6 +45,24 @@ Versioning follows [Semantic Versioning](https://semver.org).
 - **SDK provenance:** PyPI Trusted Publisher (OIDC) configuration for `zynax-sdk` is recorded in
   [M7-planning §14 — PyPI Trusted Publisher History](docs/milestones/M7-planning.md#14--pypi-trusted-publisher-history).
   The v0.6.0 release notes (first SDK publish) must link this section. (#1214)
+
+### Security
+- **Go toolchain moved to 1.26.6 across every build path**, clearing five Go standard-library
+  advisories that were failing the scheduled Weekly Audit's `security rescan`:
+  `GO-2026-6091` (html/template), `GO-2026-6090` (crypto/tls), `GO-2026-6089` (net/http),
+  `GO-2026-6088` (encoding/xml) and `GO-2026-5972` (encoding/asn1). `images/images.yaml` moves
+  the `golang-alpine` pin to `1.26.6-alpine` at its multi-arch OCI **index** digest, which
+  re-stamps the eight banner-marked consumers; the version tags are hand-edited alongside
+  because `images sync` rewrites only the digest inside a banner and `images check` only
+  substring-tests it — neither reads `tag:`, so a digest-only bump would leave every Dockerfile
+  claiming 1.26.5 while building 1.26.6. `govulncheck` now reports no vulnerabilities for all
+  six services and all five Go adapters. (#1781)
+- **Release binaries pinned to the same toolchain** via a `toolchain go1.26.6` directive in
+  `go.work` and all 19 `go.mod` files. The release workflows resolve their Go version from
+  `go-version-file`, which reads the `go` directive — still `1.26.4` — so the shipped `zynax`
+  and `zynax-ci` binaries were being built on the vulnerable toolchain even after #1781.
+  A `toolchain` directive rather than a `go` bump, because `go` is the floor imposed on
+  *consumers* and `protos/generated/go` is published as a downloadable stub archive. (#1782)
 
 ---
 
