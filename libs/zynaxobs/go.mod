@@ -2,6 +2,8 @@ module github.com/zynax-io/zynax/libs/zynaxobs
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	github.com/prometheus/client_golang v1.20.5
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0

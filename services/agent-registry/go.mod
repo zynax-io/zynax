@@ -2,6 +2,8 @@ module github.com/zynax-io/zynax/services/agent-registry
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/zynax-io/zynax/protos/generated/go v0.0.0

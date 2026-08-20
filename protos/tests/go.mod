@@ -2,6 +2,8 @@ module github.com/zynax-io/zynax/protos/tests
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	github.com/cucumber/godog v0.14.1
 	github.com/zynax-io/zynax/protos/generated/go v0.0.0

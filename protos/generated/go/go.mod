@@ -2,6 +2,8 @@ module github.com/zynax-io/zynax/protos/generated/go
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11

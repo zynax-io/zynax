@@ -2,6 +2,8 @@ module github.com/zynax-io/zynax/services/task-broker
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	github.com/cucumber/godog v0.15.1
 	github.com/golang-migrate/migrate/v4 v4.19.1

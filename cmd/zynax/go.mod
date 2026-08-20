@@ -3,6 +3,8 @@ module github.com/zynax-io/zynax/cmd/zynax
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
