@@ -3,6 +3,8 @@ module github.com/zynax-io/zynax/agents/adapters/git
 
 go 1.26.4
 
+toolchain go1.26.6
+
 replace github.com/zynax-io/zynax/protos/generated/go => ../../../protos/generated/go
 
 require (

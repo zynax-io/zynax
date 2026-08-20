@@ -3,6 +3,8 @@ module github.com/zynax-io/zynax/services/engine-adapter
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	github.com/google/cel-go v0.29.2
 	github.com/google/uuid v1.6.0

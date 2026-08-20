@@ -2,6 +2,8 @@ module github.com/zynax-io/zynax/services/workflow-compiler
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	github.com/cucumber/godog v0.14.1
 	github.com/kelseyhightower/envconfig v1.4.0

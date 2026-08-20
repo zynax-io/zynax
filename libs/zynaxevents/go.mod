@@ -4,6 +4,8 @@ module github.com/zynax-io/zynax/libs/zynaxevents
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	github.com/cucumber/godog v0.15.1
 	github.com/nats-io/nats.go v1.42.0

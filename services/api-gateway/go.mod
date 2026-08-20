@@ -3,6 +3,8 @@ module github.com/zynax-io/zynax/services/api-gateway
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	github.com/cucumber/godog v0.15.1
 	github.com/go-logr/logr v1.4.3

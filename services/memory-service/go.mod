@@ -4,6 +4,8 @@ module github.com/zynax-io/zynax/services/memory-service
 
 go 1.26.4
 
+toolchain go1.26.6
+
 require (
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/cucumber/godog v0.14.1
